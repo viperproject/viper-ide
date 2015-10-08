@@ -14,14 +14,18 @@ You can download the latest version from here: http://www.sublimetext.com/3
 Viper-Sublime-IDE requires Sublime Text 3 and will not work with Sublime Text 2.
 
 
-#### 2. Clone this repository to the Sublime Packages directory:
+#### 2. Get the IDE files
+
+Clone this repository to the Sublime Packages directory:
 
 ```bash
 $ cd ~/Library/Application\ Support/Sublime\ Text\ 3/Packages
 $ hg clone ssh://hg@bitbucket.org/viperproject/viper-sublime-ide Silver
 ```
 
-#### 3. Assembly or download a fat jar for each Viper backend you want to use from the IDE.
+#### 3. Create jar-files for verification backends
+
+Assembly or download a fat jar for each Viper backend you want to use from the IDE.
 Put all the jars in your user's default java extentions directory. For example, if
 you have a silicon.jar file, you should do the following:
 
@@ -30,7 +34,9 @@ $ mkdir -p ~/Library/Java/Extensions
 $ cp ~/viper/silicon/target/scala-2.11/silicon.jar ~/Library/Java/Extensions
 ```
 
-#### 4. Optionally, if you don't want to wait for a few seconds for each verification procedure
+#### 4. Install nailgun
+
+Optionally, if you don't want to wait for a few seconds for each verification procedure
 (known as the JVM startup overhead), install [nailgun](http://martiansoftware.com/nailgun):
 
 ```bash
@@ -59,7 +65,9 @@ Finally, run the following command to start nailgun-server:
 $ java com.martiansoftware.nailgun.NGServer
 ```
 
-#### 4. Run Sublime Text and open a ```.sil``` source file. To verify a Silver program,
+#### 5. Run the IDE
+
+Run Sublime Text and open a ```.sil``` source file. To verify a Silver program,
 choose the right Viper backend from the menu (Tools-Build With...). Make sure that
 the correct build system is selected (Tools-Build System-Silver).
 
