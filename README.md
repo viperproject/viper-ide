@@ -18,7 +18,6 @@ Viper-Sublime-IDE requires Sublime Text 3 and will not work with Sublime Text 2.
 
 ```bash
 $ cd ~/Library/Application\ Support/Sublime\ Text\ 3/Packages
-$ mkdir Silver
 $ hg clone ssh://hg@bitbucket.org/viperproject/viper-sublime-ide Silver
 ```
 
