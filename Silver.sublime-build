@@ -1,0 +1,103 @@
+/*
+  Description of JSON-keys semantics in this file
+  -----------------------------------------------
+
+  "target" 
+  --------
+  Use custom build commands execution script. The commands are essentially 
+  python classes saved in the BuildSilver.py script. The command class 
+  SilverBuildCommand has "silver_build" as the corresponding JSON-value.
+
+  "cmd"
+  -----
+  The default build command. Value is a list of command line arguments, 
+  starting with the absolute path to the command.
+
+  "variants"
+  ----------
+  Alternative building variants. Contain at least two elements:
+  1. "name": "Current build variant name"
+  2. "cmd" with the same structure as for the default "cmd".
+
+  "working_dir"
+  -------------
+  Set the working directory to the directory of the Silver file we are
+  working on. If we run Silicon on an input file and it reports errors
+  together with the input file name but not the path to the latter, then
+  the "Next/Previous Result" navigation (as well as clicking on the reported
+  errors) will only work if the input can be found in the current working
+  directory.
+
+  "selector"
+  ----------
+  An optional string used to locate the best builder to use for the current 
+  file scope. This is only relevant if Tools/Build System/Automatic is true.
+
+  "file_regex"
+  ------------
+  file_regex is used to find the line, column and message. If it matches,
+  each line above the match (starting from the line directly above the match)
+  is matched against file_regex in order to find the file name.
+
+  "line_regex"
+  ------------
+  Optional. If the file_regex doesn’t match on the current line, but there’s 
+  a line_regex specified, and it does match the current line, then walk 
+  backwards through the buffer until a line matching the file regex is found: 
+  use these two matches to determine the file and line to go to.
+
+  "syntax"
+  --------
+  Optional. If provided, it will be used to colorize the build system’s output.
+
+  "error_file"
+  ------------
+  Tell run_silicon where it can find the file to which the verification
+  errors have been written.
+
+*/
+
+{
+  "target": "silver_build",
+  "cmd": [
+    "/usr/bin/java",
+    "-Xss64m",
+    "-cp", "${packages}/Silver/qp_silicon.jar",
+    //     "silicon-magic-wands.jar",
+    //     "silicon-obligations.jar",
+    "viper.silicon.SiliconRunner",
+    "--z3Exe", "/usr/local/bin/z3",
+    "--tempDirectory", "'${packages}/User/Silver/tmp'",
+    "--ideMode",
+    "--ideModeErrorFile", "'${packages}/User/Silver/tmp/errors.log'",
+      /* IMPORTANT: Keep in sync with the key error_file below */
+    "--logLevel", "debug",
+    "${file}"
+  ],
+
+  "variants": [
+    { "name": "Run through nailgun",
+      "cmd": [
+        "/usr/local/bin/ng",
+        "viper.silicon.SiliconRunner",
+        "--z3Exe", "/usr/local/bin/z3",
+        "--tempDirectory", "'${packages}/User/Silver/tmp'", 
+        "--ideMode",
+        "--ideModeErrorFile", "'${packages}/User/Silver/tmp/errors.log'", 
+        /* IMPORTANT: Keep in sync with the key error_file below */
+        "--logLevel", "debug",
+        "${file}"
+      ]
+    }
+  ],
+
+  "working_dir": "${project_path:${folder}}",
+
+  "selector": "source.Silver",
+  "line_regex": "^  ([0-9]+):([0-9]+): (.*)$",
+  "file_regex": "^The following errors were found in (.*?)\\:$",
+
+  "syntax": "Packages/User/silicon.tmLanguage",
+
+  "error_file": "${packages}/User/Silver/tmp/errors.log"
+}
