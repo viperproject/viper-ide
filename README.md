@@ -7,55 +7,55 @@ This repository contains files required for installing Viper extensions for Subl
 The instruction in this section are checked on Mac OS X 10.11, but they should work
 on Linux as well (modulo the system paths).
 
-1. Clone this repository to the Sublime Packages directory:
+#### 1. Clone this repository to the Sublime Packages directory:
 
-    ```bash
-    $ cd ~/Library/Application\ Support/Sublime\ Text\ 3/Packages
-    $ mkdir Silver
-    $ hg clone ssh://hg@bitbucket.org/viperproject/viper-sublime-ide Silver
-    ```
+```bash
+$ cd ~/Library/Application\ Support/Sublime\ Text\ 3/Packages
+$ mkdir Silver
+$ hg clone ssh://hg@bitbucket.org/viperproject/viper-sublime-ide Silver
+```
 
-2. Assembly or download a fat jar for each Viper backend you want to use from the IDE.
-   Put all the jars in your user's default java extentions directory. For example, if
-   you have a silicon.jar file, you should do the following:
+#### 2. Assembly or download a fat jar for each Viper backend you want to use from the IDE.
+Put all the jars in your user's default java extentions directory. For example, if
+you have a silicon.jar file, you should do the following:
 
-    ```bash
-    $ mkdir -p ~/Library/Java/Extensions
-    $ cp ~/viper/silicon/target/scala-2.11/silicon.jar ~/Library/Java/Extensions
-    ```
+```bash
+$ mkdir -p ~/Library/Java/Extensions
+$ cp ~/viper/silicon/target/scala-2.11/silicon.jar ~/Library/Java/Extensions
+```
 
-3. Optionally, if you don't want to wait for a few seconds for each verification procedure
-   (known as the JVM startup overhead), install [nailgun](http://martiansoftware.com/nailgun):
+#### 3. Optionally, if you don't want to wait for a few seconds for each verification procedure
+(known as the JVM startup overhead), install [nailgun](http://martiansoftware.com/nailgun):
 
-    ```bash
-    $ mkdir -p ~/viper/tools/nailgun
-    $ cd ~/viper/tools/nailgun
-    $ git clone https://github.com/martylamb/nailgun.git .
-    $ make && sudo make install
-    ```
+```bash
+$ mkdir -p ~/viper/tools/nailgun
+$ cd ~/viper/tools/nailgun
+$ git clone https://github.com/martylamb/nailgun.git .
+$ make && sudo make install
+```
 
-    This will install the nailgun client, which could be used through the ```ng``` command.
+This will install the nailgun client, which could be used through the ```ng``` command.
 
-    In order to install the server, one should get Apache Maven. Download the archive with
-    Maven binaries from here: http://maven.apache.org/download.cgi
-    (the current version is 3.3.3).
+In order to install the server, one should get Apache Maven. Download the archive with
+Maven binaries from here: http://maven.apache.org/download.cgi
+(the current version is 3.3.3).
 
-    ```bash
-    $ mkdir ~/viper/tools/maven
-    $ unzip ~/Downloads/apache-maven-3.3.3-bin.zip -d ~/viper/tools/maven
-    $ ../maven/bin.mvn dependency::tree
-    $ cp nailgun-server-0.9.2-SNAPSHOT.jar ~/Library/Java/Extensions
-    ```
+```bash
+$ mkdir ~/viper/tools/maven
+$ unzip ~/Downloads/apache-maven-3.3.3-bin.zip -d ~/viper/tools/maven
+$ ../maven/bin.mvn dependency::tree
+$ cp nailgun-server-0.9.2-SNAPSHOT.jar ~/Library/Java/Extensions
+```
 
-    Finally, run the following command to start nailgun-server:
+Finally, run the following command to start nailgun-server:
 
-    ```bash
-    $ java com.martiansoftware.nailgun.NGServer
-    ```
+```bash
+$ java com.martiansoftware.nailgun.NGServer
+```
 
-3. Run Sublime Text and open a ```.sil``` source file. To verify a Silver program,
-   choose the right Viper backend from the menu (Tools-Build With...). Make sure that
-   the correct build system is selected (Tools-Build System-Silver).
+#### 3. Run Sublime Text and open a ```.sil``` source file. To verify a Silver program,
+choose the right Viper backend from the menu (Tools-Build With...). Make sure that
+the correct build system is selected (Tools-Build System-Silver).
 
 
 Please find more detailed instructions on the Viper Wiki: https://bitbucket.org/viperproject/documentation/wiki/browse/
