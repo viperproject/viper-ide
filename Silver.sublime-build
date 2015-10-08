@@ -58,7 +58,19 @@
 */
 
 {
+
+  "working_dir": "${project_path:${folder}}",
+
+  "selector": "source.Silver",
+  "line_regex": "^  ([0-9]+):([0-9]+): (.*)$",
+  "file_regex": "^The following errors were found in (.*?)\\:$",
+
+  //"syntax": "Silicon.tmLanguage",
+
+  "error_file": "${packages}/User/Silver/tmp/errors.log",
+
   "target": "silver_build",
+
   "cmd": [
     "/usr/bin/java",
     "-Xss64m",
@@ -68,9 +80,9 @@
     //       "silicon-obligations.jar",
     "viper.silicon.SiliconRunner",
     "--z3Exe", "/usr/local/bin/z3",
-    "--tempDirectory", "'${packages}/User/Silver/tmp'",
+    "--tempDirectory", "${packages}/User/Silver/tmp",
     "--ideMode",
-    "--ideModeErrorFile", "'${packages}/User/Silver/tmp/errors.log'",
+    "--ideModeErrorFile", "${packages}/User/Silver/tmp/errors.log",
       /* IMPORTANT: Keep in sync with the key error_file below */
     "--logLevel", "debug",
     "${file}"
@@ -82,23 +94,13 @@
         "/usr/local/bin/ng",
         "viper.silicon.SiliconRunner",
         "--z3Exe", "/usr/local/bin/z3",
-        "--tempDirectory", "'${packages}/User/Silver/tmp'",
+        "--tempDirectory", "${packages}/User/Silver/tmp",
         "--ideMode",
-        "--ideModeErrorFile", "'${packages}/User/Silver/tmp/errors.log'",
+        "--ideModeErrorFile", "${packages}/User/Silver/tmp/errors.log",
         /* IMPORTANT: Keep in sync with the key error_file below */
         "--logLevel", "debug",
         "${file}"
       ]
     }
   ],
-
-  "working_dir": "${project_path:${folder}}",
-
-  "selector": "source.Silver",
-  "line_regex": "^  ([0-9]+):([0-9]+): (.*)$",
-  "file_regex": "^The following errors were found in (.*?)\\:$",
-
-  "syntax": "Packages/User/Silicon.tmLanguage",
-
-  "error_file": "${packages}/User/Silver/tmp/errors.log"
 }

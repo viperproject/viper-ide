@@ -52,8 +52,8 @@ class SilverBuildCommand(sublime_plugin.WindowCommand):
 
     # Delete existing error file (if it exists)
     #  No need to manually delete the log, since open(name, 'w') will trancate the previous one.
-    if os.path.isfile(error_data.file):
-      os.remove(error_data.file)
+    #if os.path.isfile(error_data.file):
+    #  os.remove(error_data.file)
 
     silicon_exec = SiliconExecCommand(self.window)
     silicon_exec.run(**kwargs)
