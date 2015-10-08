@@ -2,15 +2,15 @@
   Description of JSON-keys semantics in this file
   -----------------------------------------------
 
-  "target" 
+  "target"
   --------
-  Use custom build commands execution script. The commands are essentially 
-  python classes saved in the BuildSilver.py script. The command class 
+  Use custom build commands execution script. The commands are essentially
+  python classes saved in the BuildSilver.py script. The command class
   SilverBuildCommand has "silver_build" as the corresponding JSON-value.
 
   "cmd"
   -----
-  The default build command. Value is a list of command line arguments, 
+  The default build command. Value is a list of command line arguments,
   starting with the absolute path to the command.
 
   "variants"
@@ -30,7 +30,7 @@
 
   "selector"
   ----------
-  An optional string used to locate the best builder to use for the current 
+  An optional string used to locate the best builder to use for the current
   file scope. This is only relevant if Tools/Build System/Automatic is true.
 
   "file_regex"
@@ -41,9 +41,9 @@
 
   "line_regex"
   ------------
-  Optional. If the file_regex doesn’t match on the current line, but there’s 
-  a line_regex specified, and it does match the current line, then walk 
-  backwards through the buffer until a line matching the file regex is found: 
+  Optional. If the file_regex doesn’t match on the current line, but there’s
+  a line_regex specified, and it does match the current line, then walk
+  backwards through the buffer until a line matching the file regex is found:
   use these two matches to determine the file and line to go to.
 
   "syntax"
@@ -62,9 +62,10 @@
   "cmd": [
     "/usr/bin/java",
     "-Xss64m",
-    "-cp", "${packages}/Silver/qp_silicon.jar",
-    //     "silicon-magic-wands.jar",
-    //     "silicon-obligations.jar",
+    // The fat jars are in ~/Library/Java/Extensions
+    //"-cp", "${packages}/Silver/qp_silicon.jar",
+    //       "silicon-magic-wands.jar",
+    //       "silicon-obligations.jar",
     "viper.silicon.SiliconRunner",
     "--z3Exe", "/usr/local/bin/z3",
     "--tempDirectory", "'${packages}/User/Silver/tmp'",
@@ -81,9 +82,9 @@
         "/usr/local/bin/ng",
         "viper.silicon.SiliconRunner",
         "--z3Exe", "/usr/local/bin/z3",
-        "--tempDirectory", "'${packages}/User/Silver/tmp'", 
+        "--tempDirectory", "'${packages}/User/Silver/tmp'",
         "--ideMode",
-        "--ideModeErrorFile", "'${packages}/User/Silver/tmp/errors.log'", 
+        "--ideModeErrorFile", "'${packages}/User/Silver/tmp/errors.log'",
         /* IMPORTANT: Keep in sync with the key error_file below */
         "--logLevel", "debug",
         "${file}"
@@ -97,7 +98,7 @@
   "line_regex": "^  ([0-9]+):([0-9]+): (.*)$",
   "file_regex": "^The following errors were found in (.*?)\\:$",
 
-  "syntax": "Packages/User/silicon.tmLanguage",
+  "syntax": "Packages/User/Silicon.tmLanguage",
 
   "error_file": "${packages}/User/Silver/tmp/errors.log"
 }
