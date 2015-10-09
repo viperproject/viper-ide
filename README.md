@@ -4,7 +4,7 @@ This repository contains files required for installing Viper extensions for Subl
 
 ### Installation ###
 
-The instruction in this section are checked on Mac OS X 10.11, but they should work
+The instructions in this section are checked on Mac OS X 10.11, but they should work
 on Linux as well (modulo the system paths).
 
 #### 1. Install Sublime
