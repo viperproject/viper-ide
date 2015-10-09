@@ -25,9 +25,16 @@ $ hg clone ssh://hg@bitbucket.org/viperproject/viper-sublime-ide Silver
 
 #### 3. Create jar-files for verification backends
 
-Assembly or download a fat jar for each Viper backend you want to use from the IDE.
+Assemble (or otherwise obtain) a fat jar for each Viper backend (Silicon, Carbon, ...) you want to use from the IDE.
+
+To assemble a fat jar, cd into the backend's checkout directory and run
+```bash
+$ sbt assembly
+```
+If successful, the assembled fat jar should be at `./target/scala-2.11/<backend>.jar`.
+
 Put all the jars in your user's default java extentions directory. For example, if
-you have a silicon.jar file, you should do the following:
+you have a assembled `silicon.jar`, you should do the following:
 
 ```bash
 $ mkdir -p ~/Library/Java/Extensions
