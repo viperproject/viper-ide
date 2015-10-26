@@ -1,0 +1,191 @@
+# [PackageDev] target_format: plist, ext: tmTheme
+name: Silver (Light)
+uuid: 2630ae54-203b-11e5-b5f7-727283247c7f
+author: mschwerhoff
+comment: Based on IML
+
+settings:
+- settings:
+    background: '#FFFFFF'
+    caret: '#000000'
+    foreground: '#000000'
+    invisibles: '#BFBFBF'
+    lineHighlight: '#FFFBD1'
+    selection: '#BDD5FC'
+- name: Comment
+  scope: comment
+  settings:
+    fontStyle: 'italic'
+    foreground: '#8F8F00'
+
+- name: String
+  scope: string
+  settings:
+    fontStyle: ''
+    foreground: '#5D90CD'
+
+- name: Number
+  scope: constant.numeric
+  settings:
+    foreground: '#1D4934'
+
+- name: Built-in constant
+  scope: constant.language
+  settings:
+    fontStyle: ''
+    foreground: '#1D4934'
+
+- name: User-defined constant
+  scope: constant.character, constant.other
+  settings: {}
+
+- name: Variable
+  scope: variable.language, variable.other
+  settings:
+    fontStyle: ''
+    foreground: '#2b991b'
+
+- name: Keyword
+  scope: keyword, support.constant.property-value, constant.other.color
+  settings:
+    fontStyle: ' bold'
+    foreground: '#ef5a19'
+
+- name: Keyword -> Unit
+  scope: keyword.other.unit
+  settings:
+    foreground: '#96DC5F'
+
+- name: Keyword -> Operator
+  scope: keyword.operator
+  settings:
+    foreground: '#655465'
+
+- name: Storage
+  scope: storage
+  settings:
+    fontStyle: ''
+    foreground: '#000'
+
+- name: Class name
+  scope: entity.name.class
+  settings:
+    fontStyle: ''
+    foreground: '#27a6b4'
+
+- name: Inherited class
+  scope: entity.other.inherited-class
+  settings:
+    fontStyle: ''
+    foreground: '#858585'
+
+- name: Function name
+  scope: entity.name.function
+  settings:
+    fontStyle: ''
+    foreground: '#5319b5'
+
+- name: Function argument
+  scope: variable.parameter
+  settings: {}
+
+- name: Tag name
+  scope: entity.name.tag
+  settings:
+    fontStyle: ''
+    foreground: '#606060'
+
+- name: HTML Entity
+  scope: constant.character.entity
+  settings:
+    foreground: '#BF78CC'
+
+- name: JS Support Class
+  scope: support.class.js
+  settings:
+    foreground: '#BF78CC'
+
+- name: Tag attribute
+  scope: entity.other.attribute-name
+  settings:
+    fontStyle: ''
+    foreground: '#606060'
+
+- name: CSS Selector
+  scope: meta.selector.css, entity.name.tag.css, entity.other.attribute-name.id.css,
+    entity.other.attribute-name.class.css
+  settings:
+    fontStyle: ''
+    foreground: '#C52727'
+
+- name: CSS Property
+  scope: meta.property-name.css
+  settings:
+    foreground: '#484848'
+
+- name: Library function
+  scope: support.function
+  settings:
+    foreground: '#C52727'
+
+- name: Library constant
+  scope: support.constant
+  settings: {}
+
+- name: Library class/type
+  scope: support.type, support.class
+  settings: {}
+
+- name: Library variable
+  scope: support.other.variable
+  settings:
+    fontStyle: ''
+
+- name: Invalid
+  scope: invalid
+  settings:
+    background: '#FF002A'
+
+- name: Punctuation/Widgets
+  scope: punctuation.section.embedded
+  settings:
+    fontStyle: ''
+    foreground: '#C52727'
+
+- name: Punctuation (Tags)
+  scope: punctuation.definition.tag
+  settings:
+    fontStyle: ''
+    foreground: '#606060'
+
+- name: Keyword -> CSS
+  scope: constant.other.color.rgb-value.css, support.constant.property-value.css
+  settings:
+    foreground: '#BF78CC'
+
+
+# Added by Malte
+- scope: output.error
+  settings: {background: '#FF0000', fontStyle: '', foreground: '#F8F8F0'}
+- scope: output.success
+  settings: {background: '#009900', fontStyle: '', foreground: '#F8F8F0'}
+- scope: keyword.declaration.silver,
+         keyword.declaration.fields.silver,
+         keyword.declaration.variables.silver,
+         keyword.declaration.namedassertions.silver,
+         keyword.other.permissions.silver,
+         keyword.other.contracts.silver,
+         keyword.other.other.silver
+  settings: {foreground: '#000080'}
+- scope: keyword.other.verification.silver,
+         keyword.control.flow.silver
+  settings: {foreground: '#004000'}
+- scope: keyword.other.permissions.silver
+  settings: {foreground: '#FF8000'}
+
+- scope: highlight-lines.green
+  settings: {background: '#00ff00'}
+- scope: highlight-lines.yellow
+  settings: {background: '#ffff00'}
+- scope: highlight-lines.orange
+  settings: {background: '#F2975F'}
