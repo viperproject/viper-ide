@@ -12,7 +12,7 @@ FLAGS = (  sublime.DRAW_NO_FILL
 
 REGION_KEY = 'silicon-errors'
 REGION_SCOPE = 'output.error'
-ICON = "Packages/User/error.png"
+ICON = "Packages/Silver/error.png"
 
 ERROR_PAT = re.compile(r'(.*),([0-9]+):([0-9]+),([0-9]+):([0-9]+),(.*)')
 
@@ -89,35 +89,36 @@ class SiliconExecCommand(DEFAULT_EXEC):
     error_data.regions.clear()
     error_data.messages.clear()
 
-    #print('Error log filepath:', error_data.file, '( exists:', os.path.isfile(error_data.file), ')')
-    #if not os.path.isfile(error_data.file):
+    #print('Log filepath:', error_data.file, '( exists:', os.path.isfile(error_data.file), ')')
+    if os.path.isfile(error_data.file):
 
-    with open(error_data.file, 'w+') as file:
-      #print('Error log filepath:', error_data.file, '( exists:', os.path.isfile(error_data.file), ')')
-      for line in file:
-        line = line.strip()
-        # log(line)
+      with open(error_data.file) as file:
+        #print('Error log filepath:', error_data.file, '( exists:', os.path.isfile(error_data.file), ')')
+        for line in file:
+          line = line.strip()
+          #log(line)
 
-        components = ERROR_PAT.split(line)
-        assert len(components) == 8, "Unexpected number of error components"
-        # log(frags)
-        # filter(None, frags)
+          components = ERROR_PAT.split(line)
+          assert len(components) == 8, "Unexpected number of error components"
+          # log(frags)
+          # filter(None, frags)
 
-        source_file = components[1]
-        start_line = int(components[2])
-        start_column = int(components[3])
-        end_line = int(components[4])
-        end_column = int(components[5])
-        message = components[6]
-        # log(message)
+          source_file = components[1]
+          start_line = int(components[2])
+          start_column = int(components[3])
+          end_line = int(components[4])
+          end_column = int(components[5])
+          message = components[6]
+          #log(start_line)
+          #log(message)
 
-        # start_point = view.text_point(start_line - 1, start_column - 1)
-        start_point = view.text_point(start_line - 1, 0)
-        end_point = view.text_point(end_line - 1, end_column - 1)
-        region = sublime.Region(start_point, end_point)
+          # start_point = view.text_point(start_line - 1, start_column - 1)
+          start_point = view.text_point(start_line - 1, 0)
+          end_point = view.text_point(end_line - 1, end_column - 1)
+          region = sublime.Region(start_point, end_point)
 
-        error_data.regions.append(region)
-        error_data.messages.append(message)
+          error_data.regions.append(region)
+          error_data.messages.append(message)
 
     #else:
     #  log("Could not find " + error_data.file)
