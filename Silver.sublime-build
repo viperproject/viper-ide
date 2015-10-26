@@ -84,7 +84,7 @@
     "--ideMode",
     "--ideModeErrorFile", "${packages}/User/Silver/tmp/errors.log",
       /* IMPORTANT: Keep in sync with the key error_file below */
-    "--logLevel", "debug",
+    // "--logLevel", "debug",
     "${file}"
   ],
 
