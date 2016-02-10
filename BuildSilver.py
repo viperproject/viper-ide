@@ -12,7 +12,7 @@ FLAGS = (  sublime.DRAW_NO_FILL
 
 REGION_KEY = 'silicon-errors'
 REGION_SCOPE = 'output.error'
-ICON = "Packages/Silver/error.png"
+ICON = "Packages/Viper-IDE/error.png"
 
 ERROR_PAT = re.compile(r'(.*),([0-9]+):([0-9]+),([0-9]+):([0-9]+),(.*)')
 
@@ -95,8 +95,6 @@ class SiliconExecCommand(DEFAULT_EXEC):
         #print('Error log filepath:', error_data.file, '( exists:', os.path.isfile(error_data.file), ')')
         for line in file:
           line = line.strip()
-          #log(line)
-
           components = ERROR_PAT.split(line)
           assert len(components) == 8, "Unexpected number of error components"
           # log(frags)

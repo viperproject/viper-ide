@@ -58,49 +58,58 @@
 */
 
 {
-
-  "working_dir": "${project_path:${folder}}",
-
+  "working_dir" : "$file_path",
   "selector": "source.Silver",
+
   "line_regex": "^  ([0-9]+):([0-9]+): (.*)$",
   "file_regex": "^The following errors were found in (.*?)\\:$",
 
-  "syntax": "Packages/Silver/Silicon.tmLanguage",
+  "syntax": "Packages/Viper-IDE/Silicon.tmLanguage",
 
-  "error_file": "${packages}/User/Silver/tmp/errors.log",
+  "error_file": "${packages}/User/Viper-IDE/tmp/errors.log",
 
   "target": "silver_build",
-
+  
   "cmd": [
     "/usr/bin/java",
     "-Xss64m",
-    // The fat jars are in ~/Library/Java/Extensions
-    //"-cp", "${packages}/Silver/qp_silicon.jar",
-    //       "silicon-magic-wands.jar",
-    //       "silicon-obligations.jar",
-    "viper.silicon.SiliconRunner",
-    "--z3Exe", "/usr/local/bin/z3",
-    "--tempDirectory", "${packages}/User/Silver/tmp",
+    "-jar", "${packages}/Viper-IDE-Deps/all/silicon.jar",
+    "--z3Exe", "${packages}/Viper-IDE-Deps/all/z3",
+    "--tempDirectory", "${packages}/User/Viper-IDE/tmp",
     "--ideMode",
-    "--ideModeErrorFile", "${packages}/User/Silver/tmp/errors.log",
+    "--ideModeErrorFile", "${packages}/User/Viper-IDE/tmp/errors.log",
       /* IMPORTANT: Keep in sync with the key error_file below */
     // "--logLevel", "debug",
     "${file}"
   ],
-
   "variants": [
-    { "name": "Run through nailgun",
+    { "name": "Silicon ",
       "cmd": [
-        "/usr/local/bin/ng",
-        "viper.silicon.SiliconRunner",
-        "--z3Exe", "/usr/local/bin/z3",
-        "--tempDirectory", "${packages}/User/Silver/tmp",
+        "/usr/bin/java",
+        "-Xss64m",
+        "-jar", "${packages}/Viper-IDE-Deps/all/silicon.jar",
+        "--z3Exe", "${packages}/Viper-IDE-Deps/all/z3",
+        "--tempDirectory", "${packages}/User/Viper-IDE/tmp",
         "--ideMode",
-        "--ideModeErrorFile", "${packages}/User/Silver/tmp/errors.log",
-        /* IMPORTANT: Keep in sync with the key error_file below */
-        "--logLevel", "debug",
+        "--ideModeErrorFile", "${packages}/User/Viper-IDE/tmp/errors.log",
+          /* IMPORTANT: Keep in sync with the key error_file below */
+        // "--logLevel", "debug",
+        "${file}"
+      ]
+    },
+    { "name": "Carbon",
+      "cmd": [
+        "/usr/bin/java",
+        "-Xss64m",
+        "-jar", "${packages}/Viper-IDE-Deps/all/carbon.jar",
+        "--z3Exe", "${packages}/Viper-IDE-Deps/all/z3",
+        "--boogieExe", "${packages}/Viper-IDE-Deps/all/boogie",
+        "--ideMode",
+        "--ideModeErrorFile", "${packages}/User/Viper-IDE/tmp/errors.log",
+          /* IMPORTANT: Keep in sync with the key error_file below */
+        // "--logLevel", "debug",
         "${file}"
       ]
     }
-  ],
+  ]
 }
