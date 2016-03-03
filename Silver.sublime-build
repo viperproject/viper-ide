@@ -82,13 +82,30 @@
     // "--logLevel", "debug",
     "${file}"
   ],
+  /*
+  "osx": {
+    "cmd": [
+      "/usr/bin/java",
+      "-Xss64m",
+      "-jar", "${packages}/Viper-IDE-Deps/all/silicon.jar",
+      "--z3Exe", "${packages}/Viper-IDE-Deps/st3_osx/z3",
+      "--tempDirectory", "${packages}/User/Viper-IDE/tmp",
+      "--ideMode",
+      "--ideModeErrorFile", "${packages}/User/Viper-IDE/tmp/errors.log",
+      // "--logLevel", "debug",
+      "${file}"
+    ]
+  },*/
+  /* java -Xss30M -cp target/scala-2.11/silicon.jar viper.silicon.SiliconRunner */
   "variants": [
-    { "name": "Silicon ",
+    {
+      "name": "Silicon ",
       "cmd": [
         "/usr/bin/java",
         "-Xss64m",
-        "-jar", "${packages}/Viper-IDE-Deps/all/silicon.jar",
-        "--z3Exe", "${packages}/Viper-IDE-Deps/all/z3",
+        "-cp", "${packages}/Viper-IDE-Deps/all/silicon.jar",
+        "viper.silicon.SiliconRunner",
+        "--z3Exe", "${packages}/Viper-IDE-Deps/st3_osx/z3",
         "--tempDirectory", "${packages}/User/Viper-IDE/tmp",
         "--ideMode",
         "--ideModeErrorFile", "${packages}/User/Viper-IDE/tmp/errors.log",
@@ -97,13 +114,14 @@
         "${file}"
       ]
     },
-    { "name": "Carbon",
+    { 
+      "name": "Carbon",
       "cmd": [
         "/usr/bin/java",
         "-Xss64m",
         "-jar", "${packages}/Viper-IDE-Deps/all/carbon.jar",
-        "--z3Exe", "${packages}/Viper-IDE-Deps/all/z3",
-        "--boogieExe", "${packages}/Viper-IDE-Deps/all/boogie",
+        "--z3Exe", "${packages}/Viper-IDE-Deps/st3_osx/z3",
+        "--boogieExe", "${packages}/Viper-IDE-Deps/st3_osx/boogie",
         "--ideMode",
         "--ideModeErrorFile", "${packages}/User/Viper-IDE/tmp/errors.log",
           /* IMPORTANT: Keep in sync with the key error_file below */
