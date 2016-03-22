@@ -99,7 +99,6 @@
         "--ideMode",
         "--ideModeErrorFile", "${packages}/User/Viper-IDE/tmp/errors.log",
           /* IMPORTANT: Keep in sync with the key error_file below */
-        "--logLevel", "debug",
         "${file}"
       ]
     }
