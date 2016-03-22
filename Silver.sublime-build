@@ -72,11 +72,11 @@
 
   "cmd": [
     "silicon",
-    "--tempDirectory", "${packages}/User/Viper-IDE/tmp",
-    "--ideMode",
-    "--ideModeErrorFile", "${packages}/User/Viper-IDE/tmp/errors.log",
+    "--useNailgun",
+    //"--tempDirectory", "${packages}/User/Viper-IDE/tmp",
+    //"--ideMode",
+    //"--ideModeErrorFile", "${packages}/User/Viper-IDE/tmp/errors.log",
       /* IMPORTANT: Keep in sync with the key error_file below */
-    //"--logLevel", "debug",
     "${file}"
   ],
   "variants": [
@@ -84,11 +84,12 @@
       "name": "Silicon ",
       "cmd": [
         "silicon",
-        "--tempDirectory", "${packages}/User/Viper-IDE/tmp",
-        "--ideMode",
-        "--ideModeErrorFile", "${packages}/User/Viper-IDE/tmp/errors.log",
+        "--useNailgun",
+        //"--tempDirectory", "${packages}/User/Viper-IDE/tmp",
+        //"--ideMode",
+        //"--ideModeErrorFile", "${packages}/User/Viper-IDE/tmp/errors.log",
           /* IMPORTANT: Keep in sync with the key error_file below */
-        "--logLevel", "debug",
+        //"--logLevel", "debug",
         "${file}"
       ]
     },
@@ -96,8 +97,9 @@
       "name": "Carbon",
       "cmd": [
         "carbon",
-        "--ideMode",
-        "--ideModeErrorFile", "${packages}/User/Viper-IDE/tmp/errors.log",
+        "--useNailgun",
+        //"--ideMode",
+        //"--ideModeErrorFile", "${packages}/User/Viper-IDE/tmp/errors.log",
           /* IMPORTANT: Keep in sync with the key error_file below */
         "${file}"
       ]
