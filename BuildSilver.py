@@ -46,7 +46,7 @@ class SilverBuildCommand(sublime_plugin.WindowCommand):
     # self.current_job = None
 
   def run(self, **kwargs):
-    error_data.file = Template(kwargs['error_file']).substitute(packages = sublime.packages_path())
+    error_data.file = '/tmp/viper_ide.err'
 
     del kwargs['error_file']
 
@@ -78,6 +78,11 @@ class SilverBuildCommand(sublime_plugin.WindowCommand):
 class SiliconExecCommand(DEFAULT_EXEC):
   def __init__(self, *args, **kwargs):
     super(DEFAULT_EXEC, self).__init__(*args, **kwargs)
+    self.data = []
+
+  def on_data(self, proc, data):
+    super(SiliconExecCommand, self).on_data(proc, data)
+    self.data.append(data.decode('utf-8'))
 
   def on_finished(self, proc):
     super(DEFAULT_EXEC, self).on_finished(proc)
@@ -97,29 +102,32 @@ class SiliconExecCommand(DEFAULT_EXEC):
 
       with open(error_data.file) as file:
         #print('Error log filepath:', error_data.file, '( exists:', os.path.isfile(error_data.file), ')')
-        for line in file:
-          line = line.strip()
-          components = ERROR_PAT.split(line)
-          assert len(components) == 8, "Unexpected number of error components"
-          # log(frags)
-          # filter(None, frags)
+        for data in self.data:
+          for line in data.splitlines():
+            line = line.strip()
+            components = ERROR_PAT.split(line)
+            if len(components) != 8:
+                continue
+            #assert len(components) == 8, "Unexpected number of error components"
+            # log(frags)
+            # filter(None, frags)
 
-          source_file = components[1]
-          start_line = int(components[2])
-          start_column = int(components[3])
-          end_line = int(components[4])
-          end_column = int(components[5])
-          message = components[6]
-          #log(start_line)
-          #log(message)
+            source_file = components[1]
+            start_line = int(components[2])
+            start_column = int(components[3])
+            end_line = int(components[4])
+            end_column = int(components[5])
+            message = components[6]
+            #log(start_line)
+            #log(message)
 
-          # start_point = view.text_point(start_line - 1, start_column - 1)
-          start_point = view.text_point(start_line - 1, 0)
-          end_point = view.text_point(end_line - 1, end_column - 1)
-          region = sublime.Region(start_point, end_point)
+            # start_point = view.text_point(start_line - 1, start_column - 1)
+            start_point = view.text_point(start_line - 1, 0)
+            end_point = view.text_point(end_line - 1, end_column - 1)
+            region = sublime.Region(start_point, end_point)
 
-          error_data.regions.append(region)
-          error_data.messages.append(message)
+            error_data.regions.append(region)
+            error_data.messages.append(message)
 
     #else:
     #  log("Could not find " + error_data.file)
