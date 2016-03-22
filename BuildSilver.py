@@ -1,8 +1,12 @@
 import os
+import platform
 import re
 from string import Template
 import sublime, sublime_plugin
 import Default
+
+if platform.system() == 'Darwin':
+    os.environ["PATH"] = os.pathsep.join(("/usr/local/bin", os.environ["PATH"]))
 
 DEFAULT_EXEC = Default.exec.ExecCommand
 
