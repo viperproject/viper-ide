@@ -98,7 +98,7 @@
       "cmd": [
         "carbon",
         "--useNailgun",
-        //"--ideMode",
+        "--ideMode",
         //"--ideModeErrorFile", "${packages}/User/Viper-IDE/tmp/errors.log",
           /* IMPORTANT: Keep in sync with the key error_file below */
         "${file}"

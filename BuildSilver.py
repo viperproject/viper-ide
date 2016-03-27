@@ -79,10 +79,16 @@ class SiliconExecCommand(DEFAULT_EXEC):
   def __init__(self, *args, **kwargs):
     super(DEFAULT_EXEC, self).__init__(*args, **kwargs)
     self.data = []
+    self.called = False
 
-  def on_data(self, proc, data):
-    super(SiliconExecCommand, self).on_data(proc, data)
-    self.data.append(data.decode('utf-8'))
+  def on_data(self, proc, raw_data):
+    data = raw_data.decode('utf-8')
+    check = all(bool(ERROR_PAT.match(row))
+                for row in data.splitlines())
+    if not check:
+      super(SiliconExecCommand, self).on_data(proc, raw_data)
+    else:
+      self.data.append(data)
 
   def on_finished(self, proc):
     super(DEFAULT_EXEC, self).on_finished(proc)
