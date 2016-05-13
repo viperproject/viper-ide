@@ -1,0 +1,104 @@
+{
+    "name": "viper-ive",
+    "displayName": "Viper-IVE",
+    "description": "facilitate the development of viper programs",
+    "version": "0.0.1",
+    "publisher": "Ruben Kälin",
+    "engines": {
+        "vscode": "^0.10.10"
+    },
+    "categories": [
+        "Languages",
+        "Other",
+        "Themes",
+        "Snippets"
+    ],
+    "activationEvents": [
+        "onCommand:extension.compileCarbon",
+        "onCommand:extension.compileSilicon",
+        "onCommand:extension.test",
+        "onLanguage:silver"
+    ],
+    "main": "./out/extension",
+    "contributes": {
+        "commands": [
+            {
+                "command": "extension.compileSilicon",
+                "title": "Compile Silicon"
+            },
+            {
+                "command": "extension.compileCarbon",
+                "title": "Compile Carbon"
+            },
+            {
+                "command": "extension.test",
+                "title": "Test"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "silver",
+                "scopeName": "source.silver",
+                "path": "./syntaxes/Silver.tmLanguage"
+            }
+        ],
+        "languages": [
+            {
+                "id": "silver",
+                "extensions": [
+                    ".sil"
+                ],
+                "aliases": [
+                    "Silver",
+                    "sil"
+                ]
+            }
+        ],
+        "themes": [
+            {
+                "label": "Viper-Dark",
+                "uiTheme": "vs-dark",
+                "path": "./themes/Silver (Dark).tmTheme"
+            },
+            {
+                "label": "Viper-Light",
+                "uiTheme": "vs",
+                "path": "./themes/Silver (Light).tmTheme"
+            }
+        ],
+        "snippets": [
+            {
+                "language": "silver",
+                "path": "./snippets/silver.json."
+            }
+        ],
+        "keybindings": {
+            "command": "extension.compileSilicon",
+            "key": "ctrl+j",
+            "mac": "cmd+j",
+            "when": "editorTextFocus"
+        },
+        "configuration": {
+        "type":"object",
+        "title":"Example Configuration",
+        "properties":{
+            "iveServerSettings.verificationBackend" : {
+                "type":"string",
+                "default": "silicon",
+                "description": "backend to be used for verification, either silicon or carbon"
+            }
+        }
+    }
+    },
+    "scripts": {
+		"vscode:prepublish": "node ./node_modules/vscode/bin/compile",
+		"compile": "node ./node_modules/vscode/bin/compile -watch -p ./"
+    },
+    "devDependencies": {
+        "typescript": "^1.8.9",
+        "vscode": "^0.11.0"
+    },
+    "dependencies": {
+        "vscode-languageclient": "^2.0.0"
+    }
+}
