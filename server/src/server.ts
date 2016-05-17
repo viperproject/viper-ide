@@ -11,9 +11,9 @@ import {
     TextDocuments, Diagnostic, DiagnosticSeverity,
     InitializeParams, InitializeResult, TextDocumentIdentifier,
     CompletionItem, CompletionItemKind, NotificationType,
-    RequestType,RequestHandler
+    RequestType, RequestHandler
 } from 'vscode-languageserver';
-
+//import * as vscode from 'vscode';
 import {LogEntry, LogType} from './LogEntry';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
@@ -64,6 +64,7 @@ interface IveSettings {
 
 // hold the maxNumberOfProblems setting
 let verificationBackend: string;
+let verificationMain: string;
 let useSilicon: boolean;
 // The settings have changed. Is send on server activation
 // as well.
@@ -75,7 +76,13 @@ connection.onDidChangeConfiguration((change) => {
     if (verificationBackend != "silicon" && verificationBackend != "carbon") {
         connection.sendNotification({ method: "InvalidSettings" }, "Only carbon and silicon are valid verification backends.");
     }
-    useSilicon = verificationBackend == "silicon";
+    if (verificationBackend == "silicon") {
+        useSilicon = true;
+        verificationMain = siliconMain;
+    } else {
+        useSilicon = false;
+        verificationMain = carbonMain;
+    }
 
     // // Revalidate any open text documents
     // documents.all().forEach(document => {
@@ -89,22 +96,43 @@ let diagnostics: Diagnostic[];
 let verifierProcess: child_process.ChildProcess;
 let nailgunProcess: child_process.ChildProcess;
 
-connection.onNotification({method:'startNailgun'},()=>{
+let siliconMain = "viper.silicon.SiliconRunner";
+let carbonMain = "viper.carbon.Carbon";
+let siliconHome: string;
+let carbonHome: string;
+let nailgunServerJar: string;
+
+loadEnvironmentVars();
+
+connection.onNotification({ method: 'startNailgun' }, () => {
     startNailgunServer();
 })
-connection.onNotification({method:'stopNailgun'},()=>{
+connection.onNotification({ method: 'stopNailgun' }, () => {
     stopNailgunServer();
 })
+
+function loadEnvironmentVars() {
+    let env = process.env;
+    siliconHome = process.env.SILICON_HOME;
+    carbonHome = process.env.CARBON_HOME;
+    nailgunServerJar = env.NAILGUN_SERVER_JAR;
+    if (!siliconHome) {
+        connection.console.warn('S: SILICON_HOME Environment Variable is not set.');
+    }
+    if (!carbonHome) {
+        connection.console.warn('S: CARBON_HOME Environment Variable is not set.');
+    }
+    if (!nailgunServerJar) {
+        connection.console.error('S: NAILGUN_SERVER_JAR environment variable is not set');
+        return;
+    }
+}
 
 function startNailgunServer() {
     if (!nailgunProcess) {
         connection.console.info('S: starting nailgun server');
-        let nailgunServerExe = process.env.NAILGUN_SERVER_EXE;
-        if (!nailgunServerExe) {
-            connection.console.error('S: NAILGUN_SERVER_EXE environment variable is not set');
-            return;
-        }
-        verifierProcess = child_process.exec('java -jar "' + nailgunServerExe + '"');
+        //start the nailgun server for both silicon and carbon
+        verifierProcess = child_process.exec('java -cp ' + nailgunServerJar + ';' + siliconHome + ";" + carbonHome + " -server com.martiansoftware.nailgun.NGServer"); //for unix it is : instead of ;
         verifierProcess.stdout.on('data', (data) => {
             connection.console.log('NS:' + data);
         });
@@ -112,6 +140,7 @@ function startNailgunServer() {
         connection.console.info('S: nailgun server already running');
     }
 }
+
 function stopNailgunServer() {
     if (nailgunProcess) {
         connection.console.info('S: shutting down nailgun server');
@@ -141,15 +170,6 @@ function verifyTextDocument(uri: string): void {
     let currfile = '"' + path + '"';
 
     //let siliconHome = 'C:\\Users\\ruben\\Desktop\\Masterthesis\\Viper\\silicon';
-    let env = process.env;
-    let siliconHome = process.env.SILICON_HOME;
-    let carbonHome = process.env.CARBON_HOME;
-    if (!siliconHome) {
-        connection.console.warn('S: SILICON_HOME Environment Variable is not set.');
-    }
-    if (!carbonHome) {
-        connection.console.warn('S: CARBON_HOME Environment Variable is not set.');
-    }
 
     let home = carbonHome;
     if (useSilicon) {
@@ -165,7 +185,7 @@ function verifyTextDocument(uri: string): void {
     //connection.console.log('SERVER:  Env: SILICON_HOME: ' + siliconHome);
 
     //connection.console.log('SERVER: Silicon: verify ' + currfile);
-    verifierProcess = child_process.exec(verificationBackend + '.bat --ideMode ' + currfile, { cwd: home });
+    verifierProcess = child_process.exec('ng ' + verificationMain + ' --ideMode ' + currfile, { cwd: home });
     var time = "0";
 
     verifierProcess.stdout.on('data', (data) => {
@@ -202,16 +222,18 @@ function verifyTextDocument(uri: string): void {
                 let lineNr = +pos[1] - 1;
                 let charNr = +pos[2] - 1;
                 let message = pos[3].trim();
+
+                //let diag = new vscode.Diagnostic(new vscode.Range(lineNr,charNr,lineNr,Number.MAX_VALUE),message,DiagnosticSeverity.Error)
+                //diag.source = verificationBackend;
                 diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
                     range: {
                         start: { line: lineNr, character: charNr },
-                        end: { line: lineNr, character: Number.MAX_SAFE_INTEGER }
+                        end: { line: lineNr, character: 10000}//Number.max does not work -> 10000 is an arbitrary large number that does the job
                     },
-                    message: message,
-                    source: verificationBackend
+                    source: verificationBackend,
+                    severity:DiagnosticSeverity.Error,
+                    message:message
                 });
-
             }
         })
     });

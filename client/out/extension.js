@@ -8,6 +8,7 @@ var path = require('path');
 var vscode_1 = require('vscode');
 var vscode_languageclient_1 = require('vscode-languageclient');
 var statusBarItem;
+var server;
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 function activate(context) {
@@ -43,10 +44,10 @@ function activate(context) {
             fileEvents: vscode_1.workspace.createFileSystemWatcher('**/.clientrc')
         }
     };
-    var server = new vscode_languageclient_1.LanguageClient('Language Server', serverOptions, clientOptions);
+    server = new vscode_languageclient_1.LanguageClient('Language Server', serverOptions, clientOptions);
     // Create the language client and start the client.
     var disposable = server.start();
-    //trigger naiglun server start
+    //trigger nailgun server start
     server.sendNotification({ method: 'startNailgun' });
     // Push the disposable to the context's subscriptions so that the 
     // client can be deactivated on extension deactivation
@@ -257,6 +258,9 @@ function doesFileExist(path) {
 }
 // this method is called when your extension is deactivated
 function deactivate() {
+    //TODO: make sure Nailgun is shut down
+    //trigger nailgun server stop
+    server.sendNotification({ method: 'stopNailgun' });
 }
 exports.deactivate = deactivate;
 //# sourceMappingURL=extension.js.map

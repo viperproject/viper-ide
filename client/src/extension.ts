@@ -11,6 +11,7 @@ import { workspace, Disposable, ExtensionContext } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind, NotificationType } from 'vscode-languageclient';
 
 let statusBarItem;
+let server;
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -56,12 +57,12 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }
 
-    let server = new LanguageClient('Language Server', serverOptions, clientOptions);
+    server = new LanguageClient('Language Server', serverOptions, clientOptions);
 
     // Create the language client and start the client.
     let disposable = server.start();
 
-    //trigger naiglun server start
+    //trigger nailgun server start
     server.sendNotification({method:'startNailgun'});
 
     // Push the disposable to the context's subscriptions so that the 
@@ -286,4 +287,7 @@ function doesFileExist(path: string): boolean {
 
 // this method is called when your extension is deactivated
 export function deactivate() {
+    //TODO: make sure Nailgun is shut down
+    //trigger nailgun server stop
+    server.sendNotification({method:'stopNailgun'});
 }
