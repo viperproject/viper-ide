@@ -13,8 +13,10 @@ import {
     CompletionItem, CompletionItemKind, NotificationType,
     RequestType, RequestHandler
 } from 'vscode-languageserver';
-//import * as vscode from 'vscode';
+
 import {LogEntry, LogType} from './LogEntry';
+
+import * as Settings from './Settings';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
@@ -30,7 +32,7 @@ documents.listen(connection);
 // in the passed params the rootPath of the workspace plus the client capabilites. 
 let workspaceRoot: string;
 connection.onInitialize((params): InitializeResult => {
-    connection.console.log("S: connected");
+    log("connected");
     workspaceRoot = params.rootPath;
     return {
         capabilities: {
@@ -47,149 +49,156 @@ connection.onInitialize((params): InitializeResult => {
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent((change) => {
-    connection.console.log('S: content changed');
+    log('content changed');
     //verifyTextDocument(change.document.uri);
 });
 
-// The settings interface describe the server relevant settings part
-interface Settings {
-    iveServerSettings: IveSettings;
-}
+connection.onExit(() => {
+    //TOOD: make sure the nailgun server is really stopped
+    stopNailgunServer();
+})
 
-// These are the example settings we defined in the client's package.json
-// file
-interface IveSettings {
-    verificationBackend: string;
-}
-
-// hold the maxNumberOfProblems setting
-let verificationBackend: string;
-let verificationMain: string;
-let useSilicon: boolean;
-// The settings have changed. Is send on server activation
-// as well.
+// The settings have changed. Is sent on server activation as well.
 connection.onDidChangeConfiguration((change) => {
-    connection.console.log('S: configuration changed');
-    let settings = <Settings>change.settings;
-    verificationBackend = settings.iveServerSettings.verificationBackend || "silicon";
+    log('configuration changed');
+    settings = <Settings.IveSettings>change.settings.iveSettings;
+    let backends = settings.verificationBackends;
 
-    if (verificationBackend != "silicon" && verificationBackend != "carbon") {
-        connection.sendNotification({ method: "InvalidSettings" }, "Only carbon and silicon are valid verification backends.");
+    let error = Settings.Settings.valid(backends);
+    if (!error) {
+        if (!settings.nailgunServerJar || settings.nailgunServerJar.length == 0) {
+            error = "Path to nailgun server jar is missing"
+        } else {
+            let envVar = Settings.Settings.extractEnvVar(settings.nailgunServerJar)
+            if (!envVar) {
+                error = "Environment varaible " + settings.nailgunServerJar + " is not set."
+            } else {
+                settings.nailgunServerJar = envVar;
+            }
+        }
     }
-    if (verificationBackend == "silicon") {
-        useSilicon = true;
-        verificationMain = siliconMain;
-    } else {
-        useSilicon = false;
-        verificationMain = carbonMain;
+    if (error) {
+        connection.sendNotification({ method: "InvalidSettings" }, "Settings: " + error);
+        return;
     }
+    backend = backends[0];
 
-    // // Revalidate any open text documents
-    // documents.all().forEach(document => {
-    //     verifyTextDocument(document.uri);
-    // });
+    //startNailgun if it is not already running:
+    if (!nailgunProcess) {
+        startNailgunServer();
+    }
 });
+
+function log(message: string) {
+    connection.console.log("S: " + message);
+}
+
+function error(message: string) {
+    connection.console.error("S: " + message);
+}
+
+function logWithOrigin(origin: string, message: string) {
+    log(origin + ": " + message);
+}
 
 let verificationRunning: boolean = false;
 let wrongFormat: boolean = false;
 let diagnostics: Diagnostic[];
 let verifierProcess: child_process.ChildProcess;
 let nailgunProcess: child_process.ChildProcess;
+let nailgunReady: boolean = false;
 
-let siliconMain = "viper.silicon.SiliconRunner";
-let carbonMain = "viper.carbon.Carbon";
-let siliconHome: string;
-let carbonHome: string;
-let nailgunServerJar: string;
+let backend: Settings.Backend;
+let settings: Settings.IveSettings;
 
-loadEnvironmentVars();
+let nailgunPort = "7654";
 
-connection.onNotification({ method: 'startNailgun' }, () => {
-    startNailgunServer();
-})
-connection.onNotification({ method: 'stopNailgun' }, () => {
-    stopNailgunServer();
-})
-
-function loadEnvironmentVars() {
-    let env = process.env;
-    siliconHome = process.env.SILICON_HOME;
-    carbonHome = process.env.CARBON_HOME;
-    nailgunServerJar = env.NAILGUN_SERVER_JAR;
-    if (!siliconHome) {
-        connection.console.warn('S: SILICON_HOME Environment Variable is not set.');
-    }
-    if (!carbonHome) {
-        connection.console.warn('S: CARBON_HOME Environment Variable is not set.');
-    }
-    if (!nailgunServerJar) {
-        connection.console.error('S: NAILGUN_SERVER_JAR environment variable is not set');
-        return;
-    }
-}
+// connection.onNotification({ method: 'startNailgun' }, () => {
+//     startNailgunServer();
+// })
+// connection.onNotification({ method: 'stopNailgun' }, () => {
+//     stopNailgunServer();
+// })
 
 function startNailgunServer() {
     if (!nailgunProcess) {
-        connection.console.info('S: starting nailgun server');
-        //start the nailgun server for both silicon and carbon
-        verifierProcess = child_process.exec('java -cp ' + nailgunServerJar + ';' + siliconHome + ";" + carbonHome + " -server com.martiansoftware.nailgun.NGServer"); //for unix it is : instead of ;
-        verifierProcess.stdout.on('data', (data) => {
-            connection.console.log('NS:' + data);
+
+        let killOldNailgunProcess = child_process.exec('ng --nailgun-port ' + nailgunPort + ' ng-stop');
+
+        killOldNailgunProcess.on('exit', (code, signal) => {
+            log('starting nailgun server');
+            //start the nailgun server for both silicon and carbon
+
+            let backendJars = "";
+            settings.verificationBackends.forEach(backend => {
+                backendJars = backendJars + ";" + backend.path; //TODO: for unix it is : instead of ;
+            });
+
+            let command = 'java -cp ' + settings.nailgunServerJar + backendJars + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + nailgunPort;
+            log(command)
+            verifierProcess = child_process.exec(command);
+            verifierProcess.stdout.on('data', (data) => {
+                logWithOrigin('NS', data);
+            });
+        });
+        let jvmStarterProcess = doVerify("", false, false)
+        jvmStarterProcess.on('exit', (code, signal) => {
+            nailgunReady = true;
         });
     } else {
-        connection.console.info('S: nailgun server already running');
+        log('nailgun server already running');
     }
 }
 
 function stopNailgunServer() {
     if (nailgunProcess) {
-        connection.console.info('S: shutting down nailgun server');
+        log('shutting down nailgun server');
         nailgunProcess.kill('SIGINT');
     }
 }
 
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
-function verifyTextDocument(uri: string): void {
-    verificationRunning = true;
-    //Initialization
+function doVerify(fileToVerify: string, ideMode: boolean, onlyTypeCheck: boolean): child_process.ChildProcess {
+    return child_process.exec('ng --nailgun-port ' + nailgunPort + ' ' + backend.mainMethod + ' --ideMode ' + fileToVerify); // to set current working directory use, { cwd: verifierHome } as an additional parameter
+}
+
+function doVerifyWithContent(fileToVerify: string, fileContent: string, ideMode: boolean, onlyTypeCheck: boolean): child_process.ChildProcess {
+    fileContent = encodeURIComponent(fileContent);
+    let command = 'ng --nailgun-port ' + nailgunPort + ' ' + backend.mainMethod + ' --ideMode --fileContent "' + fileContent + '" ' + fileToVerify;
+    log(command);
+    return child_process.exec(command); // to set current working directory use, { cwd: verifierHome } as an additional parameter
+}
+
+function resetDiagnostics(uri: string) {
     diagnostics = [];
     //reset diagnostics
     connection.sendDiagnostics({ uri: uri, diagnostics });
+}
 
+// this method is called when your extension is activated
+// your extension is activated the very first time the command is executed
+function verifyTextDocument(uri: string, onlyTypeCheck: boolean): void {
+    verificationRunning = true;
+
+    //Initialization
+    resetDiagnostics(uri);
     wrongFormat = false;
 
-    connection.console.info('S: ' + verificationBackend + ' verification startet');
+    log(backend.name + ' verification startet');
 
     connection.sendNotification({ method: "VerificationStart" });
 
-    let path = uriToPath(uri);//textDocument.uri;
+    let path = uriToPath(uri);
 
-    //connection.console.log("path is: "+path);
     //start verification of current file
     let currfile = '"' + path + '"';
 
-    //let siliconHome = 'C:\\Users\\ruben\\Desktop\\Masterthesis\\Viper\\silicon';
+    //let content: string = fs.readFileSync(path).toString();
 
-    let home = carbonHome;
-    if (useSilicon) {
-        home = siliconHome;
-    }
-    if (!home) {
-        connection.console.error('S: Cannot start verification because the Environment variable to ' + verificationBackend + 'is not set');
-        verificationRunning = false;
-        connection.sendNotification({ method: "VerificationEnd" }, false);
-        return;
-    }
-
-    //connection.console.log('SERVER:  Env: SILICON_HOME: ' + siliconHome);
-
-    //connection.console.log('SERVER: Silicon: verify ' + currfile);
-    verifierProcess = child_process.exec('ng ' + verificationMain + ' --ideMode ' + currfile, { cwd: home });
+    verifierProcess = doVerify(currfile, true, onlyTypeCheck);
     var time = "0";
 
     verifierProcess.stdout.on('data', (data) => {
-        //connection.console.log('SERVER: stdout: ' + data);
+        //log('stdout: ' + data);
 
         if (wrongFormat) {
             return;
@@ -197,65 +206,69 @@ function verifyTextDocument(uri: string): void {
         let stringData: string = data;
         let parts = stringData.split(/\r?\n/g);
 
-        parts.forEach((part, i, array) => {
+        for (var i = 0; i < parts.length; i++) {
+            let part = parts[i];
             if (part.startsWith("Command-line interface:")) {
-                connection.console.error('S: Could not start verification -> fix format');
+                error('Could not start verification -> fix format');
                 wrongFormat = true;
             }
             if (part.startsWith('Silicon finished in') || part.startsWith('carbon finished in')) {
                 time = /.*?(\d*\.\d*).*/.exec(part)[1];
             }
             else if (part == 'No errors found.') {
-                connection.console.info('S: Successfully verified with ' + verificationBackend + ' in ' + time + ' seconds.');
+                log('Successfully verified with ' + backend.name + ' in ' + time + ' seconds.');
                 time = "0";
             }
             else if (part.startsWith('The following errors were found')) {
-                connection.console.info('S: ' + verificationBackend + ': Verification failed after ' + time + ' seconds.');
+                log(backend.name + ': Verification failed after ' + time + ' seconds.');
                 time = "0";
             }
             else if (part.startsWith('  ')) {
                 let pos = /\s*(\d*):(\d*):\s(.*)/.exec(part);
                 if (pos.length != 4) {
-                    connection.console.error('S: could not parse error description: "' + part + '"');
+                    error('could not parse error description: "' + part + '"');
                     return;
                 }
                 let lineNr = +pos[1] - 1;
                 let charNr = +pos[2] - 1;
                 let message = pos[3].trim();
 
-                //let diag = new vscode.Diagnostic(new vscode.Range(lineNr,charNr,lineNr,Number.MAX_VALUE),message,DiagnosticSeverity.Error)
-                //diag.source = verificationBackend;
                 diagnostics.push({
                     range: {
                         start: { line: lineNr, character: charNr },
-                        end: { line: lineNr, character: 10000}//Number.max does not work -> 10000 is an arbitrary large number that does the job
+                        end: { line: lineNr, character: 10000 }//Number.max does not work -> 10000 is an arbitrary large number that does the job
                     },
-                    source: verificationBackend,
-                    severity:DiagnosticSeverity.Error,
-                    message:message
+                    source: backend.name,
+                    severity: DiagnosticSeverity.Error,
+                    message: message
                 });
             }
-        })
+        }
     });
 
     verifierProcess.stderr.on('data', (data) => {
-        connection.console.log(`stderr: ${data}`);
+        error(`stderr: ${data}`);
+        if(data.startsWith("connect: No error")){
+            connection.sendNotification({ method: "Hint"} ,"No Nailgun server is running on port "+nailgunPort);
+        }
+        if(data.startsWith("java.lang.ClassNotFoundException:")){
+            connection.sendNotification({ method: "Hint"} ,"Class "+backend.mainMethod +" is unknown to Nailgun");
+        }
     });
 
     verifierProcess.on('close', (code) => {
-        connection.console.info(`S: Child process exited with code ${code}`);
+        log(`Child process exited with code ${code}`);
         // Send the computed diagnostics to VSCode.
         connection.sendDiagnostics({ uri: uri, diagnostics });
         connection.sendNotification({ method: "VerificationEnd" }, diagnostics.length == 0);
         verificationRunning = false;
-        let logFile = readZ3LogFile(siliconHome + '\\tmp\\logfile.smt2');
     });
 }
 
 function abortVerification() {
-    connection.console.error('S: abort running verification');
+    error('abort running verification');
     if (!verificationRunning) {
-        connection.console.error('S: cannot abort, verification is not running.');
+        error('cannot abort, verification is not running.');
         return;
     }
     //remove impact of child_process to kill
@@ -264,7 +277,7 @@ function abortVerification() {
     verifierProcess.stderr.removeAllListeners('data');
     //log the exit of the child_process to kill
     verifierProcess.on('exit', (code, signal) => {
-        connection.console.info(`S: Child process exited with code ${code} and signal ${signal}`);
+        log(`Child process exited with code ${code} and signal ${signal}`);
     })
     verifierProcess.kill('SIGINT');
     let l = verifierProcess.listeners;
@@ -273,7 +286,7 @@ function abortVerification() {
 
 connection.onDidChangeWatchedFiles((change) => {
     // Monitored files have change in VSCode
-    connection.console.log('S: We recevied an file change event');
+    log('We recevied an file change event');
 });
 
 
@@ -295,7 +308,7 @@ connection.onDidChangeWatchedFiles((change) => {
 // // This handler resolve additional information for the item selected in
 // // the completion list.
 // connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
-//     //connection.console.log('onCompletionResolve');
+//     //log('onCompletionResolve');
 //     if (item.data === 1) {
 //         item.detail = 'add an invariant',
 //             item.documentation = 'The invariant needs to hold before and after the loop body'
@@ -308,33 +321,42 @@ connection.onDidOpenTextDocument((params) => {
     // params.uri uniquely identifies the document. For documents store on disk this is a file URI.
     // params.text the initial full content of the document.
     let doc = params.textDocument;
-    connection.console.log(`S: ${params.textDocument.uri} opened.`);
+    log(`${params.textDocument.uri} opened.`);
 });
 
 connection.onDidChangeTextDocument((params) => {
     // The content of a text document did change in VSCode.
     // params.uri uniquely identifies the document.
     // params.contentChanges describe the content changes to the document.
-    //connection.console.log(`${params.uri} changed: ${JSON.stringify(params.contentChanges)}`);
+    //log(`${params.uri} changed: ${JSON.stringify(params.contentChanges)}`);
     //let doc = params.textDocument;
-    //verifyTextDocument(params.textDocument.uri);
+    //startOrRestartVerification(params.textDocument.uri, true);
+    resetDiagnostics(params.textDocument.uri);
 });
 
 connection.onDidCloseTextDocument((params) => {
     // A text document got closed in VSCode.
     // params.uri uniquely identifies the document.
-    connection.console.log(`S: ${params.textDocument.uri} closed.`);
+    log(`${params.textDocument.uri} closed.`);
 });
 
 connection.onDidSaveTextDocument((params) => {
     let doc = params.textDocument;
 
+    startOrRestartVerification(params.textDocument.uri, false)
+})
+
+function startOrRestartVerification(uri: string, onlyTypeCheck: boolean) {
+    if (!nailgunReady) {
+        log("nailgun not ready yet");
+        return;
+    }
     if (verificationRunning) {
-        connection.console.log("S: verification already running -> abort and restart.");
+        log("verification already running -> abort and restart.");
         abortVerification();
     }
-    verifyTextDocument(params.textDocument.uri);
-})
+    verifyTextDocument(uri, onlyTypeCheck);
+}
 
 // Listen on the connection
 connection.listen();
@@ -342,7 +364,7 @@ connection.listen();
 function readZ3LogFile(path: string): LogEntry[] {
     let res: LogEntry[] = new Array<LogEntry>();
     if (!fs.existsSync(path)) {
-        connection.console.error("cannot find log file at: " + path);
+        error("cannot find log file at: " + path);
         return;
     }
     let content = fs.readFileSync(path, "utf8").split(/\n(?!\s)/g);
@@ -428,14 +450,14 @@ function readZ3LogFile(path: string): LogEntry[] {
             res.push(new LogEntry(LogType.GetInfo, line));
             continue;
         }
-        connection.console.error("S: unknown log-entry-type detected: " + line);
+        error("unknown log-entry-type detected: " + line);
     }
     return res;
 }
 
 function uriToPath(uri: string): string {
     if (!uri.startsWith("file:")) {
-        connection.console.error("S: cannot convert uri to filepath, uri: " + uri);
+        error("cannot convert uri to filepath, uri: " + uri);
     }
     uri = uri.replace("\%3A", ":");
     uri = uri.replace("file:\/\/\/", "");

@@ -26,7 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarItem.color = 'white';
     statusBarItem.text = "ready";
     statusBarItem.show();
-
+    
     context.subscriptions.push(statusBarItem);
 
     // The server is implemented in node
@@ -51,7 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
         documentSelector: ['silver'],
         synchronize: {
             // Synchronize the setting section 'iveServerSettings' to the server
-            configurationSection: 'iveServerSettings',
+            configurationSection: 'iveSettings',
             // Notify the server about file changes to '.clientrc files contain in the workspace
             fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
         }
@@ -61,9 +61,6 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create the language client and start the client.
     let disposable = server.start();
-
-    //trigger nailgun server start
-    server.sendNotification({method:'startNailgun'});
 
     // Push the disposable to the context's subscriptions so that the 
     // client can be deactivated on extension deactivation
@@ -92,6 +89,10 @@ export function activate(context: vscode.ExtensionContext) {
     server.onNotification({ method: "InvalidSettings" }, (data) => {
         vscode.window.showInformationMessage("Invalid settings: " + data);
     });
+    
+    server.onNotification({ method: "Hint" }, (data) => {
+        vscode.window.showInformationMessage(data);
+    });
 
 
     function colorFileGutter(color: string) {
@@ -111,7 +112,14 @@ export function activate(context: vscode.ExtensionContext) {
         });
         editor.setDecorations(bookmarkDecorationType, ranges);
     }
-
+    
+    // let addBackendDisposable = vscode.commands.registerCommand('extension.addNewBackend', () => {
+    //         console.log("add new backend");
+    //         let window = vscode.window;
+    //         window.showInputBox()
+    // });
+    // context.subscriptions.push(addBackendDisposable);
+    
     /*
     let siliconCommandDisposable = vscode.commands.registerCommand('extension.compileSilicon', () => {
         //vscode.window.showInformationMessage('Silicon-build-command detected');
@@ -262,7 +270,6 @@ function markError(start: vscode.Position, end: vscode.Position, message: string
     let editor = window.activeTextEditor;
     let range = new vscode.Range(start, end);
     let diagnostic = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error)
-
 }
 
 function decorate(start: vscode.Position, end: vscode.Position) {
@@ -283,11 +290,4 @@ function doesFileExist(path: string): boolean {
         return false;
     }
     return true;
-}
-
-// this method is called when your extension is deactivated
-export function deactivate() {
-    //TODO: make sure Nailgun is shut down
-    //trigger nailgun server stop
-    server.sendNotification({method:'stopNailgun'});
 }

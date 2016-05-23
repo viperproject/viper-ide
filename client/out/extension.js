@@ -39,7 +39,7 @@ function activate(context) {
         documentSelector: ['silver'],
         synchronize: {
             // Synchronize the setting section 'iveServerSettings' to the server
-            configurationSection: 'iveServerSettings',
+            configurationSection: 'iveSettings',
             // Notify the server about file changes to '.clientrc files contain in the workspace
             fileEvents: vscode_1.workspace.createFileSystemWatcher('**/.clientrc')
         }
@@ -47,8 +47,6 @@ function activate(context) {
     server = new vscode_languageclient_1.LanguageClient('Language Server', serverOptions, clientOptions);
     // Create the language client and start the client.
     var disposable = server.start();
-    //trigger nailgun server start
-    server.sendNotification({ method: 'startNailgun' });
     // Push the disposable to the context's subscriptions so that the 
     // client can be deactivated on extension deactivation
     context.subscriptions.push(disposable);
@@ -73,6 +71,9 @@ function activate(context) {
     server.onNotification({ method: "InvalidSettings" }, function (data) {
         vscode.window.showInformationMessage("Invalid settings: " + data);
     });
+    server.onNotification({ method: "Hint" }, function (data) {
+        vscode.window.showInformationMessage(data);
+    });
     function colorFileGutter(color) {
         var window = vscode.window;
         var editor = window.activeTextEditor;
@@ -89,6 +90,12 @@ function activate(context) {
         });
         editor.setDecorations(bookmarkDecorationType, ranges);
     }
+    // let addBackendDisposable = vscode.commands.registerCommand('extension.addNewBackend', () => {
+    //         console.log("add new backend");
+    //         let window = vscode.window;
+    //         window.showInputBox()
+    // });
+    // context.subscriptions.push(addBackendDisposable);
     /*
     let siliconCommandDisposable = vscode.commands.registerCommand('extension.compileSilicon', () => {
         //vscode.window.showInformationMessage('Silicon-build-command detected');
@@ -256,11 +263,4 @@ function doesFileExist(path) {
     }
     return true;
 }
-// this method is called when your extension is deactivated
-function deactivate() {
-    //TODO: make sure Nailgun is shut down
-    //trigger nailgun server stop
-    server.sendNotification({ method: 'stopNailgun' });
-}
-exports.deactivate = deactivate;
 //# sourceMappingURL=extension.js.map

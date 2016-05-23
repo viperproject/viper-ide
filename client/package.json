@@ -82,10 +82,16 @@
         "type":"object",
         "title":"Example Configuration",
         "properties":{
-            "iveServerSettings.verificationBackend" : {
+            "iveSettings.verificationBackends" : {
+                "type":"array",
+                "default": [{"name":"silicon", "command":"silicon","path":"%SILICON_JAR%", "mainMethod":"viper.silicon.SiliconRunner"},
+                {"name":"carbon", "command":"carbon","path":"%CARBON_JAR%", "mainMethod":"viper.carbon.Carbon"}],
+                "description": "You can add your backend here.\n    // The first backend in the array will be used for verification.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
+            },
+            "iveSettings.nailgunServerJar" : {
                 "type":"string",
-                "default": "silicon",
-                "description": "backend to be used for verification, either silicon or carbon"
+                "default": "%NAILGUN_SERVER_JAR%",
+                "description": "The path to the nailgun server jar.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
             }
         }
     }
