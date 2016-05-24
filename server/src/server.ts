@@ -102,6 +102,8 @@ let settings: Settings.IveSettings;
 let time = "0";
 let uri: string;
 
+let progress = 0;
+
 // connection.onNotification({ method: 'startNailgun' }, () => {
 //     verifierProcess = VerificationService.startNailgunServer();
 // })
@@ -154,6 +156,22 @@ function stdErrHadler(data) {
     }
 }
 
+class TotalProgress{
+    predicates:Progress;
+    functions:Progress;
+    methods:Progress;
+    
+    toPercent():number{
+        let total = this.predicates.total+this.methods.total+this.functions.total;
+        let current = this.predicates.current+this.methods.current+this.functions.current;
+        return 100*current/total;
+    }
+}
+interface Progress{
+    current:number;
+    total:number;
+}
+
 function stdOutHadler(data) {
     Log.log('stdout: ' + data);
 
@@ -175,6 +193,12 @@ function stdOutHadler(data) {
         else if (part == 'No errors found.') {
             Log.log('Successfully verified with ' + backend.name + ' in ' + time + ' seconds.');
             time = "0";
+        }
+        else if(part.startsWith("{") && part.endsWith("}")){
+            let progress:TotalProgress = JSON.parse(part);
+            if(progress != null){
+                Log.log("Progress: "+progress.toPercent());
+            }
         }
         else if (part.startsWith('The following errors were found')) {
             Log.log(backend.name + ': Verification failed after ' + time + ' seconds.');

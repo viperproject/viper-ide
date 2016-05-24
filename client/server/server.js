@@ -79,6 +79,7 @@ var backend;
 var settings;
 var time = "0";
 var uri;
+var progress = 0;
 // connection.onNotification({ method: 'startNailgun' }, () => {
 //     verifierProcess = VerificationService.startNailgunServer();
 // })
@@ -121,6 +122,16 @@ function stdErrHadler(data) {
         connection.sendNotification({ method: "Hint" }, "Class " + backend.mainMethod + " is unknown to Nailgun");
     }
 }
+var TotalProgress = (function () {
+    function TotalProgress() {
+    }
+    TotalProgress.prototype.toPercent = function () {
+        var total = this.predicates.total + this.methods.total + this.functions.total;
+        var current = this.predicates.current + this.methods.current + this.functions.current;
+        return 100 * current / total;
+    };
+    return TotalProgress;
+}());
 function stdOutHadler(data) {
     Log_1.Log.log('stdout: ' + data);
     if (wrongFormat) {
@@ -140,6 +151,12 @@ function stdOutHadler(data) {
         else if (part == 'No errors found.') {
             Log_1.Log.log('Successfully verified with ' + backend.name + ' in ' + time + ' seconds.');
             time = "0";
+        }
+        else if (part.startsWith("{") && part.endsWith("}")) {
+            var progress_1 = JSON.parse(part);
+            if (progress_1 != null) {
+                Log_1.Log.log("Progress: " + progress_1.toPercent());
+            }
         }
         else if (part.startsWith('The following errors were found')) {
             Log_1.Log.log(backend.name + ': Verification failed after ' + time + ' seconds.');
