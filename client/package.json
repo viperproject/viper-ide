@@ -72,33 +72,47 @@
                 "path": "./snippets/silver.json."
             }
         ],
-        "keybindings": {
-            "command": "extension.compileSilicon",
-            "key": "ctrl+j",
-            "mac": "cmd+j",
-            "when": "editorTextFocus"
-        },
+        "keybindings": [
+            {
+                "command": "extension.compileSilicon",
+                "key": "ctrl+j",
+                "mac": "cmd+j",
+                "when": "editorTextFocus"
+            }
+        ],
         "configuration": {
-        "type":"object",
-        "title":"Example Configuration",
-        "properties":{
-            "iveSettings.verificationBackends" : {
-                "type":"array",
-                "default": [{"name":"silicon", "command":"silicon","path":"%SILICON_JAR%", "mainMethod":"viper.silicon.SiliconRunner"},
-                {"name":"carbon", "command":"carbon","path":"%CARBON_JAR%", "mainMethod":"viper.carbon.Carbon"}],
-                "description": "You can add your backend here.\n    // The first backend in the array will be used for verification.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
-            },
-            "iveSettings.nailgunServerJar" : {
-                "type":"string",
-                "default": "%NAILGUN_SERVER_JAR%",
-                "description": "The path to the nailgun server jar.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
+            "type": "object",
+            "title": "Example Configuration",
+            "properties": {
+                "iveSettings.verificationBackends": {
+                    "type": "array",
+                    "default": [
+                        {
+                            "name": "silicon",
+                            "command": "silicon",
+                            "path": "%SILICON_JAR%",
+                            "mainMethod": "viper.silicon.SiliconRunner"
+                        },
+                        {
+                            "name": "carbon",
+                            "command": "carbon",
+                            "path": "%CARBON_JAR%",
+                            "mainMethod": "viper.carbon.Carbon"
+                        }
+                    ],
+                    "description": "You can add your backend here.\n    // The first backend in the array will be used for verification.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
+                },
+                "iveSettings.nailgunServerJar": {
+                    "type": "string",
+                    "default": "%NAILGUN_SERVER_JAR%",
+                    "description": "The path to the nailgun server jar.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
+                }
             }
         }
-    }
     },
     "scripts": {
-		"vscode:prepublish": "node ./node_modules/vscode/bin/compile",
-		"compile": "node ./node_modules/vscode/bin/compile -watch -p ./"
+        "vscode:prepublish": "node ./node_modules/vscode/bin/compile",
+        "compile": "node ./node_modules/vscode/bin/compile -watch -p ./"
     },
     "devDependencies": {
         "typescript": "^1.8.9",

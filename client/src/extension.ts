@@ -15,6 +15,8 @@ import {Timer} from './Timer';
 let statusBarItem;
 let server;
 
+let autoSaver: Timer;
+
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -31,8 +33,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(statusBarItem);
 
-    let autoSaveTimeout = 3000;
-    let autoSaver = new Timer(() => {
+    let autoSaveTimeout = 1000;//ms
+    autoSaver = new Timer(() => {
         vscode.window.activeTextEditor.document.save();
     }, autoSaveTimeout);
 
@@ -88,6 +90,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (success) {
             statusBarItem.color = 'lightgreen';
             statusBarItem.text = `$(check) done`;
+            window.showInformationMessage("Successfully Verified");
         } else {
             statusBarItem.color = 'lightred';
             statusBarItem.text = `$(x) failed`;
@@ -122,10 +125,19 @@ export function activate(context: vscode.ExtensionContext) {
         editor.setDecorations(bookmarkDecorationType, ranges);
     }
 
+    function resetAutoSaver() {
+        autoSaver.reset();
+    }
+
+    let onActiveTextEditorChangeDisposable = vscode.window.onDidChangeActiveTextEditor(resetAutoSaver);
+    let onTextEditorSelectionChange = vscode.window.onDidChangeTextEditorSelection(resetAutoSaver);
+    context.subscriptions.push(onActiveTextEditorChangeDisposable);
+    context.subscriptions.push(onTextEditorSelectionChange);
 
 
-    vscode.window.activeTextEditor.document.save();
-
+    // let verifyCommandDisposable = vscode.commands.registerCommand('extension.verify', () => {    
+    // }
+    
     // let addBackendDisposable = vscode.commands.registerCommand('extension.addNewBackend', () => {
     //         console.log("add new backend");
     //         let window = vscode.window;
