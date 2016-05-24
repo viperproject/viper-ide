@@ -7,6 +7,7 @@ var fs = require('fs');
 var path = require('path');
 var vscode_1 = require('vscode');
 var vscode_languageclient_1 = require('vscode-languageclient');
+var Timer_1 = require('./Timer');
 var statusBarItem;
 var server;
 // this method is called when your extension is activated
@@ -20,6 +21,11 @@ function activate(context) {
     statusBarItem.text = "ready";
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
+    var autoSaveTimeout = 3000;
+    var autoSaver = new Timer_1.Timer(function () {
+        vscode.window.activeTextEditor.document.save();
+    }, autoSaveTimeout);
+    context.subscriptions.push(autoSaver);
     // The server is implemented in node
     var serverModule = context.asAbsolutePath(path.join('server', 'server.js'));
     if (!fs.existsSync(serverModule)) {
@@ -90,6 +96,7 @@ function activate(context) {
         });
         editor.setDecorations(bookmarkDecorationType, ranges);
     }
+    vscode.window.activeTextEditor.document.save();
     // let addBackendDisposable = vscode.commands.registerCommand('extension.addNewBackend', () => {
     //         console.log("add new backend");
     //         let window = vscode.window;

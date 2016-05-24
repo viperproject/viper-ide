@@ -10,6 +10,8 @@ import * as path from 'path';
 import { workspace, Disposable, ExtensionContext } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind, NotificationType } from 'vscode-languageclient';
 
+import {Timer} from './Timer';
+
 let statusBarItem;
 let server;
 
@@ -26,8 +28,15 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarItem.color = 'white';
     statusBarItem.text = "ready";
     statusBarItem.show();
-    
+
     context.subscriptions.push(statusBarItem);
+
+    let autoSaveTimeout = 3000;
+    let autoSaver = new Timer(() => {
+        vscode.window.activeTextEditor.document.save();
+    }, autoSaveTimeout);
+
+    context.subscriptions.push(autoSaver);
 
     // The server is implemented in node
     let serverModule = context.asAbsolutePath(path.join('server', 'server.js'));
@@ -79,7 +88,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (success) {
             statusBarItem.color = 'lightgreen';
             statusBarItem.text = `$(check) done`;
-        }else{
+        } else {
             statusBarItem.color = 'lightred';
             statusBarItem.text = `$(x) failed`;
         }
@@ -89,7 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
     server.onNotification({ method: "InvalidSettings" }, (data) => {
         vscode.window.showInformationMessage("Invalid settings: " + data);
     });
-    
+
     server.onNotification({ method: "Hint" }, (data) => {
         vscode.window.showInformationMessage(data);
     });
@@ -112,14 +121,18 @@ export function activate(context: vscode.ExtensionContext) {
         });
         editor.setDecorations(bookmarkDecorationType, ranges);
     }
-    
+
+
+
+    vscode.window.activeTextEditor.document.save();
+
     // let addBackendDisposable = vscode.commands.registerCommand('extension.addNewBackend', () => {
     //         console.log("add new backend");
     //         let window = vscode.window;
     //         window.showInputBox()
     // });
     // context.subscriptions.push(addBackendDisposable);
-    
+
     /*
     let siliconCommandDisposable = vscode.commands.registerCommand('extension.compileSilicon', () => {
         //vscode.window.showInformationMessage('Silicon-build-command detected');
