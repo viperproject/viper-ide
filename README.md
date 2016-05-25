@@ -1,18 +1,16 @@
-Sublime Text is a powerful GUI text editor which is a base for implementing features of an integrated development environment for Silver lagnuage.
+Visual Sutio Code is a powerful GUI text editor which is a base for implementing features of an integrated verification environment for the Silver language.
 
-This repository contains files required for installing Viper extensions for Sublime Text on OS X.
+This repository contains the source files of the VS Code Extension, installation instructions, and the needed files for installing it on OsX, Debian, and Windows.
 
 ### Installation ###
 
-The instructions in this section are checked on Mac OS X 10.11, but they should work
-on Linux as well (modulo the system paths).
+#### 1. Install VS Code
 
-#### 1. Install Sublime
+You can download the installer for VS Code from here: https://code.visualstudio.com/download
 
-You can download the latest version from here: http://www.sublimetext.com/3
+#### OsX
 
-Viper-Sublime-IDE requires Sublime Text 3 and will not work with Sublime Text 2.
-
+TODO: the rest is still old
 
 #### 2. Get the IDE files
 

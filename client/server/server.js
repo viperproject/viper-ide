@@ -123,7 +123,10 @@ function stdErrHadler(data) {
     }
 }
 var TotalProgress = (function () {
-    function TotalProgress() {
+    function TotalProgress(json) {
+        this.predicates = json.predicates;
+        this.methods = json.methods;
+        this.functions = json.functions;
     }
     TotalProgress.prototype.toPercent = function () {
         var total = this.predicates.total + this.methods.total + this.functions.total;
@@ -153,9 +156,13 @@ function stdOutHadler(data) {
             time = "0";
         }
         else if (part.startsWith("{") && part.endsWith("}")) {
-            var progress_1 = JSON.parse(part);
-            if (progress_1 != null) {
+            try {
+                var progress_1 = new TotalProgress(JSON.parse(part));
                 Log_1.Log.log("Progress: " + progress_1.toPercent());
+                connection.sendNotification({ method: "VerificationProgress" }, progress_1.toPercent());
+            }
+            catch (e) {
+                Log_1.Log.error(e);
             }
         }
         else if (part.startsWith('The following errors were found')) {

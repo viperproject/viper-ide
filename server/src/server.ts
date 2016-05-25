@@ -156,20 +156,26 @@ function stdErrHadler(data) {
     }
 }
 
-class TotalProgress{
-    predicates:Progress;
-    functions:Progress;
-    methods:Progress;
-    
-    toPercent():number{
-        let total = this.predicates.total+this.methods.total+this.functions.total;
-        let current = this.predicates.current+this.methods.current+this.functions.current;
-        return 100*current/total;
+class TotalProgress {
+    predicates: Progress;
+    functions: Progress;
+    methods: Progress;
+
+    constructor(json:TotalProgress){
+        this.predicates = json.predicates;
+        this.methods = json.methods;
+        this.functions = json.functions;
+    }
+
+    public toPercent(): number {
+        let total = this.predicates.total + this.methods.total + this.functions.total;
+        let current = this.predicates.current + this.methods.current + this.functions.current;
+        return 100 * current / total;
     }
 }
-interface Progress{
-    current:number;
-    total:number;
+interface Progress {
+    current: number;
+    total: number;
 }
 
 function stdOutHadler(data) {
@@ -194,10 +200,13 @@ function stdOutHadler(data) {
             Log.log('Successfully verified with ' + backend.name + ' in ' + time + ' seconds.');
             time = "0";
         }
-        else if(part.startsWith("{") && part.endsWith("}")){
-            let progress:TotalProgress = JSON.parse(part);
-            if(progress != null){
-                Log.log("Progress: "+progress.toPercent());
+        else if (part.startsWith("{") && part.endsWith("}")) {
+            try {
+                let progress = new TotalProgress(JSON.parse(part));
+                Log.log("Progress: " + progress.toPercent());
+                connection.sendNotification({method:"VerificationProgress"},progress.toPercent())
+            } catch (e) {
+                Log.error(e);
             }
         }
         else if (part.startsWith('The following errors were found')) {
@@ -288,7 +297,7 @@ connection.onDidCloseTextDocument((params) => {
 connection.onDidSaveTextDocument((params) => {
     if (params.textDocument.uri.endsWith(".sil")) {
         startOrRestartVerification(params.textDocument.uri, false)
-    }else{
+    } else {
         Log.log("This system can only verify .sil files");
     }
 })

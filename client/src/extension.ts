@@ -80,9 +80,12 @@ export function activate(context: vscode.ExtensionContext) {
     server.onNotification({ method: "VerificationStart" }, () => {
         let window = vscode.window;
         statusBarItem.color = 'orange';
-        statusBarItem.text = "verifying";
+        statusBarItem.text = "pre-processing";
         //window.showInformationMessage("verification running");
-
+    });
+    
+    server.onNotification({method: "VerificationProgress"},(progress:number) => {
+        statusBarItem.text = "verifying: "+progress+"%"
     });
 
     server.onNotification({ method: "VerificationEnd" }, (success) => {

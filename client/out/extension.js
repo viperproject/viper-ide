@@ -60,8 +60,11 @@ function activate(context) {
     server.onNotification({ method: "VerificationStart" }, function () {
         var window = vscode.window;
         statusBarItem.color = 'orange';
-        statusBarItem.text = "verifying";
+        statusBarItem.text = "pre-processing";
         //window.showInformationMessage("verification running");
+    });
+    server.onNotification({ method: "VerificationProgress" }, function (progress) {
+        statusBarItem.text = "verifying: " + progress + "%";
     });
     server.onNotification({ method: "VerificationEnd" }, function (success) {
         var window = vscode.window;
