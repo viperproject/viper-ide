@@ -2,7 +2,7 @@
     "name": "viper-ive-server",
     "description": "Facilitate the development of Viper programs",
     "version": "0.0.1",
-    "publisher": "Ruben Kälin",
+    "publisher": "rukaelin",
     "engines": {
         "node": "*"
     },

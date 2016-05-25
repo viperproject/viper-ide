@@ -1,9 +1,9 @@
 {
     "name": "viper-ive",
     "displayName": "Viper-IVE",
-    "description": "facilitate the development of viper programs",
+    "description": "Facilitates the development of viper programs",
     "version": "0.0.1",
-    "publisher": "Ruben Kälin",
+    "publisher": "rukaelin",
     "engines": {
         "vscode": "^0.10.10"
     },
@@ -14,9 +14,6 @@
         "Snippets"
     ],
     "activationEvents": [
-        "onCommand:extension.compileCarbon",
-        "onCommand:extension.compileSilicon",
-        "onCommand:extension.test",
         "onLanguage:silver"
     ],
     "main": "./out/extension",
