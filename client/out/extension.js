@@ -24,7 +24,9 @@ function activate(context) {
     context.subscriptions.push(statusBarItem);
     var autoSaveTimeout = 1000; //ms
     autoSaver = new Timer_1.Timer(function () {
-        vscode.window.activeTextEditor.document.save();
+        if (vscode.window.activeTextEditor != null) {
+            vscode.window.activeTextEditor.document.save();
+        }
     }, autoSaveTimeout);
     context.subscriptions.push(autoSaver);
     // The server is implemented in node
@@ -64,6 +66,7 @@ function activate(context) {
         //window.showInformationMessage("verification running");
     });
     server.onNotification({ method: "VerificationProgress" }, function (progress) {
+        statusBarItem.color = 'orange';
         statusBarItem.text = "verifying: " + progress + "%";
     });
     server.onNotification({ method: "VerificationEnd" }, function (success) {
@@ -74,7 +77,7 @@ function activate(context) {
             window.showInformationMessage("Successfully Verified");
         }
         else {
-            statusBarItem.color = 'lightred';
+            statusBarItem.color = 'red';
             statusBarItem.text = "$(x) failed";
         }
         //window.showInformationMessage("verification finished");

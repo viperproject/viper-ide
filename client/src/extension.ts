@@ -35,7 +35,9 @@ export function activate(context: vscode.ExtensionContext) {
 
     let autoSaveTimeout = 1000;//ms
     autoSaver = new Timer(() => {
-        vscode.window.activeTextEditor.document.save();
+        if(vscode.window.activeTextEditor != null){
+            vscode.window.activeTextEditor.document.save();
+        }
     }, autoSaveTimeout);
 
     context.subscriptions.push(autoSaver);
@@ -85,6 +87,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
     
     server.onNotification({method: "VerificationProgress"},(progress:number) => {
+        statusBarItem.color = 'orange';
         statusBarItem.text = "verifying: "+progress+"%"
     });
 
@@ -95,7 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
             statusBarItem.text = `$(check) done`;
             window.showInformationMessage("Successfully Verified");
         } else {
-            statusBarItem.color = 'lightred';
+            statusBarItem.color = 'red';
             statusBarItem.text = `$(x) failed`;
         }
         //window.showInformationMessage("verification finished");
@@ -136,7 +139,6 @@ export function activate(context: vscode.ExtensionContext) {
     let onTextEditorSelectionChange = vscode.window.onDidChangeTextEditorSelection(resetAutoSaver);
     context.subscriptions.push(onActiveTextEditorChangeDisposable);
     context.subscriptions.push(onTextEditorSelectionChange);
-
 
     // let verifyCommandDisposable = vscode.commands.registerCommand('extension.verify', () => {    
     // }

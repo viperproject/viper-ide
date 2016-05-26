@@ -16,30 +16,28 @@ import {
 
 import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
-import * as Settings from './Settings';
-
-import {VerificationService} from './VerificationService'
+import {Backend, Settings, IveSettings} from './Settings';
+import {NailgunService} from './NailgunService'
+import {VerificationTask} from './VerificationTask'
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
-
-let verificationService: VerificationService;
-
-// Create a simple text document manager. The text document manager
-// supports full document sync only
+let backend: Backend;
 let documents: TextDocuments = new TextDocuments();
-// Make the text document manager listen on the connection
-// for open, change and close text document events
+let verificationTasks: Map<string, VerificationTask> = new Map();
+let nailgunService: NailgunService;
+let settings: IveSettings;
+let workspaceRoot: string;
+
 documents.listen(connection);
 
-// After the server has started the client sends an initilize request. The server receives
-// in the passed params the rootPath of the workspace plus the client capabilites. 
-let workspaceRoot: string;
+//starting point (executed once)
 connection.onInitialize((params): InitializeResult => {
     Log.connection = connection;
     Log.log("connected");
     workspaceRoot = params.rootPath;
-    verificationService = new VerificationService();
+    nailgunService = new NailgunService();
+    nailgunService.startNailgunIfNotRunning();
     return {
         capabilities: {
             // Tell the client that the server works in FULL text document sync mode
@@ -55,29 +53,28 @@ connection.onInitialize((params): InitializeResult => {
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent((change) => {
-    Log.log('content changed');
-    //verifyTextDocument(change.document.uri);
+    Log.error("TODO: never happened before: Content Change detected")
 });
 
 connection.onExit(() => {
-    verificationService.stopNailgunServer();
+    nailgunService.stopNailgunServer();
 })
 
 // The settings have changed. Is sent on server activation as well.
 connection.onDidChangeConfiguration((change) => {
     Log.log('configuration changed');
-    settings = <Settings.IveSettings>change.settings.iveSettings;
+    settings = <IveSettings>change.settings.iveSettings;
     let backends = settings.verificationBackends;
 
     //pass the new settings to the verificationService
-    verificationService.changeSettings(settings);
+    nailgunService.changeSettings(settings);
 
-    let error = Settings.Settings.valid(backends);
+    let error = Settings.valid(backends);
     if (!error) {
         if (!settings.nailgunServerJar || settings.nailgunServerJar.length == 0) {
             error = "Path to nailgun server jar is missing"
         } else {
-            let envVar = Settings.Settings.extractEnvVar(settings.nailgunServerJar)
+            let envVar = Settings.extractEnvVar(settings.nailgunServerJar)
             if (!envVar) {
                 error = "Environment varaible " + settings.nailgunServerJar + " is not set."
             } else {
@@ -90,208 +87,36 @@ connection.onDidChangeConfiguration((change) => {
         return;
     }
     backend = backends[0];
-    verificationService.startNailgunIfNotRunning();
+    //TODO: decide whether to restart Nailgun or not
 });
-
-let wrongFormat: boolean = false;
-let diagnostics: Diagnostic[];
-
-let backend: Settings.Backend;
-let settings: Settings.IveSettings;
-
-let time = "0";
-let uri: string;
-
-let progress = 0;
-
-// connection.onNotification({ method: 'startNailgun' }, () => {
-//     verifierProcess = VerificationService.startNailgunServer();
-// })
-// connection.onNotification({ method: 'stopNailgun' }, () => {
-//     stopNailgunServer();
-// })
-
-function resetDiagnostics(uri: string) {
-    diagnostics = [];
-    //reset diagnostics
-    connection.sendDiagnostics({ uri: uri, diagnostics });
-}
-
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
-function verifyTextDocument(uri: string, onlyTypeCheck: boolean): void {
-    verificationService.verificationRunning = true;
-
-    //Initialization
-    resetDiagnostics(uri);
-    wrongFormat = false;
-
-    Log.log(backend.name + ' verification startet');
-
-    connection.sendNotification({ method: "VerificationStart" });
-
-    let path = uriToPath(uri);
-
-    //start verification of current file
-    let currfile = '"' + path + '"';
-    //let content: string = fs.readFileSync(path).toString();
-    verificationService.verify(currfile, true, onlyTypeCheck, backend, stdOutHadler, stdErrHadler, verificationCompletionHandler);
-}
-
-function verificationCompletionHandler(code) {
-    Log.log(`Child process exited with code ${code}`);
-    // Send the computed diagnostics to VSCode.
-    connection.sendDiagnostics({ uri: uri, diagnostics });
-    connection.sendNotification({ method: "VerificationEnd" }, diagnostics.length == 0);
-    verificationService.verificationRunning = false;
-}
-
-function stdErrHadler(data) {
-    Log.error(`stderr: ${data}`);
-    if (data.startsWith("connect: No error")) {
-        connection.sendNotification({ method: "Hint" }, "No Nailgun server is running on port " + verificationService.nailgunPort);
-    }
-    if (data.startsWith("java.lang.ClassNotFoundException:")) {
-        connection.sendNotification({ method: "Hint" }, "Class " + backend.mainMethod + " is unknown to Nailgun");
-    }
-}
-
-class TotalProgress {
-    predicates: Progress;
-    functions: Progress;
-    methods: Progress;
-
-    constructor(json:TotalProgress){
-        this.predicates = json.predicates;
-        this.methods = json.methods;
-        this.functions = json.functions;
-    }
-
-    public toPercent(): number {
-        let total = this.predicates.total + this.methods.total + this.functions.total;
-        let current = this.predicates.current + this.methods.current + this.functions.current;
-        return 100 * current / total;
-    }
-}
-interface Progress {
-    current: number;
-    total: number;
-}
-
-function stdOutHadler(data) {
-    Log.log('stdout: ' + data);
-
-    if (wrongFormat) {
-        return;
-    }
-    let stringData: string = data;
-    let parts = stringData.split(/\r?\n/g);
-
-    for (var i = 0; i < parts.length; i++) {
-        let part = parts[i];
-        if (part.startsWith("Command-line interface:")) {
-            Log.error('Could not start verification -> fix format');
-            wrongFormat = true;
-        }
-        if (part.startsWith('Silicon finished in') || part.startsWith('carbon finished in')) {
-            time = /.*?(\d*\.\d*).*/.exec(part)[1];
-        }
-        else if (part == 'No errors found.') {
-            Log.log('Successfully verified with ' + backend.name + ' in ' + time + ' seconds.');
-            time = "0";
-        }
-        else if (part.startsWith("{") && part.endsWith("}")) {
-            try {
-                let progress = new TotalProgress(JSON.parse(part));
-                Log.log("Progress: " + progress.toPercent());
-                connection.sendNotification({method:"VerificationProgress"},progress.toPercent())
-            } catch (e) {
-                Log.error(e);
-            }
-        }
-        else if (part.startsWith('The following errors were found')) {
-            Log.log(backend.name + ': Verification failed after ' + time + ' seconds.');
-            time = "0";
-        }
-        else if (part.startsWith('  ')) {
-            let pos = /\s*(\d*):(\d*):\s(.*)/.exec(part);
-            if (pos.length != 4) {
-                Log.error('could not parse error description: "' + part + '"');
-                return;
-            }
-            let lineNr = +pos[1] - 1;
-            let charNr = +pos[2] - 1;
-            let message = pos[3].trim();
-
-            diagnostics.push({
-                range: {
-                    start: { line: lineNr, character: charNr },
-                    end: { line: lineNr, character: 10000 }//Number.max does not work -> 10000 is an arbitrary large number that does the job
-                },
-                source: backend.name,
-                severity: DiagnosticSeverity.Error,
-                message: message
-            });
-        }
-    }
-}
 
 connection.onDidChangeWatchedFiles((change) => {
     // Monitored files have change in VSCode
-    Log.log('We recevied an file change event');
+    Log.error("TODO: never happened before: We recevied an file change event")
 });
-
-
-// // This handler provides the initial list of the completion items.
-// connection.onCompletion((textPositionParams): CompletionItem[] => {
-//     // The pass parameter contains the position of the text document in 
-//     // which code complete got requested. For the example we ignore this
-//     // info and always provide the same completion items.
-//     var res = [];
-//     let completionItem: CompletionItem = {
-//         label: 'invariant',
-//         kind: CompletionItemKind.Text,
-//         data: 1
-//     };
-//     res.push(completionItem);
-//     return res;
-// });
-
-// // This handler resolve additional information for the item selected in
-// // the completion list.
-// connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
-//     //Log.log('onCompletionResolve');
-//     if (item.data === 1) {
-//         item.detail = 'add an invariant',
-//             item.documentation = 'The invariant needs to hold before and after the loop body'
-//     }
-//     return item;
-// });
 
 connection.onDidOpenTextDocument((params) => {
-    // A text document got opened in VSCode.
-    // params.uri uniquely identifies the document. For documents store on disk this is a file URI.
-    // params.text the initial full content of the document.
-
-    let doc = params.textDocument;
-    uri = doc.uri;
-    Log.log(`${doc.uri} opened.`);
-});
-
-connection.onDidChangeTextDocument((params) => {
-    // The content of a text document did change in VSCode.
-    // params.uri uniquely identifies the document.
-    // params.contentChanges describe the content changes to the document.
-    //Log.log(`${params.uri} changed: ${JSON.stringify(params.contentChanges)}`);
-    //let doc = params.textDocument;
-    //startOrRestartVerification(params.textDocument.uri, true);
-    resetDiagnostics(params.textDocument.uri);
+    let uri = params.textDocument.uri;
+    if (!verificationTasks.has(uri)) {
+        //create new task for opened file
+        let task = new VerificationTask(uri, nailgunService, connection, backend);
+        verificationTasks.set(uri, task);
+    }
+    Log.log(`${uri} opened, task created`);
 });
 
 connection.onDidCloseTextDocument((params) => {
-    // A text document got closed in VSCode.
-    // params.uri uniquely identifies the document.
-    Log.log(`${params.textDocument.uri} closed.`);
+    let uri = params.textDocument.uri;
+    if (!verificationTasks.has(uri)) {
+        //remove no longer needed task
+        verificationTasks.delete(uri);
+    }
+    Log.log(`${params.textDocument.uri} closed, task deleted`);
+});
+
+connection.onDidChangeTextDocument((params) => {
+    //reset the diagnostics for the changed file
+    resetDiagnostics(params.textDocument.uri);
 });
 
 connection.onDidSaveTextDocument((params) => {
@@ -302,20 +127,64 @@ connection.onDidSaveTextDocument((params) => {
     }
 })
 
+function resetDiagnostics(uri: string) {
+    let task = verificationTasks.get(uri);
+    if (!task) {
+        Log.error("no verification Task for file: " + uri);
+        return;
+    }
+    task.resetDiagnostics();
+}
+
 function startOrRestartVerification(uri: string, onlyTypeCheck: boolean) {
-    if (!verificationService.nailgunReady) {
+    
+    if (!nailgunService.ready) {
         Log.log("nailgun not ready yet");
         return;
     }
-    if (verificationService.verificationRunning) {
-        Log.log("verification already running -> abort and restart.");
-        verificationService.abortVerification();
+    
+    let task = verificationTasks.get(uri);
+    if (!task) {
+        Log.error("No verification task found for file: " + uri);
+        return;
     }
-    verifyTextDocument(uri, onlyTypeCheck);
+    if (task.running) {
+        Log.log("verification already running -> abort and restart.");
+        task.abortVerification();
+    }
+    task.verify(backend, onlyTypeCheck);
 }
 
 // Listen on the connection
 connection.listen();
+
+
+/*
+// This handler provides the initial list of the completion items.
+connection.onCompletion((textPositionParams): CompletionItem[] => {
+    // The pass parameter contains the position of the text document in 
+    // which code complete got requested. For the example we ignore this
+    // info and always provide the same completion items.
+    var res = [];
+    let completionItem: CompletionItem = {
+        label: 'invariant',
+        kind: CompletionItemKind.Text,
+        data: 1
+    };
+    res.push(completionItem);
+    return res;
+});
+// This handler resolve additional information for the item selected in
+// the completion list.
+connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
+    //Log.log('onCompletionResolve');
+    if (item.data === 1) {
+        item.detail = 'add an invariant',
+            item.documentation = 'The invariant needs to hold before and after the loop body'
+    }
+    return item;
+});
+*/
 
 function readZ3LogFile(path: string): LogEntry[] {
     let res: LogEntry[] = new Array<LogEntry>();
@@ -409,14 +278,4 @@ function readZ3LogFile(path: string): LogEntry[] {
         Log.error("unknown log-entry-type detected: " + line);
     }
     return res;
-}
-
-function uriToPath(uri: string): string {
-    if (!uri.startsWith("file:")) {
-        Log.error("cannot convert uri to filepath, uri: " + uri);
-    }
-    uri = uri.replace("\%3A", ":");
-    uri = uri.replace("file:\/\/\/", "");
-    uri = uri.replace("\%20", " ");
-    return uri;
 }
