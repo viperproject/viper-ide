@@ -8,8 +8,8 @@ import child_process = require('child_process');
 import {
     IPCMessageReader, IPCMessageWriter,
     createConnection, IConnection, TextDocumentSyncKind,
-    TextDocuments, Diagnostic, DiagnosticSeverity,
-    InitializeParams, InitializeResult, TextDocumentIdentifier,
+    TextDocuments, TextDocument, Diagnostic, DiagnosticSeverity,
+    InitializeParams, InitializeResult, TextDocumentPositionParams,
     CompletionItem, CompletionItemKind, NotificationType,
     RequestType, RequestHandler
 } from 'vscode-languageserver';
@@ -22,6 +22,7 @@ import {VerificationTask} from './VerificationTask'
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
+//let connection: IConnection = createConnection(process.stdin, process.stdout);
 let backend: Backend;
 let documents: TextDocuments = new TextDocuments();
 let verificationTasks: Map<string, VerificationTask> = new Map();
@@ -29,12 +30,14 @@ let nailgunService: NailgunService;
 let settings: IveSettings;
 let workspaceRoot: string;
 
+console.log("SERVER IS ALIVE");
+
 documents.listen(connection);
 
 //starting point (executed once)
 connection.onInitialize((params): InitializeResult => {
     Log.connection = connection;
-    Log.log("connected");
+    Log.log("Viper-IVE-Server is now active!");
     workspaceRoot = params.rootPath;
     nailgunService = new NailgunService();
     nailgunService.startNailgunIfNotRunning();
@@ -92,7 +95,7 @@ connection.onDidChangeConfiguration((change) => {
 
 connection.onDidChangeWatchedFiles((change) => {
     // Monitored files have change in VSCode
-    Log.error("TODO: never happened before: We recevied an file change event")
+    //Log.log("We recevied an file change event")
 });
 
 connection.onDidOpenTextDocument((params) => {
@@ -137,12 +140,12 @@ function resetDiagnostics(uri: string) {
 }
 
 function startOrRestartVerification(uri: string, onlyTypeCheck: boolean) {
-    
+
     if (!nailgunService.ready) {
         Log.log("nailgun not ready yet");
         return;
     }
-    
+
     let task = verificationTasks.get(uri);
     if (!task) {
         Log.error("No verification task found for file: " + uri);
@@ -162,7 +165,7 @@ connection.listen();
 /*
 // This handler provides the initial list of the completion items.
 connection.onCompletion((textPositionParams): CompletionItem[] => {
-    // The pass parameter contains the position of the text document in 
+    // The pass parameter contains the position of the text document in
     // which code complete got requested. For the example we ignore this
     // info and always provide the same completion items.
     var res = [];
@@ -185,7 +188,7 @@ connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
     return item;
 });
 */
-
+/*
 function readZ3LogFile(path: string): LogEntry[] {
     let res: LogEntry[] = new Array<LogEntry>();
     if (!fs.existsSync(path)) {
@@ -279,3 +282,4 @@ function readZ3LogFile(path: string): LogEntry[] {
     }
     return res;
 }
+*/

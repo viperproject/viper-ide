@@ -12,6 +12,8 @@ export class NailgunService {
     nailgunPort = "7654";
     settings: IveSettings;
 
+    isWin = /^win/.test(process.platform);
+
     changeSettings(settings: IveSettings) {
         this.settings = settings;
     }
@@ -31,7 +33,11 @@ export class NailgunService {
 
                 let backendJars = "";
                 this.settings.verificationBackends.forEach(backend => {
-                    backendJars = backendJars + ";" + backend.path; //TODO: for unix it is : instead of ;
+                    if (this.isWin) {
+                        backendJars = backendJars + ";" + backend.path;
+                    } else {
+                        backendJars = backendJars + ":" + backend.path;
+                    }
                 });
 
                 let command = 'java -cp ' + this.settings.nailgunServerJar + backendJars + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + this.nailgunPort;
@@ -62,7 +68,7 @@ export class NailgunService {
     }
 
     public startVerificationProcess(fileToVerify: string, ideMode: boolean, onlyTypeCheck: boolean, backend: Backend): child_process.ChildProcess {
-        return child_process.exec('ng --nailgun-port ' + this.nailgunPort + ' ' + backend.mainMethod + ' --ideMode ' + fileToVerify); // to set current working directory use, { cwd: verifierHome } as an additional parameter
+        return child_process.exec('ng --nailgun-port ' + this.nailgunPort + ' ' + backend.mainMethod + ' --ideMode --logLevel trace ' + fileToVerify); // to set current working directory use, { cwd: verifierHome } as an additional parameter
     }
 
     public startNailgunIfNotRunning() {

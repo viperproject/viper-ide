@@ -2,9 +2,10 @@
 
 import child_process = require('child_process');
 import {IConnection, Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
-import {Backend, IveSettings} from "./Settings"
-import {Log} from './Log'
-import {NailgunService} from './NailgunService'
+import {Backend, IveSettings} from "./Settings";
+import {Log} from './Log';
+import {NailgunService} from './NailgunService';
+import {Statement} from './Statement';
 
 interface Progress {
     current: number;
@@ -29,6 +30,13 @@ class TotalProgress {
     }
 }
 
+enum VerificationState {
+    Initialization,
+    Verifying,
+    Reporting,
+    PrintingHelp
+}
+
 export class VerificationTask {
     fileUri: string;
     nailgunService: NailgunService;
@@ -39,6 +47,9 @@ export class VerificationTask {
     running: boolean = false;
     verifierProcess: child_process.ChildProcess;
     time: number = 0;
+    steps: Statement[];
+
+    state: VerificationState = VerificationState.Initialization;
 
     constructor(fileUri: string, nailgunService: NailgunService, connection: IConnection, backend: Backend) {
         this.fileUri = fileUri;
@@ -52,9 +63,12 @@ export class VerificationTask {
         this.backend = backend;
         this.running = true;
 
+        this.state = VerificationState.Initialization;
+
         //Initialization
         this.resetDiagnostics();
         this.wrongFormat = false;
+        this.steps = [];
 
         Log.log(backend.name + ' verification startet');
 
@@ -93,6 +107,9 @@ export class VerificationTask {
         this.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
         this.connection.sendNotification({ method: "VerificationEnd" }, this.diagnostics.length == 0);
         this.running = false;
+
+        Log.log("Number of Steps: " +this.steps.length);
+        Log.log(this.steps[this.steps.length-1].pretty());
     }
 
     private stdErrHadler(data) {
@@ -105,63 +122,109 @@ export class VerificationTask {
         }
     }
 
+    lines: string[] = [];
+
     private stdOutHadler(data) {
         Log.log('stdout: ' + data);
 
-        if (this.wrongFormat) {
-            return;
-        }
         let stringData: string = data;
         let parts = stringData.split(/\r?\n/g);
-
         for (var i = 0; i < parts.length; i++) {
             let part = parts[i];
-            if (part.startsWith("Command-line interface:")) {
-                Log.error('Could not start verification -> fix format');
-                this.wrongFormat = true;
-            }
-            if (part.startsWith('Silicon finished in') || part.startsWith('carbon finished in')) {
-                this.time = Number.parseFloat(/.*?(\d*\.\d*).*/.exec(part)[1]);
-            }
-            else if (part == 'No errors found.') {
-                Log.log('Successfully verified with ' + this.backend.name + ' in ' + this.time + ' seconds.');
-                this.time = 0;
-            }
-            else if (part.startsWith("{") && part.endsWith("}")) {
-                try {
-                    let progress = new TotalProgress(JSON.parse(part));
-                    Log.log("Progress: " + progress.toPercent());
-                    this.connection.sendNotification({ method: "VerificationProgress" }, progress.toPercent())
-                } catch (e) {
-                    Log.error(e);
-                }
-            }
-            else if (part.startsWith('The following errors were found')) {
-                Log.log(this.backend.name + ': Verification failed after ' + this.time + ' seconds.');
-                this.time = 0;
-            }
-            else if (part.startsWith('  ')) {
-                let pos = /\s*(\d*):(\d*):\s(.*)/.exec(part);
-                if (pos.length != 4) {
-                    Log.error('could not parse error description: "' + part + '"');
-                    return;
-                }
-                let lineNr = +pos[1] - 1;
-                let charNr = +pos[2] - 1;
-                let message = pos[3].trim();
 
-                this.diagnostics.push({
-                    range: {
-                        start: { line: lineNr, character: charNr },
-                        end: { line: lineNr, character: 10000 }//Number.max does not work -> 10000 is an arbitrary large number that does the job
-                    },
-                    source: this.backend.name,
-                    severity: DiagnosticSeverity.Error,
-                    message: message
-                });
+            //skip empty lines
+            if (part.trim().length > 0) {
+                switch (this.state) {
+                    case VerificationState.Initialization:
+                        if (part.startsWith("Command-line interface:")) {
+                            Log.error('Could not start verification -> fix format');
+                            this.state = VerificationState.PrintingHelp;
+                        }
+                        if (part.startsWith("(c) Copyright ETH")) {
+                            this.state = VerificationState.Verifying;
+                        }
+                        break;
+                    case VerificationState.Verifying:
+                        if (part.startsWith('Silicon finished in') || part.startsWith('carbon finished in')) {
+                            this.state = VerificationState.Reporting;
+                            this.time = Number.parseFloat(/.*?(\d*\.\d*).*/.exec(part)[1]);
+                        }
+                        else if (part.startsWith("{") && part.endsWith("}")) {
+                            try {
+                                let progress = new TotalProgress(JSON.parse(part));
+                                Log.log("Progress: " + progress.toPercent());
+                                this.connection.sendNotification({ method: "VerificationProgress" }, progress.toPercent())
+                            } catch (e) {
+                                Log.error(e);
+                            }
+                        }
+                        else if(part.startsWith("----")){
+                            //TODO: handle method mention if needed
+                            return;
+                        }
+                        else if(part.startsWith("h = ")){
+                            //TODO: handle if needed
+                            return;
+                        }
+                        else if (part.startsWith('PRODUCE') || part.startsWith('CONSUME') || part.startsWith('EVAL') || part.startsWith('EXECUTE')) {
+                            if (this.lines.length > 0) {
+                                Log.log("Warning: Ignore "+ this.lines.length + " line(s): First ignored line: "+ this.lines[0]);
+                            }
+                            this.lines = [];
+                            this.lines.push(part);
+                        }
+                        else {
+                            if (part.trim() == ')') {
+                                if (this.lines.length != 6) {
+                                    Log.error("error reading verification trace. Unexpected format.");
+                                } else {
+                                    this.steps.push(new Statement(this.lines[0], this.lines[2], this.lines[3], this.lines[4], this.lines[5]));
+                                    this.lines = [];
+                                }
+                            }
+                            else {
+                                this.lines.push(part);
+                            }
+                        }
+                        break;
+                    case VerificationState.Reporting:
+                        if (part == 'No errors found.') {
+                            this.state = VerificationState.Reporting;
+                            Log.log('Successfully verified with ' + this.backend.name + ' in ' + this.time + ' seconds.');
+                            this.time = 0;
+                        }
+                        else if (part.startsWith('The following errors were found')) {
+                            Log.log(this.backend.name + ': Verification failed after ' + this.time + ' seconds.');
+                            this.time = 0;
+                        }
+                        else if (part.startsWith('  ')) {
+                            let pos = /\s*(\d*):(\d*):\s(.*)/.exec(part);
+                            if (pos.length != 4) {
+                                Log.error('could not parse error description: "' + part + '"');
+                                return;
+                            }
+                            let lineNr = +pos[1] - 1;
+                            let charNr = +pos[2] - 1;
+                            let message = pos[3].trim();
+
+                            this.diagnostics.push({
+                                range: {
+                                    start: { line: lineNr, character: charNr },
+                                    end: { line: lineNr, character: 10000 }//Number.max does not work -> 10000 is an arbitrary large number that does the job
+                                },
+                                source: this.backend.name,
+                                severity: DiagnosticSeverity.Error,
+                                message: message
+                            });
+                        }
+                        break;
+                    case VerificationState.PrintingHelp:
+                        return;
+                }
             }
         }
     }
+
     public abortVerification() {
         Log.log('abort running verification');
         if (!this.running) {

@@ -2,59 +2,102 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 
+//var vscode = require('vscode');
 import * as vscode from 'vscode';
+import * as debug from './debug';
 import * as fs from 'fs';
-//import child_process = require('child_process');
-
+var ps = require('ps-node');
 import * as path from 'path';
-import { workspace, Disposable, ExtensionContext } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind, NotificationType } from 'vscode-languageclient';
-
 import {Timer} from './Timer';
 
 let statusBarItem;
 let server;
+
+let ownContext;
 
 let autoSaver: Timer;
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-
+    ownContext = context;
     console.log('Viper-IVE-Client is now active!');
+    //enableDebugging();
 
-    //colorFileGutter('red');
+    startAutoSaver();
+    startLanguageServer();
+    initializeStatusBar();
+}
 
-    //create statusbar item
+function enableDebugging() {
+    let processPickerDisposable = vscode.commands.registerCommand('extension.pickProcess', () => {
+
+        ps.lookup({
+            psargs: 'ax'
+        }, (err, resultList) => {
+
+            let items = [];
+
+            if (err) {
+                items.push(err.message);
+            } else {
+                resultList.forEach(process => {
+                    if (process && process.command) {
+                        items.push(`${process.command}`);
+                    }
+                });
+            }
+            vscode.window.showQuickPick(items);
+        });
+    });
+
+    ownContext.subscriptions.push(processPickerDisposable);
+}
+
+function initializeStatusBar() {
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     statusBarItem.color = 'white';
     statusBarItem.text = "ready";
     statusBarItem.show();
+    ownContext.subscriptions.push(statusBarItem);
+}
 
-    context.subscriptions.push(statusBarItem);
-
+function startAutoSaver() {
     let autoSaveTimeout = 1000;//ms
     autoSaver = new Timer(() => {
-        if(vscode.window.activeTextEditor != null){
+        if (vscode.window.activeTextEditor != null) {
             vscode.window.activeTextEditor.document.save();
         }
     }, autoSaveTimeout);
 
-    context.subscriptions.push(autoSaver);
+    ownContext.subscriptions.push(autoSaver);
 
+    let onActiveTextEditorChangeDisposable = vscode.window.onDidChangeActiveTextEditor(resetAutoSaver);
+    let onTextEditorSelectionChange = vscode.window.onDidChangeTextEditorSelection(resetAutoSaver);
+    ownContext.subscriptions.push(onActiveTextEditorChangeDisposable);
+    ownContext.subscriptions.push(onTextEditorSelectionChange);
+}
+
+function resetAutoSaver() {
+    autoSaver.reset();
+}
+
+
+function startLanguageServer() {
     // The server is implemented in node
-    let serverModule = context.asAbsolutePath(path.join('server', 'server.js'));
+    let serverModule = ownContext.asAbsolutePath(path.join('server', 'server.js'));
 
     if (!fs.existsSync(serverModule)) {
         console.log(serverModule + " does not exist");
     }
     // The debug options for the server
-    let debugOptions = { execArgv: ["--nolazy", "--debug=5555"] };
+    let debugOptions = { execArgv: ["--nolazy", "--debug=5556"] };
 
     // If the extension is launch in debug mode the debug server options are use
     // Otherwise the run options are used
     let serverOptions: ServerOptions = {
-        run: { module: serverModule, transport: TransportKind.ipc },
+        run: { module: serverModule, transport: TransportKind.ipc},
         debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions }
     }
 
@@ -65,8 +108,8 @@ export function activate(context: vscode.ExtensionContext) {
         synchronize: {
             // Synchronize the setting section 'iveServerSettings' to the server
             configurationSection: 'iveSettings',
-            // Notify the server about file changes to '.clientrc files contain in the workspace
-            fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
+            // Notify the server about file changes to '.sil files contain in the workspace
+            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.sil')
         }
     }
 
@@ -75,9 +118,14 @@ export function activate(context: vscode.ExtensionContext) {
     // Create the language client and start the client.
     let disposable = server.start();
 
-    // Push the disposable to the context's subscriptions so that the 
+    if(!server || !disposable){
+        console.error("LanguageClient is undefined");
+    }
+
+    // Push the disposable to the context's subscriptions so that the
     // client can be deactivated on extension deactivation
-    context.subscriptions.push(disposable);
+    ownContext.subscriptions.push(disposable);
+
 
     server.onNotification({ method: "VerificationStart" }, () => {
         let window = vscode.window;
@@ -85,10 +133,10 @@ export function activate(context: vscode.ExtensionContext) {
         statusBarItem.text = "pre-processing";
         //window.showInformationMessage("verification running");
     });
-    
-    server.onNotification({method: "VerificationProgress"},(progress:number) => {
+
+    server.onNotification({ method: "VerificationProgress" }, (progress: number) => {
         statusBarItem.color = 'orange';
-        statusBarItem.text = "verifying: "+progress+"%"
+        statusBarItem.text = "verifying: " + progress + "%"
     });
 
     server.onNotification({ method: "VerificationEnd" }, (success) => {
@@ -112,37 +160,74 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage(data);
     });
 
+}
+/*
+function colorFileGutter(color: string) {
+    let window = vscode.window;
+    let editor = window.activeTextEditor;
+    let range = new vscode.Range(new vscode.Position(0, 0), new vscode.Position(editor.document.lineCount, Number.MAX_VALUE));
+    colorGutter(color, range);
+}
 
-    function colorFileGutter(color: string) {
-        let window = vscode.window;
-        let editor = window.activeTextEditor;
-        let range = new vscode.Range(new vscode.Position(0, 0), new vscode.Position(editor.document.lineCount, Number.MAX_VALUE));
-        colorGutter(color, range);
+function colorGutter(color: string, range: vscode.Range) {
+    let window = vscode.window;
+    let editor = window.activeTextEditor;
+    let ranges = [];
+    ranges.push(range);
+    var bookmarkDecorationType = vscode.window.createTextEditorDecorationType({
+        overviewRulerColor: color
+    });
+    editor.setDecorations(bookmarkDecorationType, ranges);
+}
+
+function removeDecorations() {
+    let window = vscode.window;
+    let editor = window.activeTextEditor;
+    let selection = editor.selection;
+    let ranges = [];
+    let start = new vscode.Position(0, 0);
+    let end = new vscode.Position(editor.document.lineCount - 1, Number.MAX_VALUE);
+    console.log('Remove decoration on: ' + start.line + ':' + start.character + ' to ' + end.line + ':' + end.character + ".")
+
+    ranges.push(new vscode.Range(start, end));
+    let decorationRenderType = vscode.window.createTextEditorDecorationType({
+        backgroundColor: 'rgba(30,30,30,1)'
+    }); //TODO: get color from theme
+    editor.setDecorations(decorationRenderType, ranges);
+}
+
+function markError(start: vscode.Position, end: vscode.Position, message: string) {
+    console.log('Mark error: ' + start.line + ':' + start.character + ' to ' + end.line + ':' + end.character + ".")
+    let window = vscode.window;
+    let editor = window.activeTextEditor;
+    let range = new vscode.Range(start, end);
+    let diagnostic = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error)
+}
+
+function decorate(start: vscode.Position, end: vscode.Position) {
+    console.log('Decorate ' + start.line + ':' + start.character + ' to ' + end.line + ':' + end.character + ".")
+    let window = vscode.window;
+    let editor = window.activeTextEditor;
+    let ranges = [];
+    ranges.push(new vscode.Range(start, end));
+    let decorationRenderType = vscode.window.createTextEditorDecorationType({
+        backgroundColor: 'red'
+    });
+    editor.setDecorations(decorationRenderType, ranges);
+}
+
+function doesFileExist(path: string): boolean {
+    if (!fs.existsSync(path)) {
+        vscode.window.showInformationMessage('file not found at: ' + path);
+        return false;
     }
+    return true;
+}
+*/
 
-    function colorGutter(color: string, range: vscode.Range) {
-        let window = vscode.window;
-        let editor = window.activeTextEditor;
-        let ranges = [];
-        ranges.push(range);
-        var bookmarkDecorationType = vscode.window.createTextEditorDecorationType({
-            overviewRulerColor: color
-        });
-        editor.setDecorations(bookmarkDecorationType, ranges);
-    }
-
-    function resetAutoSaver() {
-        autoSaver.reset();
-    }
-
-    let onActiveTextEditorChangeDisposable = vscode.window.onDidChangeActiveTextEditor(resetAutoSaver);
-    let onTextEditorSelectionChange = vscode.window.onDidChangeTextEditorSelection(resetAutoSaver);
-    context.subscriptions.push(onActiveTextEditorChangeDisposable);
-    context.subscriptions.push(onTextEditorSelectionChange);
-
-    // let verifyCommandDisposable = vscode.commands.registerCommand('extension.verify', () => {    
+    // let verifyCommandDisposable = vscode.commands.registerCommand('extension.verify', () => {
     // }
-    
+
     // let addBackendDisposable = vscode.commands.registerCommand('extension.addNewBackend', () => {
     //         console.log("add new backend");
     //         let window = vscode.window;
@@ -276,48 +361,5 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(carbonCommandDisposable);
     context.subscriptions.push(siliconCommandDisposable);
     */
-}
 
-function removeDecorations() {
-    let window = vscode.window;
-    let editor = window.activeTextEditor;
-    let selection = editor.selection;
-    let ranges = [];
-    let start = new vscode.Position(0, 0);
-    let end = new vscode.Position(editor.document.lineCount - 1, Number.MAX_VALUE);
-    console.log('Remove decoration on: ' + start.line + ':' + start.character + ' to ' + end.line + ':' + end.character + ".")
 
-    ranges.push(new vscode.Range(start, end));
-    let decorationRenderType = vscode.window.createTextEditorDecorationType({
-        backgroundColor: 'rgba(30,30,30,1)'
-    }); //TODO: get color from theme
-    editor.setDecorations(decorationRenderType, ranges);
-}
-
-function markError(start: vscode.Position, end: vscode.Position, message: string) {
-    console.log('Mark error: ' + start.line + ':' + start.character + ' to ' + end.line + ':' + end.character + ".")
-    let window = vscode.window;
-    let editor = window.activeTextEditor;
-    let range = new vscode.Range(start, end);
-    let diagnostic = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error)
-}
-
-function decorate(start: vscode.Position, end: vscode.Position) {
-    console.log('Decorate ' + start.line + ':' + start.character + ' to ' + end.line + ':' + end.character + ".")
-    let window = vscode.window;
-    let editor = window.activeTextEditor;
-    let ranges = [];
-    ranges.push(new vscode.Range(start, end));
-    let decorationRenderType = vscode.window.createTextEditorDecorationType({
-        backgroundColor: 'red'
-    });
-    editor.setDecorations(decorationRenderType, ranges);
-}
-
-function doesFileExist(path: string): boolean {
-    if (!fs.existsSync(path)) {
-        vscode.window.showInformationMessage('file not found at: ' + path);
-        return false;
-    }
-    return true;
-}

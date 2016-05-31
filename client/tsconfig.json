@@ -1,13 +1,13 @@
 {
-    "compilerOptions": {
-        "module": "commonjs",
-        "target": "es5",
-        "outDir": "out",
-        "noLib": false,
-        "sourceMap": true
-    },
-    "exclude": [
-        "node_modules",
-        "server"
-    ]
+	"compilerOptions": {
+		"target": "es6",
+		"module": "commonjs",
+		"moduleResolution": "node",
+		"inlineSourceMap": true,
+		"outDir": "out",
+		"noImplicitAny": false,
+		"removeComments": false,
+		"preserveConstEnums": true,
+		"noLib": true
+	}
 }
