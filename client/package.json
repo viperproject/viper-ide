@@ -36,7 +36,8 @@
     },
     "scripts": {
         "compile": "node ./node_modules/typescript/bin/tsc -p ./",
-        "watch": "node ./node_modules/typescript/bin/tsc -w -p ./"
+        "watch": "node ./node_modules/typescript/bin/tsc -w -p ./",
+        "install": "node ./node_modules/vscode/bin/install"
     },
     "main": "./out/extension",
     "activationEvents": [
