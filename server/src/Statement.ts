@@ -3,58 +3,79 @@
 //import {Position} from 'vscode';
 import {Log} from './Log';
 
-enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE };
+export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE };
 
 interface Position {
     line: number;
     character: number;
 }
 
+interface Variable {
+    name: string;
+    value: string;
+    variablesReference: number;
+}
+
 export class Statement {
     type: StatementType;
-    position: Position;
+    public position: Position;
     formula: string;
-    store: string[];
+    public store: Variable[];
     heap: string[];
     oldHeap: string[];
     conditions: string[];
 
     constructor(firstLine: string, store: string, heap: string, oldHeap: string, conditions: string) {
         this.parseFirstLine(firstLine);
-        this.store = this.unpack(store);
+        this.store = this.parseVariables(this.unpack(store));
         this.heap = this.unpack(heap);
         this.oldHeap = this.unpack(oldHeap);
         this.conditions = this.unpack(conditions);
     }
 
-    private unpack(line:string): string[] {
+    private parseVariables(vars: string[]): Variable[] {
+        let result = [];
+        vars.forEach((variable) => {
+            let parts: string[] = variable.split('->');
+            if (parts.length == 2) {
+                result.push({ name: parts[0].trim(), value: parts[1].trim(), variablesReference: 0 });
+            }
+            else {
+                //TODO: make sure this doesn't happen
+                result.push({ name: variable, value: "unknown", variablesReference: 0 });
+            }
+        });
+        return result;
+    }
+
+    private unpack(line: string): string[] {
         line = line.trim();
         if (line == "{},") {
             return [];
         } else {
-            line = line.substring(line.indexOf("(")+1, line.lastIndexOf(")"));
+            line = line.substring(line.indexOf("(") + 1, line.lastIndexOf(")"));
             return line.split(",");
         }
     }
 
-    public pretty():string {
-        let res: string = "Type: " + this.type.toString + "\nPosition: " + this.position.line + ":" + this.position.character + "\n";
+    public pretty(): string {
+        let res: string = "Type: " + StatementType[this.type] + "\nPosition: " + this.position.line + ":" + this.position.character + "\n";
         res += "Formula: " + this.formula + "\n";
         res += "Store: \n";
         this.store.forEach(element => {
-            res += "  " + element + "\n"
+            res += "\t" + element.name + " = " + element.value + "\n"
         });
         res += "Heap: \n";
         this.heap.forEach(element => {
-            res += "  " + element + "\n"
+            res += "\t" + element + "\n"
         });
         res += "OldHeap: \n";
         this.oldHeap.forEach(element => {
-            res += "  " + element + "\n"
+            res += "\t" + element + "\n"
         });
         res += "Condition: \n";
         this.conditions.forEach(element => {
-            res += "  " + element + "\n"
+            res += "\t" + element + "\n"
         });
         return res;
     }

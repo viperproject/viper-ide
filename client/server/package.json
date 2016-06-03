@@ -1,0 +1,19 @@
+{
+    "name": "viper-ive-server",
+    "description": "Facilitates the development of Viper programs",
+    "version": "0.0.1",
+    "publisher": "rukaelin",
+    "engines": {
+        "node": "^4.1.1"
+    },
+    "dependencies": {
+		"vscode-languageserver": "^2.2.0"
+	},
+	"devDependencies": {
+		"typescript": "^1.8.9"
+	},
+	"scripts": {
+		"compile": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc -p .",
+		"watch": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc --watch -p ."
+	}
+}

@@ -17,8 +17,10 @@ import {
 import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
 import {Backend, Settings, IveSettings} from './Settings';
-import {NailgunService} from './NailgunService'
-import {VerificationTask} from './VerificationTask'
+import {NailgunService} from './NailgunService';
+import {VerificationTask} from './VerificationTask';
+import {StatementType} from './Statement';
+var ipc = require('node-ipc');
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
@@ -30,7 +32,11 @@ let nailgunService: NailgunService;
 let settings: IveSettings;
 let workspaceRoot: string;
 
+let debuggedVerificationTask: VerificationTask;
+
 console.log("SERVER IS ALIVE");
+
+startIPCServer();
 
 documents.listen(connection);
 
@@ -40,7 +46,7 @@ connection.onInitialize((params): InitializeResult => {
     Log.log("Viper-IVE-Server is now active!");
     workspaceRoot = params.rootPath;
     nailgunService = new NailgunService();
-    nailgunService.startNailgunIfNotRunning();
+    nailgunService.startNailgunIfNotRunning(connection);
     return {
         capabilities: {
             // Tell the client that the server works in FULL text document sync mode
@@ -158,10 +164,127 @@ function startOrRestartVerification(uri: string, onlyTypeCheck: boolean) {
     task.verify(backend, onlyTypeCheck);
 }
 
+connection.onRequest({ method: 'variablesInLine' }, (lineNumber) => {
+    let variables = [];
+    this.steps.forEach(element => {
+        if (element.position.line === lineNumber) {
+            element.store.foreEach(variable => {
+                variables.push({
+                    name: variable,
+                    value: variable,
+                    variablesReference: 0
+                });
+            })
+        }
+    });
+});
+
+
 // Listen on the connection
 connection.listen();
 
+function startIPCServer() {
+    ipc.config.id = 'viper';
+    ipc.config.retry = 1500;
 
+    ipc.serve(
+        function () {
+            ipc.server.on(
+                'log',
+                function (data, socket) {
+                    Log.logWithOrigin("Debugger", data);
+                }
+            );
+            ipc.server.on(
+                'launchRequest',
+                function (data, socket) {
+                    Log.log('Debugging was requested for file: ' + data);
+                    let uri = VerificationTask.pathToUri(data);
+                    debuggedVerificationTask = verificationTasks.get(uri);
+                    let response = "true";
+                    if (!debuggedVerificationTask) {
+                        Log.error("No Debug information available for uri: " + uri);
+                        response = "false";
+                    }
+                    ipc.server.emit(
+                        socket,
+                        'launchResponse',
+                        response
+                    );
+                }
+            );
+            ipc.server.on(
+                'variablesInLineRequest',
+                function (data, socket) {
+                    Log.log('got a variables request for line ' + data);
+                    let lineNumber: number;
+                    try {
+                        lineNumber = data - 0;
+                    } catch (error) {
+                        Log.error("Wrong format");
+                    }
+
+                    let variables = [];
+                    if (debuggedVerificationTask) {
+                        let steps = debuggedVerificationTask.getStepsOnLine(lineNumber);
+                        if (steps.length > 0) {
+                            steps[0].store.forEach((variable) => {
+                                variables.push(variable);
+                            });
+                        }
+                    } else {
+                        Log.error("no debuggedVerificationTask available");
+                    }
+
+                    ipc.server.emit(
+                        socket,
+                        'variablesInLineResponse',
+                        JSON.stringify(variables)
+                    );
+                }
+            );
+
+            ipc.server.on(
+                'evaluateRequest',
+                function (data, socket) {
+                    Log.log(`evaluate(context: '${data.context}', '${data.expression}')`);
+
+                    ipc.server.emit(
+                        socket,
+                        'evaluateResponse'
+                    );
+                }
+            );
+
+            ipc.server.on(
+                'stackTraceRequest',
+                function (data, socket) {
+                    Log.log('stack trace request for line ' + data);
+                    let lineNumber: number;
+                    try {
+                        lineNumber = data - 0;
+                    } catch (error) {
+                        Log.error("Wrong format");
+                    }
+                    let stepsOnLine = [];
+                    if (debuggedVerificationTask) {
+                        let steps = debuggedVerificationTask.getStepsOnLine(lineNumber);
+                        steps.forEach((step) => {
+                            stepsOnLine.push({ "type": StatementType[step.type], position:step.position });
+                        });
+                    }
+                    ipc.server.emit(
+                        socket,
+                        'stackTraceResponse',
+                        JSON.stringify(stepsOnLine)
+                    );
+                }
+            );
+        }
+    );
+
+    ipc.server.start();
+}
 /*
 // This handler provides the initial list of the completion items.
 connection.onCompletion((textPositionParams): CompletionItem[] => {

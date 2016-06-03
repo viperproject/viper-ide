@@ -1,6 +1,6 @@
 // Place your settings in this file to overwrite default and user settings.
 {
     "telemetry.enableCrashReporter": false,
-    "telemetry.enableTelemetry": false,
-    "files.trimTrailingWhitespace": true
+    "telemetry.enableTelemetry": false
+    //"files.trimTrailingWhitespace": true
 }

@@ -2,32 +2,52 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 
-//var vscode = require('vscode');
-import * as vscode from 'vscode';
+
 import * as debug from './debug';
 import * as fs from 'fs';
 var ps = require('ps-node');
 import * as path from 'path';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind, NotificationType } from 'vscode-languageclient';
 import {Timer} from './Timer';
+import * as vscode from 'vscode';
+import {ExtensionState} from './ExtensionState';
+
+import {DebugContentProvider} from './TextDocumentContentProvider';
 
 let statusBarItem;
-let server;
-
 let ownContext;
 
 let autoSaver: Timer;
+let previewUri = vscode.Uri.parse('viper-preview://debug');
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
     ownContext = context;
     console.log('Viper-IVE-Client is now active!');
-    //enableDebugging();
-
+    enableDebugging();
     startAutoSaver();
     startLanguageServer();
     initializeStatusBar();
+
+    //registerTextDocumentProvider()
+    //showSecondWindow()
+}
+
+let provider;
+
+function registerTextDocumentProvider(){
+    provider = new DebugContentProvider();
+    let registration = vscode.workspace.registerTextDocumentContentProvider('viper-preview', provider);
+}
+
+function showSecondWindow() {
+    provider.update(previewUri);
+    showSecondWindow();
+    return vscode.commands.executeCommand('vscode.previewHtml', previewUri, vscode.ViewColumn.Two).then((success) => {
+    }, (reason) => {
+        vscode.window.showErrorMessage(reason);
+    });
 }
 
 function enableDebugging() {
@@ -57,8 +77,8 @@ function enableDebugging() {
 
 function initializeStatusBar() {
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-    statusBarItem.color = 'white';
-    statusBarItem.text = "ready";
+    statusBarItem.color = 'orange';
+    statusBarItem.text = "starting";
     statusBarItem.show();
     ownContext.subscriptions.push(statusBarItem);
 }
@@ -97,7 +117,7 @@ function startLanguageServer() {
     // If the extension is launch in debug mode the debug server options are use
     // Otherwise the run options are used
     let serverOptions: ServerOptions = {
-        run: { module: serverModule, transport: TransportKind.ipc},
+        run: { module: serverModule, transport: TransportKind.ipc },
         debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions }
     }
 
@@ -113,12 +133,12 @@ function startLanguageServer() {
         }
     }
 
-    server = new LanguageClient('Language Server', serverOptions, clientOptions);
+    ExtensionState.client = new LanguageClient('Language Server', serverOptions, clientOptions);
 
     // Create the language client and start the client.
-    let disposable = server.start();
+    let disposable = ExtensionState.client.start();
 
-    if(!server || !disposable){
+    if (!ExtensionState.client || !disposable) {
         console.error("LanguageClient is undefined");
     }
 
@@ -126,20 +146,24 @@ function startLanguageServer() {
     // client can be deactivated on extension deactivation
     ownContext.subscriptions.push(disposable);
 
+    ExtensionState.client.onNotification({ method: "NailgunReady" }, () => {
+        let window = vscode.window;
+        statusBarItem.color = 'white';
+        statusBarItem.text = "ready";
+    });
 
-    server.onNotification({ method: "VerificationStart" }, () => {
+    ExtensionState.client.onNotification({ method: "VerificationStart" }, () => {
         let window = vscode.window;
         statusBarItem.color = 'orange';
         statusBarItem.text = "pre-processing";
-        //window.showInformationMessage("verification running");
     });
 
-    server.onNotification({ method: "VerificationProgress" }, (progress: number) => {
+    ExtensionState.client.onNotification({ method: "VerificationProgress" }, (progress: number) => {
         statusBarItem.color = 'orange';
         statusBarItem.text = "verifying: " + progress + "%"
     });
 
-    server.onNotification({ method: "VerificationEnd" }, (success) => {
+    ExtensionState.client.onNotification({ method: "VerificationEnd" }, (success) => {
         let window = vscode.window;
         if (success) {
             statusBarItem.color = 'lightgreen';
@@ -152,15 +176,15 @@ function startLanguageServer() {
         //window.showInformationMessage("verification finished");
     });
 
-    server.onNotification({ method: "InvalidSettings" }, (data) => {
+    ExtensionState.client.onNotification({ method: "InvalidSettings" }, (data) => {
         vscode.window.showInformationMessage("Invalid settings: " + data);
     });
 
-    server.onNotification({ method: "Hint" }, (data) => {
+    ExtensionState.client.onNotification({ method: "Hint" }, (data: string) => {
         vscode.window.showInformationMessage(data);
     });
-
 }
+
 /*
 function colorFileGutter(color: string) {
     let window = vscode.window;

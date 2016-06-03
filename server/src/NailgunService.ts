@@ -22,7 +22,7 @@ export class NailgunService {
         return (this.nailgunProcess != null);
     }
 
-    private startNailgunServer() {
+    private startNailgunServer(connection) {
         if (!this.nailgunStarted()) {
 
             let killOldNailgunProcess = child_process.exec('ng --nailgun-port ' + this.nailgunPort + ' ng-stop');
@@ -51,6 +51,7 @@ export class NailgunService {
                         tempProcess.on('exit', (code, signal) => {
                             this.ready = true;
                             Log.log("Nailgun started");
+                             connection.sendNotification({ method: "NailgunReady" });
                         });
                     }
                 });
@@ -71,10 +72,10 @@ export class NailgunService {
         return child_process.exec('ng --nailgun-port ' + this.nailgunPort + ' ' + backend.mainMethod + ' --ideMode --logLevel trace ' + fileToVerify); // to set current working directory use, { cwd: verifierHome } as an additional parameter
     }
 
-    public startNailgunIfNotRunning() {
+    public startNailgunIfNotRunning(connection) {
         //startNailgun if it is not already running:
         if (!this.nailgunStarted()) {
-            this.startNailgunServer();
+            this.startNailgunServer(connection);
         }
     }
 }

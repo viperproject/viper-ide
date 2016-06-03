@@ -74,7 +74,7 @@ export class VerificationTask {
 
         this.connection.sendNotification({ method: "VerificationStart" });
 
-        let path = this.uriToPath(this.fileUri);
+        let path = VerificationTask.uriToPath(this.fileUri);
 
         //start verification of current file
         let currfile = '"' + path + '"';
@@ -91,14 +91,26 @@ export class VerificationTask {
         this.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
     }
 
-    uriToPath(uri: string): string {
+    public static uriToPath(uri: string): string {
         if (!uri.startsWith("file:")) {
             Log.error("cannot convert uri to filepath, uri: " + uri);
         }
-        uri = uri.replace("\%3A", ":");
+        uri = uri.replace(/\%3A/g, ":");
+        //"replace" only replaces the first occurence of a string, /:/g replaces all
         uri = uri.replace("file:\/\/\/", "");
-        uri = uri.replace("\%20", " ");
+        uri = uri.replace(/\%20/g, " ");
+        uri = uri.replace(/\//g, "\\");
         return uri;
+    }
+
+    public static pathToUri(path: string): string {
+        if (path.startsWith("\\") || path.startsWith("/") || path.startsWith("file")) {
+            Log.error("cannot convert path to uri, path: " + path);
+        }
+        path = path.replace(/:/g, "\%3A");
+        path = path.replace(/ /g, "\%20");
+        path = path.replace(/\\/g, "/");
+        return "file:///" + path;
     }
 
     private verificationCompletionHandler(code) {
@@ -108,8 +120,8 @@ export class VerificationTask {
         this.connection.sendNotification({ method: "VerificationEnd" }, this.diagnostics.length == 0);
         this.running = false;
 
-        Log.log("Number of Steps: " +this.steps.length);
-        Log.log(this.steps[this.steps.length-1].pretty());
+        Log.log("Number of Steps: " + this.steps.length);
+        Log.log(this.steps[this.steps.length - 1].pretty());
     }
 
     private stdErrHadler(data) {
@@ -158,17 +170,17 @@ export class VerificationTask {
                                 Log.error(e);
                             }
                         }
-                        else if(part.startsWith("----")){
+                        else if (part.startsWith("----")) {
                             //TODO: handle method mention if needed
                             return;
                         }
-                        else if(part.startsWith("h = ")){
+                        else if (part.startsWith("h = ")) {
                             //TODO: handle if needed
                             return;
                         }
                         else if (part.startsWith('PRODUCE') || part.startsWith('CONSUME') || part.startsWith('EVAL') || part.startsWith('EXECUTE')) {
                             if (this.lines.length > 0) {
-                                Log.log("Warning: Ignore "+ this.lines.length + " line(s): First ignored line: "+ this.lines[0]);
+                                Log.log("Warning: Ignore " + this.lines.length + " line(s): First ignored line: " + this.lines[0]);
                             }
                             this.lines = [];
                             this.lines.push(part);
@@ -242,5 +254,15 @@ export class VerificationTask {
         this.verifierProcess.kill('SIGINT');
         let l = this.verifierProcess.listeners;
         this.running = false;
+    }
+
+    public getStepsOnLine(line: number): Statement[] {
+        let result = [];
+        this.steps.forEach((step) => {
+            if (step.position.line == line) {
+                result.push(step);
+            }
+        })
+        return result;
     }
 }
