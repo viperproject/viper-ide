@@ -91,33 +91,11 @@ export class VerificationTask {
         this.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
     }
 
-    public static uriToPath(uri: string): string {
-        if (!uri.startsWith("file:")) {
-            Log.error("cannot convert uri to filepath, uri: " + uri);
-        }
-        uri = uri.replace(/\%3A/g, ":");
-        //"replace" only replaces the first occurence of a string, /:/g replaces all
-        uri = uri.replace("file:\/\/\/", "");
-        uri = uri.replace(/\%20/g, " ");
-        uri = uri.replace(/\//g, "\\");
-        return uri;
-    }
-
-    public static pathToUri(path: string): string {
-        if (path.startsWith("\\") || path.startsWith("/") || path.startsWith("file")) {
-            Log.error("cannot convert path to uri, path: " + path);
-        }
-        path = path.replace(/:/g, "\%3A");
-        path = path.replace(/ /g, "\%20");
-        path = path.replace(/\\/g, "/");
-        return "file:///" + path;
-    }
-
     private verificationCompletionHandler(code) {
         Log.log(`Child process exited with code ${code}`);
         // Send the computed diagnostics to VSCode.
         this.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
-        this.connection.sendNotification({ method: "VerificationEnd" }, this.diagnostics.length == 0);
+        this.connection.sendNotification({ method: "VerificationEnd" }, this.diagnostics.length == 0 && code == 0);
         this.running = false;
 
         Log.log("Number of Steps: " + this.steps.length);
@@ -132,8 +110,10 @@ export class VerificationTask {
         if (data.startsWith("java.lang.ClassNotFoundException:")) {
             this.connection.sendNotification({ method: "Hint" }, "Class " + this.backend.mainMethod + " is unknown to Nailgun");
         }
+        else {
+            this.connection.sendNotification({ method: "Hint" }, "Error starting nailgun, is the NG executable in your Path environment variable? " + data);
+        }
     }
-
     lines: string[] = [];
 
     private stdOutHadler(data) {
@@ -264,5 +244,28 @@ export class VerificationTask {
             }
         })
         return result;
+    }
+
+//uri helper Methods
+    public static uriToPath(uri: string): string {
+        if (!uri.startsWith("file:")) {
+            Log.error("cannot convert uri to filepath, uri: " + uri);
+        }
+        uri = uri.replace(/\%3A/g, ":");
+        //"replace" only replaces the first occurence of a string, /:/g replaces all
+        uri = uri.replace("file:\/\/\/", "");
+        uri = uri.replace(/\%20/g, " ");
+        uri = uri.replace(/\//g, "\\");
+        return uri;
+    }
+
+    public static pathToUri(path: string): string {
+        if (path.startsWith("\\") || path.startsWith("/") || path.startsWith("file")) {
+            Log.error("cannot convert path to uri, path: " + path);
+        }
+        path = path.replace(/:/g, "\%3A");
+        path = path.replace(/ /g, "\%20");
+        path = path.replace(/\\/g, "/");
+        return "file:///" + path;
     }
 }

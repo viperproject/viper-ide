@@ -8,7 +8,7 @@ import child_process = require('child_process');
 import {
     IPCMessageReader, IPCMessageWriter,
     createConnection, IConnection, TextDocumentSyncKind,
-    TextDocuments, TextDocument, Diagnostic, DiagnosticSeverity,
+    TextDocuments, TextDocument, TextDocumentIdentifier, Diagnostic, DiagnosticSeverity,
     InitializeParams, InitializeResult, TextDocumentPositionParams,
     CompletionItem, CompletionItemKind, NotificationType,
     RequestType, RequestHandler
@@ -46,7 +46,6 @@ connection.onInitialize((params): InitializeResult => {
     Log.log("Viper-IVE-Server is now active!");
     workspaceRoot = params.rootPath;
     nailgunService = new NailgunService();
-    nailgunService.startNailgunIfNotRunning(connection);
     return {
         capabilities: {
             // Tell the client that the server works in FULL text document sync mode
@@ -73,29 +72,20 @@ connection.onExit(() => {
 connection.onDidChangeConfiguration((change) => {
     Log.log('configuration changed');
     settings = <IveSettings>change.settings.iveSettings;
-    let backends = settings.verificationBackends;
 
     //pass the new settings to the verificationService
     nailgunService.changeSettings(settings);
-
-    let error = Settings.valid(backends);
-    if (!error) {
-        if (!settings.nailgunServerJar || settings.nailgunServerJar.length == 0) {
-            error = "Path to nailgun server jar is missing"
-        } else {
-            let envVar = Settings.extractEnvVar(settings.nailgunServerJar)
-            if (!envVar) {
-                error = "Environment varaible " + settings.nailgunServerJar + " is not set."
-            } else {
-                settings.nailgunServerJar = envVar;
-            }
-        }
-    }
+    
+    //check settings
+    let error = Settings.areSettingsValid(settings);
     if (error) {
-        connection.sendNotification({ method: "InvalidSettings" }, "Settings: " + error);
+        connection.sendNotification({ method: "InvalidSettings" }, error);
         return;
     }
+    let backends = settings.verificationBackends;
     backend = backends[0];
+    
+    nailgunService.startNailgunIfNotRunning(connection);
     //TODO: decide whether to restart Nailgun or not
 });
 
@@ -105,36 +95,60 @@ connection.onDidChangeWatchedFiles((change) => {
 });
 
 connection.onDidOpenTextDocument((params) => {
-    let uri = params.textDocument.uri;
-    if (!verificationTasks.has(uri)) {
-        //create new task for opened file
-        let task = new VerificationTask(uri, nailgunService, connection, backend);
-        verificationTasks.set(uri, task);
+    if (isSiliconFile(params.textDocument)) {
+        let uri = params.textDocument.uri;
+        if (!verificationTasks.has(uri)) {
+            //create new task for opened file
+            let task = new VerificationTask(uri, nailgunService, connection, backend);
+            verificationTasks.set(uri, task);
+        }
+        Log.log(`${uri} opened, task created`);
     }
-    Log.log(`${uri} opened, task created`);
 });
 
 connection.onDidCloseTextDocument((params) => {
-    let uri = params.textDocument.uri;
-    if (!verificationTasks.has(uri)) {
-        //remove no longer needed task
-        verificationTasks.delete(uri);
+    if (isSiliconFile(params.textDocument)) {
+        let uri = params.textDocument.uri;
+        if (!verificationTasks.has(uri)) {
+            //remove no longer needed task
+            verificationTasks.delete(uri);
+        }
+        Log.log(`${params.textDocument.uri} closed, task deleted`);
     }
-    Log.log(`${params.textDocument.uri} closed, task deleted`);
 });
 
 connection.onDidChangeTextDocument((params) => {
     //reset the diagnostics for the changed file
-    resetDiagnostics(params.textDocument.uri);
+    if (isSiliconFile(params.textDocument)) {
+        resetDiagnostics(params.textDocument.uri);
+    }
 });
 
 connection.onDidSaveTextDocument((params) => {
-    if (params.textDocument.uri.endsWith(".sil")) {
+    if (isSiliconFile(params.textDocument)) {
         startOrRestartVerification(params.textDocument.uri, false)
     } else {
         Log.log("This system can only verify .sil files");
     }
 })
+
+connection.onRequest({ method: 'variablesInLine' }, (lineNumber) => {
+    let variables = [];
+    this.steps.forEach(element => {
+        if (element.position.line === lineNumber) {
+            element.store.foreEach(variable => {
+                variables.push({
+                    name: variable,
+                    value: variable,
+                    variablesReference: 0
+                });
+            })
+        }
+    });
+});
+
+// Listen on the connection
+connection.listen();
 
 function resetDiagnostics(uri: string) {
     let task = verificationTasks.get(uri);
@@ -164,25 +178,11 @@ function startOrRestartVerification(uri: string, onlyTypeCheck: boolean) {
     task.verify(backend, onlyTypeCheck);
 }
 
-connection.onRequest({ method: 'variablesInLine' }, (lineNumber) => {
-    let variables = [];
-    this.steps.forEach(element => {
-        if (element.position.line === lineNumber) {
-            element.store.foreEach(variable => {
-                variables.push({
-                    name: variable,
-                    value: variable,
-                    variablesReference: 0
-                });
-            })
-        }
-    });
-});
+function isSiliconFile(document: TextDocumentIdentifier): boolean {
+    return document.uri.endsWith(".sil");
+}
 
-
-// Listen on the connection
-connection.listen();
-
+//communication with debugger
 function startIPCServer() {
     ipc.config.id = 'viper';
     ipc.config.retry = 1500;
@@ -270,7 +270,7 @@ function startIPCServer() {
                     if (debuggedVerificationTask) {
                         let steps = debuggedVerificationTask.getStepsOnLine(lineNumber);
                         steps.forEach((step) => {
-                            stepsOnLine.push({ "type": StatementType[step.type], position:step.position });
+                            stepsOnLine.push({ "type": StatementType[step.type], position: step.position });
                         });
                     }
                     ipc.server.emit(

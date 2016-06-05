@@ -4,15 +4,13 @@ import child_process = require('child_process');
 
 import {Backend} from "./Settings"
 import {Log} from './Log'
-import {IveSettings} from './Settings'
+import {IveSettings, Settings} from './Settings'
 
 export class NailgunService {
     nailgunProcess: child_process.ChildProcess;
     ready: boolean = false;
     nailgunPort = "7654";
     settings: IveSettings;
-
-    isWin = /^win/.test(process.platform);
 
     changeSettings(settings: IveSettings) {
         this.settings = settings;
@@ -31,14 +29,7 @@ export class NailgunService {
                 Log.log('starting nailgun server');
                 //start the nailgun server for both silicon and carbon
 
-                let backendJars = "";
-                this.settings.verificationBackends.forEach(backend => {
-                    if (this.isWin) {
-                        backendJars = backendJars + ";" + backend.path;
-                    } else {
-                        backendJars = backendJars + ":" + backend.path;
-                    }
-                });
+                let backendJars = Settings.backendJars(this.settings);
 
                 let command = 'java -cp ' + this.settings.nailgunServerJar + backendJars + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + this.nailgunPort;
                 Log.log(command)
@@ -51,7 +42,7 @@ export class NailgunService {
                         tempProcess.on('exit', (code, signal) => {
                             this.ready = true;
                             Log.log("Nailgun started");
-                             connection.sendNotification({ method: "NailgunReady" });
+                            connection.sendNotification({ method: "NailgunReady" });
                         });
                     }
                 });
@@ -69,7 +60,9 @@ export class NailgunService {
     }
 
     public startVerificationProcess(fileToVerify: string, ideMode: boolean, onlyTypeCheck: boolean, backend: Backend): child_process.ChildProcess {
-        return child_process.exec('ng --nailgun-port ' + this.nailgunPort + ' ' + backend.mainMethod + ' --ideMode --logLevel trace ' + fileToVerify); // to set current working directory use, { cwd: verifierHome } as an additional parameter
+        let command = this.settings.nailgunClient + ' --nailgun-port ' + this.nailgunPort + ' ' + backend.mainMethod + ' --ideMode --logLevel trace ' + fileToVerify;
+        Log.log(command);
+        return child_process.exec(command); // to set current working directory use, { cwd: verifierHome } as an additional parameter
     }
 
     public startNailgunIfNotRunning(connection) {

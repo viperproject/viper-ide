@@ -36,7 +36,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 let provider;
 
-function registerTextDocumentProvider(){
+function registerTextDocumentProvider() {
     provider = new DebugContentProvider();
     let registration = vscode.workspace.registerTextDocumentContentProvider('viper-preview', provider);
 }
@@ -177,8 +177,17 @@ function startLanguageServer() {
     });
 
     ExtensionState.client.onNotification({ method: "InvalidSettings" }, (data) => {
-        vscode.window.showInformationMessage("Invalid settings: " + data);
-    });
+        let buttons: vscode.MessageItem = { title: "Open Settings" };
+
+        vscode.window.showInformationMessage("Invalid settings: " + data, buttons).then((choice) => {
+            if (choice.title === "Open Settings") {
+                let settingsPath = ownContext.asAbsolutePath(path.join('.vscode','settings.json'));
+                //TODO: create TextDocument from path
+                let settingsDocument:vscode.TextDocument;
+                vscode.window.showTextDocument(settingsDocument);
+            }
+        });
+    });5
 
     ExtensionState.client.onNotification({ method: "Hint" }, (data: string) => {
         vscode.window.showInformationMessage(data);
