@@ -15,6 +15,7 @@ import {ExtensionState} from './ExtensionState';
 import {DebugContentProvider} from './TextDocumentContentProvider';
 
 let statusBarItem;
+let statusBarProgress;
 let ownContext;
 
 let autoSaver: Timer;
@@ -43,9 +44,8 @@ function registerTextDocumentProvider() {
 
 function showSecondWindow() {
     provider.update(previewUri);
-    showSecondWindow();
-    return vscode.commands.executeCommand('vscode.previewHtml', previewUri, vscode.ViewColumn.Two).then((success) => {
-    }, (reason) => {
+    //showSecondWindow();
+    return vscode.commands.executeCommand('vscode.previewHtml', previewUri, vscode.ViewColumn.Two).then((success) => { }, (reason) => {
         vscode.window.showErrorMessage(reason);
     });
 }
@@ -80,13 +80,18 @@ function initializeStatusBar() {
     statusBarItem.color = 'orange';
     statusBarItem.text = "starting";
     statusBarItem.show();
+
+    statusBarProgress = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+
     ownContext.subscriptions.push(statusBarItem);
+    ownContext.subscriptions.push(statusBarProgress);
 }
 
 function startAutoSaver() {
     let autoSaveTimeout = 1000;//ms
     autoSaver = new Timer(() => {
-        if (vscode.window.activeTextEditor != null) {
+        //only save silver files
+        if (vscode.window.activeTextEditor != null && vscode.window.activeTextEditor.document.languageId == 'silver') {
             vscode.window.activeTextEditor.document.save();
         }
     }, autoSaveTimeout);
@@ -156,11 +161,17 @@ function startLanguageServer() {
         let window = vscode.window;
         statusBarItem.color = 'orange';
         statusBarItem.text = "pre-processing";
+        
+        statusBarProgress.text = progressBarText(0);
+        statusBarProgress.show();
     });
 
     ExtensionState.client.onNotification({ method: "VerificationProgress" }, (progress: number) => {
         statusBarItem.color = 'orange';
         statusBarItem.text = "verifying: " + progress + "%"
+        
+        statusBarProgress.text = progressBarText(progress);
+        statusBarProgress.show();
     });
 
     ExtensionState.client.onNotification({ method: "VerificationEnd" }, (success) => {
@@ -173,6 +184,7 @@ function startLanguageServer() {
             statusBarItem.color = 'red';
             statusBarItem.text = `$(x) failed`;
         }
+        statusBarProgress.hide();
         //window.showInformationMessage("verification finished");
     });
 
@@ -181,17 +193,35 @@ function startLanguageServer() {
 
         vscode.window.showInformationMessage("Invalid settings: " + data, buttons).then((choice) => {
             if (choice.title === "Open Settings") {
-                let settingsPath = ownContext.asAbsolutePath(path.join('.vscode','settings.json'));
-                //TODO: create TextDocument from path
-                let settingsDocument:vscode.TextDocument;
-                vscode.window.showTextDocument(settingsDocument);
+
+                let settingsPath = path.join(vscode.workspace.rootPath, '.vscode', 'settings.json');
+                showFile(settingsPath);
             }
         });
-    });5
+    });
 
     ExtensionState.client.onNotification({ method: "Hint" }, (data: string) => {
         vscode.window.showInformationMessage(data);
     });
+}
+
+function showFile(filePath: string) {
+    let resource = vscode.Uri.file(filePath);
+
+    vscode.workspace.openTextDocument(resource).then((doc) => {
+        vscode.window.showTextDocument(doc, vscode.ViewColumn.Two);
+    });
+}
+
+function progressBarText(progress:number):string{
+    let bar = "";
+        for (var i = 0; i < progress / 10; i++) {
+            bar = bar + "O";
+        }
+        for (var i = 10; i > progress / 10; i--) {
+            bar = bar + "_";
+        }
+        return bar;
 }
 
 /*

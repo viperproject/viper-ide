@@ -147,6 +147,12 @@ connection.onRequest({ method: 'variablesInLine' }, (lineNumber) => {
     });
 });
 
+
+// connection.onRequest({ method: 'uriToTextDocument' }, (uri) => {
+//     let doc  = Text
+// });
+
+
 // Listen on the connection
 connection.listen();
 
