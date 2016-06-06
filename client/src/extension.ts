@@ -76,15 +76,15 @@ function enableDebugging() {
 }
 
 function initializeStatusBar() {
-    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    statusBarProgress = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left,11);
+
+    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left,10);
     statusBarItem.color = 'orange';
     statusBarItem.text = "starting";
     statusBarItem.show();
-
-    statusBarProgress = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-
-    ownContext.subscriptions.push(statusBarItem);
+    
     ownContext.subscriptions.push(statusBarProgress);
+    ownContext.subscriptions.push(statusBarItem);
 }
 
 function startAutoSaver() {
@@ -108,7 +108,6 @@ function resetAutoSaver() {
     autoSaver.reset();
 }
 
-
 function startLanguageServer() {
     // The server is implemented in node
     let serverModule = ownContext.asAbsolutePath(path.join('server', 'server.js'));
@@ -118,7 +117,7 @@ function startLanguageServer() {
     }
     // The debug options for the server
     let debugOptions = { execArgv: ["--nolazy", "--debug=5556"] };
-
+    
     // If the extension is launch in debug mode the debug server options are use
     // Otherwise the run options are used
     let serverOptions: ServerOptions = {
@@ -203,6 +202,18 @@ function startLanguageServer() {
     ExtensionState.client.onNotification({ method: "Hint" }, (data: string) => {
         vscode.window.showInformationMessage(data);
     });
+    
+    ExtensionState.client.onRequest({ method: "UriToPath" }, (uri: string) => {
+        let uriObject: vscode.Uri = vscode.Uri.parse(uri);
+        let platformIndependentPath = uriObject.fsPath;
+        return platformIndependentPath;
+    });
+    
+    ExtensionState.client.onRequest({ method: "PathToUri" }, (path: string) => {
+        let uriObject: vscode.Uri = vscode.Uri.parse(path);
+        let platformIndependentUri = uriObject.toString();
+        return platformIndependentUri;
+    });
 }
 
 function showFile(filePath: string) {
@@ -216,10 +227,10 @@ function showFile(filePath: string) {
 function progressBarText(progress:number):string{
     let bar = "";
         for (var i = 0; i < progress / 10; i++) {
-            bar = bar + "O";
+            bar = bar + "⚫";
         }
         for (var i = 10; i > progress / 10; i--) {
-            bar = bar + "_";
+            bar = bar + "⚪";
         }
         return bar;
 }

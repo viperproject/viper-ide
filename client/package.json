@@ -4,6 +4,10 @@
     "version": "0.0.1",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
+    "repository": {
+        "type":"hg",
+        "url": "https://bitbucket.org/viperproject/viper-ide"
+    },
     "author": {
         "name": "Ruben Kälin",
         "email": "rukaelin@student.ethz.ch"
@@ -38,7 +42,7 @@
     "scripts": {
         "compile": "node ./node_modules/typescript/bin/tsc -p ./",
         "watch": "node ./node_modules/typescript/bin/tsc -w -p ./",
-        "install": "node ./node_modules/vscode/bin/install"
+        "postinstall": "node ./node_modules/vscode/bin/install"
     },
     "main": "./out/extension",
     "activationEvents": [
@@ -124,7 +128,7 @@
                 "iveSettings.nailgunClient": {
                     "type": "string",
                     "default": "ng",
-                    "description": "The path to the nailgun client exe.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
+                    "description": "The path to the nailgun client executable.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
                 }
             }
         },

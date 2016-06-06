@@ -5,7 +5,8 @@
         "server":true
     },
     "search.exclude": {
-        "out": true // set this to false to include "out" folder in search results
+        "out": true,
+        "server":true // set this to false to include "out" folder in search results
     },
     "telemetry.enableCrashReporter": false,
     "telemetry.enableTelemetry": false,

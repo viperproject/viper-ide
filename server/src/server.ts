@@ -75,16 +75,15 @@ connection.onDidChangeConfiguration((change) => {
 
     //pass the new settings to the verificationService
     nailgunService.changeSettings(settings);
-    
+
     //check settings
-    let error = Settings.areSettingsValid(settings);
+    let error = Settings.checkSettings(settings);
     if (error) {
         connection.sendNotification({ method: "InvalidSettings" }, error);
         return;
     }
-    let backends = settings.verificationBackends;
-    backend = backends[0];
-    
+    backend = settings.verificationBackends[0];
+
     nailgunService.startNailgunIfNotRunning(connection);
     //TODO: decide whether to restart Nailgun or not
 });
@@ -136,7 +135,7 @@ connection.onRequest({ method: 'variablesInLine' }, (lineNumber) => {
     let variables = [];
     this.steps.forEach(element => {
         if (element.position.line === lineNumber) {
-            element.store.foreEach(variable => {
+            element.store.forEach(variable => {
                 variables.push({
                     name: variable,
                     value: variable,
@@ -205,18 +204,19 @@ function startIPCServer() {
                 'launchRequest',
                 function (data, socket) {
                     Log.log('Debugging was requested for file: ' + data);
-                    let uri = VerificationTask.pathToUri(data);
-                    debuggedVerificationTask = verificationTasks.get(uri);
-                    let response = "true";
-                    if (!debuggedVerificationTask) {
-                        Log.error("No Debug information available for uri: " + uri);
-                        response = "false";
-                    }
-                    ipc.server.emit(
-                        socket,
-                        'launchResponse',
-                        response
-                    );
+                    VerificationTask.pathToUri(data).then((uri) => {
+                        debuggedVerificationTask = verificationTasks.get(uri);
+                        let response = "true";
+                        if (!debuggedVerificationTask) {
+                            Log.error("No Debug information available for uri: " + uri);
+                            response = "false";
+                        }
+                        ipc.server.emit(
+                            socket,
+                            'launchResponse',
+                            response
+                        );
+                    });
                 }
             );
             ipc.server.on(

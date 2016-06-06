@@ -1,6 +1,8 @@
 // Place your settings in this file to overwrite default and user settings.
 {
     "telemetry.enableCrashReporter": false,
-    "telemetry.enableTelemetry": false
+    "telemetry.enableTelemetry": false,
     //"files.trimTrailingWhitespace": true
+    
+    "typescript.tsdk": "./node_modules/typescript/lib"
 }

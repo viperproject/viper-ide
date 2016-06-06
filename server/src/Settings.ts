@@ -23,14 +23,20 @@ export class Settings {
 
     public static isWin = /^win/.test(process.platform);
 
-    public static areSettingsValid(settings: IveSettings): string {
+    private static valid: boolean = false;
+
+    public static areValid(): boolean {
+        return Settings.valid;
+    }
+
+    public static checkSettings(settings: IveSettings): string {
         let error = Settings.areBackendsValid(settings.verificationBackends);
         if (!error) {
             if (!settings.nailgunServerJar || settings.nailgunServerJar.length == 0) {
                 error = "Path to nailgun server jar is missing"
             } else {
                 let envVar = Settings.extractEnvVar(settings.nailgunServerJar)
-                if (!Settings.exists(envVar)) {
+                if (!Settings.exists(envVar, false)) {
                     error = "No file found at path: " + envVar;
                 }
                 settings.nailgunServerJar = envVar;
@@ -41,22 +47,24 @@ export class Settings {
                 error = "Path to nailgun client executable is missing"
             } else {
                 let envVar = Settings.extractEnvVar(settings.nailgunClient)
-                if (!Settings.exists(envVar)) {
+                if (!Settings.exists(envVar, true)) {
                     error = "No file found at path: " + envVar;
+                } else {
+                    settings.nailgunClient = envVar;
                 }
-                settings.nailgunClient = envVar;
             }
         }
+        Settings.valid = !error;
         return error;
     }
 
-    private static exists(filePath: string): boolean {
+    private static exists(filePath: string, isExecutable: boolean): boolean {
         if (fs.existsSync(filePath)) {
             return true;
         }
         if (filePath.indexOf("/") < 0 && filePath.indexOf("\\") < 0) {
             //check if the pointed file is accessible via path variable
-            
+
             // commandExists(filePath, function (err, commandExists) {
             //     if (commandExists) {
             //         return true;
@@ -66,18 +74,21 @@ export class Settings {
             //     }
             // });
 
-            let pathEnvVar = process.env.PATH;
-            let paths:string[];
+            let pathEnvVar: string = process.env.PATH;
+            let paths: string[];
             if (Settings.isWin) {
                 paths = pathEnvVar.split(";");
+                if (isExecutable && filePath.indexOf(".") < 0) {
+                    filePath = filePath + ".exe";
+                }
             } else {
                 paths = pathEnvVar.split(":");
             }
-            
-            return paths.some((element)=>{
-                if(fs.existsSync(path.join(element,filePath))){
+
+            return paths.some((element) => {
+                if (fs.existsSync(path.join(element, filePath))) {
                     return true;
-                }else{
+                } else {
                     return false;
                 }
             });

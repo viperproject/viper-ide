@@ -1,7 +1,7 @@
 'use strict';
 
 import child_process = require('child_process');
-import {IConnection, Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
+import {IConnection, Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
 import {Backend, IveSettings} from "./Settings";
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
@@ -40,7 +40,7 @@ enum VerificationState {
 export class VerificationTask {
     fileUri: string;
     nailgunService: NailgunService;
-    connection: IConnection;
+    static connection: IConnection;
     wrongFormat: boolean = false;
     diagnostics: Diagnostic[];
     backend: Backend;
@@ -55,7 +55,7 @@ export class VerificationTask {
         this.fileUri = fileUri;
         this.nailgunService = nailgunService;
         this.backend = backend;
-        this.connection = connection;
+        VerificationTask.connection = connection;
     }
 
     verify(backend: Backend, onlyTypeCheck: boolean): void {
@@ -72,52 +72,53 @@ export class VerificationTask {
 
         Log.log(backend.name + ' verification startet');
 
-        this.connection.sendNotification({ method: "VerificationStart" });
+        VerificationTask.connection.sendNotification(Log.verificationStart);
 
-        let path = VerificationTask.uriToPath(this.fileUri);
+        VerificationTask.uriToPath(this.fileUri).then((path) => {
+            //start verification of current file
+            let currfile = '"' + path + '"';
 
-        //start verification of current file
-        let currfile = '"' + path + '"';
-
-        this.verifierProcess = this.nailgunService.startVerificationProcess(currfile, true, onlyTypeCheck, backend);
-        //subscribe handlers
-        this.verifierProcess.stdout.on('data', this.stdOutHadler.bind(this));
-        this.verifierProcess.stderr.on('data', this.stdErrHadler.bind(this));
-        this.verifierProcess.on('close', this.verificationCompletionHandler.bind(this));
+            this.verifierProcess = this.nailgunService.startVerificationProcess(currfile, true, onlyTypeCheck, backend);
+            //subscribe handlers
+            this.verifierProcess.stdout.on('data', this.stdOutHadler.bind(this));
+            this.verifierProcess.stderr.on('data', this.stdErrHadler.bind(this));
+            this.verifierProcess.on('close', this.verificationCompletionHandler.bind(this));
+        });
     }
 
     resetDiagnostics() {
         this.diagnostics = [];
-        this.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
+        VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
     }
 
     private verificationCompletionHandler(code) {
         Log.log(`Child process exited with code ${code}`);
         // Send the computed diagnostics to VSCode.
-        this.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
-        this.connection.sendNotification({ method: "VerificationEnd" }, this.diagnostics.length == 0 && code == 0);
+        VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
+        VerificationTask.connection.sendNotification(Log.verificationEnd, this.diagnostics.length == 0 && code == 0);
         this.running = false;
 
         Log.log("Number of Steps: " + this.steps.length);
-        Log.log(this.steps[this.steps.length - 1].pretty());
+        //Log.log(this.steps[this.steps.length - 1].pretty());
     }
 
     private stdErrHadler(data) {
         Log.error(`stderr: ${data}`);
         if (data.startsWith("connect: No error")) {
-            this.connection.sendNotification({ method: "Hint" }, "No Nailgun server is running on port " + this.nailgunService.nailgunPort);
+            Log.hint("No Nailgun server is running on port " + this.nailgunService.nailgunPort);
         }
         if (data.startsWith("java.lang.ClassNotFoundException:")) {
-            this.connection.sendNotification({ method: "Hint" }, "Class " + this.backend.mainMethod + " is unknown to Nailgun");
+            Log.hint("Class " + this.backend.mainMethod + " is unknown to Nailgun");
         }
         else {
-            this.connection.sendNotification({ method: "Hint" }, "Error starting nailgun, is the NG executable in your Path environment variable? " + data);
+            //this can lead to many error messages
+            Log.error("cannot start nailgun, is ng in PATH? " + data);
         }
     }
     lines: string[] = [];
 
     private stdOutHadler(data) {
-        Log.log('stdout: ' + data);
+        //Log.log('stdout: ' + data);
 
         let stringData: string = data;
         let parts = stringData.split(/\r?\n/g);
@@ -145,7 +146,7 @@ export class VerificationTask {
                             try {
                                 let progress = new TotalProgress(JSON.parse(part));
                                 Log.log("Progress: " + progress.toPercent());
-                                this.connection.sendNotification({ method: "VerificationProgress" }, progress.toPercent())
+                                VerificationTask.connection.sendNotification(Log.verificationProgress, progress.toPercent())
                             } catch (e) {
                                 Log.error(e);
                             }
@@ -246,26 +247,55 @@ export class VerificationTask {
         return result;
     }
 
-//uri helper Methods
-    public static uriToPath(uri: string): string {
-        if (!uri.startsWith("file:")) {
-            Log.error("cannot convert uri to filepath, uri: " + uri);
-        }
-        uri = uri.replace(/\%3A/g, ":");
+    //uri helper Methods
+    public static uriToPath(uri: string): Thenable<string> {
+        return new Promise((resolve, reject) => {
+            //input check
+            if (!uri.startsWith("file:")) {
+                Log.error("cannot convert uri to filepath, uri: " + uri);
+                return resolve(uri);
+            }
+            VerificationTask.connection.sendRequest({ method: "UriToPath" }, uri).then((path) => {
+                return resolve(path);
+            });
+        });
+        /*
+        //version 2
+        let path = uri.replace(/\%3A/g, ":");
         //"replace" only replaces the first occurence of a string, /:/g replaces all
-        uri = uri.replace("file:\/\/\/", "");
-        uri = uri.replace(/\%20/g, " ");
-        uri = uri.replace(/\//g, "\\");
-        return uri;
+        path = path.replace("file:\/\/\/", "");
+        path = path.replace(/\%20/g, " ");
+        path = path.replace(/\//g, "\\");
+
+        if (platformIndependentPath != path) {
+            Log.error("UriToPath: path:\t\t" + path + "\nplatformIndependentPath: " + platformIndependentPath);
+        }
+        return platformIndependentPath;
+        */
     }
 
-    public static pathToUri(path: string): string {
-        if (path.startsWith("\\") || path.startsWith("/") || path.startsWith("file")) {
-            Log.error("cannot convert path to uri, path: " + path);
+    public static pathToUri(path: string): Thenable<string> {
+        return new Promise((resolve, reject) => {
+            //input check
+            if (path.startsWith("file")) {
+                Log.error("cannot convert path to uri, path: " + path);
+                return resolve(path);
+            }
+            VerificationTask.connection.sendRequest({ method: "PathToUri" }, path).then((uri) => {
+                return resolve(uri);
+            });
+        });
+        /*
+        //version 2
+        let uri = path.replace(/:/g, "\%3A");
+        uri = uri.replace(/ /g, "\%20");
+        uri = uri.replace(/\\/g, "/");
+        uri = "file:///" + uri;
+        
+        if(platformIndependentUri != uri){
+            Log.error("UriToPath: uri:\t\t"+uri + "\nplatformIndependentPath: "+ platformIndependentUri);    
         }
-        path = path.replace(/:/g, "\%3A");
-        path = path.replace(/ /g, "\%20");
-        path = path.replace(/\\/g, "/");
-        return "file:///" + path;
+        return platformIndependentUri;
+        */
     }
 }
