@@ -8,20 +8,7 @@ This repository contains the source files of the VS Code Extension, installation
 
 You can download the installer for VS Code from here: https://code.visualstudio.com/download
 
-#### OsX
-
-TODO: the rest is still old
-
-#### 2. Get the IDE files
-
-Clone this repository to the Sublime Packages directory:
-
-```bash
-$ cd ~/Library/Application\ Support/Sublime\ Text\ 3/Packages
-$ hg clone ssh://hg@bitbucket.org/viperproject/viper-sublime-ide Silver
-```
-
-#### 3. Create jar-files for verification backends
+#### 2. Create jar-files for verification backends
 
 Assemble (or otherwise obtain) a fat jar for each Viper backend (Silicon, Carbon, ...) you want to use from the IDE.
 
@@ -39,7 +26,7 @@ $ mkdir -p ~/Library/Java/Extensions
 $ cp ~/viper/silicon/target/scala-2.11/silicon.jar ~/Library/Java/Extensions
 ```
 
-#### 4. Install nailgun
+#### 3. Install nailgun
 
 Optionally, if you don't want to wait for a few seconds for each verification procedure
 (known as the JVM startup overhead), install [nailgun](http://martiansoftware.com/nailgun):
@@ -64,17 +51,24 @@ $ ../maven/bin.mvn dependency::tree
 $ cp nailgun-server-0.9.2-SNAPSHOT.jar ~/Library/Java/Extensions
 ```
 
-Finally, run the following command to start nailgun-server:
+#### 4. Install the Extension
 
-```bash
-$ java com.martiansoftware.nailgun.NGServer
-```
+install the viper IVE extension using the command pallete (f1 or ctrl+alt+p/cmd+alt+p) ```ext install viper-ive```
+
+#### 5. Setup the IDE
+
+Start VS Code and the folder in which you would like to work on your viper source code files.  
+Open the settings through the menu or using the command pallete (f1 or ctrl+alt+p/cmd+alt+p) ```settings```  
+you can either open the user settings which are valid for this user  
+or you can open the workspace settings which are only valid for the currently open folder  
+
+Copy the iveSettings from the default settings to your own settings.  
+You need to specify at least one verificationBackend, (the first one will be used for verification)  
+and point to the Nailgun server.  
+The paths to the jar files can be either set as an Environment Variable or explicitly as paths.
+The nailgun client needs to be in the Path Environment Variable
 
 #### 5. Run the IDE
 
-Run Sublime Text and open a ```.sil``` source file. To verify a Silver program,
-choose the right Viper backend from the menu (Tools-Build With...). Make sure that
-the correct build system is selected (Tools-Build System-Silver).
-
-
-Please find more detailed instructions on the Viper Wiki: https://bitbucket.org/viperproject/documentation/wiki/browse/
+Start VS Code and as soon as a ```.sil``` source file is opened the extension is activated.  
+When the file is saved the verification is triggered. 
