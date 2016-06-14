@@ -16,7 +16,7 @@
         "vscode": "^1.0.0",
         "node": "^4.1.1"
     },
-    "icon": "images/viper_dunkelorange_icon.pdf",
+    "icon": "images/viper_Icon.png",
     "categories": [
         "Languages",
         "Other",
