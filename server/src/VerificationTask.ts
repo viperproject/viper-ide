@@ -93,12 +93,18 @@ export class VerificationTask {
 
     private verificationCompletionHandler(code) {
         Log.log(`Child process exited with code ${code}`);
+
+        if(code != 0 && code != 1 && code != 899){
+            Log.hint("Verification Backend Terminated Abnormaly: with code "+ code);
+        }
+
         // Send the computed diagnostics to VSCode.
         VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
         VerificationTask.connection.sendNotification(Log.verificationEnd, this.diagnostics.length == 0 && code == 0);
         this.running = false;
 
         Log.log("Number of Steps: " + this.steps.length);
+        //show last state
         //Log.log(this.steps[this.steps.length - 1].pretty());
     }
 
@@ -107,12 +113,15 @@ export class VerificationTask {
         if (data.startsWith("connect: No error")) {
             Log.hint("No Nailgun server is running on port " + this.nailgunService.nailgunPort);
         }
-        if (data.startsWith("java.lang.ClassNotFoundException:")) {
+        else if (data.startsWith("java.lang.ClassNotFoundException:")) {
             Log.hint("Class " + this.backend.mainMethod + " is unknown to Nailgun");
+        }
+        else if(data.startsWith("java.lang.StackOverflowError")){
+            Log.hint("StackOverflowError in Verification Backend");
         }
         else {
             //this can lead to many error messages
-            Log.error("cannot start nailgun, is ng in PATH? " + data);
+            Log.error(data);
         }
     }
     lines: string[] = [];

@@ -23,7 +23,7 @@ export class NailgunService {
     private startNailgunServer(connection) {
         if (!this.nailgunStarted()) {
 
-            let killOldNailgunProcess = child_process.exec('ng --nailgun-port ' + this.nailgunPort + ' ng-stop');
+            let killOldNailgunProcess = child_process.exec(this.settings.nailgunClient + ' --nailgun-port ' + this.nailgunPort + ' ng-stop');
 
             killOldNailgunProcess.on('exit', (code, signal) => {
                 Log.log('starting nailgun server');
@@ -53,10 +53,23 @@ export class NailgunService {
     }
 
     public stopNailgunServer() {
+        let stopped = false;
         if (this.nailgunProcess) {
-            Log.log('shutting down nailgun server');
-            this.nailgunProcess.kill('SIGINT');
+            Log.log('gracefully shutting down nailgun server');
+            let shutDownNailgunProcess = child_process.exec(this.settings.nailgunClient + ' --nailgun-port ' + this.nailgunPort + ' ng-stop');
+            shutDownNailgunProcess.on('exit', (code, signal) => {
+                Log.log("nailgun server is stopped");
+                stopped = true;
+            });
+            //this.killNailgunServer();
         }
+        while(!stopped){}
+    }
+    
+    private killNailgunServer(){
+        Log.log('killing nailgun server, this may leave its sub processes running');
+        //this.nailgunProcess.kill('SIGINT');
+        process.kill(this.nailgunProcess.pid);
     }
 
     public startVerificationProcess(fileToVerify: string, ideMode: boolean, onlyTypeCheck: boolean, backend: Backend): child_process.ChildProcess {

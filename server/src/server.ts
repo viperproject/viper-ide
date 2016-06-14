@@ -34,8 +34,7 @@ let workspaceRoot: string;
 
 let debuggedVerificationTask: VerificationTask;
 
-console.log("SERVER IS ALIVE");
-
+//for communication with debugger
 startIPCServer();
 
 documents.listen(connection);
@@ -65,6 +64,12 @@ documents.onDidChangeContent((change) => {
 });
 
 connection.onExit(() => {
+    Log.log("On Exit");
+    //nailgunService.stopNailgunServer();
+})
+
+connection.onShutdown(() => {
+    Log.log("On Shutdown");
     nailgunService.stopNailgunServer();
 })
 
@@ -146,6 +151,10 @@ connection.onRequest({ method: 'variablesInLine' }, (lineNumber) => {
     });
 });
 
+connection.onRequest({ method: 'Dispose' }, (lineNumber) => {
+    nailgunService.stopNailgunServer();
+    return null;
+});
 
 // connection.onRequest({ method: 'uriToTextDocument' }, (uri) => {
 //     let doc  = Text

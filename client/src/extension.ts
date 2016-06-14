@@ -2,7 +2,6 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 
-
 import * as debug from './debug';
 import * as fs from 'fs';
 var ps = require('ps-node');
@@ -16,26 +15,39 @@ import {DebugContentProvider} from './TextDocumentContentProvider';
 
 let statusBarItem;
 let statusBarProgress;
-let ownContext;
-
 let autoSaver: Timer;
 let previewUri = vscode.Uri.parse('viper-preview://debug');
+let state: ExtensionState;
+
+let enableSecondWindow: boolean = false;
+let enableDebuging: boolean = false;
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-    ownContext = context;
     console.log('Viper-IVE-Client is now active!');
-    enableDebugging();
+    state = new ExtensionState();
+    context.subscriptions.push(state);
+    state.startLanguageServer(context, false);
+    if (enableDebuging) {
+        provideDebugging();
+    }
     startAutoSaver();
-    startLanguageServer();
+    registerHandlers();
     initializeStatusBar();
 
-    //registerTextDocumentProvider()
-    //showSecondWindow()
+    if (enableSecondWindow) {
+        registerTextDocumentProvider();
+        showSecondWindow();
+    }
 }
 
-let provider;
+export function deactivate() {
+    console.log("deactivate");
+    state.dispose();
+}
+
+let provider: DebugContentProvider;
 
 function registerTextDocumentProvider() {
     provider = new DebugContentProvider();
@@ -44,13 +56,12 @@ function registerTextDocumentProvider() {
 
 function showSecondWindow() {
     provider.update(previewUri);
-    //showSecondWindow();
     return vscode.commands.executeCommand('vscode.previewHtml', previewUri, vscode.ViewColumn.Two).then((success) => { }, (reason) => {
         vscode.window.showErrorMessage(reason);
     });
 }
 
-function enableDebugging() {
+function provideDebugging() {
     let processPickerDisposable = vscode.commands.registerCommand('extension.pickProcess', () => {
 
         ps.lookup({
@@ -72,19 +83,19 @@ function enableDebugging() {
         });
     });
 
-    ownContext.subscriptions.push(processPickerDisposable);
+    state.context.subscriptions.push(processPickerDisposable);
 }
 
 function initializeStatusBar() {
-    statusBarProgress = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left,11);
+    statusBarProgress = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 11);
 
-    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left,10);
+    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
     statusBarItem.color = 'orange';
     statusBarItem.text = "starting";
     statusBarItem.show();
-    
-    ownContext.subscriptions.push(statusBarProgress);
-    ownContext.subscriptions.push(statusBarItem);
+
+    state.context.subscriptions.push(statusBarProgress);
+    state.context.subscriptions.push(statusBarItem);
 }
 
 function startAutoSaver() {
@@ -93,87 +104,49 @@ function startAutoSaver() {
         //only save silver files
         if (vscode.window.activeTextEditor != null && vscode.window.activeTextEditor.document.languageId == 'silver') {
             vscode.window.activeTextEditor.document.save();
+            if (enableSecondWindow) {
+            showSecondWindow();
+            }
         }
     }, autoSaveTimeout);
 
-    ownContext.subscriptions.push(autoSaver);
+    state.context.subscriptions.push(autoSaver);
 
     let onActiveTextEditorChangeDisposable = vscode.window.onDidChangeActiveTextEditor(resetAutoSaver);
     let onTextEditorSelectionChange = vscode.window.onDidChangeTextEditorSelection(resetAutoSaver);
-    ownContext.subscriptions.push(onActiveTextEditorChangeDisposable);
-    ownContext.subscriptions.push(onTextEditorSelectionChange);
+    state.context.subscriptions.push(onActiveTextEditorChangeDisposable);
+    state.context.subscriptions.push(onTextEditorSelectionChange);
 }
 
 function resetAutoSaver() {
     autoSaver.reset();
 }
 
-function startLanguageServer() {
-    // The server is implemented in node
-    let serverModule = ownContext.asAbsolutePath(path.join('server', 'server.js'));
-
-    if (!fs.existsSync(serverModule)) {
-        console.log(serverModule + " does not exist");
-    }
-    // The debug options for the server
-    let debugOptions = { execArgv: ["--nolazy", "--debug=5556"] };
-    
-    // If the extension is launch in debug mode the debug server options are use
-    // Otherwise the run options are used
-    let serverOptions: ServerOptions = {
-        run: { module: serverModule, transport: TransportKind.ipc },
-        debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions }
-    }
-
-    // Options to control the language client
-    let clientOptions: LanguageClientOptions = {
-        // Register the server for plain text documents
-        documentSelector: ['silver'],
-        synchronize: {
-            // Synchronize the setting section 'iveServerSettings' to the server
-            configurationSection: 'iveSettings',
-            // Notify the server about file changes to '.sil files contain in the workspace
-            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.sil')
-        }
-    }
-
-    ExtensionState.client = new LanguageClient('Language Server', serverOptions, clientOptions);
-
-    // Create the language client and start the client.
-    let disposable = ExtensionState.client.start();
-
-    if (!ExtensionState.client || !disposable) {
-        console.error("LanguageClient is undefined");
-    }
-
-    // Push the disposable to the context's subscriptions so that the
-    // client can be deactivated on extension deactivation
-    ownContext.subscriptions.push(disposable);
-
-    ExtensionState.client.onNotification({ method: "NailgunReady" }, () => {
+function registerHandlers() {
+    state.client.onNotification({ method: "NailgunReady" }, () => {
         let window = vscode.window;
         statusBarItem.color = 'white';
         statusBarItem.text = "ready";
     });
 
-    ExtensionState.client.onNotification({ method: "VerificationStart" }, () => {
+    state.client.onNotification({ method: "VerificationStart" }, () => {
         let window = vscode.window;
         statusBarItem.color = 'orange';
         statusBarItem.text = "pre-processing";
-        
+
         statusBarProgress.text = progressBarText(0);
         statusBarProgress.show();
     });
 
-    ExtensionState.client.onNotification({ method: "VerificationProgress" }, (progress: number) => {
+    state.client.onNotification({ method: "VerificationProgress" }, (progress: number) => {
         statusBarItem.color = 'orange';
         statusBarItem.text = "verifying: " + progress + "%"
-        
+
         statusBarProgress.text = progressBarText(progress);
         statusBarProgress.show();
     });
 
-    ExtensionState.client.onNotification({ method: "VerificationEnd" }, (success) => {
+    state.client.onNotification({ method: "VerificationEnd" }, (success) => {
         let window = vscode.window;
         if (success) {
             statusBarItem.color = 'lightgreen';
@@ -187,7 +160,7 @@ function startLanguageServer() {
         //window.showInformationMessage("verification finished");
     });
 
-    ExtensionState.client.onNotification({ method: "InvalidSettings" }, (data) => {
+    state.client.onNotification({ method: "InvalidSettings" }, (data) => {
         let buttons: vscode.MessageItem = { title: "Open Settings" };
 
         vscode.window.showInformationMessage("Invalid settings: " + data, buttons).then((choice) => {
@@ -199,17 +172,17 @@ function startLanguageServer() {
         });
     });
 
-    ExtensionState.client.onNotification({ method: "Hint" }, (data: string) => {
+    state.client.onNotification({ method: "Hint" }, (data: string) => {
         vscode.window.showInformationMessage(data);
     });
-    
-    ExtensionState.client.onRequest({ method: "UriToPath" }, (uri: string) => {
+
+    state.client.onRequest({ method: "UriToPath" }, (uri: string) => {
         let uriObject: vscode.Uri = vscode.Uri.parse(uri);
         let platformIndependentPath = uriObject.fsPath;
         return platformIndependentPath;
     });
-    
-    ExtensionState.client.onRequest({ method: "PathToUri" }, (path: string) => {
+
+    state.client.onRequest({ method: "PathToUri" }, (path: string) => {
         let uriObject: vscode.Uri = vscode.Uri.parse(path);
         let platformIndependentUri = uriObject.toString();
         return platformIndependentUri;
@@ -218,21 +191,20 @@ function startLanguageServer() {
 
 function showFile(filePath: string) {
     let resource = vscode.Uri.file(filePath);
-
     vscode.workspace.openTextDocument(resource).then((doc) => {
         vscode.window.showTextDocument(doc, vscode.ViewColumn.Two);
     });
 }
 
-function progressBarText(progress:number):string{
+function progressBarText(progress: number): string {
     let bar = "";
-        for (var i = 0; i < progress / 10; i++) {
-            bar = bar + "⚫";
-        }
-        for (var i = 10; i > progress / 10; i--) {
-            bar = bar + "⚪";
-        }
-        return bar;
+    for (var i = 0; i < progress / 10; i++) {
+        bar = bar + "⚫";
+    }
+    for (var i = 10; i > progress / 10; i--) {
+        bar = bar + "⚪";
+    }
+    return bar;
 }
 
 /*
