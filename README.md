@@ -59,16 +59,14 @@ install the viper IVE extension using the command pallete (f1 or ctrl+alt+p/cmd+
 
 Start VS Code and the folder in which you would like to work on your viper source code files.  
 Open the settings through the menu or using the command pallete (f1 or ctrl+alt+p/cmd+alt+p) ```settings```  
-you can either open the user settings which are valid for this user  
-or you can open the workspace settings which are only valid for the currently open folder  
+You can either open the user settings which are valid for this user or you can open the workspace settings which are only valid for the currently open folder.  
 
 Copy the iveSettings from the default settings to your own settings.  
-You need to specify at least one verificationBackend, (the first one will be used for verification)  
-and point to the Nailgun server.  
+You need to specify at least one verificationBackend, (the first one will be used for verification) and point to the Nailgun server.  
 The paths to the jar files can be either set as an Environment Variable or explicitly as paths.
-The nailgun client needs to be in the Path Environment Variable
+The nailgun client needs to be in the Path Environment Variable.
 
 #### 5. Run the IDE
 
 Start VS Code and as soon as a ```.sil``` source file is opened the extension is activated.  
-When the file is saved the verification is triggered. 
+When the file is saved the verification is triggered.
