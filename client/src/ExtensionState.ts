@@ -3,10 +3,13 @@ import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, T
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import {VerificationState,Commands} from './ViperProtocol';
 
 export class ExtensionState {
     public client: LanguageClient;
     public context: vscode.ExtensionContext;
+
+    public state:VerificationState;
     
     private languageServerDisposable;
 
@@ -35,8 +38,8 @@ export class ExtensionState {
             synchronize: {
                 // Synchronize the setting section 'iveServerSettings' to the server
                 configurationSection: 'iveSettings',
-                // Notify the server about file changes to '.sil files contain in the workspace
-                fileEvents: vscode.workspace.createFileSystemWatcher('**/*.sil')
+                // Notify the server about file changes to .sil or .vpr files contain in the workspace
+                fileEvents: vscode.workspace.createFileSystemWatcher('**/*.sil, **/*.vpr')
             }
         }
 
@@ -52,19 +55,19 @@ export class ExtensionState {
     }
     
     public dispose(){
-        let stopped = false;
+        //let stopped = false;
         console.log("Ask language server to shut down.");
-        this.client.sendRequest({method:"Dispose"},(error)=>{
+        this.client.sendRequest(Commands.Dispose,(error)=>{
             console.log("Language server has shut down, terminate the connection");
             this.languageServerDisposable.dispose();
-            stopped = true;
+            //stopped = true;
         })
-        let firstTime = true;
+        /*let firstTime = true;
         while(!stopped){
             if(firstTime){
                 console.log("waiting");
             }
         }
-        console.log("done waiting");
+        console.log("done waiting");*/
     }
 }

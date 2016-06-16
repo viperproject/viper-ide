@@ -20,6 +20,8 @@ import {Backend, Settings, IveSettings} from './Settings';
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {StatementType} from './Statement';
+import {Commands,VerificationState} from './ViperProtocol'
+
 var ipc = require('node-ipc');
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
@@ -84,13 +86,27 @@ connection.onDidChangeConfiguration((change) => {
     //check settings
     let error = Settings.checkSettings(settings);
     if (error) {
-        connection.sendNotification({ method: "InvalidSettings" }, error);
+        Log.log("Invalid Settings detected")
+        connection.sendNotification(Commands.InvalidSettings, error);
         return;
     }
-    backend = settings.verificationBackends[0];
 
-    nailgunService.startNailgunIfNotRunning(connection);
-    //TODO: decide whether to restart Nailgun or not
+    //ask the user to pick a backend;
+    Log.log("Ask user to select backend");
+    if (settings.verificationBackends.length > 0) {
+        connection.sendRequest(Commands.AskUserToSelectBackend, Settings.getBackendNames(settings));
+    }
+});
+
+connection.onRequest(Commands.SelectBackend, (selectedBackend: string) => {
+    for (var i = 0; i < settings.verificationBackends.length; i++) {
+        let elem = settings.verificationBackends[i];
+        if (elem.name == selectedBackend) {
+            backend = elem;
+            break;
+        }
+    }
+    nailgunService.restartNailgunServer(connection, backend);
 });
 
 connection.onDidChangeWatchedFiles((change) => {
@@ -132,7 +148,7 @@ connection.onDidSaveTextDocument((params) => {
     if (isSiliconFile(params.textDocument)) {
         startOrRestartVerification(params.textDocument.uri, false)
     } else {
-        Log.log("This system can only verify .sil files");
+        Log.log("This system can only verify .sil and .vpr files");
     }
 })
 
@@ -151,15 +167,10 @@ connection.onRequest({ method: 'variablesInLine' }, (lineNumber) => {
     });
 });
 
-connection.onRequest({ method: 'Dispose' }, (lineNumber) => {
+connection.onRequest(Commands.Dispose, (lineNumber) => {
     nailgunService.stopNailgunServer();
     return null;
 });
-
-// connection.onRequest({ method: 'uriToTextDocument' }, (uri) => {
-//     let doc  = Text
-// });
-
 
 // Listen on the connection
 connection.listen();
@@ -174,6 +185,13 @@ function resetDiagnostics(uri: string) {
 }
 
 function startOrRestartVerification(uri: string, onlyTypeCheck: boolean) {
+
+    //if no backend was selected
+    if (!backend) {
+        Log.log("no backend has beed selected, the first was picked by default.");
+        backend = settings.verificationBackends[0];
+        nailgunService.startNailgunIfNotRunning(connection, backend);
+    }
 
     if (!nailgunService.ready) {
         Log.log("nailgun not ready yet");
@@ -193,7 +211,7 @@ function startOrRestartVerification(uri: string, onlyTypeCheck: boolean) {
 }
 
 function isSiliconFile(document: TextDocumentIdentifier): boolean {
-    return document.uri.endsWith(".sil");
+    return document.uri.endsWith(".sil") || document.uri.endsWith(".vpr");
 }
 
 //communication with debugger

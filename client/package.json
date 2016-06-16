@@ -1,11 +1,11 @@
 {
     "name": "viper-ive",
     "displayName": "Viper-IVE",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "repository": {
-        "type":"hg",
+        "type": "hg",
         "url": "https://bitbucket.org/viperproject/viper-ide"
     },
     "author": {
@@ -70,7 +70,8 @@
             {
                 "id": "silver",
                 "extensions": [
-                    ".sil"
+                    ".sil",
+                    ".vpr"
                 ],
                 "aliases": [
                     "Silver",
@@ -106,15 +107,14 @@
         ],
         "configuration": {
             "type": "object",
-            "title": "Example Configuration",
+            "title": "Viper-IVE Configuration",
             "properties": {
                 "iveSettings.verificationBackends": {
                     "type": "array",
                     "default": [
                         {
                             "name": "silicon",
-                            "command": "silicon",
-                            "filePath": "%SILICON_JAR%",
+                            "paths": ["%SILICON_JAR%"],
                             "mainMethod": "viper.silicon.SiliconRunner"
                         }
                     ],
@@ -123,12 +123,17 @@
                 "iveSettings.nailgunServerJar": {
                     "type": "string",
                     "default": "%NAILGUN_SERVER_JAR%",
-                    "description": "The path to the nailgun server jar.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
+                    "description": "The path to the nailgun server jar or the folder containg the jars.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
                 },
                 "iveSettings.nailgunClient": {
                     "type": "string",
                     "default": "ng",
-                    "description": "The path to the nailgun client executable.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
+                    "description": "The path to the nailgun client executable.\n    // Use %ENV_VAR% for environment variables, C:\\\\path\\\\to\\\\file.jar for paths, or ng if its folder is in the PATH environment variable."
+                },
+                "iveSettings.z3Executable": {
+                    "type": "string",
+                    "default": "z3",
+                    "description": "The path to the z3 executable.\n    // Use %ENV_VAR% for environment variables, C:\\\\path\\\\to\\\\file.jar for paths, or z3 if its folder is in the PATH environment variable."
                 }
             }
         },

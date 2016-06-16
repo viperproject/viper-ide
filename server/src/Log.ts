@@ -1,12 +1,10 @@
 'use strict';
 
 import {IConnection} from 'vscode-languageserver';
+import {Commands} from './ViperProtocol';
 
 export class Log {
     static connection: IConnection;
-    static verificationStart = { method: "VerificationStart" }
-    static verificationEnd = { method: "VerificationEnd" }
-    static verificationProgress = { method: "VerificationProgress" }
 
     static log(message: string) {
         this.connection.console.log("S: " + message);
@@ -21,12 +19,6 @@ export class Log {
     }
 
     static hint(message: string) {
-        this.connection.sendNotification({ method: "Hint" }, message);
+        this.connection.sendNotification(Commands.Hint, message);
     }
-
-    static sendNotification(method: string) {
-        this.connection.sendNotification({ method: method });
-    }
-
-
 } 

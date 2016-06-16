@@ -10,6 +10,7 @@ import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, T
 import {Timer} from './Timer';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
+import {VerificationState, Commands, UpdateStatusBarParams} from './ViperProtocol';
 
 import {DebugContentProvider} from './TextDocumentContentProvider';
 
@@ -28,7 +29,7 @@ export function activate(context: vscode.ExtensionContext) {
     console.log('Viper-IVE-Client is now active!');
     state = new ExtensionState();
     context.subscriptions.push(state);
-    state.startLanguageServer(context, false);
+    state.startLanguageServer(context, false); //break?
     if (enableDebuging) {
         provideDebugging();
     }
@@ -89,9 +90,10 @@ function provideDebugging() {
 function initializeStatusBar() {
     statusBarProgress = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 11);
 
+    state.state = VerificationState.Stopped;
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
-    statusBarItem.color = 'orange';
-    statusBarItem.text = "starting";
+    statusBarItem.color = 'white';
+    statusBarItem.text = "Hello from Viper";
     statusBarItem.show();
 
     state.context.subscriptions.push(statusBarProgress);
@@ -105,7 +107,7 @@ function startAutoSaver() {
         if (vscode.window.activeTextEditor != null && vscode.window.activeTextEditor.document.languageId == 'silver') {
             vscode.window.activeTextEditor.document.save();
             if (enableSecondWindow) {
-            showSecondWindow();
+                showSecondWindow();
             }
         }
     }, autoSaveTimeout);
@@ -123,76 +125,90 @@ function resetAutoSaver() {
 }
 
 function registerHandlers() {
-    state.client.onNotification({ method: "NailgunReady" }, () => {
+    state.client.onNotification(Commands.StateChange, (params: UpdateStatusBarParams) => {
         let window = vscode.window;
-        statusBarItem.color = 'white';
-        statusBarItem.text = "ready";
-    });
-
-    state.client.onNotification({ method: "VerificationStart" }, () => {
-        let window = vscode.window;
-        statusBarItem.color = 'orange';
-        statusBarItem.text = "pre-processing";
-
-        statusBarProgress.text = progressBarText(0);
-        statusBarProgress.show();
-    });
-
-    state.client.onNotification({ method: "VerificationProgress" }, (progress: number) => {
-        statusBarItem.color = 'orange';
-        statusBarItem.text = "verifying: " + progress + "%"
-
-        statusBarProgress.text = progressBarText(progress);
-        statusBarProgress.show();
-    });
-
-    state.client.onNotification({ method: "VerificationEnd" }, (success) => {
-        let window = vscode.window;
-        if (success) {
-            statusBarItem.color = 'lightgreen';
-            statusBarItem.text = `$(check) done`;
-            window.showInformationMessage("Successfully Verified");
-        } else {
-            statusBarItem.color = 'red';
-            statusBarItem.text = `$(x) failed`;
+        switch (params.newState) {
+            case VerificationState.Starting:
+                statusBarItem.color = 'orange';
+                statusBarItem.text = "starting";
+                break;
+            case VerificationState.VerificationRunning:
+                statusBarItem.color = 'orange';
+                if (!params.progress) {
+                    statusBarItem.text = "pre-processing";
+                    statusBarProgress.text = progressBarText(0);
+                }
+                else {
+                    statusBarItem.text = "verifying: " + params.progress + "%"
+                    statusBarProgress.text = progressBarText(params.progress);
+                }
+                statusBarProgress.show();
+                break;
+            case VerificationState.Ready:
+                if (params.firstTime) {
+                    statusBarItem.color = 'white';
+                    statusBarItem.text = "ready";
+                } else {
+                    if (params.success) {
+                        statusBarItem.color = 'lightgreen';
+                        statusBarItem.text = `$(check) done`;
+                        window.showInformationMessage("Successfully Verified");
+                    } else {
+                        statusBarItem.color = 'red';
+                        statusBarItem.text = `$(x) failed`;
+                    }
+                }
+                statusBarProgress.hide();
+                break;
+            case VerificationState.Stopping:
+                statusBarItem.color = 'orange';
+                statusBarItem.text = "preparing";
+                break;
+            default:
+                break;
         }
-        statusBarProgress.hide();
-        //window.showInformationMessage("verification finished");
     });
 
-    state.client.onNotification({ method: "InvalidSettings" }, (data) => {
+    state.client.onNotification(Commands.InvalidSettings, (data) => {
         let buttons: vscode.MessageItem = { title: "Open Settings" };
 
         vscode.window.showInformationMessage("Invalid settings: " + data, buttons).then((choice) => {
             if (choice.title === "Open Settings") {
-
-                let settingsPath = path.join(vscode.workspace.rootPath, '.vscode', 'settings.json');
-                showFile(settingsPath);
+                let workspaceSettingsPath = path.join(vscode.workspace.rootPath, '.vscode', 'settings.json');
+                showFile(workspaceSettingsPath, vscode.ViewColumn.Two);
+                let userSettingsPath = state.context.asAbsolutePath(path.join('.vscode', 'settings.json'));
+                showFile(userSettingsPath, vscode.ViewColumn.Three);
             }
         });
     });
 
-    state.client.onNotification({ method: "Hint" }, (data: string) => {
+    state.client.onNotification(Commands.Hint, (data: string) => {
         vscode.window.showInformationMessage(data);
     });
 
-    state.client.onRequest({ method: "UriToPath" }, (uri: string) => {
+    state.client.onRequest(Commands.UriToPath, (uri: string) => {
         let uriObject: vscode.Uri = vscode.Uri.parse(uri);
         let platformIndependentPath = uriObject.fsPath;
         return platformIndependentPath;
     });
 
-    state.client.onRequest({ method: "PathToUri" }, (path: string) => {
+    state.client.onRequest(Commands.PathToUri, (path: string) => {
         let uriObject: vscode.Uri = vscode.Uri.parse(path);
         let platformIndependentUri = uriObject.toString();
         return platformIndependentUri;
     });
+
+    state.client.onRequest(Commands.AskUserToSelectBackend, (backendNames: string[]) => {
+        vscode.window.showQuickPick(backendNames).then((selectedBackend) => {
+            state.client.sendRequest(Commands.SelectBackend, selectedBackend);
+        });
+    });
 }
 
-function showFile(filePath: string) {
+function showFile(filePath: string, column: vscode.ViewColumn) {
     let resource = vscode.Uri.file(filePath);
     vscode.workspace.openTextDocument(resource).then((doc) => {
-        vscode.window.showTextDocument(doc, vscode.ViewColumn.Two);
+        vscode.window.showTextDocument(doc, column);
     });
 }
 

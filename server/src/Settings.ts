@@ -1,21 +1,21 @@
 'use strict';
 
 import fs = require('fs');
-import * as path from 'path';
+import * as pathHelper from 'path';
 var commandExists = require('command-exists');
 
 export interface IveSettings {
     verificationBackends: [Backend];
     nailgunServerJar: string;
     nailgunClient: string;
+    z3Executable:string;
 }
 // These are the example settings we defined in the client's package.json
 // file
 export interface Backend {
     name: string;
-    filePath: string;
+    paths: [string];
     mainMethod: string;
-    command: string;
 }
 
 export class Settings {
@@ -24,6 +24,15 @@ export class Settings {
     public static isWin = /^win/.test(process.platform);
 
     private static valid: boolean = false;
+
+
+    public static getBackendNames(settings:IveSettings):string[]{
+        let backendNames = [];
+        settings.verificationBackends.forEach((backend) =>{
+            backendNames.push(backend.name);
+        })
+        return backendNames;
+    }
 
     public static areValid(): boolean {
         return Settings.valid;
@@ -54,18 +63,30 @@ export class Settings {
                 }
             }
         }
+        if (!error) {
+            if (!settings.z3Executable || settings.z3Executable.length == 0) {
+                error = "Path to z3 executable is missing"
+            } else {
+                let envVar = Settings.extractEnvVar(settings.z3Executable)
+                if (!Settings.exists(envVar, true)) {
+                    error = "No file found at path: " + envVar;
+                } else {
+                    settings.z3Executable = envVar;
+                }
+            }
+        }
         Settings.valid = !error;
         return error;
     }
 
-    private static exists(filePath: string, isExecutable: boolean): boolean {
-        if (fs.existsSync(filePath)) {
+    private static exists(path: string, isExecutable: boolean): boolean {
+        if (fs.existsSync(path)) {
             return true;
         }
-        if (filePath.indexOf("/") < 0 && filePath.indexOf("\\") < 0) {
+        if (path.indexOf("/") < 0 && path.indexOf("\\") < 0) {
             //check if the pointed file is accessible via path variable
 
-            // commandExists(filePath, function (err, commandExists) {
+            // commandExists(path, function (err, commandExists) {
             //     if (commandExists) {
             //         return true;
             //     }
@@ -75,18 +96,18 @@ export class Settings {
             // });
 
             let pathEnvVar: string = process.env.PATH;
-            let paths: string[];
+            let pathList: string[];
             if (Settings.isWin) {
-                paths = pathEnvVar.split(";");
-                if (isExecutable && filePath.indexOf(".") < 0) {
-                    filePath = filePath + ".exe";
+                pathList = pathEnvVar.split(";");
+                if (isExecutable && path.indexOf(".") < 0) {
+                    path = path + ".exe";
                 }
             } else {
-                paths = pathEnvVar.split(":");
+                pathList = pathEnvVar.split(":");
             }
 
-            return paths.some((element) => {
-                if (fs.existsSync(path.join(element, filePath))) {
+            return pathList.some((element) => {
+                if (fs.existsSync(pathHelper.join(element, path))) {
                     return true;
                 } else {
                     return false;
@@ -100,7 +121,7 @@ export class Settings {
             return "No backend detected, specify at least one backend";
         }
 
-        for (var i = 0; i < backends.length; i++) {
+        for (let i = 0; i < backends.length; i++) {
             let backend = backends[i];
             if (!backend) {
                 return "Empty backend detected";
@@ -109,41 +130,39 @@ export class Settings {
             if (!backend.name || backend.name.length == 0) {
                 return "Every backend setting needs a name.";
             }
-            //filePath there?
-            if (!backend.filePath || backend.filePath.length == 0) {
-                return backend.name + ": The backend setting is missing a path";
+            //path there?
+            if (!backend.paths || backend.paths.length == 0) {
+                return backend.name + ": The backend setting needs at least one path";
             }
             //mainMethod there?
             if (!backend.mainMethod || backend.mainMethod.length == 0) {
                 return backend.name + ": The backend setting is missing a mainMethod";
             }
-            //command there?
-            if (!backend.command || backend.command.length == 0) {
-                return backend.name + ": The backend setting is missing the command";
-            }
-            //check path
-            //is path environment variable
-            let envVarValue = Settings.extractEnvVar(backend.filePath);
-            if (!envVarValue) {
-                return backend.name + ": Environment varaible " + backend.filePath + " is not set.";
-            }
-            //-> set filePath to environment variable value
-            backend.filePath = envVarValue;
-            //is absolute filePath
-            if (Settings.isWin) {
-                if (backend.filePath.indexOf(":") < 0) {
-                    return backend.name + ": The path to the backend jar-file must be absolute.";
+
+            //check paths
+            for (let i = 0; i < backend.paths.length; i++) {
+                let path = backend.paths[i];
+
+                //extract environment variable or leave unchanged
+                path = Settings.extractEnvVar(path);
+                if (!path) {
+                    return backend.name + ": Environment varaible " + path + " is not set.";
+                }
+                //-> set path to environment variable value
+                backend.paths[i] = path;
+                //is absolute path
+                if (Settings.isWin) {
+                    if (path.indexOf(":") < 0) {
+                        return backend.name + ": The path to the backend jar-file must be absolute.";
+                    }
+                }
+
+                //does file or folder exist?
+                if (!fs.existsSync(path)) {
+                    return backend.name + ": No File/Folder found there: " + path + " ";
                 }
             }
-            //does path point to a .jar file
-            if (!backend.filePath.endsWith(".jar")) {
-                return backend.name + ": The backend path must point ot the backend's jar-file.";
-            }
-            //does file exist?
-            if (!fs.existsSync(backend.filePath)) {
-                return backend.name + ": File not found: " + backend.filePath + " ";
-            }
-            //-> the filePaths seem right
+            //-> the paths seem right
 
             //check mainMethod:
             //TODO: 
@@ -151,31 +170,39 @@ export class Settings {
         return null;
     }
 
-    public static backendJars(settings: IveSettings): string {
+    public static backendJars(backend: Backend): string {
         let backendJars = "";
-        settings.verificationBackends.forEach(backend => {
-            if (Settings.isWin) {
-                backendJars = backendJars + ";" + backend.filePath;
+
+        let concatenationSymbol = Settings.isWin ? ";" : ":";
+        backend.paths.forEach(path => {
+            if (isJar(path)) {
+                //its a jar file
+                backendJars = backendJars + concatenationSymbol + path;
             } else {
-                backendJars = backendJars + ":" + backend.filePath;
+                //its a folder
+                let files = fs.readdirSync(path);
+                files.forEach(file => {
+                    if (isJar(file)) {
+                        backendJars = backendJars + concatenationSymbol + pathHelper.join(path,file);
+                    }
+                });
             }
         });
         return backendJars;
+
+        function isJar(file: string): boolean {
+            return file.endsWith(".jar");
+        }
     }
 
-    public static extractEnvVar(filePath: string): string {
-        if (filePath && filePath.length > 2) {
-            if (filePath.startsWith("%") && filePath.endsWith("%")) {
-                let envName = filePath.substr(1, filePath.length - 2);
+    public static extractEnvVar(path: string): string {
+        if (path && path.length > 2) {
+            if (path.startsWith("%") && path.endsWith("%")) {
+                let envName = path.substr(1, path.length - 2);
                 let envValue = process.env[envName];
-                //is environment variable set?
-                if (!envValue) {
-                    return null;
-                }
-                return envValue;
+                return envValue; //null means the Environment Variable is not set
             }
         }
-        return filePath;
+        return path;
     }
-
 }

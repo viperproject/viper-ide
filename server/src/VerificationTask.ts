@@ -6,6 +6,7 @@ import {Backend, IveSettings} from "./Settings";
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement} from './Statement';
+import {Commands,VerificationState} from './ViperProtocol'
 
 interface Progress {
     current: number;
@@ -30,12 +31,12 @@ class TotalProgress {
     }
 }
 
-enum VerificationState {
-    Initialization,
-    Verifying,
-    Reporting,
-    PrintingHelp
-}
+// enum VerificationState {
+//     Initialization,
+//     Verifying,
+//     Reporting,
+//     PrintingHelp
+// }
 
 export class VerificationTask {
     fileUri: string;
@@ -49,7 +50,7 @@ export class VerificationTask {
     time: number = 0;
     steps: Statement[];
 
-    state: VerificationState = VerificationState.Initialization;
+    state: VerificationState = VerificationState.Stopped;
 
     constructor(fileUri: string, nailgunService: NailgunService, connection: IConnection, backend: Backend) {
         this.fileUri = fileUri;
@@ -63,7 +64,7 @@ export class VerificationTask {
         this.backend = backend;
         this.running = true;
 
-        this.state = VerificationState.Initialization;
+        this.state = VerificationState.Stopped;
 
         //Initialization
         this.resetDiagnostics();
@@ -72,7 +73,7 @@ export class VerificationTask {
 
         Log.log(backend.name + ' verification startet');
 
-        VerificationTask.connection.sendNotification(Log.verificationStart);
+        VerificationTask.connection.sendNotification(Commands.StateChange,{newState:VerificationState.VerificationRunning,success:false,firstTime:false});
 
         VerificationTask.uriToPath(this.fileUri).then((path) => {
             //start verification of current file
@@ -100,7 +101,7 @@ export class VerificationTask {
 
         // Send the computed diagnostics to VSCode.
         VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
-        VerificationTask.connection.sendNotification(Log.verificationEnd, this.diagnostics.length == 0 && code == 0);
+        VerificationTask.connection.sendNotification(Commands.StateChange, {newState:VerificationState.Ready, success: this.diagnostics.length == 0 && code == 0});
         this.running = false;
 
         Log.log("Number of Steps: " + this.steps.length);
@@ -137,25 +138,25 @@ export class VerificationTask {
             //skip empty lines
             if (part.trim().length > 0) {
                 switch (this.state) {
-                    case VerificationState.Initialization:
+                    case VerificationState.Stopped:
                         if (part.startsWith("Command-line interface:")) {
                             Log.error('Could not start verification -> fix format');
-                            this.state = VerificationState.PrintingHelp;
+                            this.state = VerificationState.VerificationPrintingHelp;
                         }
                         if (part.startsWith("(c) Copyright ETH")) {
-                            this.state = VerificationState.Verifying;
+                            this.state = VerificationState.VerificationRunning;
                         }
                         break;
-                    case VerificationState.Verifying:
+                    case VerificationState.VerificationRunning:
                         if (part.startsWith('Silicon finished in') || part.startsWith('carbon finished in')) {
-                            this.state = VerificationState.Reporting;
+                            this.state = VerificationState.VerificationReporting;
                             this.time = Number.parseFloat(/.*?(\d*\.\d*).*/.exec(part)[1]);
                         }
                         else if (part.startsWith("{") && part.endsWith("}")) {
                             try {
                                 let progress = new TotalProgress(JSON.parse(part));
                                 Log.log("Progress: " + progress.toPercent());
-                                VerificationTask.connection.sendNotification(Log.verificationProgress, progress.toPercent())
+                                VerificationTask.connection.sendNotification(Commands.StateChange, {newState:VerificationState.VerificationRunning, progress:progress.toPercent()})
                             } catch (e) {
                                 Log.error(e);
                             }
@@ -189,9 +190,9 @@ export class VerificationTask {
                             }
                         }
                         break;
-                    case VerificationState.Reporting:
+                    case VerificationState.VerificationReporting:
                         if (part == 'No errors found.') {
-                            this.state = VerificationState.Reporting;
+                            this.state = VerificationState.VerificationReporting;
                             Log.log('Successfully verified with ' + this.backend.name + ' in ' + this.time + ' seconds.');
                             this.time = 0;
                         }
@@ -220,7 +221,7 @@ export class VerificationTask {
                             });
                         }
                         break;
-                    case VerificationState.PrintingHelp:
+                    case VerificationState.VerificationPrintingHelp:
                         return;
                 }
             }
@@ -264,7 +265,7 @@ export class VerificationTask {
                 Log.error("cannot convert uri to filepath, uri: " + uri);
                 return resolve(uri);
             }
-            VerificationTask.connection.sendRequest({ method: "UriToPath" }, uri).then((path) => {
+            VerificationTask.connection.sendRequest(Commands.UriToPath, uri).then((path) => {
                 return resolve(path);
             });
         });
@@ -290,7 +291,7 @@ export class VerificationTask {
                 Log.error("cannot convert path to uri, path: " + path);
                 return resolve(path);
             }
-            VerificationTask.connection.sendRequest({ method: "PathToUri" }, path).then((uri) => {
+            VerificationTask.connection.sendRequest(Commands.PathToUri, path).then((uri) => {
                 return resolve(uri);
             });
         });

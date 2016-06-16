@@ -1,0 +1,5 @@
+'use strict';
+class ViperLanguageClient {
+}
+exports.ViperLanguageClient = ViperLanguageClient;
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiVmlwZXJMYW5ndWFnZUNsaWVudC5qcyIsInNvdXJjZVJvb3QiOiIiLCJzb3VyY2VzIjpbIi4uL3NyYy9WaXBlckxhbmd1YWdlQ2xpZW50LnRzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQUFBLFlBQVksQ0FBQztBQUliO0FBRUEsQ0FBQztBQUZZLDJCQUFtQixzQkFFL0IsQ0FBQSJ9

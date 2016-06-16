@@ -5,6 +5,7 @@ import child_process = require('child_process');
 import {Backend} from "./Settings"
 import {Log} from './Log'
 import {IveSettings, Settings} from './Settings'
+import {Commands,VerificationState} from './ViperProtocol'
 
 export class NailgunService {
     nailgunProcess: child_process.ChildProcess;
@@ -20,7 +21,7 @@ export class NailgunService {
         return (this.nailgunProcess != null);
     }
 
-    private startNailgunServer(connection) {
+    private startNailgunServer(connection, backend: Backend) {
         if (!this.nailgunStarted()) {
 
             let killOldNailgunProcess = child_process.exec(this.settings.nailgunClient + ' --nailgun-port ' + this.nailgunPort + ' ng-stop');
@@ -29,8 +30,8 @@ export class NailgunService {
                 Log.log('starting nailgun server');
                 //start the nailgun server for both silicon and carbon
 
-                let backendJars = Settings.backendJars(this.settings);
-
+                let backendJars = Settings.backendJars(backend);
+                Log.log("Backend Jars: " + backendJars);
                 let command = 'java -cp ' + this.settings.nailgunServerJar + backendJars + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + this.nailgunPort;
                 Log.log(command)
                 this.nailgunProcess = child_process.exec(command);
@@ -42,7 +43,7 @@ export class NailgunService {
                         tempProcess.on('exit', (code, signal) => {
                             this.ready = true;
                             Log.log("Nailgun started");
-                            connection.sendNotification({ method: "NailgunReady" });
+                            connection.sendNotification(Commands.StateChange,{newState:VerificationState.Ready,firstTime:true});
                         });
                     }
                 });
@@ -53,20 +54,36 @@ export class NailgunService {
     }
 
     public stopNailgunServer() {
-        let stopped = false;
+        this.ready = false;
         if (this.nailgunProcess) {
             Log.log('gracefully shutting down nailgun server');
             let shutDownNailgunProcess = child_process.exec(this.settings.nailgunClient + ' --nailgun-port ' + this.nailgunPort + ' ng-stop');
             shutDownNailgunProcess.on('exit', (code, signal) => {
                 Log.log("nailgun server is stopped");
-                stopped = true;
             });
-            //this.killNailgunServer();
         }
-        while(!stopped){}
+        this.nailgunProcess = null;
     }
-    
-    private killNailgunServer(){
+
+    public restartNailgunServer(connection, backend: Backend) {
+        this.ready = false;
+        connection.sendNotification(Commands.StateChange,{newState:VerificationState.Starting});
+        if (this.nailgunProcess) {
+            Log.log('gracefully shutting down nailgun server');
+            let shutDownNailgunProcess = child_process.exec(this.settings.nailgunClient + ' --nailgun-port ' + this.nailgunPort + ' ng-stop');
+            this.nailgunProcess = null;
+            shutDownNailgunProcess.on('exit', (code, signal) => {
+                Log.log("nailgun server is stopped");
+                //restart
+                this.startNailgunServer(connection, backend);
+            });
+        }else{
+            //first -> only start
+            this.startNailgunServer(connection, backend);
+        }
+    }
+
+    private killNailgunServer() {
         Log.log('killing nailgun server, this may leave its sub processes running');
         //this.nailgunProcess.kill('SIGINT');
         process.kill(this.nailgunProcess.pid);
@@ -78,10 +95,10 @@ export class NailgunService {
         return child_process.exec(command); // to set current working directory use, { cwd: verifierHome } as an additional parameter
     }
 
-    public startNailgunIfNotRunning(connection) {
+    public startNailgunIfNotRunning(connection, backend: Backend) {
         //startNailgun if it is not already running:
         if (!this.nailgunStarted()) {
-            this.startNailgunServer(connection);
+            this.startNailgunServer(connection, backend);
         }
     }
 }
