@@ -21,7 +21,6 @@ let previewUri = vscode.Uri.parse('viper-preview://debug');
 let state: ExtensionState;
 
 let enableSecondWindow: boolean = false;
-let enableDebuging: boolean = false;
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -30,9 +29,6 @@ export function activate(context: vscode.ExtensionContext) {
     state = new ExtensionState();
     context.subscriptions.push(state);
     state.startLanguageServer(context, false); //break?
-    if (enableDebuging) {
-        provideDebugging();
-    }
     startAutoSaver();
     registerHandlers();
     initializeStatusBar();
@@ -60,31 +56,6 @@ function showSecondWindow() {
     return vscode.commands.executeCommand('vscode.previewHtml', previewUri, vscode.ViewColumn.Two).then((success) => { }, (reason) => {
         vscode.window.showErrorMessage(reason);
     });
-}
-
-function provideDebugging() {
-    let processPickerDisposable = vscode.commands.registerCommand('extension.pickProcess', () => {
-
-        ps.lookup({
-            psargs: 'ax'
-        }, (err, resultList) => {
-
-            let items = [];
-
-            if (err) {
-                items.push(err.message);
-            } else {
-                resultList.forEach(process => {
-                    if (process && process.command) {
-                        items.push(`${process.command}`);
-                    }
-                });
-            }
-            vscode.window.showQuickPick(items);
-        });
-    });
-
-    state.context.subscriptions.push(processPickerDisposable);
 }
 
 function initializeStatusBar() {
@@ -183,6 +154,7 @@ function registerHandlers() {
     });
 
     state.client.onNotification(Commands.Hint, (data: string) => {
+        console.log("H: " + data);
         vscode.window.showInformationMessage(data);
     });
 
@@ -199,10 +171,33 @@ function registerHandlers() {
     });
 
     state.client.onRequest(Commands.AskUserToSelectBackend, (backendNames: string[]) => {
+    //only ask the user if there is a choice
+    if(backendNames.length > 1){
         vscode.window.showQuickPick(backendNames).then((selectedBackend) => {
             state.client.sendRequest(Commands.SelectBackend, selectedBackend);
         });
+    }else{
+        state.client.sendRequest(Commands.SelectBackend, backendNames[0]);
+    }
     });
+
+    let verifyCommandDisposable = vscode.commands.registerCommand('extension.verify', () => {
+        if (!state.client) {
+            vscode.window.showInformationMessage("extension not ready yet.");
+        }else{
+            state.client.sendRequest(Commands.Verify,vscode.window.activeTextEditor.document.uri.toString());
+        }
+    });
+    state.context.subscriptions.push(verifyCommandDisposable);
+
+    let selectBackendCommandDisposable = vscode.commands.registerCommand('extension.selectBackend', () => {
+        if (!state.client) {
+            vscode.window.showInformationMessage("extension not ready yet.");
+        }else{
+            state.client.sendRequest(Commands.RequestBackendSelection,null);
+        }
+    });
+    state.context.subscriptions.push(selectBackendCommandDisposable);
 }
 
 function showFile(filePath: string, column: vscode.ViewColumn) {
@@ -286,9 +281,6 @@ function doesFileExist(path: string): boolean {
     return true;
 }
 */
-
-    // let verifyCommandDisposable = vscode.commands.registerCommand('extension.verify', () => {
-    // }
 
     // let addBackendDisposable = vscode.commands.registerCommand('extension.addNewBackend', () => {
     //         console.log("add new backend");

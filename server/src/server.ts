@@ -20,7 +20,7 @@ import {Backend, Settings, IveSettings} from './Settings';
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {StatementType} from './Statement';
-import {Commands,VerificationState} from './ViperProtocol'
+import {Commands, VerificationState} from './ViperProtocol'
 
 var ipc = require('node-ipc');
 
@@ -91,22 +91,33 @@ connection.onDidChangeConfiguration((change) => {
         return;
     }
 
-    //ask the user to pick a backend;
     Log.log("Ask user to select backend");
-    if (settings.verificationBackends.length > 0) {
-        connection.sendRequest(Commands.AskUserToSelectBackend, Settings.getBackendNames(settings));
+    let backendNames = Settings.getBackendNames(settings);
+    if (backendNames.length > 0) {
+        connection.sendRequest(Commands.AskUserToSelectBackend, backendNames);
+    } else {
+        Log.error("No backend, even though the setting check succeeded?");
     }
 });
 
 connection.onRequest(Commands.SelectBackend, (selectedBackend: string) => {
-    for (var i = 0; i < settings.verificationBackends.length; i++) {
-        let elem = settings.verificationBackends[i];
-        if (elem.name == selectedBackend) {
-            backend = elem;
-            break;
+    if (!selectedBackend) {
+        //select first backend by default;
+        backend = settings.verificationBackends[0];
+    } else {
+        for (var i = 0; i < settings.verificationBackends.length; i++) {
+            let elem = settings.verificationBackends[i];
+            if (elem.name == selectedBackend) {
+                backend = elem;
+                break;
+            }
         }
     }
     nailgunService.restartNailgunServer(connection, backend);
+});
+
+connection.onRequest(Commands.RequestBackendSelection, (args) => {
+    connection.sendRequest(Commands.AskUserToSelectBackend, Settings.getBackendNames(settings));
 });
 
 connection.onDidChangeWatchedFiles((change) => {
@@ -152,6 +163,11 @@ connection.onDidSaveTextDocument((params) => {
     }
 })
 
+//triggered by user command
+connection.onRequest(Commands.Verify, (uri: string) => {
+    startOrRestartVerification(uri, false)
+});
+
 connection.onRequest({ method: 'variablesInLine' }, (lineNumber) => {
     let variables = [];
     this.steps.forEach(element => {
@@ -194,7 +210,7 @@ function startOrRestartVerification(uri: string, onlyTypeCheck: boolean) {
     }
 
     if (!nailgunService.ready) {
-        Log.log("nailgun not ready yet");
+        Log.hint("The verification backend is not ready yet.");
         return;
     }
 

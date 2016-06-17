@@ -1,7 +1,7 @@
 {
     "name": "viper-ive",
     "displayName": "Viper-IVE",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "repository": {
@@ -51,12 +51,12 @@
     "contributes": {
         "commands": [
             {
-                "command": "extension.compileSilicon",
-                "title": "Compile Silicon"
+                "command": "extension.verify",
+                "title": "Viper: Verify the open Document"
             },
             {
-                "command": "extension.pickProcess",
-                "title": "Pick Process"
+                "command": "extension.selectBackend",
+                "title": "Viper: Select Verification Backend"
             }
         ],
         "grammars": [
@@ -99,9 +99,15 @@
         ],
         "keybindings": [
             {
-                "command": "extension.pickProcess",
+                "command": "extension.selectBackend",
                 "key": "ctrl+j",
                 "mac": "cmd+j",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "extension.verify",
+                "key": "ctrl+shift+b",
+                "mac": "cmd+shift+b",
                 "when": "editorTextFocus"
             }
         ],
@@ -114,7 +120,9 @@
                     "default": [
                         {
                             "name": "silicon",
-                            "paths": ["%SILICON_JAR%"],
+                            "paths": [
+                                "%SILICON_JAR%"
+                            ],
                             "mainMethod": "viper.silicon.SiliconRunner"
                         }
                     ],

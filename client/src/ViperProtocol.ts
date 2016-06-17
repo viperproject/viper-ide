@@ -9,20 +9,21 @@ export enum VerificationState {
 }
 
 export class Commands {
-    static InvalidSettings = {method:"InvalidSettings"};
-    static Hint = {method:"Hint"};
-    static UriToPath = {method:"UriToPath"};
-    static PathToUri = {method:"PathToUri"};
-    static SelectBackend = {method:"SelectBackend"};
-    static AskUserToSelectBackend = {method:"AskUserToSelectBackend"};
-    static RequestBackendSelection = {method:"RequestBackendSelection"};
-    static StateChange={method:"StateChange"};
-    static Dispose={method:"Dispose"};
+    static InvalidSettings = { method: "InvalidSettings" };
+    static Hint = { method: "Hint" };
+    static UriToPath = { method: "UriToPath" };
+    static PathToUri = { method: "PathToUri" };
+    static SelectBackend = { method: "SelectBackend" };
+    static AskUserToSelectBackend = { method: "AskUserToSelectBackend" };
+    static RequestBackendSelection = { method: "RequestBackendSelection" };
+    static StateChange = { method: "StateChange" };
+    static Dispose = { method: "Dispose" };
+    static Verify = { method: "Verify" };
 }
 
-export interface UpdateStatusBarParams{
-    newState:VerificationState;
-    progress?;5
+export interface UpdateStatusBarParams {
+    newState: VerificationState;
+    progress?; 5
     success?;
     firstTime?;
 }
