@@ -39,7 +39,7 @@ export class NailgunService {
                     //Log.logWithOrigin('NS', data);
                     let dataS: string = data;
                     if (dataS.indexOf("started") > 0) {
-                        let tempProcess = this.startVerificationProcess("", false, false, this.settings.verificationBackends[0]);
+                        let tempProcess = this.startVerificationProcess("", false, false, this.settings.verificationBackends[0],false);
                         tempProcess.on('exit', (code, signal) => {
                             this.ready = true;
                             Log.log("Nailgun started");
@@ -89,8 +89,8 @@ export class NailgunService {
         process.kill(this.nailgunProcess.pid);
     }
 
-    public startVerificationProcess(fileToVerify: string, ideMode: boolean, onlyTypeCheck: boolean, backend: Backend): child_process.ChildProcess {
-        let command = this.settings.nailgunClient + ' --nailgun-port ' + this.nailgunPort + ' ' + backend.mainMethod + ' --ideMode --logLevel trace ' + fileToVerify;
+    public startVerificationProcess(fileToVerify: string, ideMode: boolean, onlyTypeCheck: boolean, backend: Backend,getTrace:boolean): child_process.ChildProcess {
+        let command = this.settings.nailgunClient + ' --nailgun-port ' + this.nailgunPort + ' ' + backend.mainMethod + ' --ideMode '+(getTrace?'--logLevel trace ':'') + fileToVerify;
         Log.log(command);
         return child_process.exec(command); // to set current working directory use, { cwd: verifierHome } as an additional parameter
     }

@@ -7,15 +7,15 @@ export class Log {
     static connection: IConnection;
 
     static log(message: string) {
-        this.connection.console.log("S: " + message);
+        this.connection.sendNotification(Commands.Log,message);
     }
 
     static error(message: string) {
-        this.connection.console.error("S: " + message);
+        this.connection.sendNotification(Commands.Error,message);
     }
 
     static logWithOrigin(origin: string, message: string) {
-        this.connection.console.log(origin + ": " + message);
+        this.connection.sendNotification(Commands.Log,origin + ": " + message);
     }
 
     static hint(message: string) {

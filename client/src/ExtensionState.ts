@@ -3,26 +3,27 @@ import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, T
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import {VerificationState,Commands} from './ViperProtocol';
+import {VerificationState, Commands} from './ViperProtocol';
+import {Log} from './Log';
 
 export class ExtensionState {
     public client: LanguageClient;
     public context: vscode.ExtensionContext;
 
-    public state:VerificationState;
-    
+    public state: VerificationState;
+
     private languageServerDisposable;
 
-    public startLanguageServer(context: vscode.ExtensionContext,brk:boolean) {
+    public startLanguageServer(context: vscode.ExtensionContext, brk: boolean) {
         this.context = context;
         // The server is implemented in node
         let serverModule = this.context.asAbsolutePath(path.join('server', 'server.js'));
 
         if (!fs.existsSync(serverModule)) {
-            console.log(serverModule + " does not exist");
+            Log.log(serverModule + " does not exist");
         }
         // The debug options for the server
-        let debugOptions = { execArgv: ["--nolazy", "--debug"+(brk?"-brk":"")+"=5556"] };
+        let debugOptions = { execArgv: ["--nolazy", "--debug" + (brk ? "-brk" : "") + "=5556"] };
 
         // If the extension is launch in debug mode the debug server options are use
         // Otherwise the run options are used
@@ -49,25 +50,24 @@ export class ExtensionState {
         this.languageServerDisposable = this.client.start();
 
         if (!this.client || !this.languageServerDisposable) {
-            console.error("LanguageClient is undefined");
+            Log.error("LanguageClient is undefined");
         }
-
     }
-    
-    public dispose(){
+
+    public dispose() {
         //let stopped = false;
-        console.log("Ask language server to shut down.");
-        this.client.sendRequest(Commands.Dispose,(error)=>{
-            console.log("Language server has shut down, terminate the connection");
+        Log.log("Ask language server to shut down.");
+        this.client.sendRequest(Commands.Dispose, (error) => {
+            Log.log("Language server has shut down, terminate the connection");
             this.languageServerDisposable.dispose();
             //stopped = true;
         })
         /*let firstTime = true;
         while(!stopped){
             if(firstTime){
-                console.log("waiting");
+                Log.log("waiting");
             }
         }
-        console.log("done waiting");*/
+        Log.log("done waiting");*/
     }
 }

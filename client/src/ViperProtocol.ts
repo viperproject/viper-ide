@@ -19,6 +19,8 @@ export class Commands {
     static StateChange = { method: "StateChange" };
     static Dispose = { method: "Dispose" };
     static Verify = { method: "Verify" };
+    static Log = { method: "Log" };
+    static Error = { method: "Error" };
 }
 
 export interface UpdateStatusBarParams {

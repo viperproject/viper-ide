@@ -1,8 +1,9 @@
 
 import * as vscode from 'vscode';
+import {Log} from './Log';
 
 function postInfoFromForm(info: string) {
-    console.log("Info from Form: " + info)
+    Log.log("Info from Form: " + info)
 }
 
 export class DebugContentProvider implements vscode.TextDocumentContentProvider {
@@ -40,7 +41,7 @@ export class DebugContentProvider implements vscode.TextDocumentContentProvider 
     }
 
     get onDidChange(): vscode.Event<vscode.Uri> {
-        console.log("PreviewHTML: onDidChange")
+        Log.log("PreviewHTML: onDidChange")
         return this._onDidChange.event;
     }
 

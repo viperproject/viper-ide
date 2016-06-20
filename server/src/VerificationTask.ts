@@ -6,7 +6,7 @@ import {Backend, IveSettings} from "./Settings";
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement} from './Statement';
-import {Commands,VerificationState} from './ViperProtocol'
+import {Commands, VerificationState} from './ViperProtocol'
 
 interface Progress {
     current: number;
@@ -59,7 +59,7 @@ export class VerificationTask {
         VerificationTask.connection = connection;
     }
 
-    verify(backend: Backend, onlyTypeCheck: boolean): void {
+    verify(backend: Backend, onlyTypeCheck: boolean, getTrace: boolean): void {
 
         this.backend = backend;
         this.running = true;
@@ -73,15 +73,15 @@ export class VerificationTask {
 
         Log.log(backend.name + ' verification startet');
 
-        VerificationTask.connection.sendNotification(Commands.StateChange,{newState:VerificationState.VerificationRunning,success:false,firstTime:false});
+        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, success: false, firstTime: false });
 
         VerificationTask.uriToPath(this.fileUri).then((path) => {
             //start verification of current file
             let currfile = '"' + path + '"';
 
-            this.verifierProcess = this.nailgunService.startVerificationProcess(currfile, true, onlyTypeCheck, backend);
+            this.verifierProcess = this.nailgunService.startVerificationProcess(currfile, true, onlyTypeCheck, backend, getTrace);
             //subscribe handlers
-            this.verifierProcess.stdout.on('data', this.stdOutHadler.bind(this));
+            this.verifierProcess.stdout.on('data', this.stdOutHandler.bind(this));
             this.verifierProcess.stderr.on('data', this.stdErrHadler.bind(this));
             this.verifierProcess.on('close', this.verificationCompletionHandler.bind(this));
         });
@@ -95,13 +95,13 @@ export class VerificationTask {
     private verificationCompletionHandler(code) {
         Log.log(`Child process exited with code ${code}`);
 
-        if(code != 0 && code != 1 && code != 899){
-            Log.hint("Verification Backend Terminated Abnormaly: with code "+ code);
+        if (code != 0 && code != 1 && code != 899) {
+            Log.hint("Verification Backend Terminated Abnormaly: with code " + code);
         }
 
         // Send the computed diagnostics to VSCode.
         VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
-        VerificationTask.connection.sendNotification(Commands.StateChange, {newState:VerificationState.Ready, success: this.diagnostics.length == 0 && code == 0});
+        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, success: this.diagnostics.length == 0 && code == 0 });
         this.running = false;
 
         Log.log("Number of Steps: " + this.steps.length);
@@ -117,7 +117,7 @@ export class VerificationTask {
         else if (data.startsWith("java.lang.ClassNotFoundException:")) {
             Log.hint("Class " + this.backend.mainMethod + " is unknown to Nailgun");
         }
-        else if(data.startsWith("java.lang.StackOverflowError")){
+        else if (data.startsWith("java.lang.StackOverflowError")) {
             Log.hint("StackOverflowError in Verification Backend");
         }
         else {
@@ -127,7 +127,7 @@ export class VerificationTask {
     }
     lines: string[] = [];
 
-    private stdOutHadler(data) {
+    private stdOutHandler(data) {
         //Log.log('stdout: ' + data);
 
         let stringData: string = data;
@@ -148,20 +148,23 @@ export class VerificationTask {
                         }
                         break;
                     case VerificationState.VerificationRunning:
+                        part = part.trim();
                         if (part.startsWith('Silicon finished in') || part.startsWith('carbon finished in')) {
                             this.state = VerificationState.VerificationReporting;
                             this.time = Number.parseFloat(/.*?(\d*\.\d*).*/.exec(part)[1]);
                         }
-                        else if (part.startsWith("{") && part.endsWith("}")) {
+                        else if (part.startsWith("{\"") && part.endsWith("}")) {
                             try {
                                 let progress = new TotalProgress(JSON.parse(part));
                                 Log.log("Progress: " + progress.toPercent());
-                                VerificationTask.connection.sendNotification(Commands.StateChange, {newState:VerificationState.VerificationRunning, progress:progress.toPercent()})
+                                VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, progress: progress.toPercent() })
                             } catch (e) {
                                 Log.error(e);
                             }
                         }
-                        else if (part.startsWith("----")) {
+                        else if (part.startsWith("\"") && part.endsWith("\"")) {
+                            Log.log("Model: " + part);
+                        } else if (part.startsWith("----")) {
                             //TODO: handle method mention if needed
                             return;
                         }

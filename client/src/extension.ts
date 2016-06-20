@@ -11,6 +11,8 @@ import {Timer} from './Timer';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
 import {VerificationState, Commands, UpdateStatusBarParams} from './ViperProtocol';
+import Uri from '../node_modules/vscode-uri/lib/index';
+import {Log} from './Log';
 
 import {DebugContentProvider} from './TextDocumentContentProvider';
 
@@ -25,7 +27,7 @@ let enableSecondWindow: boolean = false;
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Viper-IVE-Client is now active!');
+    Log.log('Viper-IVE-Client is now active!');
     state = new ExtensionState();
     context.subscriptions.push(state);
     state.startLanguageServer(context, false); //break?
@@ -40,7 +42,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-    console.log("deactivate");
+    Log.log("deactivate");
     state.dispose();
 }
 
@@ -154,8 +156,16 @@ function registerHandlers() {
     });
 
     state.client.onNotification(Commands.Hint, (data: string) => {
-        console.log("H: " + data);
+        Log.log("H: " + data);
         vscode.window.showInformationMessage(data);
+    });
+
+    state.client.onNotification(Commands.Log, (data: string) => {
+        Log.log("S: "+data);
+    });
+
+    state.client.onNotification(Commands.Error, (data: string) => {
+        Log.error("S: "+data);
     });
 
     state.client.onRequest(Commands.UriToPath, (uri: string) => {
@@ -165,27 +175,27 @@ function registerHandlers() {
     });
 
     state.client.onRequest(Commands.PathToUri, (path: string) => {
-        let uriObject: vscode.Uri = vscode.Uri.parse(path);
+        let uriObject: Uri = Uri.file(path);
         let platformIndependentUri = uriObject.toString();
         return platformIndependentUri;
     });
 
     state.client.onRequest(Commands.AskUserToSelectBackend, (backendNames: string[]) => {
-    //only ask the user if there is a choice
-    if(backendNames.length > 1){
-        vscode.window.showQuickPick(backendNames).then((selectedBackend) => {
-            state.client.sendRequest(Commands.SelectBackend, selectedBackend);
-        });
-    }else{
-        state.client.sendRequest(Commands.SelectBackend, backendNames[0]);
-    }
+        //only ask the user if there is a choice
+        if (backendNames.length > 1) {
+            vscode.window.showQuickPick(backendNames).then((selectedBackend) => {
+                state.client.sendRequest(Commands.SelectBackend, selectedBackend);
+            });
+        } else {
+            state.client.sendRequest(Commands.SelectBackend, backendNames[0]);
+        }
     });
 
     let verifyCommandDisposable = vscode.commands.registerCommand('extension.verify', () => {
         if (!state.client) {
             vscode.window.showInformationMessage("extension not ready yet.");
-        }else{
-            state.client.sendRequest(Commands.Verify,vscode.window.activeTextEditor.document.uri.toString());
+        } else {
+            state.client.sendRequest(Commands.Verify, vscode.window.activeTextEditor.document.uri.toString());
         }
     });
     state.context.subscriptions.push(verifyCommandDisposable);
@@ -193,11 +203,29 @@ function registerHandlers() {
     let selectBackendCommandDisposable = vscode.commands.registerCommand('extension.selectBackend', () => {
         if (!state.client) {
             vscode.window.showInformationMessage("extension not ready yet.");
-        }else{
-            state.client.sendRequest(Commands.RequestBackendSelection,null);
+        } else {
+            state.client.sendRequest(Commands.RequestBackendSelection, null);
         }
     });
     state.context.subscriptions.push(selectBackendCommandDisposable);
+
+    let startDebuggingCommandDisposable = vscode.commands.registerCommand('extension.startDebugging', () => {
+        let openDoc = vscode.window.activeTextEditor.document.uri.path;
+        openDoc = openDoc.substring(1,openDoc.length);
+        let launchConfig = {
+            name: "Viper Debug",
+            type: "viper",
+            request: "launch",
+            program: openDoc,
+            stopOnEntry: true
+        }
+        vscode.commands.executeCommand('vscode.startDebug', launchConfig).then(() => {
+            Log.log('Debug session started successfully');
+        }, err => {
+            Log.log('Error: ' + err.message);
+        });
+    });
+    state.context.subscriptions.push(startDebuggingCommandDisposable);
 }
 
 function showFile(filePath: string, column: vscode.ViewColumn) {
@@ -244,7 +272,7 @@ function removeDecorations() {
     let ranges = [];
     let start = new vscode.Position(0, 0);
     let end = new vscode.Position(editor.document.lineCount - 1, Number.MAX_VALUE);
-    console.log('Remove decoration on: ' + start.line + ':' + start.character + ' to ' + end.line + ':' + end.character + ".")
+    Log.log('Remove decoration on: ' + start.line + ':' + start.character + ' to ' + end.line + ':' + end.character + ".")
 
     ranges.push(new vscode.Range(start, end));
     let decorationRenderType = vscode.window.createTextEditorDecorationType({
@@ -254,7 +282,7 @@ function removeDecorations() {
 }
 
 function markError(start: vscode.Position, end: vscode.Position, message: string) {
-    console.log('Mark error: ' + start.line + ':' + start.character + ' to ' + end.line + ':' + end.character + ".")
+    Log.log('Mark error: ' + start.line + ':' + start.character + ' to ' + end.line + ':' + end.character + ".")
     let window = vscode.window;
     let editor = window.activeTextEditor;
     let range = new vscode.Range(start, end);
@@ -262,7 +290,7 @@ function markError(start: vscode.Position, end: vscode.Position, message: string
 }
 
 function decorate(start: vscode.Position, end: vscode.Position) {
-    console.log('Decorate ' + start.line + ':' + start.character + ' to ' + end.line + ':' + end.character + ".")
+    Log.log('Decorate ' + start.line + ':' + start.character + ' to ' + end.line + ':' + end.character + ".")
     let window = vscode.window;
     let editor = window.activeTextEditor;
     let ranges = [];
@@ -283,7 +311,7 @@ function doesFileExist(path: string): boolean {
 */
 
     // let addBackendDisposable = vscode.commands.registerCommand('extension.addNewBackend', () => {
-    //         console.log("add new backend");
+    //         Log.log("add new backend");
     //         let window = vscode.window;
     //         window.showInputBox()
     // });
@@ -306,18 +334,18 @@ function doesFileExist(path: string): boolean {
         let env = process.env;
         let siliconHome = process.env.SILICON_HOME;
         if (!siliconHome) {
-            console.log('ERROR: SILICON_HOME Environment Variable is not set.');
+            Log.log('ERROR: SILICON_HOME Environment Variable is not set.');
         }
 
-        console.log('-> Env: SILICON_HOME: ' + siliconHome);
+        Log.log('-> Env: SILICON_HOME: ' + siliconHome);
 
-        console.log('-> Silicon: verify ' + currfile);
+        Log.log('-> Silicon: verify ' + currfile);
         const ls = exec('silicon.bat --ideMode ' + currfile, { cwd: siliconHome });
 
         var time = "0";
 
         ls.stdout.on('data', (data) => {
-            console.log(`stdout: ${data}`);
+            Log.log(`stdout: ${data}`);
             let stringData: string = data;
             let parts = stringData.split("\r\n"); //TODO: make compatible with OSX and LINUX
 
@@ -336,7 +364,7 @@ function doesFileExist(path: string): boolean {
                 else if (part.startsWith('  ')) {
                     let pos = /\s*(\d*):(\d*):(\.*)/.exec(part);
                     if (pos.length != 4) {
-                        console.log('ERROR: could not parse error description: "' + part + '"');
+                        Log.log('ERROR: could not parse error description: "' + part + '"');
                         return;
                     }
                     let lineNr = +pos[1]-1;
@@ -348,14 +376,14 @@ function doesFileExist(path: string): boolean {
         });
 
         ls.stderr.on('data', (data) => {
-            console.log(`stderr: ${data}`);
+            Log.log(`stderr: ${data}`);
         });
 
         ls.on('close', (code) => {
-            console.log(`child process exited with code ${code}`);
+            Log.log(`child process exited with code ${code}`);
         });
 
-        console.log('after silicon start');
+        Log.log('after silicon start');
     });
     let carbonCommandDisposable = vscode.commands.registerCommand('extension.compileCarbon', () => {
         vscode.window.showInformationMessage('Carbon-build-command detected');

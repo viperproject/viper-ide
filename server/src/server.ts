@@ -36,6 +36,9 @@ let workspaceRoot: string;
 
 let debuggedVerificationTask: VerificationTask;
 
+
+let getTrace = true;
+
 //for communication with debugger
 startIPCServer();
 
@@ -223,7 +226,7 @@ function startOrRestartVerification(uri: string, onlyTypeCheck: boolean) {
         Log.log("verification already running -> abort and restart.");
         task.abortVerification();
     }
-    task.verify(backend, onlyTypeCheck);
+    task.verify(backend, onlyTypeCheck,getTrace);
 }
 
 function isSiliconFile(document: TextDocumentIdentifier): boolean {
@@ -251,7 +254,7 @@ function startIPCServer() {
                         debuggedVerificationTask = verificationTasks.get(uri);
                         let response = "true";
                         if (!debuggedVerificationTask) {
-                            Log.error("No Debug information available for uri: " + uri);
+                            Log.hint("Cannot debug file, you have to first verify the file: "+uri);
                             response = "false";
                         }
                         ipc.server.emit(
