@@ -3,12 +3,13 @@
 import fs = require('fs');
 import * as pathHelper from 'path';
 var commandExists = require('command-exists');
+import {Log} from './Log';
 
 export interface IveSettings {
     verificationBackends: [Backend];
     nailgunServerJar: string;
     nailgunClient: string;
-    z3Executable:string;
+    z3Executable: string;
 }
 // These are the example settings we defined in the client's package.json
 // file
@@ -26,9 +27,9 @@ export class Settings {
     private static valid: boolean = false;
 
 
-    public static getBackendNames(settings:IveSettings):string[]{
+    public static getBackendNames(settings: IveSettings): string[] {
         let backendNames = [];
-        settings.verificationBackends.forEach((backend) =>{
+        settings.verificationBackends.forEach((backend) => {
             backendNames.push(backend.name);
         })
         return backendNames;
@@ -39,13 +40,18 @@ export class Settings {
     }
 
     public static checkSettings(settings: IveSettings): string {
+        Log.log("Checking Backends...");
         let error = Settings.areBackendsValid(settings.verificationBackends);
         if (!error) {
+            Log.log("Checking Other Settings...");
             if (!settings.nailgunServerJar || settings.nailgunServerJar.length == 0) {
                 error = "Path to nailgun server jar is missing"
             } else {
                 let envVar = Settings.extractEnvVar(settings.nailgunServerJar)
-                if (!Settings.exists(envVar, false)) {
+                if(!envVar){
+                    error = "No nailgunServerJar file found at path or in %ENV_VAR%: " + settings.nailgunServerJar;
+                }
+                else if (!Settings.exists(envVar, false)) {
                     error = "No file found at path: " + envVar;
                 }
                 settings.nailgunServerJar = envVar;
@@ -56,7 +62,10 @@ export class Settings {
                 error = "Path to nailgun client executable is missing"
             } else {
                 let envVar = Settings.extractEnvVar(settings.nailgunClient)
-                if (!Settings.exists(envVar, true)) {
+                if(!envVar){
+                    error = "No nailgunClient file found at path, in %ENV_VAR%, or in the environment PATH: " + settings.nailgunServerJar;
+                }
+                else if (!Settings.exists(envVar, true)) {
                     error = "No file found at path: " + envVar;
                 } else {
                     settings.nailgunClient = envVar;
@@ -68,7 +77,10 @@ export class Settings {
                 error = "Path to z3 executable is missing"
             } else {
                 let envVar = Settings.extractEnvVar(settings.z3Executable)
-                if (!Settings.exists(envVar, true)) {
+                if(!envVar){
+                    error = "No z3 Executable found at path, in %ENV_VAR%, or in the environment PATH: " + settings.nailgunServerJar;
+                }
+                else if (!Settings.exists(envVar, true)) {
                     error = "No file found at path: " + envVar;
                 } else {
                     settings.z3Executable = envVar;
@@ -80,6 +92,7 @@ export class Settings {
     }
 
     private static exists(path: string, isExecutable: boolean): boolean {
+        if (!path) { return false };
         if (fs.existsSync(path)) {
             return true;
         }
@@ -183,7 +196,7 @@ export class Settings {
                 let files = fs.readdirSync(path);
                 files.forEach(file => {
                     if (isJar(file)) {
-                        backendJars = backendJars + concatenationSymbol + pathHelper.join(path,file);
+                        backendJars = backendJars + concatenationSymbol + pathHelper.join(path, file);
                     }
                 });
             }

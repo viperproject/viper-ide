@@ -30,7 +30,7 @@ export function activate(context: vscode.ExtensionContext) {
     Log.log('Viper-IVE-Client is now active!');
     state = new ExtensionState();
     context.subscriptions.push(state);
-    state.startLanguageServer(context, false); //break?
+    state.startLanguageServer(context, true); //break?
     startAutoSaver();
     registerHandlers();
     initializeStatusBar();
@@ -146,10 +146,14 @@ function registerHandlers() {
         let buttons: vscode.MessageItem = { title: "Open Settings" };
 
         vscode.window.showInformationMessage("Invalid settings: " + data, buttons).then((choice) => {
+            if (!choice) return;
             if (choice.title === "Open Settings") {
+                //TODO: fix
                 let workspaceSettingsPath = path.join(vscode.workspace.rootPath, '.vscode', 'settings.json');
+                Log.log("WorkspaceSettings: "+workspaceSettingsPath);
                 showFile(workspaceSettingsPath, vscode.ViewColumn.Two);
                 let userSettingsPath = state.context.asAbsolutePath(path.join('.vscode', 'settings.json'));
+                Log.log("userSettings: "+userSettingsPath);
                 showFile(userSettingsPath, vscode.ViewColumn.Three);
             }
         });
@@ -161,11 +165,11 @@ function registerHandlers() {
     });
 
     state.client.onNotification(Commands.Log, (data: string) => {
-        Log.log("S: "+data);
+        Log.log("S: " + data);
     });
 
     state.client.onNotification(Commands.Error, (data: string) => {
-        Log.error("S: "+data);
+        Log.error("S: " + data);
     });
 
     state.client.onRequest(Commands.UriToPath, (uri: string) => {
@@ -211,7 +215,7 @@ function registerHandlers() {
 
     let startDebuggingCommandDisposable = vscode.commands.registerCommand('extension.startDebugging', () => {
         let openDoc = vscode.window.activeTextEditor.document.uri.path;
-        openDoc = openDoc.substring(1,openDoc.length);
+        openDoc = openDoc.substring(1, openDoc.length);
         let launchConfig = {
             name: "Viper Debug",
             type: "viper",

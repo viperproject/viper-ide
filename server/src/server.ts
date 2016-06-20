@@ -120,7 +120,12 @@ connection.onRequest(Commands.SelectBackend, (selectedBackend: string) => {
 });
 
 connection.onRequest(Commands.RequestBackendSelection, (args) => {
-    connection.sendRequest(Commands.AskUserToSelectBackend, Settings.getBackendNames(settings));
+    let backendNames: string[] = Settings.getBackendNames(settings);
+    if (backendNames.length > 1) {
+        connection.sendRequest(Commands.AskUserToSelectBackend, backendNames);
+    } else {
+        Log.hint("there is only one backend, selecting does not make sense.");
+    }
 });
 
 connection.onDidChangeWatchedFiles((change) => {
@@ -129,7 +134,7 @@ connection.onDidChangeWatchedFiles((change) => {
 });
 
 connection.onDidOpenTextDocument((params) => {
-    if (isSiliconFile(params.textDocument)) {
+    if (isViperSourceFile(params.textDocument.uri)) {
         let uri = params.textDocument.uri;
         if (!verificationTasks.has(uri)) {
             //create new task for opened file
@@ -141,7 +146,7 @@ connection.onDidOpenTextDocument((params) => {
 });
 
 connection.onDidCloseTextDocument((params) => {
-    if (isSiliconFile(params.textDocument)) {
+    if (isViperSourceFile(params.textDocument.uri)) {
         let uri = params.textDocument.uri;
         if (!verificationTasks.has(uri)) {
             //remove no longer needed task
@@ -153,13 +158,13 @@ connection.onDidCloseTextDocument((params) => {
 
 connection.onDidChangeTextDocument((params) => {
     //reset the diagnostics for the changed file
-    if (isSiliconFile(params.textDocument)) {
+    if (isViperSourceFile(params.textDocument.uri)) {
         resetDiagnostics(params.textDocument.uri);
     }
 });
 
 connection.onDidSaveTextDocument((params) => {
-    if (isSiliconFile(params.textDocument)) {
+    if (isViperSourceFile(params.textDocument.uri)) {
         startOrRestartVerification(params.textDocument.uri, false)
     } else {
         Log.log("This system can only verify .sil and .vpr files");
@@ -205,32 +210,41 @@ function resetDiagnostics(uri: string) {
 
 function startOrRestartVerification(uri: string, onlyTypeCheck: boolean) {
 
-    //if no backend was selected
+    //only verify viper source code files
+    if(!isViperSourceFile(uri)){
+        Log.hint("Only viper source files can be verified.");
+        return;
+    }
+
+    //only verify if the settings are right
     if (!backend) {
         Log.log("no backend has beed selected, the first was picked by default.");
         backend = settings.verificationBackends[0];
         nailgunService.startNailgunIfNotRunning(connection, backend);
     }
-
     if (!nailgunService.ready) {
         Log.hint("The verification backend is not ready yet.");
         return;
     }
 
+    //check if there is already a verification task for that file
     let task = verificationTasks.get(uri);
     if (!task) {
         Log.error("No verification task found for file: " + uri);
         return;
     }
+    //abort old verification if needed
     if (task.running) {
         Log.log("verification already running -> abort and restart.");
         task.abortVerification();
     }
-    task.verify(backend, onlyTypeCheck,getTrace);
+
+    //start verification
+    task.verify(backend, onlyTypeCheck, getTrace);
 }
 
-function isSiliconFile(document: TextDocumentIdentifier): boolean {
-    return document.uri.endsWith(".sil") || document.uri.endsWith(".vpr");
+function isViperSourceFile(uri: string): boolean {
+    return uri.endsWith(".sil") || uri.endsWith(".vpr");
 }
 
 //communication with debugger
@@ -254,7 +268,7 @@ function startIPCServer() {
                         debuggedVerificationTask = verificationTasks.get(uri);
                         let response = "true";
                         if (!debuggedVerificationTask) {
-                            Log.hint("Cannot debug file, you have to first verify the file: "+uri);
+                            Log.hint("Cannot debug file, you have to first verify the file: " + uri);
                             response = "false";
                         }
                         ipc.server.emit(

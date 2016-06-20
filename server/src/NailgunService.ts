@@ -23,7 +23,7 @@ export class NailgunService {
 
     private startNailgunServer(connection, backend: Backend) {
         if (!this.nailgunStarted()) {
-
+            Log.log("close nailgun server on port: "+ this.nailgunPort)
             let killOldNailgunProcess = child_process.exec(this.settings.nailgunClient + ' --nailgun-port ' + this.nailgunPort + ' ng-stop');
 
             killOldNailgunProcess.on('exit', (code, signal) => {
@@ -31,20 +31,22 @@ export class NailgunService {
                 //start the nailgun server for both silicon and carbon
 
                 let backendJars = Settings.backendJars(backend);
-                Log.log("Backend Jars: " + backendJars);
+                //Log.log("Backend Jars: " + backendJars);
                 let command = 'java -cp ' + this.settings.nailgunServerJar + backendJars + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + this.nailgunPort;
-                Log.log(command)
+                //Log.log(command)
+                
                 this.nailgunProcess = child_process.exec(command);
                 this.nailgunProcess.stdout.on('data', (data) => {
                     //Log.logWithOrigin('NS', data);
                     let dataS: string = data;
                     if (dataS.indexOf("started") > 0) {
-                        let tempProcess = this.startVerificationProcess("", false, false, this.settings.verificationBackends[0],false);
-                        tempProcess.on('exit', (code, signal) => {
+                        //Comment in to perstart JVM
+                        //let tempProcess = this.startVerificationProcess("", false, false, this.settings.verificationBackends[0],false);
+                        //tempProcess.on('exit', (code, signal) => {
                             this.ready = true;
                             Log.log("Nailgun started");
                             connection.sendNotification(Commands.StateChange,{newState:VerificationState.Ready,firstTime:true});
-                        });
+                        //});
                     }
                 });
             });
