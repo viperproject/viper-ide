@@ -25,9 +25,6 @@ export class Settings {
 
     public static isWin = /^win/.test(process.platform);
 
-    
-
-
     public static getBackendNames(settings: IveSettings): string[] {
         let backendNames = [];
         settings.verificationBackends.forEach((backend) => {
@@ -86,7 +83,6 @@ export class Settings {
             }
         }
         settings.valid = !error;
-        Log.log("Settings error: "+ (settings?settings:""))
         return error;
     }
 

@@ -1,18 +1,42 @@
 'use strict';
 
 import * as vscode from "vscode";
+import * as path from 'path';
+import * as fs from 'fs';
 
 export class Log{
 
+    static logFilePath = "./IVE_log";
+    static logFile:fs.WriteStream;
     static outputChannel = vscode.window.createOutputChannel('ViperIVE');
 
+    public static initialize(context:vscode.ExtensionContext){
+        Log.logFilePath = context.asAbsolutePath(Log.logFilePath);
+        Log.log("LogFilePath is: "+Log.logFilePath)
+        try{
+            fs.closeSync(fs.openSync(Log.logFilePath, 'w'));
+            fs.accessSync(Log.logFilePath);
+            Log.logFile= fs.createWriteStream(Log.logFilePath);
+        }catch(e){
+            Log.log("cannot write to LogFile, access denied. "+ e)
+        }
+    }
+
     public static log(message:string){
-        this.outputChannel.append(message + "\n");
         console.log(message);
+        let messageNewLine = message + "\n";
+        Log.outputChannel.append(messageNewLine);
+        if(Log.logFile){
+        Log.logFile.write(messageNewLine);
+        }
     }
 
     public static error(message:string){
-        this.outputChannel.append("ERROR: " + message + "\n");
         console.error(message);
+        let messageNewLine = "ERROR: " + message + "\n";
+        Log.outputChannel.append(messageNewLine);
+        if(Log.logFile){
+        Log.logFile.write(messageNewLine);
+        }
     }
 }

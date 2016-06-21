@@ -106,7 +106,10 @@ export class VerificationTask {
 
         Log.log("Number of Steps: " + this.steps.length);
         //show last state
-        //Log.log(this.steps[this.steps.length - 1].pretty());
+        
+        this.steps.forEach((step)=>{
+             Log.log(step.pretty());
+        });
     }
 
     private stdErrHadler(data) {

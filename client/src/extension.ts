@@ -29,6 +29,7 @@ let enableSecondWindow: boolean = false;
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+    Log.initialize(context);
     Log.log('Viper-IVE-Client is now active!');
     state = new ExtensionState();
     context.subscriptions.push(state);
