@@ -126,7 +126,6 @@ export class VerificationTask {
         }
     }
     lines: string[] = [];
-
     private stdOutHandler(data) {
         //Log.log('stdout: ' + data);
 

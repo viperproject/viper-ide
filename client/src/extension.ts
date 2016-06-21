@@ -133,7 +133,7 @@ function registerHandlers() {
                         statusBarItem.text = `$(x) failed`;
                     }
                 }
-                statusBarProgress.hide();
+                statusBarProgress.hide()
                 break;
             case VerificationState.Stopping:
                 statusBarItem.color = 'orange';
@@ -145,15 +145,19 @@ function registerHandlers() {
     });
 
     state.client.onNotification(Commands.InvalidSettings, (data) => {
+        Log.log("Invalid Settings detected");
+        statusBarItem.color = 'red';
+        statusBarItem.text = "Invalid Settings";
+
         let buttons: vscode.MessageItem = { title: "Open Settings" };
 
         vscode.window.showInformationMessage("Invalid settings: " + data, buttons).then((choice) => {
-            if(!choice){
+            if (!choice) {
 
-            }else if (choice && choice.title === "Open Settings") {
+            } else if (choice && choice.title === "Open Settings") {
                 //TODO: also put link to user settings
                 let workspaceSettingsPath = state.context.asAbsolutePath(path.join('.vscode', 'settings.json'));
-                Log.log("WorkspaceSettings: "+workspaceSettingsPath);
+                Log.log("WorkspaceSettings: " + workspaceSettingsPath);
                 showFile(workspaceSettingsPath, vscode.ViewColumn.Two);
             }
         });
@@ -215,7 +219,7 @@ function registerHandlers() {
 
     let startDebuggingCommandDisposable = vscode.commands.registerCommand('extension.startDebugging', () => {
         let openDoc = vscode.window.activeTextEditor.document.uri.path;
-        if(isWin){
+        if (isWin) {
             openDoc = openDoc.substring(1, openDoc.length);
         }
         let launchConfig = {

@@ -10,6 +10,7 @@ export interface IveSettings {
     nailgunServerJar: string;
     nailgunClient: string;
     z3Executable: string;
+    valid: boolean;
 }
 // These are the example settings we defined in the client's package.json
 // file
@@ -24,7 +25,7 @@ export class Settings {
 
     public static isWin = /^win/.test(process.platform);
 
-    private static valid: boolean = false;
+    
 
 
     public static getBackendNames(settings: IveSettings): string[] {
@@ -35,11 +36,8 @@ export class Settings {
         return backendNames;
     }
 
-    public static areValid(): boolean {
-        return Settings.valid;
-    }
-
     public static checkSettings(settings: IveSettings): string {
+        settings.valid = false;
         Log.log("Checking Backends...");
         let error = Settings.areBackendsValid(settings.verificationBackends);
         if (!error) {
@@ -87,7 +85,8 @@ export class Settings {
                 }
             }
         }
-        Settings.valid = !error;
+        settings.valid = !error;
+        Log.log("Settings error: "+ (settings?settings:""))
         return error;
     }
 

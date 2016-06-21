@@ -36,7 +36,6 @@ let workspaceRoot: string;
 
 let debuggedVerificationTask: VerificationTask;
 
-
 let getTrace = true;
 
 //for communication with debugger
@@ -89,14 +88,14 @@ connection.onDidChangeConfiguration((change) => {
     //check settings
     let error = Settings.checkSettings(settings);
     if (error) {
-        Log.log("Invalid Settings detected")
         connection.sendNotification(Commands.InvalidSettings, error);
         return;
     }
+    Log.hint("The settings are ok");
 
-    Log.log("Ask user to select backend");
     let backendNames = Settings.getBackendNames(settings);
     if (backendNames.length > 0) {
+        Log.log("Ask user to select backend");
         connection.sendRequest(Commands.AskUserToSelectBackend, backendNames);
     } else {
         Log.error("No backend, even though the setting check succeeded?");
@@ -104,6 +103,11 @@ connection.onDidChangeConfiguration((change) => {
 });
 
 connection.onRequest(Commands.SelectBackend, (selectedBackend: string) => {
+
+    if (!settings.valid) {
+        connection.sendNotification(Commands.InvalidSettings, "Cannot start backend, fix settings first.");
+        return;
+    }
     if (!selectedBackend) {
         //select first backend by default;
         backend = settings.verificationBackends[0];
@@ -124,7 +128,7 @@ connection.onRequest(Commands.RequestBackendSelection, (args) => {
     if (backendNames.length > 1) {
         connection.sendRequest(Commands.AskUserToSelectBackend, backendNames);
     } else {
-        Log.hint("there is only one backend, selecting does not make sense.");
+        Log.hint("there less than two backends, selecting does not make sense.");
     }
 });
 
@@ -210,8 +214,14 @@ function resetDiagnostics(uri: string) {
 
 function startOrRestartVerification(uri: string, onlyTypeCheck: boolean) {
 
+    //only verify if the settings are right
+    if (!settings.valid) {
+        connection.sendNotification(Commands.InvalidSettings, "Cannot verify, fix the settings first.");
+        return;
+    }
+
     //only verify viper source code files
-    if(!isViperSourceFile(uri)){
+    if (!isViperSourceFile(uri)) {
         Log.hint("Only viper source files can be verified.");
         return;
     }
