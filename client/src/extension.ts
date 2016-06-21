@@ -22,6 +22,8 @@ let autoSaver: Timer;
 let previewUri = vscode.Uri.parse('viper-preview://debug');
 let state: ExtensionState;
 
+let isWin = /^win/.test(process.platform);
+
 let enableSecondWindow: boolean = false;
 
 // this method is called when your extension is activated
@@ -30,7 +32,7 @@ export function activate(context: vscode.ExtensionContext) {
     Log.log('Viper-IVE-Client is now active!');
     state = new ExtensionState();
     context.subscriptions.push(state);
-    state.startLanguageServer(context, true); //break?
+    state.startLanguageServer(context, false); //break?
     startAutoSaver();
     registerHandlers();
     initializeStatusBar();
@@ -146,15 +148,13 @@ function registerHandlers() {
         let buttons: vscode.MessageItem = { title: "Open Settings" };
 
         vscode.window.showInformationMessage("Invalid settings: " + data, buttons).then((choice) => {
-            if (!choice) return;
-            if (choice.title === "Open Settings") {
-                //TODO: fix
-                let workspaceSettingsPath = path.join(vscode.workspace.rootPath, '.vscode', 'settings.json');
+            if(!choice){
+
+            }else if (choice && choice.title === "Open Settings") {
+                //TODO: also put link to user settings
+                let workspaceSettingsPath = state.context.asAbsolutePath(path.join('.vscode', 'settings.json'));
                 Log.log("WorkspaceSettings: "+workspaceSettingsPath);
                 showFile(workspaceSettingsPath, vscode.ViewColumn.Two);
-                let userSettingsPath = state.context.asAbsolutePath(path.join('.vscode', 'settings.json'));
-                Log.log("userSettings: "+userSettingsPath);
-                showFile(userSettingsPath, vscode.ViewColumn.Three);
             }
         });
     });
@@ -215,7 +215,9 @@ function registerHandlers() {
 
     let startDebuggingCommandDisposable = vscode.commands.registerCommand('extension.startDebugging', () => {
         let openDoc = vscode.window.activeTextEditor.document.uri.path;
-        openDoc = openDoc.substring(1, openDoc.length);
+        if(isWin){
+            openDoc = openDoc.substring(1, openDoc.length);
+        }
         let launchConfig = {
             name: "Viper Debug",
             type: "viper",

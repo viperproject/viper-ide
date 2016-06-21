@@ -1,5 +1,0 @@
-'use strict';
-class ExtensionState {
-}
-exports.ExtensionState = ExtensionState;
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiTGFuZ3VhZ2VDbGllbnQuanMiLCJzb3VyY2VSb290IjoiIiwic291cmNlcyI6WyIuLi9zcmMvTGFuZ3VhZ2VDbGllbnQudHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBQUEsWUFBWSxDQUFDO0FBSWI7QUFFQSxDQUFDO0FBRlksc0JBQWMsaUJBRTFCLENBQUEifQ==

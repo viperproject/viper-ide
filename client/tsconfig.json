@@ -8,6 +8,5 @@
 		"noImplicitAny": false,
 		"removeComments": false,
 		"preserveConstEnums": true
-	},
-	"files": []
+	}
 }
