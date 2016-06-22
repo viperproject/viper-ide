@@ -173,6 +173,10 @@ function registerHandlers() {
         Log.log("S: " + data);
     });
 
+    state.client.onNotification(Commands.ToLogFile, (data: string) => {
+        Log.toLogFile("S: " + data);
+    });
+
     state.client.onNotification(Commands.Error, (data: string) => {
         Log.error("S: " + data);
     });
@@ -237,6 +241,15 @@ function registerHandlers() {
         });
     });
     state.context.subscriptions.push(startDebuggingCommandDisposable);
+
+    let selectStopVerificationDisposable = vscode.commands.registerCommand('extension.stopVerification', () => {
+        if (!state.client) {
+            vscode.window.showInformationMessage("extension not ready yet.");
+        } else {
+            state.client.sendRequest(Commands.StopVerification, vscode.window.activeTextEditor.document.uri.toString());
+        }
+    });
+    state.context.subscriptions.push(selectStopVerificationDisposable);
 }
 
 function showFile(filePath: string, column: vscode.ViewColumn) {

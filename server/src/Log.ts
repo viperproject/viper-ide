@@ -10,6 +10,10 @@ export class Log {
         this.connection.sendNotification(Commands.Log,message);
     }
 
+    static toLogFile(message: string) {
+        this.connection.sendNotification(Commands.ToLogFile,message);
+    }
+
     static error(message: string) {
         this.connection.sendNotification(Commands.Error,message);
     }

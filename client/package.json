@@ -62,6 +62,10 @@
             {
                 "command": "extension.startDebugging",
                 "title": "Viper: Start Debugging Session"
+            },
+            {
+                "command": "extension.stopVerification",
+                "title": "Viper: Stop the running verification"
             }
         ],
         "grammars": [
@@ -119,6 +123,12 @@
                 "command": "extension.startDebugging",
                 "key": "ctrl+shift+d",
                 "mac": "cmd+shift+d",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "extension.stopVerification",
+                "key": "ctrl+q",
+                "mac": "cmd+q",
                 "when": "editorTextFocus"
             }
         ],

@@ -6,7 +6,8 @@ import {Backend, IveSettings} from "./Settings";
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement} from './Statement';
-import {Commands, VerificationState} from './ViperProtocol'
+import {Commands, VerificationState} from './ViperProtocol';
+import {Model} from './Model';
 
 interface Progress {
     current: number;
@@ -49,6 +50,7 @@ export class VerificationTask {
     verifierProcess: child_process.ChildProcess;
     time: number = 0;
     steps: Statement[];
+    model:Model = new Model();
 
     state: VerificationState = VerificationState.Stopped;
 
@@ -70,6 +72,7 @@ export class VerificationTask {
         this.resetDiagnostics();
         this.wrongFormat = false;
         this.steps = [];
+        this.model = new Model();
 
         Log.log(backend.name + ' verification startet');
 
@@ -108,8 +111,9 @@ export class VerificationTask {
         //show last state
         
         this.steps.forEach((step)=>{
-             Log.log(step.pretty());
+             Log.toLogFile(step.pretty());
         });
+        Log.toLogFile("Model: " + this.model.pretty());
     }
 
     private stdErrHadler(data) {
@@ -165,7 +169,8 @@ export class VerificationTask {
                             }
                         }
                         else if (part.startsWith("\"") && part.endsWith("\"")) {
-                            Log.log("Model: " + part);
+                            this.model.extendModel(part);
+                            //Log.toLogFile("Model: " + part);
                         } else if (part.startsWith("----")) {
                             //TODO: handle method mention if needed
                             return;
@@ -236,7 +241,7 @@ export class VerificationTask {
     public abortVerification() {
         Log.log('abort running verification');
         if (!this.running) {
-            Log.error('cannot abort, verification is not running.');
+            //Log.error('cannot abort. the verification is not running.');
             return;
         }
         //remove impact of child_process to kill
@@ -274,19 +279,6 @@ export class VerificationTask {
                 return resolve(path);
             });
         });
-        /*
-        //version 2
-        let path = uri.replace(/\%3A/g, ":");
-        //"replace" only replaces the first occurence of a string, /:/g replaces all
-        path = path.replace("file:\/\/\/", "");
-        path = path.replace(/\%20/g, " ");
-        path = path.replace(/\//g, "\\");
-
-        if (platformIndependentPath != path) {
-            Log.error("UriToPath: path:\t\t" + path + "\nplatformIndependentPath: " + platformIndependentPath);
-        }
-        return platformIndependentPath;
-        */
     }
 
     public static pathToUri(path: string): Thenable<string> {
@@ -300,17 +292,5 @@ export class VerificationTask {
                 return resolve(uri);
             });
         });
-        /*
-        //version 2
-        let uri = path.replace(/:/g, "\%3A");
-        uri = uri.replace(/ /g, "\%20");
-        uri = uri.replace(/\\/g, "/");
-        uri = "file:///" + uri;
-        
-        if(platformIndependentUri != uri){
-            Log.error("UriToPath: uri:\t\t"+uri + "\nplatformIndependentPath: "+ platformIndependentUri);    
-        }
-        return platformIndependentUri;
-        */
     }
 }

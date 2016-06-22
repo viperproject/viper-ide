@@ -59,7 +59,9 @@ export class Statement {
     }
 
     public pretty(): string {
-        let res: string = "Type: " + StatementType[this.type] + "\nPosition: " + this.position.line + ":" + this.position.character + "\n";
+        let positionString = "\nPosition: " + (this.position ? this.position.line + ":" + this.position.character : "<no position>") + "\n";
+
+        let res: string = "Type: " + StatementType[this.type] + positionString;
         res += "Formula: " + this.formula + "\n";
         res += "Store: \n";
         this.store.forEach(element => {
@@ -81,8 +83,8 @@ export class Statement {
     }
 
     private parseFirstLine(line: string): Position {
-        let parts = /(.*?)\s+(\d*):(\d*):\s+(.*)/.exec(line);
-        if (parts.length != 5) {
+        let parts = /(.*?)\s+((\d*):(\d*)|<no position>):\s+(.*)/.exec(line);
+        if (!parts) {
             Log.error('could not parse first Line of the silicon trace message : "' + line + '"');
             return;
         }
@@ -96,12 +98,16 @@ export class Statement {
         } else if (type === "EXECUTE") {
             this.type = StatementType.EXECUTE;
         }
+        if (parts.length == 6) {
+            //subtract 1 to confirm with VS Codes 0-based numbering
+            let lineNr = +parts[3] - 1;
+            let charNr = +parts[4] - 1;
+            this.position = { line: lineNr, character: charNr };
 
-        //subtract 1 to confirm with VS Codes 0-based numbering
-        let lineNr = +parts[2] - 1;
-        let charNr = +parts[3] - 1;
-        this.position = { line: lineNr, character: charNr };
-
-        this.formula = parts[4].trim();
+            this.formula = parts[5].trim();
+        }
+        if (parts.length == 4) {
+            this.formula = parts[3].trim();
+        }
     }
 }

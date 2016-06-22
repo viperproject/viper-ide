@@ -21,6 +21,8 @@ export class Commands {
     static Verify = { method: "Verify" };
     static Log = { method: "Log" };
     static Error = { method: "Error" };
+    static StopVerification = { method: "StopVerification" };
+    static ToLogFile = { method: "ToLogFile" };
 }
 
 export interface UpdateStatusBarParams {

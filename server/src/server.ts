@@ -20,7 +20,8 @@ import {Backend, Settings, IveSettings} from './Settings';
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {StatementType} from './Statement';
-import {Commands, VerificationState} from './ViperProtocol'
+import {Commands, VerificationState} from './ViperProtocol';
+import {Model} from './Model';
 
 var ipc = require('node-ipc');
 
@@ -200,6 +201,12 @@ connection.onRequest(Commands.Dispose, (lineNumber) => {
     return null;
 });
 
+connection.onRequest(Commands.StopVerification, (uri: string) => {
+    let task = verificationTasks.get(uri);
+    task.abortVerification();
+    connection.sendNotification(Commands.StateChange,{newState:VerificationState.Ready,firstTime:true});
+});
+
 // Listen on the connection
 connection.listen();
 
@@ -243,11 +250,8 @@ function startOrRestartVerification(uri: string, onlyTypeCheck: boolean) {
         Log.error("No verification task found for file: " + uri);
         return;
     }
-    //abort old verification if needed
-    if (task.running) {
-        Log.log("verification already running -> abort and restart.");
-        task.abortVerification();
-    }
+    //stop if needed
+    task.abortVerification();
 
     //start verification
     task.verify(backend, onlyTypeCheck, getTrace);
@@ -305,6 +309,9 @@ function startIPCServer() {
                         let steps = debuggedVerificationTask.getStepsOnLine(lineNumber);
                         if (steps.length > 0) {
                             steps[0].store.forEach((variable) => {
+                                if(debuggedVerificationTask.model.values.has(variable.value)){
+                                    variable.value = debuggedVerificationTask.model.values.get(variable.value);
+                                }
                                 variables.push(variable);
                             });
                         }
