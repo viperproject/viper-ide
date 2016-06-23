@@ -2,7 +2,6 @@
 
 import {Log} from './Log';
 
-
 interface ConcreteVariable {
     name: string;
     value: string;
@@ -36,8 +35,8 @@ export class Model {
         for (var i = 2; i < parts.length; i += 3) {
             let name = parts[i - 2];
             let value = parts[i];
-            if(value.startsWith("(")){
-                while(!value.endsWith(")") && ++i<parts.length){
+            if (value.startsWith("(")) {
+                while (!value.endsWith(")") && ++i < parts.length) {
                     value += " " + parts[i];
                 }
             }
@@ -56,5 +55,18 @@ export class Model {
             result = result + "\n" + name + " -> " + value;
         });
         return result;
+    }
+
+    public fillInValues(line: string): string {
+        let vars: string[] = line.match(/(\$?[\w\.]+@\d+\b)/g);
+        if (vars) {
+            vars.forEach((variable) => {
+                if (this.values.has(variable)) {
+                    let value = this.values.get(variable);
+                    line = line.replace(variable, value);
+                }
+            });
+        }
+        return line;
     }
 }

@@ -191,7 +191,7 @@ export class VerificationTask {
                                 if (this.lines.length != 6) {
                                     Log.error("error reading verification trace. Unexpected format.");
                                 } else {
-                                    this.steps.push(new Statement(this.lines[0], this.lines[2], this.lines[3], this.lines[4], this.lines[5]));
+                                    this.steps.push(new Statement(this.lines[0], this.lines[2], this.lines[3], this.lines[4], this.lines[5],this.model));
                                     this.lines = [];
                                 }
                             }
