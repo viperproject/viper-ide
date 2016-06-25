@@ -204,7 +204,7 @@ connection.onRequest(Commands.Dispose, (lineNumber) => {
 connection.onRequest(Commands.StopVerification, (uri: string) => {
     let task = verificationTasks.get(uri);
     task.abortVerification();
-    connection.sendNotification(Commands.StateChange,{newState:VerificationState.Ready,firstTime:true});
+    connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, firstTime: true });
 });
 
 // Listen on the connection
@@ -271,7 +271,7 @@ function startIPCServer() {
             ipc.server.on(
                 'log',
                 function (data, socket) {
-                    Log.logWithOrigin("Debugger", data);
+                    Log.log("Debugger: " + data);
                 }
             );
             ipc.server.on(
@@ -309,9 +309,6 @@ function startIPCServer() {
                         let steps = debuggedVerificationTask.getStepsOnLine(lineNumber);
                         if (steps.length > 0) {
                             steps[0].store.forEach((variable) => {
-                                if(debuggedVerificationTask.model.values.has(variable.value)){
-                                    variable.value = debuggedVerificationTask.model.values.get(variable.value);
-                                }
                                 variables.push(variable);
                             });
                         }
@@ -332,9 +329,28 @@ function startIPCServer() {
                 function (data, socket) {
                     Log.log(`evaluate(context: '${data.context}', '${data.expression}')`);
 
+                    let evaluated: string = debuggedVerificationTask.model.values.has(data.expression)
+                        ? debuggedVerificationTask.model.values.get(data.expression)
+                        : "unknown";
+
                     ipc.server.emit(
                         socket,
-                        'evaluateResponse'
+                        'evaluateResponse',
+                        JSON.stringify(evaluated)
+                    );
+                }
+            );
+
+            ipc.server.on(
+                'nextLineRequest',
+                function (data, socket) {
+                    Log.log(`get line after ${data}`);
+
+                    let nextLine = debuggedVerificationTask.nextLine(data);
+                    ipc.server.emit(
+                        socket,
+                        'nextLineResponse',
+                        nextLine
                     );
                 }
             );

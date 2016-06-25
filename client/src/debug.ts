@@ -125,8 +125,9 @@ class ViperDebugSession extends DebugSession {
 
 		ipc.of.viper.on(
 			method + "Response", (data) => {
-				this.log(data);
-
+				if (data && data != "[]") {
+					this.log(data);
+				}
 				let parsedData;
 				if (isJsonResponse) {
 					try {
@@ -270,14 +271,6 @@ class ViperDebugSession extends DebugSession {
 			};
 			this.sendResponse(response);
 		});
-		/*
-			variables.push({
-				name: id + "_o",
-				value: "Object",
-				variablesReference: this._variableHandles.create("object_")
-			});
-		}
-		*/
 	}
 
 	public log(message: string) {
@@ -343,13 +336,13 @@ class ViperDebugSession extends DebugSession {
 
 	protected evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): void {
 
-		this.requestFromLanguageServer("evaluate", JSON.stringify(args), false, () => { });
-
-		response.body = {
-			result: `evaluate(context: '${args.context}', '${args.expression}')`,
-			variablesReference: 0
-		};
-		this.sendResponse(response);
+		this.requestFromLanguageServer("evaluate", JSON.stringify(args), false, (evaluated) => {
+			response.body = {
+				result: `${args.expression} = ${evaluated}`,
+				variablesReference: 0
+			};
+			this.sendResponse(response);
+		});
 	}
 
 	protected customRequest(request: string, response: DebugProtocol.Response, args: any): void {

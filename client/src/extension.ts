@@ -180,6 +180,7 @@ function registerHandlers() {
     state.client.onNotification(Commands.Error, (data: string) => {
         Log.error("S: " + data);
     });
+    
 
     state.client.onRequest(Commands.UriToPath, (uri: string) => {
         let uriObject: vscode.Uri = vscode.Uri.parse(uri);

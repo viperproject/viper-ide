@@ -16,13 +16,24 @@ interface Variable {
     value: string;
     variablesReference: number;
 }
-
-interface HeapChunk {
+class HeapChunk {
     name: string;
     value: string;
     permission: string;
-}
 
+    constructor(name: string, value: string, permission: string) {
+        this.name = name;
+        this.value = value;
+        this.permission = permission;
+    }
+
+    pretty(): string {
+        return this.name + (this.value ? " -> " + this.value : "") + " # " + this.permission;
+    }
+    equals(other: HeapChunk): boolean {
+        return this.name == other.name && this.permission == other.permission && this.value == other.value;
+    }
+}
 
 interface SplitResult {
     prefix: string;
@@ -40,11 +51,11 @@ export class Statement {
 
     constructor(firstLine: string, store: string, heap: string, oldHeap: string, conditions: string, model: Model) {
         this.parseFirstLine(firstLine);
-        this.store = this.parseVariables(this.unpack(store,model));
-        this.heap = this.unpackHeap(heap, model);
-        this.oldHeap = this.unpackHeap(oldHeap, model);
+        this.store = this.parseVariables(this.unpack(store, model));
+        this.heap = this.unpackHeap(this.unpack(heap, model));
+        this.oldHeap = this.unpackHeap(this.unpack(oldHeap, model));
         //TODO: implement unpackConditions
-        this.conditions = this.unpack(conditions,model);
+        this.conditions = this.unpack(conditions, model);
     }
 
     private parseVariables(vars: string[]): Variable[] {
@@ -62,64 +73,50 @@ export class Statement {
         return result;
     }
 
-    private unpack(line: string,model:Model): string[] {
+    private unpack(line: string, model: Model): string[] {
         line = line.trim();
         if (line == "{},") {
             return [];
         } else {
             let res = [];
             line = line.substring(line.indexOf("(") + 1, line.lastIndexOf(")"));
-            while(line){
-                let splitRes = this.splitAtComma(line);
-                res.push(model.fillInValues(splitRes.prefix));
-                line = splitRes.rest;
-            }
-            return res;
+            line = model.fillInValues(line);
+            return this.splitAtComma(line);
         }
     }
 
-    private unpackHeap(line: string, model: Model): HeapChunk[] {
-        line = line.trim();
-        if (line == "{},") {
+    private unpackHeap(parts: string[]): HeapChunk[] {
+        if (!parts) {
             return [];
         }
-        line = line.substring(line.indexOf("(") + 1, line.lastIndexOf(")"));
-
         let res = [];
         try {
-            line = line.trim();
-            while (line != "") {
-                let arrowPosition = line.indexOf("->");
-                let hashTagPosition = line.indexOf("#", arrowPosition);
-                let secondArrowPosition = line.indexOf("->", hashTagPosition);
-                let name = model.fillInValues(line.substring(0, arrowPosition - 1).trim());
-                let value = model.fillInValues(line.substring(arrowPosition + 3, hashTagPosition - 1));
-                if (secondArrowPosition < 0) {
-                    //this is the last HeapChunk
-                    var permission = model.fillInValues(line.substring(hashTagPosition + 2, line.length));
-                    line = "";
+            parts.forEach((part) => {
+                let arrowPosition = part.indexOf("->");
+                let hashTagPosition = part.indexOf("#", arrowPosition);
+                if (arrowPosition > 0) {
+                    var name: string = part.substring(0, arrowPosition - 1).trim();
+                    var value: string = part.substring(arrowPosition + 3, hashTagPosition - 1).trim();
                 } else {
-                    line = line.substring(hashTagPosition + 2, line.length);
-                    let splitRes = this.splitAtComma(line);
-                    permission = model.fillInValues(splitRes.prefix);
-                    line = splitRes.rest;
+                    name = part.substring(0, hashTagPosition - 1).trim();
+                    value = null;
                 }
-                res.push({ name: name, permission: permission, value: value });
-            }
+                let permission = part.substring(hashTagPosition + 2, part.length);
+                res.push(new HeapChunk(name, value, permission));
+            });
         } catch (e) {
             Log.error("Heap parsing error: " + e);
         }
         return res;
     }
 
-
-
-    private splitAtComma(line: string): SplitResult {
+    private splitAtComma(line: string): string[] {
+        let parts = [];
         let i = 0;
         let bracketCount = 0;
-        let endFound = false;
+        let lastIndex = -1;
         //walk through line to determine end of permission
-        while (i < line.length && !endFound) {
+        while (i < line.length) {
             let char = line[i];
             if (char == '(' || char == '[' || char == '{') {
                 bracketCount++;
@@ -128,15 +125,15 @@ export class Statement {
                 bracketCount--;
             }
             else if (char == ',' && bracketCount == 0) {
-                endFound = true;
+                parts.push(line.substring(lastIndex+1, i).trim())
+                lastIndex = i;
             }
             i++;
         }
-
-        return {
-            prefix: i+1<line.length?line.substring(0, i - 1):line,
-            rest: line = i+1<line.length?line.substring(i + 1):null
-        };
+        if (i + 1 < line.length) {
+            parts.push(line.substring(i + 1, line.length))
+        }
+        return parts;
     }
 
     public pretty(): string {
@@ -144,23 +141,50 @@ export class Statement {
 
         let res: string = "Type: " + StatementType[this.type] + positionString;
         res += "Formula: " + this.formula + "\n";
-        res += "Store: \n";
-        this.store.forEach(element => {
-            res += "\t" + element.name + " = " + element.value + "\n"
-        });
-        res += "Heap: \n";
-        this.heap.forEach(element => {
-            res += "\t" + element.name + " -> " + element.value + " # " + element.permission + "\n";
-        });
-        res += "OldHeap: \n";
-        this.oldHeap.forEach(element => {
-            res += "\t" + element.name + " -> " + element.value + " # " + element.permission + "\n";
-        });
-        res += "Condition: \n";
-        this.conditions.forEach(element => {
-            res += "\t" + element + "\n"
-        });
+        if (this.store.length > 0) {
+            res += "Store: \n";
+            this.store.forEach(element => {
+                res += "\t" + element.name + " = " + element.value + "\n"
+            });
+        }
+
+        let heapChanged = !this.oldHeapEqualsHeap();
+        if (this.heap.length > 0) {
+            if (!heapChanged) {
+                res += "Heap == OldHeap: \n";
+            } else {
+                res += "Heap: \n";
+            }
+            this.heap.forEach(element => {
+                res += "\t" + element.pretty() + "\n";
+            });
+        }
+        if (heapChanged && this.oldHeap.length > 0) {
+            res += "OldHeap: \n";
+            this.oldHeap.forEach(element => {
+                res += "\t" + element.pretty() + "\n";
+            });
+        }
+        if (this.conditions.length > 0) {
+            res += "Condition: \n";
+            this.conditions.forEach(element => {
+                res += "\t" + element + "\n"
+            });
+        }
         return res;
+    }
+
+    private oldHeapEqualsHeap(): boolean {
+
+        if (this.heap.length != this.oldHeap.length) {
+            return false;
+        }
+        for (let i = 0; i < this.heap.length; i++) {
+            if (!this.heap[i].equals(this.oldHeap[i])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private parseFirstLine(line: string): Position {

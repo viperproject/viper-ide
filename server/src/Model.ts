@@ -36,7 +36,9 @@ export class Model {
             let name = parts[i - 2];
             let value = parts[i];
             if (value.startsWith("(")) {
-                while (!value.endsWith(")") && ++i < parts.length) {
+                let bracketCount = this.countBrackets(value);
+                while (!(value.endsWith(")") && bracketCount == 0) && ++i < parts.length) {
+                    bracketCount += this.countBrackets(parts[i]);
                     value += " " + parts[i];
                 }
             }
@@ -49,6 +51,20 @@ export class Model {
         }
     }
 
+    private countBrackets(value: string): number {
+        let res = 0;
+        for (var i = 0; i < value.length; i++) {
+            let char = value[i];
+            if (char == '(' || char == '[' || char == '{') {
+                res++;
+            }
+            else if (char == ')' || char == ']' || char == '}') {
+                res--;
+            }
+        }
+        return res;
+    }
+
     public pretty(): string {
         let result = "";
         this.values.forEach((value, name) => {
@@ -59,14 +75,23 @@ export class Model {
 
     public fillInValues(line: string): string {
         let vars: string[] = line.match(/(\$?[\w\.]+@\d+\b)/g);
+        let foundVars: Map<string, boolean> = new Map<string, boolean>();
         if (vars) {
             vars.forEach((variable) => {
-                if (this.values.has(variable)) {
-                    let value = this.values.get(variable);
-                    line = line.replace(variable, value);
+                if (!foundVars.has(variable)) {
+                    foundVars.set(variable, true);
+                    if (this.values.has(variable)) {
+                        let value = this.values.get(variable);
+                        var re = new RegExp(this.escapeRegExp(variable), "g");
+                        line = line.replace(re, variable + "(=" + value + ")");
+                    }
                 }
             });
         }
         return line;
+    }
+
+    private escapeRegExp(str): string {
+        return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
     }
 }

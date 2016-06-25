@@ -50,7 +50,7 @@ export class VerificationTask {
     verifierProcess: child_process.ChildProcess;
     time: number = 0;
     steps: Statement[];
-    model:Model = new Model();
+    model: Model = new Model();
 
     state: VerificationState = VerificationState.Stopped;
 
@@ -109,9 +109,9 @@ export class VerificationTask {
 
         Log.log("Number of Steps: " + this.steps.length);
         //show last state
-        
-        this.steps.forEach((step)=>{
-             Log.toLogFile(step.pretty());
+
+        this.steps.forEach((step) => {
+            Log.toLogFile(step.pretty());
         });
         Log.toLogFile("Model: " + this.model.pretty());
     }
@@ -191,7 +191,7 @@ export class VerificationTask {
                                 if (this.lines.length != 6) {
                                     Log.error("error reading verification trace. Unexpected format.");
                                 } else {
-                                    this.steps.push(new Statement(this.lines[0], this.lines[2], this.lines[3], this.lines[4], this.lines[5],this.model));
+                                    this.steps.push(new Statement(this.lines[0], this.lines[2], this.lines[3], this.lines[4], this.lines[5], this.model));
                                     this.lines = [];
                                 }
                             }
@@ -236,6 +236,17 @@ export class VerificationTask {
                 }
             }
         }
+    }
+
+    public getNextLine(previousLine):number {
+        let next = Number.MAX_VALUE;
+        this.steps.forEach(element => {
+            let line = element.position.line
+            if (line > previousLine && line < next) {
+                next = line;
+            }
+        });
+        return next;
     }
 
     public abortVerification() {
