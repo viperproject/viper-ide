@@ -30,4 +30,5 @@ export interface UpdateStatusBarParams {
     progress?; 5
     success?;
     firstTime?;
+    manuallyTriggered?;
 }

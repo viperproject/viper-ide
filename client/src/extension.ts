@@ -18,19 +18,23 @@ import {DebugContentProvider} from './TextDocumentContentProvider';
 
 let statusBarItem;
 let statusBarProgress;
+let abortButton;
 let autoSaver: Timer;
 let previewUri = vscode.Uri.parse('viper-preview://debug');
 let state: ExtensionState;
 
 let isWin = /^win/.test(process.platform);
+let isLinux = /^linux/.test(process.platform);
+let isMac = /^darwin/.test(process.platform);
 
 let enableSecondWindow: boolean = false;
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+    checkOperatingSystem();
     Log.initialize(context);
-    Log.log('Viper-IVE-Client is now active!');
+    Log.log('Viper-Client is now active!');
     state = new ExtensionState();
     context.subscriptions.push(state);
     state.startLanguageServer(context, false); //break?
@@ -72,15 +76,22 @@ function initializeStatusBar() {
     statusBarItem.text = "Hello from Viper";
     statusBarItem.show();
 
+    abortButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 9);
+    abortButton.text = "$(x) Stop";
+    abortButton.color = "orange";
+    abortButton.command = "extension.stopVerification";
+    abortButton.hide();
+
     state.context.subscriptions.push(statusBarProgress);
     state.context.subscriptions.push(statusBarItem);
+    state.context.subscriptions.push(abortButton);
 }
 
 function startAutoSaver() {
     let autoSaveTimeout = 1000;//ms
     autoSaver = new Timer(() => {
-        //only save silver files
-        if (vscode.window.activeTextEditor != null && vscode.window.activeTextEditor.document.languageId == 'silver') {
+        //only save viper files
+        if (vscode.window.activeTextEditor != null && vscode.window.activeTextEditor.document.languageId == 'viper') {
             vscode.window.activeTextEditor.document.save();
             if (enableSecondWindow) {
                 showSecondWindow();
@@ -119,6 +130,7 @@ function registerHandlers() {
                     statusBarProgress.text = progressBarText(params.progress);
                 }
                 statusBarProgress.show();
+                abortButton.show();
                 break;
             case VerificationState.Ready:
                 if (params.firstTime) {
@@ -128,13 +140,16 @@ function registerHandlers() {
                     if (params.success) {
                         statusBarItem.color = 'lightgreen';
                         statusBarItem.text = `$(check) done`;
-                        window.showInformationMessage("Successfully Verified");
+                        if (params.manuallyTriggered) {
+                            window.showInformationMessage("Successfully Verified");
+                        }
                     } else {
                         statusBarItem.color = 'red';
                         statusBarItem.text = `$(x) failed`;
                     }
                 }
-                statusBarProgress.hide()
+                statusBarProgress.hide();
+                abortButton.hide();
                 break;
             case VerificationState.Stopping:
                 statusBarItem.color = 'orange';
@@ -156,8 +171,16 @@ function registerHandlers() {
             if (!choice) {
 
             } else if (choice && choice.title === "Open Settings") {
-                //TODO: also put link to user settings
-                let workspaceSettingsPath = state.context.asAbsolutePath(path.join('.vscode', 'settings.json'));
+                //user Settings
+                let userSettings = userSettingsPath();
+                Log.log("UserSettings: " + userSettings);
+                showFile(userSettings, vscode.ViewColumn.Three);
+
+                //workspaceSettings
+                let workspaceSettingsPath = path.join(vscode.workspace.rootPath, '.vscode', 'settings.json');
+                
+                //makeSureFileExists(workspaceSettingsPath);
+                //TODO: create file workspaceSettingsPath if it does not exist
                 Log.log("WorkspaceSettings: " + workspaceSettingsPath);
                 showFile(workspaceSettingsPath, vscode.ViewColumn.Two);
             }
@@ -180,7 +203,7 @@ function registerHandlers() {
     state.client.onNotification(Commands.Error, (data: string) => {
         Log.error("S: " + data);
     });
-    
+
 
     state.client.onRequest(Commands.UriToPath, (uri: string) => {
         let uriObject: vscode.Uri = vscode.Uri.parse(uri);
@@ -260,6 +283,17 @@ function showFile(filePath: string, column: vscode.ViewColumn) {
     });
 }
 
+function makeSureFileExists(fileName: string) {
+    try {
+        if (fs.existsSync(fileName)) {
+            fs.closeSync(fs.openSync(fileName, 'w'));
+        }
+    } catch (e) {
+        Log.error(e);
+    }
+}
+
+
 function progressBarText(progress: number): string {
     let bar = "";
     for (var i = 0; i < progress / 10; i++) {
@@ -271,6 +305,37 @@ function progressBarText(progress: number): string {
     return bar;
 }
 
+function checkOperatingSystem(){
+    if((isWin?1:0)+(isMac?1:0)+(isLinux?1:0) != 1){
+        Log.error("Cannot detect OS")
+        return;
+    }
+    if(isWin){
+        Log.log("OS: Windows");
+    }
+    else if(isMac){
+        Log.log("OS: OsX");
+    }
+    else if(isLinux){
+        Log.log("OS: Linux");
+    }
+}
+
+function userSettingsPath() {
+    if (isWin) {
+        let appdata = process.env.APPDATA;
+        return path.join(appdata,"Code","User","settings.json");
+    } else {
+        let home = process.env.HOME;
+        if (isLinux) {
+           return path.join(home,".config","Code","User","settings.json");
+        } else if (isMac) {
+            return path.join(home,"Library","Application Support","Code","User","settings.json");
+        } else {
+            Log.error("unknown Operating System: " + process.platform);
+        }
+    }
+}
 /*
 function colorFileGutter(color: string) {
     let window = vscode.window;

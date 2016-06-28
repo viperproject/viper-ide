@@ -1,5 +1,5 @@
 {
-	"name": "viper-ive-server",
+	"name": "viper-server",
 	"description": "Facilitates the development of Viper programs",
 	"repository": {
 		"type": "hg",

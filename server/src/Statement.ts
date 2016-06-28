@@ -16,19 +16,61 @@ interface Variable {
     value: string;
     variablesReference: number;
 }
+
 class HeapChunk {
     name: string;
     value: string;
     permission: string;
 
+    parsed: boolean = true;
+
+    type: string;
+
     constructor(name: string, value: string, permission: string) {
         this.name = name;
         this.value = value;
         this.permission = permission;
-    }
 
+        if (name.startsWith("QA")) {
+            //TODO: handle quantified permission
+            this.parsed = false;
+            this.type = "Quantified Name";
+        }
+        else if (name.indexOf("[") > 0) {
+            //TODO: handle method invocation
+            this.parsed = false;
+            this.type = "Method Invocation Name";
+        }
+        else if (/^(\$?\w+(@\d+))(\(=.+?\))?(\.\w+)+$/.test(name)) {
+            //it's a field reference
+            this.type = "Field Reference Name";
+        }else{
+            this.type = "Unknown Name";
+            this.parsed = false;
+        }
+
+        if(!value){
+            this.type += ", No Value";
+        }
+        else if (/^(\$?\w+(@\d+)?)(\(=.+?\))?$/.test(value)) {
+            //it's an object reference or a scalar
+            this.type += ", Object reference or scalar Value";
+        } else {
+            this.parsed = false;
+            this.type += ", Unknown Value";
+        }
+
+        if (/^(W|R|Z|\d+([\.\/]\d+)?)$/.test(permission)) {
+            this.type += ", Scalar Permission";
+        } else {
+            this.type += ", Unknown Permission";
+            this.parsed = false;
+        }
+
+        this.type += " -> "+(this.parsed?"Parsed":"Not Parsed");
+    }
     pretty(): string {
-        return this.name + (this.value ? " -> " + this.value : "") + " # " + this.permission;
+        return this.type + ":\n" + this.name + (this.value ? " -> " + this.value : "") + " # " + this.permission;
     }
     equals(other: HeapChunk): boolean {
         return this.name == other.name && this.permission == other.permission && this.value == other.value;
@@ -125,7 +167,7 @@ export class Statement {
                 bracketCount--;
             }
             else if (char == ',' && bracketCount == 0) {
-                parts.push(line.substring(lastIndex+1, i).trim())
+                parts.push(line.substring(lastIndex + 1, i).trim())
                 lastIndex = i;
             }
             i++;
@@ -185,6 +227,10 @@ export class Statement {
             }
         }
         return true;
+    }
+
+    public printGraphVizHeap(heap: HeapChunk[]) {
+
     }
 
     private parseFirstLine(line: string): Position {

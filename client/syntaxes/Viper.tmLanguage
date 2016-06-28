@@ -142,6 +142,25 @@
 						<key>2</key>
 						<dict>
 							<key>name</key>
+							<string>entity.name.import.silver</string>
+						</dict>
+					</dict>
+					<key>match</key>
+					<string>\b(import)\b</string>
+					<key>name</key>
+					<string>meta.import.silver</string>
+				</dict>
+				<dict>
+					<key>captures</key>
+					<dict>
+						<key>1</key>
+						<dict>
+							<key>name</key>
+							<string>keyword.declaration.silver</string>
+						</dict>
+						<key>2</key>
+						<dict>
+							<key>name</key>
 							<string>entity.name.function.silver</string>
 						</dict>
 					</dict>
@@ -205,7 +224,7 @@
 				</dict>
 				<dict>
 					<key>match</key>
-					<string>\b(if|else|while)\b</string>
+					<string>\b(if|else|elseif|while)\b</string>
 					<key>name</key>
 					<string>keyword.control.flow.silver</string>
 				</dict>

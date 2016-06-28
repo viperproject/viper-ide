@@ -2,7 +2,7 @@
 
 import child_process = require('child_process');
 import {IConnection, Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
-import {Backend, IveSettings} from "./Settings";
+import {Backend, ViperSettings, Settings} from "./Settings";
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement} from './Statement';
@@ -52,6 +52,8 @@ export class VerificationTask {
     steps: Statement[];
     model: Model = new Model();
 
+    manuallyTriggered:boolean;
+
     state: VerificationState = VerificationState.Stopped;
 
     constructor(fileUri: string, nailgunService: NailgunService, connection: IConnection, backend: Backend) {
@@ -61,8 +63,8 @@ export class VerificationTask {
         VerificationTask.connection = connection;
     }
 
-    verify(backend: Backend, onlyTypeCheck: boolean, getTrace: boolean): void {
-
+    verify(backend: Backend, onlyTypeCheck: boolean, manuallyTriggered:boolean): void {
+        this.manuallyTriggered = manuallyTriggered;
         this.backend = backend;
         this.running = true;
 
@@ -74,7 +76,7 @@ export class VerificationTask {
         this.steps = [];
         this.model = new Model();
 
-        Log.log(backend.name + ' verification startet');
+        Log.log(backend.name + ' verification started');
 
         VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, success: false, firstTime: false });
 
@@ -82,11 +84,14 @@ export class VerificationTask {
             //start verification of current file
             let currfile = '"' + path + '"';
 
-            this.verifierProcess = this.nailgunService.startVerificationProcess(currfile, true, onlyTypeCheck, backend, getTrace);
+            this.verifierProcess = this.nailgunService.startVerificationProcess(currfile, true, onlyTypeCheck, backend);
             //subscribe handlers
             this.verifierProcess.stdout.on('data', this.stdOutHandler.bind(this));
             this.verifierProcess.stderr.on('data', this.stdErrHadler.bind(this));
             this.verifierProcess.on('close', this.verificationCompletionHandler.bind(this));
+            // this.verifierProcess.on('exit',(code,msg)=>{
+            //     Log.log("verifierProcess onExit: "+ code + " and " + msg);
+            // });
         });
     }
 
@@ -100,11 +105,15 @@ export class VerificationTask {
 
         if (code != 0 && code != 1 && code != 899) {
             Log.hint("Verification Backend Terminated Abnormaly: with code " + code);
+            if (Settings.isWin) {
+                this.nailgunService.killNgDeamon();
+                this.nailgunService.restartNailgunServer(VerificationTask.connection, this.backend);
+            }
         }
 
         // Send the computed diagnostics to VSCode.
         VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
-        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, success: this.diagnostics.length == 0 && code == 0 });
+        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, success: this.diagnostics.length == 0 && code == 0 , manuallyTriggered:this.manuallyTriggered});
         this.running = false;
 
         Log.log("Number of Steps: " + this.steps.length);
@@ -135,6 +144,9 @@ export class VerificationTask {
     lines: string[] = [];
     private stdOutHandler(data) {
         //Log.log('stdout: ' + data);
+        if(this.nailgunService.settings.writeRawOutputToLogFile){
+            Log.toLogFile("stdout: "+ data);
+        }
 
         let stringData: string = data;
         let parts = stringData.split(/\r?\n/g);
@@ -149,7 +161,7 @@ export class VerificationTask {
                             Log.error('Could not start verification -> fix format');
                             this.state = VerificationState.VerificationPrintingHelp;
                         }
-                        if (part.startsWith("(c) Copyright ETH")) {
+                        if (part.startsWith("(c) ") && part.indexOf("ETH")>0) {
                             this.state = VerificationState.VerificationRunning;
                         }
                         break;
@@ -158,6 +170,8 @@ export class VerificationTask {
                         if (part.startsWith('Silicon finished in') || part.startsWith('carbon finished in')) {
                             this.state = VerificationState.VerificationReporting;
                             this.time = Number.parseFloat(/.*?(\d*\.\d*).*/.exec(part)[1]);
+                        }
+                        else if (part.startsWith('Silicon started') || part.startsWith('carbon started')) {
                         }
                         else if (part.startsWith("{\"") && part.endsWith("}")) {
                             try {
@@ -175,13 +189,17 @@ export class VerificationTask {
                             //TODO: handle method mention if needed
                             return;
                         }
-                        else if (part.startsWith("h = ")) {
+                        else if (part.startsWith("h = ") || part.startsWith("hLHS = ") || part.startsWith("hR = ")) {
                             //TODO: handle if needed
                             return;
                         }
                         else if (part.startsWith('PRODUCE') || part.startsWith('CONSUME') || part.startsWith('EVAL') || part.startsWith('EXECUTE')) {
                             if (this.lines.length > 0) {
-                                Log.log("Warning: Ignore " + this.lines.length + " line(s): First ignored line: " + this.lines[0]);
+                                let msg = "Warning: Ignore " + this.lines.length + " line(s):";
+                                this.lines.forEach((line) => {
+                                    msg = msg + "\n\t" + line;
+                                });
+                                Log.error(msg);
                             }
                             this.lines = [];
                             this.lines.push(part);
@@ -238,7 +256,7 @@ export class VerificationTask {
         }
     }
 
-    public getNextLine(previousLine):number {
+    public getNextLine(previousLine): number {
         let next = Number.MAX_VALUE;
         this.steps.forEach(element => {
             let line = element.position.line

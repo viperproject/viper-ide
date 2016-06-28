@@ -5,12 +5,13 @@ import * as pathHelper from 'path';
 var commandExists = require('command-exists');
 import {Log} from './Log';
 
-export interface IveSettings {
+export interface ViperSettings {
     verificationBackends: [Backend];
     nailgunServerJar: string;
     nailgunClient: string;
     z3Executable: string;
     valid: boolean;
+    writeRawOutputToLogFile:boolean;
 }
 // These are the example settings we defined in the client's package.json
 // file
@@ -18,14 +19,15 @@ export interface Backend {
     name: string;
     paths: [string];
     mainMethod: string;
+    getTrace: boolean;
 }
 
 export class Settings {
-    public static iveSettings: IveSettings;
+    public static viperSettings: ViperSettings;
 
     public static isWin = /^win/.test(process.platform);
 
-    public static getBackendNames(settings: IveSettings): string[] {
+    public static getBackendNames(settings: ViperSettings): string[] {
         let backendNames = [];
         settings.verificationBackends.forEach((backend) => {
             backendNames.push(backend.name);
@@ -33,7 +35,7 @@ export class Settings {
         return backendNames;
     }
 
-    public static checkSettings(settings: IveSettings): string {
+    public static checkSettings(settings: ViperSettings): string {
         settings.valid = false;
         Log.log("Checking Backends...");
         let error = Settings.areBackendsValid(settings.verificationBackends);
@@ -43,7 +45,7 @@ export class Settings {
                 error = "Path to nailgun server jar is missing"
             } else {
                 let envVar = Settings.extractEnvVar(settings.nailgunServerJar)
-                if(!envVar){
+                if (!envVar) {
                     error = "No nailgunServerJar file found at path or in %ENV_VAR%: " + settings.nailgunServerJar;
                 }
                 else if (!Settings.exists(envVar, false)) {
@@ -57,7 +59,7 @@ export class Settings {
                 error = "Path to nailgun client executable is missing"
             } else {
                 let envVar = Settings.extractEnvVar(settings.nailgunClient)
-                if(!envVar){
+                if (!envVar) {
                     error = "No nailgunClient file found at path, in %ENV_VAR%, or in the environment PATH: " + settings.nailgunServerJar;
                 }
                 else if (!Settings.exists(envVar, true)) {
@@ -72,7 +74,7 @@ export class Settings {
                 error = "Path to z3 executable is missing"
             } else {
                 let envVar = Settings.extractEnvVar(settings.z3Executable)
-                if(!envVar){
+                if (!envVar) {
                     error = "No z3 Executable found at path, in %ENV_VAR%, or in the environment PATH: " + settings.nailgunServerJar;
                 }
                 else if (!Settings.exists(envVar, true)) {
@@ -152,10 +154,11 @@ export class Settings {
                 let path = backend.paths[i];
 
                 //extract environment variable or leave unchanged
-                path = Settings.extractEnvVar(path);
-                if (!path) {
+                let envVar = Settings.extractEnvVar(path);
+                if (!envVar) {
                     return backend.name + ": Environment varaible " + path + " is not set.";
                 }
+                path = envVar;
                 //-> set path to environment variable value
                 backend.paths[i] = path;
                 //is absolute path
@@ -169,48 +172,49 @@ export class Settings {
                 if (!fs.existsSync(path)) {
                     return backend.name + ": No File/Folder found there: " + path + " ";
                 }
+                Log.log(backend.getTrace? "getTrace":"don't get trace");
             }
             //-> the paths seem right
-
-            //check mainMethod:
-            //TODO: 
         }
+
+        //check mainMethod:
+        //TODO: 
         return null;
     }
 
     public static backendJars(backend: Backend): string {
-        let backendJars = "";
+    let backendJars = "";
 
-        let concatenationSymbol = Settings.isWin ? ";" : ":";
-        backend.paths.forEach(path => {
-            if (isJar(path)) {
-                //its a jar file
-                backendJars = backendJars + concatenationSymbol + path;
-            } else {
-                //its a folder
-                let files = fs.readdirSync(path);
-                files.forEach(file => {
-                    if (isJar(file)) {
-                        backendJars = backendJars + concatenationSymbol + pathHelper.join(path, file);
-                    }
-                });
-            }
-        });
-        return backendJars;
-
-        function isJar(file: string): boolean {
-            return file.endsWith(".jar");
+    let concatenationSymbol = Settings.isWin ? ";" : ":";
+    backend.paths.forEach(path => {
+        if (isJar(path)) {
+            //its a jar file
+            backendJars = backendJars + concatenationSymbol + path;
+        } else {
+            //its a folder
+            let files = fs.readdirSync(path);
+            files.forEach(file => {
+                if (isJar(file)) {
+                    backendJars = backendJars + concatenationSymbol + pathHelper.join(path, file);
+                }
+            });
         }
+    });
+    return backendJars;
+
+    function isJar(file: string): boolean {
+        return file.endsWith(".jar");
     }
+}
 
     public static extractEnvVar(path: string): string {
-        if (path && path.length > 2) {
-            if (path.startsWith("%") && path.endsWith("%")) {
-                let envName = path.substr(1, path.length - 2);
-                let envValue = process.env[envName];
-                return envValue; //null means the Environment Variable is not set
-            }
+    if (path && path.length > 2) {
+        if (path.startsWith("%") && path.endsWith("%")) {
+            let envName = path.substr(1, path.length - 2);
+            let envValue = process.env[envName];
+            return envValue; //null means the Environment Variable is not set
         }
-        return path;
     }
+    return path;
+}
 }

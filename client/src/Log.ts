@@ -6,9 +6,9 @@ import * as fs from 'fs';
 
 export class Log {
 
-    static logFilePath = "./IVE_log";
+    static logFilePath = "./viper_log";
     static logFile: fs.WriteStream;
-    static outputChannel = vscode.window.createOutputChannel('ViperIVE');
+    static outputChannel = vscode.window.createOutputChannel('Viper');
 
     public static initialize(context: vscode.ExtensionContext) {
         Log.logFilePath = context.asAbsolutePath(Log.logFilePath);

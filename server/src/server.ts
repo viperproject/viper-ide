@@ -16,7 +16,7 @@ import {
 
 import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
-import {Backend, Settings, IveSettings} from './Settings';
+import {Backend, Settings, ViperSettings} from './Settings';
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {StatementType} from './Statement';
@@ -32,12 +32,10 @@ let backend: Backend;
 let documents: TextDocuments = new TextDocuments();
 let verificationTasks: Map<string, VerificationTask> = new Map();
 let nailgunService: NailgunService;
-let settings: IveSettings;
+let settings: ViperSettings;
 let workspaceRoot: string;
 
 let debuggedVerificationTask: VerificationTask;
-
-let getTrace = true;
 
 //for communication with debugger
 startIPCServer();
@@ -47,7 +45,7 @@ documents.listen(connection);
 //starting point (executed once)
 connection.onInitialize((params): InitializeResult => {
     Log.connection = connection;
-    Log.log("Viper-IVE-Server is now active!");
+    Log.log("Viper-Server is now active!");
     workspaceRoot = params.rootPath;
     nailgunService = new NailgunService();
     return {
@@ -81,7 +79,7 @@ connection.onShutdown(() => {
 // The settings have changed. Is sent on server activation as well.
 connection.onDidChangeConfiguration((change) => {
     Log.log('configuration changed');
-    settings = <IveSettings>change.settings.iveSettings;
+    settings = <ViperSettings>change.settings.viperSettings;
 
     //pass the new settings to the verificationService
     nailgunService.changeSettings(settings);
@@ -170,7 +168,7 @@ connection.onDidChangeTextDocument((params) => {
 
 connection.onDidSaveTextDocument((params) => {
     if (isViperSourceFile(params.textDocument.uri)) {
-        startOrRestartVerification(params.textDocument.uri, false)
+        startOrRestartVerification(params.textDocument.uri, false,false)
     } else {
         Log.log("This system can only verify .sil and .vpr files");
     }
@@ -178,7 +176,7 @@ connection.onDidSaveTextDocument((params) => {
 
 //triggered by user command
 connection.onRequest(Commands.Verify, (uri: string) => {
-    startOrRestartVerification(uri, false)
+    startOrRestartVerification(uri, false,true)
 });
 
 connection.onRequest({ method: 'variablesInLine' }, (lineNumber) => {
@@ -219,7 +217,7 @@ function resetDiagnostics(uri: string) {
     task.resetDiagnostics();
 }
 
-function startOrRestartVerification(uri: string, onlyTypeCheck: boolean) {
+function startOrRestartVerification(uri: string, onlyTypeCheck: boolean,manuallyTriggered:boolean) {
 
     //only verify if the settings are right
     if (!settings.valid) {
@@ -254,7 +252,7 @@ function startOrRestartVerification(uri: string, onlyTypeCheck: boolean) {
     task.abortVerification();
 
     //start verification
-    task.verify(backend, onlyTypeCheck, getTrace);
+    task.verify(backend, onlyTypeCheck,manuallyTriggered);
 }
 
 function isViperSourceFile(uri: string): boolean {
@@ -346,7 +344,7 @@ function startIPCServer() {
                 function (data, socket) {
                     Log.log(`get line after ${data}`);
 
-                    let nextLine = debuggedVerificationTask.nextLine(data);
+                    let nextLine = debuggedVerificationTask.getNextLine(data);
                     ipc.server.emit(
                         socket,
                         'nextLineResponse',

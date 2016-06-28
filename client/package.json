@@ -1,7 +1,7 @@
 {
-    "name": "viper-ive",
-    "displayName": "Viper-IVE",
-    "version": "0.0.7",
+    "name": "viper",
+    "displayName": "Viper",
+    "version": "0.0.4",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "repository": {
@@ -16,7 +16,7 @@
         "vscode": "^1.0.0",
         "node": "^4.1.1"
     },
-    "icon": "images/viper_Icon.png",
+    "icon": "images/icon_bright_orange_avatar.png",
     "categories": [
         "Languages",
         "Other",
@@ -47,7 +47,7 @@
     },
     "main": "./out/extension",
     "activationEvents": [
-        "onLanguage:silver"
+        "onLanguage:viper"
     ],
     "contributes": {
         "commands": [
@@ -70,21 +70,20 @@
         ],
         "grammars": [
             {
-                "language": "silver",
+                "language": "viper",
                 "scopeName": "source.silver",
-                "path": "./syntaxes/Silver.tmLanguage"
+                "path": "./syntaxes/Viper.tmLanguage"
             }
         ],
         "languages": [
             {
-                "id": "silver",
+                "id": "viper",
                 "extensions": [
                     ".sil",
                     ".vpr"
                 ],
                 "aliases": [
-                    "Silver",
-                    "sil"
+                    "Viper"
                 ]
             }
         ],
@@ -92,18 +91,18 @@
             {
                 "label": "Viper-Dark",
                 "uiTheme": "vs-dark",
-                "path": "./themes/Silver (Dark).tmTheme"
+                "path": "./themes/Viper (Dark).tmTheme"
             },
             {
                 "label": "Viper-Light",
                 "uiTheme": "vs",
-                "path": "./themes/Silver (Light).tmTheme"
+                "path": "./themes/Viper (Light).tmTheme"
             }
         ],
         "snippets": [
             {
-                "language": "silver",
-                "path": "./snippets/silver.json"
+                "language": "viper",
+                "path": "./snippets/viper.json"
             }
         ],
         "keybindings": [
@@ -127,16 +126,16 @@
             },
             {
                 "command": "extension.stopVerification",
-                "key": "ctrl+q",
-                "mac": "cmd+q",
+                "key": "ctrl+h",
+                "mac": "cmd+h",
                 "when": "editorTextFocus"
             }
         ],
         "configuration": {
             "type": "object",
-            "title": "Viper-IVE Configuration",
+            "title": "Viper Configuration",
             "properties": {
-                "iveSettings.verificationBackends": {
+                "viperSettings.verificationBackends": {
                     "type": "array",
                     "default": [
                         {
@@ -144,25 +143,30 @@
                             "paths": [
                                 "%SILICON_JAR%"
                             ],
-                            "mainMethod": "viper.silicon.SiliconRunner"
+                            "mainMethod": "viper.silicon.SiliconRunner",
+                            "getTrace": true
                         }
                     ],
                     "description": "You can add your backend here.\n    // The first backend in the array will be used for verification.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
                 },
-                "iveSettings.nailgunServerJar": {
+                "viperSettings.nailgunServerJar": {
                     "type": "string",
                     "default": "%NAILGUN_SERVER_JAR%",
                     "description": "The path to the nailgun server jar or the folder containg the jars.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
                 },
-                "iveSettings.nailgunClient": {
+                "viperSettings.nailgunClient": {
                     "type": "string",
                     "default": "ng",
                     "description": "The path to the nailgun client executable.\n    // Use %ENV_VAR% for environment variables, C:\\\\path\\\\to\\\\file.jar for paths, or ng if its folder is in the PATH environment variable."
                 },
-                "iveSettings.z3Executable": {
+                "viperSettings.z3Executable": {
                     "type": "string",
                     "default": "z3",
                     "description": "The path to the z3 executable.\n    // Use %ENV_VAR% for environment variables, C:\\\\path\\\\to\\\\file.jar for paths, or z3 if its folder is in the PATH environment variable."
+                },
+                "viperSettings.writeRawOutputToLogFile": {
+                    "type": "boolean",
+                    "default": false
                 }
             }
         },
@@ -172,7 +176,7 @@
                 "label": "Viper Debug",
                 "enableBreakpointsFor": {
                     "languageIds": [
-                        "silver"
+                        "viper"
                     ]
                 },
                 "program": "./out/debug.js",

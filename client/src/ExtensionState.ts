@@ -35,10 +35,10 @@ export class ExtensionState {
         // Options to control the language client
         let clientOptions: LanguageClientOptions = {
             // Register the server for plain text documents
-            documentSelector: ['silver'],
+            documentSelector: ['viper'],
             synchronize: {
-                // Synchronize the setting section 'iveServerSettings' to the server
-                configurationSection: 'iveSettings',
+                // Synchronize the setting section 'viperSettings' to the server
+                configurationSection: 'viperSettings',
                 // Notify the server about file changes to .sil or .vpr files contain in the workspace
                 fileEvents: vscode.workspace.createFileSystemWatcher('**/*.sil, **/*.vpr')
             }

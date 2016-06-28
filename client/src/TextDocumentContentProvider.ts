@@ -11,7 +11,7 @@ export class DebugContentProvider implements vscode.TextDocumentContentProvider 
 
     public provideTextDocumentContent(uri: vscode.Uri): string {
         let editor = vscode.window.activeTextEditor;
-        if (!(editor.document.languageId === 'silver')) {
+        if (!(editor.document.languageId === 'viper')) {
             return this.errorSnippet("information can only be shown for viper source code")
         }
 
