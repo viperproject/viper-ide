@@ -2,10 +2,9 @@
 
 import child_process = require('child_process');
 
-import {Backend} from "./Settings"
 import {Log} from './Log'
-import {ViperSettings, Settings} from './Settings'
-import {Commands, VerificationState} from './ViperProtocol'
+import {Settings} from './Settings'
+import {Backend,ViperSettings,Commands, VerificationState} from './ViperProtocol'
 
 export class NailgunService {
     nailgunProcess: child_process.ChildProcess;
@@ -22,37 +21,43 @@ export class NailgunService {
     }
 
     private startNailgunServer(connection, backend: Backend) {
-        if (!this.nailgunStarted()) {
-            Log.log("close nailgun server on port: " + this.nailgunPort)
-            let killOldNailgunProcess = child_process.exec(this.settings.nailgunClient + ' --nailgun-port ' + this.nailgunPort + ' ng-stop');
+        this.isJreInstalled().then((jreInstalled) => {
+            if (!jreInstalled) {
+                Log.hint("Jre is not installed. Please intall it.");
+                return;
+            }
+            if (!this.nailgunStarted()) {
+                Log.log("close nailgun server on port: " + this.nailgunPort)
+                let killOldNailgunProcess = child_process.exec(this.settings.nailgunClient + ' --nailgun-port ' + this.nailgunPort + ' ng-stop');
 
-            killOldNailgunProcess.on('exit', (code, signal) => {
-                Log.log('starting nailgun server');
-                //start the nailgun server for both silicon and carbon
+                killOldNailgunProcess.on('exit', (code, signal) => {
+                    Log.log('starting nailgun server');
+                    //start the nailgun server for both silicon and carbon
 
-                let backendJars = Settings.backendJars(backend);
-                //Log.log("Backend Jars: " + backendJars);
-                let command = 'java -cp ' + this.settings.nailgunServerJar + backendJars + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + this.nailgunPort;
-                Log.log(command)
+                    let backendJars = Settings.backendJars(backend);
+                    //Log.log("Backend Jars: " + backendJars);
+                    let command = 'java -cp ' + this.settings.nailgunServerJar + backendJars + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + this.nailgunPort;
+                    Log.log(command)
 
-                this.nailgunProcess = child_process.exec(command);
-                this.nailgunProcess.stdout.on('data', (data) => {
-                    //Log.logWithOrigin('NS', data);
-                    let dataS: string = data;
-                    if (dataS.indexOf("started") > 0) {
-                        //Comment in to perstart JVM
-                        //let tempProcess = this.startVerificationProcess("", false, false, this.settings.verificationBackends[0],false);
-                        //tempProcess.on('exit', (code, signal) => {
-                        this.ready = true;
-                        Log.log("Nailgun started");
-                        connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, firstTime: true });
-                        //});
-                    }
+                    this.nailgunProcess = child_process.exec(command);
+                    this.nailgunProcess.stdout.on('data', (data) => {
+                        //Log.logWithOrigin('NS', data);
+                        let dataS: string = data;
+                        if (dataS.indexOf("started") > 0) {
+                            //Comment in to perstart JVM
+                            //let tempProcess = this.startVerificationProcess("", false, false, this.settings.verificationBackends[0],false);
+                            //tempProcess.on('exit', (code, signal) => {
+                            this.ready = true;
+                            Log.log("Nailgun started");
+                            connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, firstTime: true });
+                            //});
+                        }
+                    });
                 });
-            });
-        } else {
-            Log.log('nailgun server already running');
-        };
+            } else {
+                Log.log('nailgun server already running');
+            };
+        });
     }
 
     public stopNailgunServer() {
@@ -102,7 +107,7 @@ export class NailgunService {
     }
 
     public startVerificationProcess(fileToVerify: string, ideMode: boolean, onlyTypeCheck: boolean, backend: Backend): child_process.ChildProcess {
-        let command = this.settings.nailgunClient + ' --nailgun-port ' + this.nailgunPort + ' ' + backend.mainMethod + ' --ideMode ' + (backend.getTrace ? '--logLevel trace ' : '') + fileToVerify;
+        let command = this.settings.nailgunClient + ' --nailgun-port ' + this.nailgunPort + ' ' + backend.mainMethod + ' --ideMode' + ' --z3Exe "' + this.settings.z3Executable + '" ' + (backend.getTrace ? '--logLevel trace ' : '') + '"' + fileToVerify + '"';
         Log.log(command);
         return child_process.exec(command); // to set current working directory use, { cwd: verifierHome } as an additional parameter
     }
@@ -112,5 +117,19 @@ export class NailgunService {
         if (!this.nailgunStarted()) {
             this.startNailgunServer(connection, backend);
         }
+    }
+
+    public isJreInstalled(): Thenable<boolean> {
+        Log.log("Check if Jre is installed");
+        return new Promise((resolve, reject) => {
+            let jreTester = child_process.exec("java -version");
+            jreTester.stderr.on('data', (data: string) => {
+                if (data.startsWith('java version')) {
+                    return resolve(true);
+                } else {
+                    return resolve(false);
+                }
+            });
+        });
     }
 }

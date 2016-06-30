@@ -4,22 +4,14 @@ import fs = require('fs');
 import * as pathHelper from 'path';
 var commandExists = require('command-exists');
 import {Log} from './Log';
+import {ViperSettings,Backend} from './ViperProtocol';
 
-export interface ViperSettings {
-    verificationBackends: [Backend];
-    nailgunServerJar: string;
-    nailgunClient: string;
-    z3Executable: string;
-    valid: boolean;
-    writeRawOutputToLogFile:boolean;
-}
 // These are the example settings we defined in the client's package.json
 // file
-export interface Backend {
-    name: string;
-    paths: [string];
-    mainMethod: string;
-    getTrace: boolean;
+
+export interface ResolvedPath {
+    path: string,
+    exists: boolean
 }
 
 export class Settings {
@@ -44,28 +36,22 @@ export class Settings {
             if (!settings.nailgunServerJar || settings.nailgunServerJar.length == 0) {
                 error = "Path to nailgun server jar is missing"
             } else {
-                let envVar = Settings.extractEnvVar(settings.nailgunServerJar)
-                if (!envVar) {
-                    error = "No nailgunServerJar file found at path or in %ENV_VAR%: " + settings.nailgunServerJar;
+                let resolvedPath = Settings.resolvePath(settings.nailgunServerJar)
+                if (!resolvedPath.exists) {
+                    error = "No nailgun server jar file found at path: " + resolvedPath.path;
                 }
-                else if (!Settings.exists(envVar, false)) {
-                    error = "No file found at path: " + envVar;
-                }
-                settings.nailgunServerJar = envVar;
+                settings.nailgunServerJar = resolvedPath.path;
             }
         }
         if (!error) {
             if (!settings.nailgunClient || settings.nailgunClient.length == 0) {
                 error = "Path to nailgun client executable is missing"
             } else {
-                let envVar = Settings.extractEnvVar(settings.nailgunClient)
-                if (!envVar) {
-                    error = "No nailgunClient file found at path, in %ENV_VAR%, or in the environment PATH: " + settings.nailgunServerJar;
-                }
-                else if (!Settings.exists(envVar, true)) {
-                    error = "No file found at path: " + envVar;
+                let resolvedPath = Settings.resolvePath(settings.nailgunClient)
+                if (!resolvedPath.exists) {
+                    error = "No nailgun client executable file found at path: " + resolvedPath.path;
                 } else {
-                    settings.nailgunClient = envVar;
+                    settings.nailgunClient = resolvedPath.path;
                 }
             }
         }
@@ -73,57 +59,16 @@ export class Settings {
             if (!settings.z3Executable || settings.z3Executable.length == 0) {
                 error = "Path to z3 executable is missing"
             } else {
-                let envVar = Settings.extractEnvVar(settings.z3Executable)
-                if (!envVar) {
-                    error = "No z3 Executable found at path, in %ENV_VAR%, or in the environment PATH: " + settings.nailgunServerJar;
-                }
-                else if (!Settings.exists(envVar, true)) {
-                    error = "No file found at path: " + envVar;
+                let resolvedPath = Settings.resolvePath(settings.z3Executable)
+                if (!resolvedPath.exists) {
+                    error = "No z3 executable file found at path: " + resolvedPath.path;
                 } else {
-                    settings.z3Executable = envVar;
+                    settings.z3Executable = resolvedPath.path;
                 }
             }
         }
         settings.valid = !error;
         return error;
-    }
-
-    private static exists(path: string, isExecutable: boolean): boolean {
-        if (!path) { return false };
-        if (fs.existsSync(path)) {
-            return true;
-        }
-        if (path.indexOf("/") < 0 && path.indexOf("\\") < 0) {
-            //check if the pointed file is accessible via path variable
-
-            // commandExists(path, function (err, commandExists) {
-            //     if (commandExists) {
-            //         return true;
-            //     }
-            //     else {
-            //         return false;
-            //     }
-            // });
-
-            let pathEnvVar: string = process.env.PATH;
-            let pathList: string[];
-            if (Settings.isWin) {
-                pathList = pathEnvVar.split(";");
-                if (isExecutable && path.indexOf(".") < 0) {
-                    path = path + ".exe";
-                }
-            } else {
-                pathList = pathEnvVar.split(":");
-            }
-
-            return pathList.some((element) => {
-                if (fs.existsSync(pathHelper.join(element, path))) {
-                    return true;
-                } else {
-                    return false;
-                }
-            });
-        }
     }
 
     private static areBackendsValid(backends: [Backend]): string {
@@ -154,26 +99,15 @@ export class Settings {
                 let path = backend.paths[i];
 
                 //extract environment variable or leave unchanged
-                let envVar = Settings.extractEnvVar(path);
-                if (!envVar) {
-                    return backend.name + ": Environment varaible " + path + " is not set.";
+                let resolvedPath = Settings.resolvePath(path);
+                if (!resolvedPath.exists) {
+                    return backend.name + ": Cannot resolve path: " + path;
                 }
-                path = envVar;
+                path = resolvedPath.path;
                 //-> set path to environment variable value
                 backend.paths[i] = path;
-                //is absolute path
-                if (Settings.isWin) {
-                    if (path.indexOf(":") < 0) {
-                        return backend.name + ": The path to the backend jar-file must be absolute.";
-                    }
-                }
-
-                //does file or folder exist?
-                if (!fs.existsSync(path)) {
-                    return backend.name + ": No File/Folder found there: " + path + " ";
-                }
-                Log.log(backend.getTrace? "getTrace":"don't get trace");
             }
+            //Log.log(backend.getTrace ? "getTrace" : "don't get trace");
             //-> the paths seem right
         }
 
@@ -183,38 +117,108 @@ export class Settings {
     }
 
     public static backendJars(backend: Backend): string {
-    let backendJars = "";
+        let backendJars = "";
 
-    let concatenationSymbol = Settings.isWin ? ";" : ":";
-    backend.paths.forEach(path => {
-        if (isJar(path)) {
-            //its a jar file
-            backendJars = backendJars + concatenationSymbol + path;
-        } else {
-            //its a folder
-            let files = fs.readdirSync(path);
-            files.forEach(file => {
-                if (isJar(file)) {
-                    backendJars = backendJars + concatenationSymbol + pathHelper.join(path, file);
+        let concatenationSymbol = Settings.isWin ? ";" : ":";
+        backend.paths.forEach(path => {
+            if (this.isJar(path)) {
+                //its a jar file
+                backendJars = backendJars + concatenationSymbol + path;
+            } else {
+                //its a folder
+                let files = fs.readdirSync(path);
+                files.forEach(file => {
+                    if (this.isJar(file)) {
+                        backendJars = backendJars + concatenationSymbol + pathHelper.join(path, file);
+                    }
+                });
+            }
+        });
+        return backendJars;
+    }
+
+    private static isJar(file: string): boolean {
+        return file ? file.trim().endsWith(".jar") : false;
+    }
+
+    private static extractEnvVars(path: string) {
+        if (path && path.length > 2) {
+            while (path.indexOf("%") >= 0) {
+                let start = path.indexOf("%")
+                let end = path.indexOf("%", start + 1);
+                if (end < 0) {
+                    Log.error("unbalanced % in path: " + path);
+                    return null;
                 }
-            });
+                let envName = path.substring(start + 1, end);
+                let envValue = process.env[envName];
+                if (!envValue) {
+                    Log.error("environment variable : " + envName + " is not set");
+                    return null;
+                }
+                if (envValue.indexOf("%") >= 0) {
+                    Log.error("environment variable: " + envName + " must not contain %: " + envValue);
+                    return null;
+                }
+                path = path.substring(0, start - 1) + envValue + path.substring(end + 1, path.length);
+            }
         }
-    });
-    return backendJars;
-
-    function isJar(file: string): boolean {
-        return file.endsWith(".jar");
+        return path;
     }
-}
 
-    public static extractEnvVar(path: string): string {
-    if (path && path.length > 2) {
-        if (path.startsWith("%") && path.endsWith("%")) {
-            let envName = path.substr(1, path.length - 2);
-            let envValue = process.env[envName];
-            return envValue; //null means the Environment Variable is not set
+    public static resolvePath(path: string): ResolvedPath {
+        //Log.log("resolve path: " + path);
+
+        if (!path) {
+            return { path: path, exists: false };
         }
+        path = path.trim();
+        //handle env Vatrs
+        let envVar = this.extractEnvVars(path);
+        if (!envVar) {
+            return { path: path, exists: false };
+        }
+        path = envVar;
+
+        //Log.log("after envVar extraction: " + path);
+
+        let resolvedPath: string;
+        //handle files in Path env var
+        if (path.indexOf("/") < 0 && path.indexOf("\\") < 0) {
+            //its only a filename, try to find it in the path
+            let pathEnvVar: string = process.env.PATH;
+            if (pathEnvVar) {
+                let pathList: string[] = pathEnvVar.split(Settings.isWin ? ";" : ":");
+                for (let i = 0; i < pathList.length; i++) {
+                    let pathElement = pathList[i];
+                    if (Settings.isWin && path.indexOf(".") < 0) {
+                        resolvedPath = this.toAbsolute(pathHelper.join(pathElement, path + ".exe"));
+                        if (fs.existsSync(resolvedPath)) {
+                            //Log.log("windows exe in path found: " + resolvedPath);
+                            return { path: resolvedPath, exists: true };
+                        }
+                    }
+                    resolvedPath = this.toAbsolute(pathHelper.join(pathElement, path));
+                    if (fs.existsSync(resolvedPath)) {
+                        //Log.log("file in path found: " + resolvedPath);
+                        return { path: resolvedPath, exists: true };
+                    }
+                }
+            }
+        } else {
+            //Log.log("deal with absolute or relative path: " + path);
+            //handle absolute and relative paths
+            resolvedPath = this.toAbsolute(path);
+            //Log.log("after toAbsolute path: " + resolvedPath);
+            if (fs.existsSync(resolvedPath)) {
+                //Log.log("file found: " + resolvedPath);
+                return { path: resolvedPath, exists: true };
+            }
+        }
+        return { path: resolvedPath, exists: false };
     }
-    return path;
-}
+
+    private static toAbsolute(path: string): string {
+        return pathHelper.resolve(pathHelper.normalize(path));
+    }
 }

@@ -1,7 +1,7 @@
 {
     "name": "viper",
     "displayName": "Viper",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "repository": {
@@ -167,6 +167,10 @@
                 "viperSettings.writeRawOutputToLogFile": {
                     "type": "boolean",
                     "default": false
+                },
+                "viperSettings.autoSave": {
+                    "type": "boolean",
+                    "default": true
                 }
             }
         },

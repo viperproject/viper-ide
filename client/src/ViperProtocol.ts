@@ -27,8 +27,31 @@ export class Commands {
 
 export interface UpdateStatusBarParams {
     newState: VerificationState;
-    progress?; 5
+    progress?;
     success?;
-    firstTime?;
-    manuallyTriggered?;
+    firstTime?:boolean;
+    manuallyTriggered?:boolean;
+    filename?:string;
+}
+
+export interface VerifyRequest{
+    uri:string,
+    manuallyTriggered:boolean
+}
+
+export interface ViperSettings {
+    verificationBackends: [Backend];
+    nailgunServerJar: string;
+    nailgunClient: string;
+    z3Executable: string;
+    valid: boolean;
+    writeRawOutputToLogFile: boolean;
+    autoSave:boolean;
+}
+
+export interface Backend {
+    name: string;
+    paths: [string];
+    mainMethod: string;
+    getTrace: boolean;
 }

@@ -16,11 +16,11 @@ import {
 
 import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
-import {Backend, Settings, ViperSettings} from './Settings';
+import {Settings} from './Settings'
+import {Backend,ViperSettings,Commands, VerificationState,VerifyRequest} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {StatementType} from './Statement';
-import {Commands, VerificationState} from './ViperProtocol';
 import {Model} from './Model';
 
 var ipc = require('node-ipc');
@@ -90,7 +90,7 @@ connection.onDidChangeConfiguration((change) => {
         connection.sendNotification(Commands.InvalidSettings, error);
         return;
     }
-    Log.hint("The settings are ok");
+    Log.log("The settings are ok");
 
     let backendNames = Settings.getBackendNames(settings);
     if (backendNames.length > 0) {
@@ -127,7 +127,7 @@ connection.onRequest(Commands.RequestBackendSelection, (args) => {
     if (backendNames.length > 1) {
         connection.sendRequest(Commands.AskUserToSelectBackend, backendNames);
     } else {
-        Log.hint("there less than two backends, selecting does not make sense.");
+        Log.hint("There less than two backends, selecting does not make sense.");
     }
 });
 
@@ -160,23 +160,23 @@ connection.onDidCloseTextDocument((params) => {
 });
 
 connection.onDidChangeTextDocument((params) => {
-    //reset the diagnostics for the changed file
-    if (isViperSourceFile(params.textDocument.uri)) {
-        resetDiagnostics(params.textDocument.uri);
-    }
+    // //reset the diagnostics for the changed file
+    // if (isViperSourceFile(params.textDocument.uri)) {
+    //     resetDiagnostics(params.textDocument.uri);
+    // }
 });
 
 connection.onDidSaveTextDocument((params) => {
-    if (isViperSourceFile(params.textDocument.uri)) {
-        startOrRestartVerification(params.textDocument.uri, false,false)
-    } else {
-        Log.log("This system can only verify .sil and .vpr files");
-    }
+    //handled in client
 })
 
 //triggered by user command
-connection.onRequest(Commands.Verify, (uri: string) => {
-    startOrRestartVerification(uri, false,true)
+connection.onRequest(Commands.Verify, (data: VerifyRequest) => {
+    if (isViperSourceFile(data.uri)) {
+        startOrRestartVerification(data.uri, false, data.manuallyTriggered);
+    } else if (data.manuallyTriggered) {
+        Log.hint("This system can only verify .sil and .vpr files");
+    }
 });
 
 connection.onRequest({ method: 'variablesInLine' }, (lineNumber) => {
@@ -217,7 +217,7 @@ function resetDiagnostics(uri: string) {
     task.resetDiagnostics();
 }
 
-function startOrRestartVerification(uri: string, onlyTypeCheck: boolean,manuallyTriggered:boolean) {
+function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuallyTriggered: boolean) {
 
     //only verify if the settings are right
     if (!settings.valid) {
@@ -252,7 +252,7 @@ function startOrRestartVerification(uri: string, onlyTypeCheck: boolean,manually
     task.abortVerification();
 
     //start verification
-    task.verify(backend, onlyTypeCheck,manuallyTriggered);
+    task.verify(backend, onlyTypeCheck, manuallyTriggered);
 }
 
 function isViperSourceFile(uri: string): boolean {
@@ -280,7 +280,7 @@ function startIPCServer() {
                         debuggedVerificationTask = verificationTasks.get(uri);
                         let response = "true";
                         if (!debuggedVerificationTask) {
-                            Log.hint("Cannot debug file, you have to first verify the file: " + uri);
+                            Log.hint("Cannot debug file, you must first verify the file: " + uri);
                             response = "false";
                         }
                         ipc.server.emit(

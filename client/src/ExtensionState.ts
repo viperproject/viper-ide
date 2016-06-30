@@ -14,7 +14,7 @@ export class ExtensionState {
 
     private languageServerDisposable;
 
-    public startLanguageServer(context: vscode.ExtensionContext, brk: boolean) {
+    public startLanguageServer(context: vscode.ExtensionContext,fileSystemWatcher:vscode.FileSystemWatcher, brk: boolean) {
         this.context = context;
         // The server is implemented in node
         let serverModule = this.context.asAbsolutePath(path.join('server', 'server.js'));
@@ -40,7 +40,7 @@ export class ExtensionState {
                 // Synchronize the setting section 'viperSettings' to the server
                 configurationSection: 'viperSettings',
                 // Notify the server about file changes to .sil or .vpr files contain in the workspace
-                fileEvents: vscode.workspace.createFileSystemWatcher('**/*.sil, **/*.vpr')
+                fileEvents: fileSystemWatcher
             }
         }
 

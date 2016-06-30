@@ -2,12 +2,13 @@
 
 import child_process = require('child_process');
 import {IConnection, Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
-import {Backend, ViperSettings, Settings} from "./Settings";
+import {Settings} from './Settings'
+import {Backend, ViperSettings, Commands, VerificationState} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement} from './Statement';
-import {Commands, VerificationState} from './ViperProtocol';
 import {Model} from './Model';
+import * as pathHelper from 'path';
 
 interface Progress {
     current: number;
@@ -32,29 +33,29 @@ class TotalProgress {
     }
 }
 
-// enum VerificationState {
-//     Initialization,
-//     Verifying,
-//     Reporting,
-//     PrintingHelp
-// }
-
 export class VerificationTask {
-    fileUri: string;
+    //state
+    running: boolean = false;
+    manuallyTriggered: boolean;
+    state: VerificationState = VerificationState.Stopped;
+    verifierProcess: child_process.ChildProcess;
+    backend: Backend;
     nailgunService: NailgunService;
     static connection: IConnection;
+
+    //file under verification
+    fileUri: string;
+    filename: string;
+
+    //working variables
+    lines: string[] = [];
     wrongFormat: boolean = false;
-    diagnostics: Diagnostic[];
-    backend: Backend;
-    running: boolean = false;
-    verifierProcess: child_process.ChildProcess;
+
+    //verification results
     time: number = 0;
+    diagnostics: Diagnostic[];
     steps: Statement[];
     model: Model = new Model();
-
-    manuallyTriggered:boolean;
-
-    state: VerificationState = VerificationState.Stopped;
 
     constructor(fileUri: string, nailgunService: NailgunService, connection: IConnection, backend: Backend) {
         this.fileUri = fileUri;
@@ -63,7 +64,7 @@ export class VerificationTask {
         VerificationTask.connection = connection;
     }
 
-    verify(backend: Backend, onlyTypeCheck: boolean, manuallyTriggered:boolean): void {
+    verify(backend: Backend, onlyTypeCheck: boolean, manuallyTriggered: boolean): void {
         this.manuallyTriggered = manuallyTriggered;
         this.backend = backend;
         this.running = true;
@@ -74,6 +75,7 @@ export class VerificationTask {
         this.resetDiagnostics();
         this.wrongFormat = false;
         this.steps = [];
+        this.lines = [];
         this.model = new Model();
 
         Log.log(backend.name + ' verification started');
@@ -82,9 +84,8 @@ export class VerificationTask {
 
         VerificationTask.uriToPath(this.fileUri).then((path) => {
             //start verification of current file
-            let currfile = '"' + path + '"';
-
-            this.verifierProcess = this.nailgunService.startVerificationProcess(currfile, true, onlyTypeCheck, backend);
+            this.filename = pathHelper.basename(path);
+            this.verifierProcess = this.nailgunService.startVerificationProcess(path, true, onlyTypeCheck, backend);
             //subscribe handlers
             this.verifierProcess.stdout.on('data', this.stdOutHandler.bind(this));
             this.verifierProcess.stderr.on('data', this.stdErrHadler.bind(this));
@@ -113,7 +114,7 @@ export class VerificationTask {
 
         // Send the computed diagnostics to VSCode.
         VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
-        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, success: this.diagnostics.length == 0 && code == 0 , manuallyTriggered:this.manuallyTriggered});
+        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, success: this.diagnostics.length == 0 && code == 0, manuallyTriggered: this.manuallyTriggered, filename: this.filename });
         this.running = false;
 
         Log.log("Number of Steps: " + this.steps.length);
@@ -126,26 +127,34 @@ export class VerificationTask {
     }
 
     private stdErrHadler(data) {
-        Log.error(`stderr: ${data}`);
+        data = data.trim();
+        if (data.length == 0) {
+            return;
+        }
         if (data.startsWith("connect: No error")) {
             Log.hint("No Nailgun server is running on port " + this.nailgunService.nailgunPort);
         }
         else if (data.startsWith("java.lang.ClassNotFoundException:")) {
-            Log.hint("Class " + this.backend.mainMethod + " is unknown to Nailgun");
+            Log.hint("Class " + this.backend.mainMethod + " is unknown to Nailgun\nFix the backend settings for " + this.backend.name);
         }
         else if (data.startsWith("java.lang.StackOverflowError")) {
             Log.hint("StackOverflowError in Verification Backend");
         }
+        else if (data.startsWith("SLF4J: Class path contains multiple SLF4J bindings")) {
+            Log.hint(this.backend.name + " is referencing two versions of the backend, fix its paths in the settings");
+        }
+        else if (data.startsWith("SLF4J: ")) { }
         else {
             //this can lead to many error messages
-            Log.error(data);
+            Log.error(`stderr: ${data}`);
         }
     }
-    lines: string[] = [];
     private stdOutHandler(data) {
-        //Log.log('stdout: ' + data);
-        if(this.nailgunService.settings.writeRawOutputToLogFile){
-            Log.toLogFile("stdout: "+ data);
+        if (data.trim().length == 0) {
+            return;
+        }
+        if (this.nailgunService.settings.writeRawOutputToLogFile) {
+            Log.toLogFile("stdout: " + data);
         }
 
         let stringData: string = data;
@@ -161,7 +170,7 @@ export class VerificationTask {
                             Log.error('Could not start verification -> fix format');
                             this.state = VerificationState.VerificationPrintingHelp;
                         }
-                        if (part.startsWith("(c) ") && part.indexOf("ETH")>0) {
+                        if (part.startsWith("(c) ") && part.indexOf("ETH") > 0) {
                             this.state = VerificationState.VerificationRunning;
                         }
                         break;
@@ -182,16 +191,25 @@ export class VerificationTask {
                                 Log.error(e);
                             }
                         }
-                        else if (part.startsWith("\"") && part.endsWith("\"")) {
+                        else if (part.startsWith("\"")) {
+                            if (!part.endsWith("\"")) {
+                                //TODO: it can also be that the model is split among multiple stdout pieces
+                                while (i + 1 < parts.length && !part.endsWith("\"")) {
+                                    part += parts[++i];
+                                }
+                            }
                             this.model.extendModel(part);
                             //Log.toLogFile("Model: " + part);
                         } else if (part.startsWith("----")) {
                             //TODO: handle method mention if needed
-                            return;
+                            continue;
                         }
-                        else if (part.startsWith("h = ") || part.startsWith("hLHS = ") || part.startsWith("hR = ")) {
+                        else if (part.startsWith("h = ") || part.startsWith("hLHS = ")) {
                             //TODO: handle if needed
-                            return;
+                            continue;
+                        }
+                        else if(part.startsWith("hR = ")){
+                            i = i+3;
                         }
                         else if (part.startsWith('PRODUCE') || part.startsWith('CONSUME') || part.startsWith('EVAL') || part.startsWith('EXECUTE')) {
                             if (this.lines.length > 0) {
@@ -200,6 +218,7 @@ export class VerificationTask {
                                     msg = msg + "\n\t" + line;
                                 });
                                 Log.error(msg);
+                                Log.log("Next line: " + part);
                             }
                             this.lines = [];
                             this.lines.push(part);
@@ -208,6 +227,12 @@ export class VerificationTask {
                             if (part.trim() == ')') {
                                 if (this.lines.length != 6) {
                                     Log.error("error reading verification trace. Unexpected format.");
+                                    let msg = "Warning: Ignore " + this.lines.length + " line(s):";
+                                    this.lines.forEach((line) => {
+                                        msg = msg + "\n\t" + line;
+                                    });
+                                    Log.error(msg);
+                                    this.lines = [];
                                 } else {
                                     this.steps.push(new Statement(this.lines[0], this.lines[2], this.lines[3], this.lines[4], this.lines[5], this.model));
                                     this.lines = [];
@@ -232,7 +257,7 @@ export class VerificationTask {
                             let pos = /\s*(\d*):(\d*):\s(.*)/.exec(part);
                             if (pos.length != 4) {
                                 Log.error('could not parse error description: "' + part + '"');
-                                return;
+                                continue;
                             }
                             let lineNr = +pos[1] - 1;
                             let charNr = +pos[2] - 1;

@@ -52,4 +52,8 @@ export class Log {
     public dispose() {
         Log.logFile.close();
     }
+
+    public static hint(message:string){
+        vscode.window.showInformationMessage("Viper: "+ message);
+    }
 }

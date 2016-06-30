@@ -10,15 +10,15 @@ import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, T
 import {Timer} from './Timer';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
-import {VerificationState, Commands, UpdateStatusBarParams} from './ViperProtocol';
+import {Backend, ViperSettings, VerificationState, Commands, UpdateStatusBarParams} from './ViperProtocol';
 import Uri from '../node_modules/vscode-uri/lib/index';
 import {Log} from './Log';
-
 import {DebugContentProvider} from './TextDocumentContentProvider';
 
 let statusBarItem;
 let statusBarProgress;
 let abortButton;
+let autoSaveEnabled: boolean;
 let autoSaver: Timer;
 let previewUri = vscode.Uri.parse('viper-preview://debug');
 let state: ExtensionState;
@@ -29,6 +29,9 @@ let isMac = /^darwin/.test(process.platform);
 
 let enableSecondWindow: boolean = false;
 
+let fileSystemWatcher: vscode.FileSystemWatcher;
+let manuallyTriggered: boolean;
+
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -37,7 +40,8 @@ export function activate(context: vscode.ExtensionContext) {
     Log.log('Viper-Client is now active!');
     state = new ExtensionState();
     context.subscriptions.push(state);
-    state.startLanguageServer(context, false); //break?
+    fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/*.sil, **/*.vpr');
+    state.startLanguageServer(context, fileSystemWatcher, false); //break?
     startAutoSaver();
     registerHandlers();
     initializeStatusBar();
@@ -88,13 +92,17 @@ function initializeStatusBar() {
 }
 
 function startAutoSaver() {
+    autoSaveEnabled = vscode.workspace.getConfiguration("viperSettings").get('autoSave') === true;
     let autoSaveTimeout = 1000;//ms
     autoSaver = new Timer(() => {
         //only save viper files
         if (vscode.window.activeTextEditor != null && vscode.window.activeTextEditor.document.languageId == 'viper') {
-            vscode.window.activeTextEditor.document.save();
-            if (enableSecondWindow) {
-                showSecondWindow();
+            if (autoSaveEnabled) {
+                manuallyTriggered = false;
+                vscode.window.activeTextEditor.document.save();
+                if (enableSecondWindow) {
+                    showSecondWindow();
+                }
             }
         }
     }, autoSaveTimeout);
@@ -126,7 +134,7 @@ function registerHandlers() {
                     statusBarProgress.text = progressBarText(0);
                 }
                 else {
-                    statusBarItem.text = "verifying: " + params.progress + "%"
+                    statusBarItem.text = "verifying: " + params.progress.toFixed(1) + "%"
                     statusBarProgress.text = progressBarText(params.progress);
                 }
                 statusBarProgress.show();
@@ -141,7 +149,7 @@ function registerHandlers() {
                         statusBarItem.color = 'lightgreen';
                         statusBarItem.text = `$(check) done`;
                         if (params.manuallyTriggered) {
-                            window.showInformationMessage("Successfully Verified");
+                            Log.hint("Successfully Verified " + params.filename);
                         }
                     } else {
                         statusBarItem.color = 'red';
@@ -167,7 +175,7 @@ function registerHandlers() {
 
         let buttons: vscode.MessageItem = { title: "Open Settings" };
 
-        vscode.window.showInformationMessage("Invalid settings: " + data, buttons).then((choice) => {
+        vscode.window.showInformationMessage("Viper: Invalid settings: " + data, buttons).then((choice) => {
             if (!choice) {
 
             } else if (choice && choice.title === "Open Settings") {
@@ -178,7 +186,7 @@ function registerHandlers() {
 
                 //workspaceSettings
                 let workspaceSettingsPath = path.join(vscode.workspace.rootPath, '.vscode', 'settings.json');
-                
+
                 //makeSureFileExists(workspaceSettingsPath);
                 //TODO: create file workspaceSettingsPath if it does not exist
                 Log.log("WorkspaceSettings: " + workspaceSettingsPath);
@@ -189,7 +197,7 @@ function registerHandlers() {
 
     state.client.onNotification(Commands.Hint, (data: string) => {
         Log.log("H: " + data);
-        vscode.window.showInformationMessage(data);
+        Log.hint(data);
     });
 
     state.client.onNotification(Commands.Log, (data: string) => {
@@ -228,18 +236,28 @@ function registerHandlers() {
         }
     });
 
+    state.context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
+        verify(manuallyTriggered);
+    }));
+
+    state.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
+        autoSaveEnabled = vscode.workspace.getConfiguration("viperSettings").get('autoSave') === true;
+    }));
+
     let verifyCommandDisposable = vscode.commands.registerCommand('extension.verify', () => {
-        if (!state.client) {
-            vscode.window.showInformationMessage("extension not ready yet.");
-        } else {
-            state.client.sendRequest(Commands.Verify, vscode.window.activeTextEditor.document.uri.toString());
-        }
+        manuallyTriggered = true;
+        vscode.window.activeTextEditor.document.save().then(saved => {
+            if (!saved) {
+                verify(true);
+            }
+        });
     });
+
     state.context.subscriptions.push(verifyCommandDisposable);
 
     let selectBackendCommandDisposable = vscode.commands.registerCommand('extension.selectBackend', () => {
         if (!state.client) {
-            vscode.window.showInformationMessage("extension not ready yet.");
+            Log.hint("Extension not ready yet.");
         } else {
             state.client.sendRequest(Commands.RequestBackendSelection, null);
         }
@@ -268,7 +286,7 @@ function registerHandlers() {
 
     let selectStopVerificationDisposable = vscode.commands.registerCommand('extension.stopVerification', () => {
         if (!state.client) {
-            vscode.window.showInformationMessage("extension not ready yet.");
+            Log.hint("Extension not ready yet.");
         } else {
             state.client.sendRequest(Commands.StopVerification, vscode.window.activeTextEditor.document.uri.toString());
         }
@@ -293,6 +311,19 @@ function makeSureFileExists(fileName: string) {
     }
 }
 
+function verify(manuallyTriggered: boolean) {
+    if (isViperSourceFile(vscode.window.activeTextEditor.document.uri.toString())){
+        if (!state.client) {
+            Log.hint("Extension not ready yet.");
+        } else {
+            state.client.sendRequest(Commands.Verify, { uri: vscode.window.activeTextEditor.document.uri.toString(), manuallyTriggered: manuallyTriggered });
+        }
+    }
+}
+
+function isViperSourceFile(uri: string): boolean {
+    return uri.endsWith(".sil") || uri.endsWith(".vpr");
+}
 
 function progressBarText(progress: number): string {
     let bar = "";
@@ -305,18 +336,18 @@ function progressBarText(progress: number): string {
     return bar;
 }
 
-function checkOperatingSystem(){
-    if((isWin?1:0)+(isMac?1:0)+(isLinux?1:0) != 1){
+function checkOperatingSystem() {
+    if ((isWin ? 1 : 0) + (isMac ? 1 : 0) + (isLinux ? 1 : 0) != 1) {
         Log.error("Cannot detect OS")
         return;
     }
-    if(isWin){
+    if (isWin) {
         Log.log("OS: Windows");
     }
-    else if(isMac){
+    else if (isMac) {
         Log.log("OS: OsX");
     }
-    else if(isLinux){
+    else if (isLinux) {
         Log.log("OS: Linux");
     }
 }
@@ -324,13 +355,13 @@ function checkOperatingSystem(){
 function userSettingsPath() {
     if (isWin) {
         let appdata = process.env.APPDATA;
-        return path.join(appdata,"Code","User","settings.json");
+        return path.join(appdata, "Code", "User", "settings.json");
     } else {
         let home = process.env.HOME;
         if (isLinux) {
-           return path.join(home,".config","Code","User","settings.json");
+            return path.join(home, ".config", "Code", "User", "settings.json");
         } else if (isMac) {
-            return path.join(home,"Library","Application Support","Code","User","settings.json");
+            return path.join(home, "Library", "Application Support", "Code", "User", "settings.json");
         } else {
             Log.error("unknown Operating System: " + process.platform);
         }
@@ -393,7 +424,7 @@ function decorate(start: vscode.Position, end: vscode.Position) {
 
 function doesFileExist(path: string): boolean {
     if (!fs.existsSync(path)) {
-        vscode.window.showInformationMessage('file not found at: ' + path);
+        Log.hint('File not found at: ' + path);
         return false;
     }
     return true;
@@ -409,7 +440,7 @@ function doesFileExist(path: string): boolean {
 
     /*
     let siliconCommandDisposable = vscode.commands.registerCommand('extension.compileSilicon', () => {
-        //vscode.window.showInformationMessage('Silicon-build-command detected');
+        //Log.hint('Silicon-build-command detected');
         //removeDecorations();
         let window = vscode.window;
         let editor = window.activeTextEditor;
@@ -444,11 +475,11 @@ function doesFileExist(path: string): boolean {
                     time = /.*?(\d*\.\d*)/.exec(part)[1];
                 }
                 else if (part == 'No errors found.') {
-                    vscode.window.showInformationMessage('Successfully verified with Silicon in ' + time + ' seconds.');
+                    Log.hint('Successfully verified with Silicon in ' + time + ' seconds.');
                     time = "0";
                 }
                 else if (part.startsWith('The following errors were found')) {
-                    vscode.window.showInformationMessage('Silicon: Verification failed after ' + time + ' seconds.');
+                    Log.hint('Silicon: Verification failed after ' + time + ' seconds.');
                     time = "0";
                 }
                 else if (part.startsWith('  ')) {
@@ -476,7 +507,7 @@ function doesFileExist(path: string): boolean {
         Log.log('after silicon start');
     });
     let carbonCommandDisposable = vscode.commands.registerCommand('extension.compileCarbon', () => {
-        vscode.window.showInformationMessage('Carbon-build-command detected');
+        Log.hint('Carbon-build-command detected');
         removeDecorations();
     });
 
@@ -507,7 +538,7 @@ function doesFileExist(path: string): boolean {
         // //validate file paths
         // let gutterImagePath = context.asAbsolutePath("error.png");
         // if (!fs.existsSync(gutterImagePath)){
-        //      vscode.window.showInformationMessage('file not found at: '+gutterImagePath);
+        //      Log.hint('file not found at: '+gutterImagePath);
         //      return;
         // }
         // //decorate the gutter and overviewRuler
@@ -524,9 +555,9 @@ function doesFileExist(path: string): boolean {
 
         // let exec = require('child_process').exec;
         // exec('silicon', function callback(error, stdout, stderr) {
-        //     vscode.window.showInformationMessage('callback');
+        //     Log.hint('callback');
         // });
-        // vscode.window.showInformationMessage('method end reached');
+        // og.hint('method end reached');
     });
 
     context.subscriptions.push(testCommandDisposable)
