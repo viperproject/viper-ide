@@ -6,12 +6,12 @@ import * as fs from 'fs';
 
 export class Log {
 
-    static logFilePath = "./viper_log";
+    static logFilePath = "viper_log";
     static logFile: fs.WriteStream;
     static outputChannel = vscode.window.createOutputChannel('Viper');
 
     public static initialize(context: vscode.ExtensionContext) {
-        Log.logFilePath = context.asAbsolutePath(Log.logFilePath);
+        Log.logFilePath = path.join(vscode.workspace.rootPath, '.vscode', Log.logFilePath);
         Log.log("LogFilePath is: " + Log.logFilePath)
         try {
             fs.closeSync(fs.openSync(Log.logFilePath, 'w'));
@@ -54,6 +54,7 @@ export class Log {
     }
 
     public static hint(message:string){
+        Log.log("H: " + message);
         vscode.window.showInformationMessage("Viper: "+ message);
     }
 }

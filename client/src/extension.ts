@@ -173,30 +173,37 @@ function registerHandlers() {
         statusBarItem.color = 'red';
         statusBarItem.text = "Invalid Settings";
 
-        let buttons: vscode.MessageItem = { title: "Open Settings" };
+        let userSettingsButton: vscode.MessageItem = { title: "Open User Settings" };
+        let workspaceSettingsButton: vscode.MessageItem = { title: "Open Workspace Settings" };
 
-        vscode.window.showInformationMessage("Viper: Invalid settings: " + data, buttons).then((choice) => {
+        vscode.window.showInformationMessage("Viper: Invalid settings: " + data, userSettingsButton, workspaceSettingsButton).then((choice) => {
             if (!choice) {
 
-            } else if (choice && choice.title === "Open Settings") {
-                //user Settings
-                let userSettings = userSettingsPath();
-                Log.log("UserSettings: " + userSettings);
-                showFile(userSettings, vscode.ViewColumn.Three);
-
-                //workspaceSettings
-                let workspaceSettingsPath = path.join(vscode.workspace.rootPath, '.vscode', 'settings.json');
-
-                //makeSureFileExists(workspaceSettingsPath);
-                //TODO: create file workspaceSettingsPath if it does not exist
-                Log.log("WorkspaceSettings: " + workspaceSettingsPath);
-                showFile(workspaceSettingsPath, vscode.ViewColumn.Two);
+            } else if (choice.title === workspaceSettingsButton.title) {
+                try {
+                    //workspaceSettings
+                    let workspaceSettingsPath = path.join(vscode.workspace.rootPath, '.vscode', 'settings.json');
+                    Log.log("WorkspaceSettings: " + workspaceSettingsPath);
+                    makeSureFileExists(workspaceSettingsPath);
+                    showFile(workspaceSettingsPath, vscode.ViewColumn.Two);
+                } catch (e) {
+                    Log.error("Error accessing workspace settings: " + e)
+                }
+            } else if (choice.title === userSettingsButton.title) {
+                try {
+                    //user Settings
+                    let userSettings = userSettingsPath();
+                    Log.log("UserSettings: " + userSettings);
+                    makeSureFileExists(userSettings);
+                    showFile(userSettings, vscode.ViewColumn.Two);
+                } catch (e) {
+                    Log.error("Error accessing user settings: " + e)
+                }
             }
         });
     });
 
     state.client.onNotification(Commands.Hint, (data: string) => {
-        Log.log("H: " + data);
         Log.hint(data);
     });
 
@@ -303,16 +310,16 @@ function showFile(filePath: string, column: vscode.ViewColumn) {
 
 function makeSureFileExists(fileName: string) {
     try {
-        if (fs.existsSync(fileName)) {
-            fs.closeSync(fs.openSync(fileName, 'w'));
+        if (!fs.existsSync(fileName)) {
+            fs.createWriteStream(fileName).close();
         }
     } catch (e) {
-        Log.error(e);
+        Log.error("Cannot create file: "+e);
     }
 }
 
 function verify(manuallyTriggered: boolean) {
-    if (isViperSourceFile(vscode.window.activeTextEditor.document.uri.toString())){
+    if (isViperSourceFile(vscode.window.activeTextEditor.document.uri.toString())) {
         if (!state.client) {
             Log.hint("Extension not ready yet.");
         } else {

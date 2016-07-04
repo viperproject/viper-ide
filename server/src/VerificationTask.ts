@@ -50,6 +50,7 @@ export class VerificationTask {
     //working variables
     lines: string[] = [];
     wrongFormat: boolean = false;
+    isFromMethod:boolean = false;
 
     //verification results
     time: number = 0;
@@ -200,7 +201,11 @@ export class VerificationTask {
                             }
                             this.model.extendModel(part);
                             //Log.toLogFile("Model: " + part);
+                        } else if (part.startsWith("---------- METHOD ")){
+                            this.isFromMethod = true;
+                            continue;
                         } else if (part.startsWith("----")) {
+                            this.isFromMethod = false;
                             //TODO: handle method mention if needed
                             continue;
                         }

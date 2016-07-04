@@ -22,7 +22,7 @@ class HeapChunk {
     value: string;
     permission: string;
 
-    parsed: boolean = true;
+    public parsed: boolean = true;
 
     type: string;
 
@@ -44,12 +44,12 @@ class HeapChunk {
         else if (/^(\$?\w+(@\d+))(\(=.+?\))?(\.\w+)+$/.test(name)) {
             //it's a field reference
             this.type = "Field Reference Name";
-        }else{
+        } else {
             this.type = "Unknown Name";
             this.parsed = false;
         }
 
-        if(!value){
+        if (!value) {
             this.type += ", No Value";
         }
         else if (/^(\$?\w+(@\d+)?)(\(=.+?\))?$/.test(value)) {
@@ -67,10 +67,11 @@ class HeapChunk {
             this.parsed = false;
         }
 
-        this.type += " -> "+(this.parsed?"Parsed":"Not Parsed");
+        this.type += " -> " + (this.parsed ? "Parsed" : "Not Parsed");
     }
+
     pretty(): string {
-        return this.type + ":\n" + this.name + (this.value ? " -> " + this.value : "") + " # " + this.permission;
+        return this.name + (this.value ? " -> " + this.value : "") + " # " + this.permission;
     }
     equals(other: HeapChunk): boolean {
         return this.name == other.name && this.permission == other.permission && this.value == other.value;
@@ -90,6 +91,8 @@ export class Statement {
     heap: HeapChunk[];
     oldHeap: HeapChunk[];
     conditions: string[];
+
+    public isFromMethod:boolean = false;
 
     constructor(firstLine: string, store: string, heap: string, oldHeap: string, conditions: string, model: Model) {
         this.parseFirstLine(firstLine);
@@ -172,45 +175,45 @@ export class Statement {
             }
             i++;
         }
-        if (i + 1 < line.length) {
-            parts.push(line.substring(i + 1, line.length))
+        if (lastIndex + 1 < line.length) {
+            parts.push(line.substring(lastIndex + 1, line.length))
         }
         return parts;
     }
 
     public pretty(): string {
-        let positionString = "\nPosition: " + (this.position ? this.position.line + ":" + this.position.character : "<no position>") + "\n";
+        let positionString = (this.position ? this.position.line + ":" + this.position.character : "<no position>") + "\n";
 
-        let res: string = "Type: " + StatementType[this.type] + positionString;
-        res += "Formula: " + this.formula + "\n";
+        let res: string = "\t" + StatementType[this.type] + " " + positionString;
+        res += "\tFormula: " + this.formula + "\n";
         if (this.store.length > 0) {
-            res += "Store: \n";
+            res += "\tStore: \n";
             this.store.forEach(element => {
-                res += "\t" + element.name + " = " + element.value + "\n"
+                res += "\t\t" + element.name + " = " + element.value + "\n"
             });
         }
 
         let heapChanged = !this.oldHeapEqualsHeap();
         if (this.heap.length > 0) {
             if (!heapChanged) {
-                res += "Heap == OldHeap: \n";
+                res += "\tHeap == OldHeap: \n";
             } else {
-                res += "Heap: \n";
+                res += "\tHeap: \n";
             }
             this.heap.forEach(element => {
-                res += "\t" + element.pretty() + "\n";
+                res += "\t\t" + element.pretty() + "\n";
             });
         }
         if (heapChanged && this.oldHeap.length > 0) {
-            res += "OldHeap: \n";
+            res += "\tOldHeap: \n";
             this.oldHeap.forEach(element => {
-                res += "\t" + element.pretty() + "\n";
+                res += "\t\t" + element.pretty() + "\n";
             });
         }
         if (this.conditions.length > 0) {
-            res += "Condition: \n";
+            res += "\tCondition: \n";
             this.conditions.forEach(element => {
-                res += "\t" + element + "\n"
+                res += "\t\t" + element + "\n"
             });
         }
         return res;
@@ -232,6 +235,59 @@ export class Statement {
     public printGraphVizHeap(heap: HeapChunk[]) {
 
     }
+
+    getHeapChunkVisualization(): string {
+        let header = `digraph heap {
+rankdir=LR
+node [shape = record];
+
+subgraph cluster_local {
+graph[style=dotted]
+label="Local"\n`;
+
+        let intermediate = `}
+
+subgraph cluster_heap{
+graph[style=dotted]
+label="heap"\n`;
+
+        let footer: string = "}\n}\n";
+
+        let localVars = "";
+        this.store.forEach(variable => {
+            localVars += `${variable.name} [label = "${variable.name}\nval: ${variable.value}""]\n`;
+
+        });
+
+        let heapChunks: string = "";
+        this.heap.forEach(heapChunk => {
+            if (heapChunk.parsed) {
+                heapChunks += `${heapChunk.name} [label = "<name>${heapChunk.name}|<next>next${heapChunk.value ? "\nval: " + heapChunk.value : ""}\n(${heapChunk.permission})"]\n`;
+                if (heapChunk.value) {
+                    heapChunks += `${heapChunk.name} -> ${heapChunk.value}`;
+                }
+            }
+        });
+        if(localVars != "" || heapChunks != ""){
+            return header + localVars + intermediate + heapChunks + footer;
+        }else{
+            return null;
+        }
+    }
+
+    //   n4 [label = "n4\nval: n4@24"]
+    //   n [label = "node($t@34;$t@33)"]
+
+    // 	n4_24 [label = "<name>$Ref!val!0|<next>next\nval: $t@27\n(W)"]
+    // 	t_27 [label = "<name>$Ref!val!1|<next>next\nval: $t@29\n(W)"]
+    // 	t_29 [label = "<name>$Ref!val!1|<next>next\nval: $t@31\n(W)"]
+    // 	t_31 [label = "<name>$Ref!val!1|<next>next\n(W)"]
+    // 	t_33 [label = "<name>$t@33\nval: $Ref!val!1|<next>next"]
+    // 	t_34 [label = "<name>$t@34\nval: $Ref!val!1|<next>next"]
+
+    // 	temp [label= "<name>|(W)"]
+
+    // 	n -> temp:name
 
     private parseFirstLine(line: string): Position {
         let parts = /(.*?)\s+((\d*):(\d*)|<no position>):\s+(.*)/.exec(line);

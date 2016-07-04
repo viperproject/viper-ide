@@ -1,7 +1,7 @@
 {
     "name": "viper",
     "displayName": "Viper",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "repository": {
@@ -171,6 +171,10 @@
                 "viperSettings.autoSave": {
                     "type": "boolean",
                     "default": true
+                },
+                "viperSettings.lowLevelDebug": {
+                    "type": "boolean",
+                    "default": false
                 }
             }
         },

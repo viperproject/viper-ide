@@ -41,7 +41,11 @@ export class NailgunService {
 
                     this.nailgunProcess = child_process.exec(command);
                     this.nailgunProcess.stdout.on('data', (data) => {
-                        //Log.logWithOrigin('NS', data);
+
+                    if(this.settings.lowLevelDebug){
+                        Log.logWithOrigin('NS', data);
+                    }
+
                         let dataS: string = data;
                         if (dataS.indexOf("started") > 0) {
                             //Comment in to perstart JVM

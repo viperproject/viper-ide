@@ -47,6 +47,7 @@ export interface ViperSettings {
     valid: boolean;
     writeRawOutputToLogFile: boolean;
     autoSave:boolean;
+    lowLevelDebug:boolean;
 }
 
 export interface Backend {
