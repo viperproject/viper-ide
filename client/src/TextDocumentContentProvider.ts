@@ -1,6 +1,7 @@
 
 import * as vscode from 'vscode';
 import {Log} from './Log';
+import {LogLevel} from './ViperProtocol';
 
 function postInfoFromForm(info: string) {
     Log.log("Info from Form: " + info)
@@ -41,7 +42,7 @@ export class DebugContentProvider implements vscode.TextDocumentContentProvider 
     }
 
     get onDidChange(): vscode.Event<vscode.Uri> {
-        Log.log("PreviewHTML: onDidChange")
+        Log.log("PreviewHTML: onDidChange", LogLevel.Debug)
         return this._onDidChange.event;
     }
 

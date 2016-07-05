@@ -3,6 +3,7 @@
 //import {Position} from 'vscode';
 import {Log} from './Log';
 import {Model} from './Model';
+import {LogLevel} from './ViperProtocol';
 
 export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE };
 

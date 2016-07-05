@@ -1,9 +1,10 @@
 {
     "name": "viper",
     "displayName": "Viper",
-    "version": "0.0.6",
+    "version": "0.0.7",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
+    "license": "MIT",
     "repository": {
         "type": "hg",
         "url": "https://bitbucket.org/viperproject/viper-ide"
@@ -164,17 +165,18 @@
                     "default": "z3",
                     "description": "The path to the z3 executable.\n    // Use %ENV_VAR% for environment variables, C:\\\\path\\\\to\\\\file.jar for paths, or z3 if its folder is in the PATH environment variable."
                 },
-                "viperSettings.writeRawOutputToLogFile": {
-                    "type": "boolean",
-                    "default": false
-                },
                 "viperSettings.autoSave": {
                     "type": "boolean",
                     "default": true
                 },
-                "viperSettings.lowLevelDebug": {
-                    "type": "boolean",
-                    "default": false
+                "viperSettings.nailgunPort": {
+                    "type": "string",
+                    "default": "7654"
+                },
+                "viperSettings.logLevel": {
+                    "type": "number",
+                    "default": 1,
+                    "description": "None = 0, Default = 1, Info = 2 Verbose = 3, Debug = 4, LowLevelDebug = 5"
                 }
             }
         },

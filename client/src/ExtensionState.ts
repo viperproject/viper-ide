@@ -3,7 +3,7 @@ import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, T
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import {VerificationState, Commands} from './ViperProtocol';
+import {VerificationState, Commands,LogLevel} from './ViperProtocol';
 import {Log} from './Log';
 
 export class ExtensionState {
@@ -20,7 +20,8 @@ export class ExtensionState {
         let serverModule = this.context.asAbsolutePath(path.join('server', 'server.js'));
 
         if (!fs.existsSync(serverModule)) {
-            Log.log(serverModule + " does not exist");
+            Log.log(serverModule + " does not exist. Reinstall the Extension", LogLevel.Debug);
+            return;
         }
         // The debug options for the server
         let debugOptions = { execArgv: ["--nolazy", "--debug" + (brk ? "-brk" : "") + "=5556"] };
@@ -55,19 +56,10 @@ export class ExtensionState {
     }
 
     public dispose() {
-        //let stopped = false;
-        Log.log("Ask language server to shut down.");
+        Log.log("Ask language server to shut down.", LogLevel.Info);
         this.client.sendRequest(Commands.Dispose, (error) => {
-            Log.log("Language server has shut down, terminate the connection");
+            Log.log("Language server has shut down, terminate the connection", LogLevel.Info);
             this.languageServerDisposable.dispose();
-            //stopped = true;
         })
-        /*let firstTime = true;
-        while(!stopped){
-            if(firstTime){
-                Log.log("waiting");
-            }
-        }
-        Log.log("done waiting");*/
     }
 }

@@ -17,7 +17,7 @@ import {
 import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
 import {Settings} from './Settings'
-import {Backend,ViperSettings,Commands, VerificationState,VerifyRequest} from './ViperProtocol'
+import {Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {StatementType} from './Statement';
@@ -45,7 +45,6 @@ documents.listen(connection);
 //starting point (executed once)
 connection.onInitialize((params): InitializeResult => {
     Log.connection = connection;
-    Log.log("Viper-Server is now active!");
     workspaceRoot = params.rootPath;
     nailgunService = new NailgunService();
     return {
@@ -67,58 +66,54 @@ documents.onDidChangeContent((change) => {
 });
 
 connection.onExit(() => {
-    Log.log("On Exit");
+    Log.log("On Exit", LogLevel.Debug);
     //nailgunService.stopNailgunServer();
 })
 
 connection.onShutdown(() => {
-    Log.log("On Shutdown");
+    Log.log("On Shutdown", LogLevel.Debug);
     nailgunService.stopNailgunServer();
 })
 
 // The settings have changed. Is sent on server activation as well.
 connection.onDidChangeConfiguration((change) => {
-    Log.log('configuration changed');
     settings = <ViperSettings>change.settings.viperSettings;
+    //after this line, Logging works
+    Log.logLevel = settings.logLevel;
 
-    //pass the new settings to the verificationService
-    nailgunService.changeSettings(settings);
-
+    Log.log('configuration changed', LogLevel.Info);
     //check settings
     let error = Settings.checkSettings(settings);
     if (error) {
         connection.sendNotification(Commands.InvalidSettings, error);
         return;
     }
-    Log.log("The settings are ok");
+    Log.log("The settings are ok", LogLevel.Info);
 
-    let backendNames = Settings.getBackendNames(settings);
-    if (backendNames.length > 0) {
-        Log.log("Ask user to select backend");
-        connection.sendRequest(Commands.AskUserToSelectBackend, backendNames);
-    } else {
-        Log.error("No backend, even though the setting check succeeded?");
-    }
+    //pass the new settings to the verificationService and the Log
+    nailgunService.changeSettings(settings);
+
+    backend = Settings.autoselectBackend(settings);
+    nailgunService.restartNailgunServer(connection, backend);
+
+    // let backendNames = Settings.getBackendNames(settings);
+    // if (backendNames.length > 0) {
+    //     Log.log("Ask user to select backend", LogLevel.Info);
+    //     connection.sendRequest(Commands.AskUserToSelectBackend, backendNames);
+    // } else {
+    //     Log.error("No backend, even though the setting check succeeded?");
+    // }
 });
 
 connection.onRequest(Commands.SelectBackend, (selectedBackend: string) => {
-
     if (!settings.valid) {
         connection.sendNotification(Commands.InvalidSettings, "Cannot start backend, fix settings first.");
         return;
     }
-    if (!selectedBackend) {
-        //select first backend by default;
-        backend = settings.verificationBackends[0];
-    } else {
-        for (var i = 0; i < settings.verificationBackends.length; i++) {
-            let elem = settings.verificationBackends[i];
-            if (elem.name == selectedBackend) {
-                backend = elem;
-                break;
-            }
-        }
+    if (selectedBackend) {
+        Settings.selectedBackend = selectedBackend;
     }
+    backend = Settings.autoselectBackend(settings);
     nailgunService.restartNailgunServer(connection, backend);
 });
 
@@ -132,8 +127,7 @@ connection.onRequest(Commands.RequestBackendSelection, (args) => {
 });
 
 connection.onDidChangeWatchedFiles((change) => {
-    // Monitored files have change in VSCode
-    //Log.log("We recevied an file change event")
+    Log.log("We recevied a file change event", LogLevel.Debug)
 });
 
 connection.onDidOpenTextDocument((params) => {
@@ -143,19 +137,22 @@ connection.onDidOpenTextDocument((params) => {
             //create new task for opened file
             let task = new VerificationTask(uri, nailgunService, connection, backend);
             verificationTasks.set(uri, task);
+            Log.log(`${task.path} opened, task created`, LogLevel.Debug);
+            if (nailgunService.ready) {
+                startOrRestartVerification(uri, false, false);
+            }
         }
-        Log.log(`${uri} opened, task created`);
     }
 });
 
 connection.onDidCloseTextDocument((params) => {
     if (isViperSourceFile(params.textDocument.uri)) {
         let uri = params.textDocument.uri;
-        if (!verificationTasks.has(uri)) {
+        if (verificationTasks.has(uri)) {
             //remove no longer needed task
             verificationTasks.delete(uri);
+            Log.log(`${params.textDocument.uri} closed, task deleted`, LogLevel.Debug);
         }
-        Log.log(`${params.textDocument.uri} closed, task deleted`);
     }
 });
 
@@ -233,12 +230,12 @@ function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuall
 
     //only verify if the settings are right
     if (!backend) {
-        Log.log("no backend has beed selected, the first was picked by default.");
+        Log.log("no backend has beed selected, the first was picked by default.", LogLevel.Debug);
         backend = settings.verificationBackends[0];
         nailgunService.startNailgunIfNotRunning(connection, backend);
     }
     if (!nailgunService.ready) {
-        Log.hint("The verification backend is not ready yet.");
+        Log.hint("The verification backend is not ready yet");
         return;
     }
 
@@ -269,17 +266,18 @@ function startIPCServer() {
             ipc.server.on(
                 'log',
                 function (data, socket) {
-                    Log.log("Debugger: " + data);
+                    Log.log("Debugger: " + data, LogLevel.LowLevelDebug);
                 }
             );
             ipc.server.on(
                 'launchRequest',
                 function (data, socket) {
-                    Log.log('Debugging was requested for file: ' + data);
+                    Log.log('Debugging was requested for file: ' + data, LogLevel.Debug);
                     VerificationTask.pathToUri(data).then((uri) => {
                         debuggedVerificationTask = verificationTasks.get(uri);
                         let response = "true";
                         if (!debuggedVerificationTask) {
+                            //TODO: use better criterion to detect a missing verification
                             Log.hint("Cannot debug file, you must first verify the file: " + uri);
                             response = "false";
                         }
@@ -294,7 +292,7 @@ function startIPCServer() {
             ipc.server.on(
                 'variablesInLineRequest',
                 function (data, socket) {
-                    Log.log('got a variables request for line ' + data);
+                    Log.log('got a variables request for line ' + data, LogLevel.Debug);
                     let lineNumber: number;
                     try {
                         lineNumber = data - 0;
@@ -325,7 +323,7 @@ function startIPCServer() {
             ipc.server.on(
                 'evaluateRequest',
                 function (data, socket) {
-                    Log.log(`evaluate(context: '${data.context}', '${data.expression}')`);
+                    Log.log(`evaluate(context: '${data.context}', '${data.expression}')`, LogLevel.LowLevelDebug);
 
                     let evaluated: string = debuggedVerificationTask.model.values.has(data.expression)
                         ? debuggedVerificationTask.model.values.get(data.expression)
@@ -342,7 +340,7 @@ function startIPCServer() {
             ipc.server.on(
                 'nextLineRequest',
                 function (data, socket) {
-                    Log.log(`get line after ${data}`);
+                    Log.log(`get line after ${data}`, LogLevel.LowLevelDebug);
 
                     let nextLine = debuggedVerificationTask.getNextLine(data);
                     ipc.server.emit(
@@ -356,7 +354,7 @@ function startIPCServer() {
             ipc.server.on(
                 'stackTraceRequest',
                 function (data, socket) {
-                    Log.log('stack trace request for line ' + data);
+                    Log.log('stack trace request for line ' + data, LogLevel.Debug);
                     let lineNumber: number;
                     try {
                         lineNumber = data - 0;

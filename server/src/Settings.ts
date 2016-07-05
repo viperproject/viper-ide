@@ -4,7 +4,7 @@ import fs = require('fs');
 import * as pathHelper from 'path';
 var commandExists = require('command-exists');
 import {Log} from './Log';
-import {ViperSettings,Backend} from './ViperProtocol';
+import {ViperSettings, Backend, LogLevel} from './ViperProtocol';
 
 // These are the example settings we defined in the client's package.json
 // file
@@ -19,6 +19,25 @@ export class Settings {
 
     public static isWin = /^win/.test(process.platform);
 
+    public static selectedBackend: string;
+
+    public static autoselectBackend(settings: ViperSettings) {
+        if(!settings || !settings.verificationBackends || settings.verificationBackends.length == 0){
+            Log.error("No backend, even though the setting check succeeded.");
+            return;
+        }
+        if (this.selectedBackend) {
+            for (let i = 0; i < settings.verificationBackends.length; i++) {
+                let backend = settings.verificationBackends[i];
+                if (backend.name === this.selectedBackend) {
+                    return backend;
+                }
+            }
+        }
+        this.selectedBackend = settings.verificationBackends[0].name;
+        return settings.verificationBackends[0];
+    }
+
     public static getBackendNames(settings: ViperSettings): string[] {
         let backendNames = [];
         settings.verificationBackends.forEach((backend) => {
@@ -29,10 +48,17 @@ export class Settings {
 
     public static checkSettings(settings: ViperSettings): string {
         settings.valid = false;
-        Log.log("Checking Backends...");
+        Log.log("Checking Backends...", LogLevel.Debug);
         let error = Settings.areBackendsValid(settings.verificationBackends);
         if (!error) {
-            Log.log("Checking Other Settings...");
+
+            if (!settings.nailgunPort) {
+                error = "NailgunPort is missing";
+            } else if (!/\d+/.test(settings.nailgunPort)) {
+                error = "Invalid NailgunPort: " + settings.nailgunPort;
+            }
+
+            Log.log("Checking Other Settings...", LogLevel.Debug);
             if (!settings.nailgunServerJar || settings.nailgunServerJar.length == 0) {
                 error = "Path to nailgun server jar is missing"
             } else {
@@ -107,8 +133,7 @@ export class Settings {
                 //-> set path to environment variable value
                 backend.paths[i] = path;
             }
-            //Log.log(backend.getTrace ? "getTrace" : "don't get trace");
-            //-> the paths seem right
+            //-> the settings seem right
         }
 
         //check mainMethod:
@@ -147,17 +172,17 @@ export class Settings {
                 let start = path.indexOf("%")
                 let end = path.indexOf("%", start + 1);
                 if (end < 0) {
-                    Log.error("unbalanced % in path: " + path);
+                    Log.error("unbalanced % in path: " + path, LogLevel.Info);
                     return null;
                 }
                 let envName = path.substring(start + 1, end);
                 let envValue = process.env[envName];
                 if (!envValue) {
-                    Log.error("environment variable : " + envName + " is not set");
+                    Log.error("environment variable : " + envName + " is not set", LogLevel.Info);
                     return null;
                 }
                 if (envValue.indexOf("%") >= 0) {
-                    Log.error("environment variable: " + envName + " must not contain %: " + envValue);
+                    Log.error("environment variable: " + envName + " must not contain %: " + envValue, LogLevel.Info);
                     return null;
                 }
                 path = path.substring(0, start - 1) + envValue + path.substring(end + 1, path.length);
@@ -167,8 +192,6 @@ export class Settings {
     }
 
     public static resolvePath(path: string): ResolvedPath {
-        //Log.log("resolve path: " + path);
-
         if (!path) {
             return { path: path, exists: false };
         }
@@ -179,9 +202,6 @@ export class Settings {
             return { path: path, exists: false };
         }
         path = envVar;
-
-        //Log.log("after envVar extraction: " + path);
-
         let resolvedPath: string;
         //handle files in Path env var
         if (path.indexOf("/") < 0 && path.indexOf("\\") < 0) {
@@ -194,24 +214,19 @@ export class Settings {
                     if (Settings.isWin && path.indexOf(".") < 0) {
                         resolvedPath = this.toAbsolute(pathHelper.join(pathElement, path + ".exe"));
                         if (fs.existsSync(resolvedPath)) {
-                            //Log.log("windows exe in path found: " + resolvedPath);
                             return { path: resolvedPath, exists: true };
                         }
                     }
                     resolvedPath = this.toAbsolute(pathHelper.join(pathElement, path));
                     if (fs.existsSync(resolvedPath)) {
-                        //Log.log("file in path found: " + resolvedPath);
                         return { path: resolvedPath, exists: true };
                     }
                 }
             }
         } else {
-            //Log.log("deal with absolute or relative path: " + path);
             //handle absolute and relative paths
             resolvedPath = this.toAbsolute(path);
-            //Log.log("after toAbsolute path: " + resolvedPath);
             if (fs.existsSync(resolvedPath)) {
-                //Log.log("file found: " + resolvedPath);
                 return { path: resolvedPath, exists: true };
             }
         }

@@ -10,7 +10,7 @@ import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, T
 import {Timer} from './Timer';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
-import {Backend, ViperSettings, VerificationState, Commands, UpdateStatusBarParams} from './ViperProtocol';
+import {Backend, ViperSettings, VerificationState, Commands, UpdateStatusBarParams, LogLevel} from './ViperProtocol';
 import Uri from '../node_modules/vscode-uri/lib/index';
 import {Log} from './Log';
 import {DebugContentProvider} from './TextDocumentContentProvider';
@@ -35,9 +35,9 @@ let manuallyTriggered: boolean;
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-    checkOperatingSystem();
     Log.initialize(context);
-    Log.log('Viper-Client is now active!');
+    checkOperatingSystem();
+    Log.log('Viper-Client is now active!',LogLevel.Info);
     state = new ExtensionState();
     context.subscriptions.push(state);
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/*.sil, **/*.vpr');
@@ -53,7 +53,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-    Log.log("deactivate");
+    Log.log("deactivate", LogLevel.Info);
     state.dispose();
 }
 
@@ -126,8 +126,10 @@ function registerHandlers() {
             case VerificationState.Starting:
                 statusBarItem.color = 'orange';
                 statusBarItem.text = "starting";
+                statusBarItem.tooltip = null; //"Starting " + params.backendName;
                 break;
             case VerificationState.VerificationRunning:
+                statusBarItem.tooltip = null;
                 statusBarItem.color = 'orange';
                 if (!params.progress) {
                     statusBarItem.text = "pre-processing";
@@ -144,6 +146,9 @@ function registerHandlers() {
                 if (params.firstTime) {
                     statusBarItem.color = 'white';
                     statusBarItem.text = "ready";
+                    statusBarItem.tooltip = null;
+                    //automatically trigger the first verification
+                    verify(false);
                 } else {
                     if (params.success) {
                         statusBarItem.color = 'lightgreen';
@@ -151,9 +156,12 @@ function registerHandlers() {
                         if (params.manuallyTriggered) {
                             Log.hint("Successfully Verified " + params.filename);
                         }
+                        statusBarItem.tooltiop = "Parsing and verification succeeded"
                     } else {
                         statusBarItem.color = 'red';
                         statusBarItem.text = `$(x) failed`;
+                        vscode.languages.createDiagnosticCollection()
+                        statusBarItem.tooltip = params.onlyParsed? "Parsing failed" : "Parsing succeeded, verification failed";
                     }
                 }
                 statusBarProgress.hide();
@@ -162,6 +170,7 @@ function registerHandlers() {
             case VerificationState.Stopping:
                 statusBarItem.color = 'orange';
                 statusBarItem.text = "preparing";
+                statusBarItem.tooltip = null;
                 break;
             default:
                 break;
@@ -169,7 +178,7 @@ function registerHandlers() {
     });
 
     state.client.onNotification(Commands.InvalidSettings, (data) => {
-        Log.log("Invalid Settings detected");
+        Log.log("Invalid Settings detected", LogLevel.Default);
         statusBarItem.color = 'red';
         statusBarItem.text = "Invalid Settings";
 
@@ -183,7 +192,7 @@ function registerHandlers() {
                 try {
                     //workspaceSettings
                     let workspaceSettingsPath = path.join(vscode.workspace.rootPath, '.vscode', 'settings.json');
-                    Log.log("WorkspaceSettings: " + workspaceSettingsPath);
+                    Log.log("WorkspaceSettings: " + workspaceSettingsPath, LogLevel.Debug);
                     makeSureFileExists(workspaceSettingsPath);
                     showFile(workspaceSettingsPath, vscode.ViewColumn.Two);
                 } catch (e) {
@@ -193,7 +202,7 @@ function registerHandlers() {
                 try {
                     //user Settings
                     let userSettings = userSettingsPath();
-                    Log.log("UserSettings: " + userSettings);
+                    Log.log("UserSettings: " + userSettings, LogLevel.Debug);
                     makeSureFileExists(userSettings);
                     showFile(userSettings, vscode.ViewColumn.Two);
                 } catch (e) {
@@ -208,15 +217,15 @@ function registerHandlers() {
     });
 
     state.client.onNotification(Commands.Log, (data: string) => {
-        Log.log("S: " + data);
+        Log.log((Log.logLevel>=LogLevel.Debug?"S: ":"") + data, LogLevel.Default);
     });
 
     state.client.onNotification(Commands.ToLogFile, (data: string) => {
-        Log.toLogFile("S: " + data);
+        Log.toLogFile((Log.logLevel>=LogLevel.Debug?"S: ":"") + data, LogLevel.Default);
     });
 
     state.client.onNotification(Commands.Error, (data: string) => {
-        Log.error("S: " + data);
+        Log.error((Log.logLevel>=LogLevel.Debug?"S: ":"") + data, LogLevel.Default);
     });
 
 
@@ -249,6 +258,7 @@ function registerHandlers() {
 
     state.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
         autoSaveEnabled = vscode.workspace.getConfiguration("viperSettings").get('autoSave') === true;
+        Log.updateSettings();
     }));
 
     let verifyCommandDisposable = vscode.commands.registerCommand('extension.verify', () => {
@@ -284,9 +294,9 @@ function registerHandlers() {
             stopOnEntry: true
         }
         vscode.commands.executeCommand('vscode.startDebug', launchConfig).then(() => {
-            Log.log('Debug session started successfully');
+            Log.log('Debug session started successfully', LogLevel.Info);
         }, err => {
-            Log.log('Error: ' + err.message);
+            Log.error(err.message);
         });
     });
     state.context.subscriptions.push(startDebuggingCommandDisposable);
@@ -314,7 +324,7 @@ function makeSureFileExists(fileName: string) {
             fs.createWriteStream(fileName).close();
         }
     } catch (e) {
-        Log.error("Cannot create file: "+e);
+        Log.error("Cannot create file: " + e);
     }
 }
 
@@ -349,13 +359,13 @@ function checkOperatingSystem() {
         return;
     }
     if (isWin) {
-        Log.log("OS: Windows");
+        Log.log("OS: Windows", LogLevel.Debug);
     }
     else if (isMac) {
-        Log.log("OS: OsX");
+        Log.log("OS: OsX", LogLevel.Debug);
     }
     else if (isLinux) {
-        Log.log("OS: Linux");
+        Log.log("OS: Linux", LogLevel.Debug);
     }
 }
 

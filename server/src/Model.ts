@@ -1,6 +1,7 @@
 'use strict';
 
 import {Log} from './Log';
+import {LogLevel} from './ViperProtocol';
 
 interface ConcreteVariable {
     name: string;

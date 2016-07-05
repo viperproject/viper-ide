@@ -1,6 +1,7 @@
 {
 	"name": "viper-server",
 	"description": "Facilitates the development of Viper programs",
+	"license": "MIT",
 	"repository": {
 		"type": "hg",
 		"url": "https://bitbucket.org/viperproject/viper-ide"

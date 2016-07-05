@@ -8,6 +8,15 @@ export enum VerificationState {
     Stopping = 7
 }
 
+export enum LogLevel {
+    None = 0,
+    Default = 1,
+    Info = 2,
+    Verbose = 3,
+    Debug = 4,
+    LowLevelDebug = 5
+}
+
 export class Commands {
     static InvalidSettings = { method: "InvalidSettings" };
     static Hint = { method: "Hint" };
@@ -29,14 +38,16 @@ export interface UpdateStatusBarParams {
     newState: VerificationState;
     progress?;
     success?;
-    firstTime?:boolean;
-    manuallyTriggered?:boolean;
-    filename?:string;
+    firstTime?: boolean;
+    manuallyTriggered?: boolean;
+    filename?: string;
+    onlyParsed?: boolean;
+    backendName?: string;
 }
 
-export interface VerifyRequest{
-    uri:string,
-    manuallyTriggered:boolean
+export interface VerifyRequest {
+    uri: string,
+    manuallyTriggered: boolean
 }
 
 export interface ViperSettings {
@@ -45,9 +56,9 @@ export interface ViperSettings {
     nailgunClient: string;
     z3Executable: string;
     valid: boolean;
-    writeRawOutputToLogFile: boolean;
-    autoSave:boolean;
-    lowLevelDebug:boolean;
+    autoSave: boolean;
+    nailgunPort: string;
+    logLevel: number;
 }
 
 export interface Backend {

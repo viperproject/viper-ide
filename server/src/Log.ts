@@ -1,25 +1,30 @@
 'use strict';
 
 import {IConnection} from 'vscode-languageserver';
-import {Commands} from './ViperProtocol';
+import {Commands, LogLevel} from './ViperProtocol';
 
 export class Log {
+    static logLevel: LogLevel = LogLevel.Default;
     static connection: IConnection;
 
-    static log(message: string) {
-        this.connection.sendNotification(Commands.Log,message);
+    static log(message: string, logLevel: LogLevel = LogLevel.Default) {
+        if (Log.logLevel >= logLevel)
+            this.connection.sendNotification(Commands.Log, message);
     }
 
-    static toLogFile(message: string) {
-        this.connection.sendNotification(Commands.ToLogFile,message);
+    static toLogFile(message: string, logLevel: LogLevel = LogLevel.Default) {
+        if ( Log.logLevel >= logLevel)
+            this.connection.sendNotification(Commands.ToLogFile, message);
     }
 
-    static error(message: string) {
-        this.connection.sendNotification(Commands.Error,message);
+    static error(message: string, logLevel: LogLevel = LogLevel.Debug) {
+        if (Log.logLevel >= logLevel)
+            this.connection.sendNotification(Commands.Error, message);
     }
 
-    static logWithOrigin(origin: string, message: string) {
-        this.connection.sendNotification(Commands.Log,origin + ": " + message);
+    static logWithOrigin(origin: string, message: string, logLevel: LogLevel = LogLevel.Default) {
+        if (Log.logLevel >= logLevel)
+            this.connection.sendNotification(Commands.Log, (logLevel>=LogLevel.Debug?origin + ": ":"") + message);
     }
 
     static hint(message: string) {

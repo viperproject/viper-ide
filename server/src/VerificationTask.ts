@@ -3,7 +3,7 @@
 import child_process = require('child_process');
 import {IConnection, Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
 import {Settings} from './Settings'
-import {Backend, ViperSettings, Commands, VerificationState} from './ViperProtocol'
+import {Backend, ViperSettings, Commands, VerificationState, LogLevel} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement} from './Statement';
@@ -46,11 +46,12 @@ export class VerificationTask {
     //file under verification
     fileUri: string;
     filename: string;
+    path: string;
 
     //working variables
     lines: string[] = [];
     wrongFormat: boolean = false;
-    isFromMethod:boolean = false;
+    isFromMethod: boolean = false;
 
     //verification results
     time: number = 0;
@@ -79,21 +80,22 @@ export class VerificationTask {
         this.lines = [];
         this.model = new Model();
 
-        Log.log(backend.name + ' verification started');
+        Log.log(backend.name + ' verification started', LogLevel.Info);
 
         VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, success: false, firstTime: false });
 
         VerificationTask.uriToPath(this.fileUri).then((path) => {
             //start verification of current file
+            this.path = path
             this.filename = pathHelper.basename(path);
             this.verifierProcess = this.nailgunService.startVerificationProcess(path, true, onlyTypeCheck, backend);
             //subscribe handlers
             this.verifierProcess.stdout.on('data', this.stdOutHandler.bind(this));
             this.verifierProcess.stderr.on('data', this.stdErrHadler.bind(this));
             this.verifierProcess.on('close', this.verificationCompletionHandler.bind(this));
-            // this.verifierProcess.on('exit',(code,msg)=>{
-            //     Log.log("verifierProcess onExit: "+ code + " and " + msg);
-            // });
+            this.verifierProcess.on('exit', (code, msg) => {
+                Log.log("verifierProcess onExit: " + code + " and " + msg, LogLevel.Debug);
+            });
         });
     }
 
@@ -103,7 +105,7 @@ export class VerificationTask {
     }
 
     private verificationCompletionHandler(code) {
-        Log.log(`Child process exited with code ${code}`);
+        Log.log(`Child process exited with code ${code}`, LogLevel.Debug);
 
         if (code != 0 && code != 1 && code != 899) {
             Log.hint("Verification Backend Terminated Abnormaly: with code " + code);
@@ -115,16 +117,23 @@ export class VerificationTask {
 
         // Send the computed diagnostics to VSCode.
         VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
-        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, success: this.diagnostics.length == 0 && code == 0, manuallyTriggered: this.manuallyTriggered, filename: this.filename });
+        VerificationTask.connection.sendNotification(Commands.StateChange,
+            {
+                newState: VerificationState.Ready,
+                success: this.diagnostics.length == 0 && code == 0,
+                manuallyTriggered: this.manuallyTriggered,
+                filename: this.filename,
+                onlyParsed: this.steps.length == 0
+            });
         this.running = false;
 
-        Log.log("Number of Steps: " + this.steps.length);
+        Log.log("Number of Steps: " + this.steps.length, LogLevel.Info);
         //show last state
 
         this.steps.forEach((step) => {
-            Log.toLogFile(step.pretty());
+            Log.toLogFile(step.pretty(), LogLevel.LowLevelDebug);
         });
-        Log.toLogFile("Model: " + this.model.pretty());
+        Log.toLogFile("Model: " + this.model.pretty(), LogLevel.LowLevelDebug);
     }
 
     private stdErrHadler(data) {
@@ -133,7 +142,8 @@ export class VerificationTask {
             return;
         }
         if (data.startsWith("connect: No error")) {
-            Log.hint("No Nailgun server is running on port " + this.nailgunService.nailgunPort);
+            Log.hint("No Nailgun server is running on port " + this.nailgunService.settings.nailgunPort);
+            return;
         }
         else if (data.startsWith("java.lang.ClassNotFoundException:")) {
             Log.hint("Class " + this.backend.mainMethod + " is unknown to Nailgun\nFix the backend settings for " + this.backend.name);
@@ -144,19 +154,18 @@ export class VerificationTask {
         else if (data.startsWith("SLF4J: Class path contains multiple SLF4J bindings")) {
             Log.hint(this.backend.name + " is referencing two versions of the backend, fix its paths in the settings");
         }
-        else if (data.startsWith("SLF4J: ")) { }
-        else {
+        else if (data.startsWith("SLF4J: ")) {
+
+        } else {
             //this can lead to many error messages
-            Log.error(`stderr: ${data}`);
+            Log.error(data, LogLevel.Debug);
         }
     }
     private stdOutHandler(data) {
         if (data.trim().length == 0) {
             return;
         }
-        if (this.nailgunService.settings.writeRawOutputToLogFile) {
-            Log.toLogFile("stdout: " + data);
-        }
+        Log.toLogFile(`[${this.backend.name}: stdout]: ${data}`, LogLevel.LowLevelDebug);
 
         let stringData: string = data;
         let parts = stringData.split(/\r?\n/g);
@@ -186,10 +195,10 @@ export class VerificationTask {
                         else if (part.startsWith("{\"") && part.endsWith("}")) {
                             try {
                                 let progress = new TotalProgress(JSON.parse(part));
-                                Log.log("Progress: " + progress.toPercent());
+                                Log.log("Progress: " + progress.toPercent(), LogLevel.Info);
                                 VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, progress: progress.toPercent() })
                             } catch (e) {
-                                Log.error(e);
+                                Log.error("Error reading progress: " + e);
                             }
                         }
                         else if (part.startsWith("\"")) {
@@ -201,7 +210,7 @@ export class VerificationTask {
                             }
                             this.model.extendModel(part);
                             //Log.toLogFile("Model: " + part);
-                        } else if (part.startsWith("---------- METHOD ")){
+                        } else if (part.startsWith("---------- METHOD ")) {
                             this.isFromMethod = true;
                             continue;
                         } else if (part.startsWith("----")) {
@@ -213,8 +222,8 @@ export class VerificationTask {
                             //TODO: handle if needed
                             continue;
                         }
-                        else if(part.startsWith("hR = ")){
-                            i = i+3;
+                        else if (part.startsWith("hR = ")) {
+                            i = i + 3;
                         }
                         else if (part.startsWith('PRODUCE') || part.startsWith('CONSUME') || part.startsWith('EVAL') || part.startsWith('EXECUTE')) {
                             if (this.lines.length > 0) {
@@ -223,7 +232,7 @@ export class VerificationTask {
                                     msg = msg + "\n\t" + line;
                                 });
                                 Log.error(msg);
-                                Log.log("Next line: " + part);
+                                Log.log("Next line: " + part, LogLevel.Debug);
                             }
                             this.lines = [];
                             this.lines.push(part);
@@ -251,15 +260,15 @@ export class VerificationTask {
                     case VerificationState.VerificationReporting:
                         if (part == 'No errors found.') {
                             this.state = VerificationState.VerificationReporting;
-                            Log.log('Successfully verified with ' + this.backend.name + ' in ' + this.time + ' seconds.');
+                            Log.log(this.backend.name + ": Successfully verified " + this.filename + " in " + this.time + ' seconds.', LogLevel.Default);
                             this.time = 0;
                         }
                         else if (part.startsWith('The following errors were found')) {
-                            Log.log(this.backend.name + ': Verification failed after ' + this.time + ' seconds.');
+                            Log.log(this.backend.name + ': Verifying ' + this.filename + ' failed after ' + this.time + ' seconds.', LogLevel.Default);
                             this.time = 0;
                         }
                         else if (part.startsWith('  ')) {
-                            let pos = /\s*(\d*):(\d*):\s(.*)/.exec(part);
+                            let pos = /\s*(\d+):(\d+):\s(.*)/.exec(part);
                             if (pos.length != 4) {
                                 Log.error('could not parse error description: "' + part + '"');
                                 continue;
@@ -268,6 +277,7 @@ export class VerificationTask {
                             let charNr = +pos[2] - 1;
                             let message = pos[3].trim();
 
+                            Log.log(`Error: [${this.backend.name}] ${lineNr + 1}:${charNr + 1} ${message}`, LogLevel.Default);
                             this.diagnostics.push({
                                 range: {
                                     start: { line: lineNr, character: charNr },
@@ -298,7 +308,7 @@ export class VerificationTask {
     }
 
     public abortVerification() {
-        Log.log('abort running verification');
+        Log.log('abort running verification', LogLevel.Info);
         if (!this.running) {
             //Log.error('cannot abort. the verification is not running.');
             return;
@@ -309,7 +319,7 @@ export class VerificationTask {
         this.verifierProcess.stderr.removeAllListeners('data');
         //log the exit of the child_process to kill
         this.verifierProcess.on('exit', (code, signal) => {
-            Log.log(`Child process exited with code ${code} and signal ${signal}`);
+            Log.log(`Child process exited with code ${code} and signal ${signal}`, LogLevel.Debug);
         })
         this.verifierProcess.kill('SIGINT');
         let l = this.verifierProcess.listeners;
