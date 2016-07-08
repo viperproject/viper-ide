@@ -3,7 +3,7 @@
 import child_process = require('child_process');
 import {IConnection, Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
 import {Settings} from './Settings'
-import {Backend, ViperSettings, Commands, VerificationState, LogLevel} from './ViperProtocol'
+import {Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement} from './Statement';
@@ -58,6 +58,8 @@ export class VerificationTask {
     diagnostics: Diagnostic[];
     steps: Statement[];
     model: Model = new Model();
+    lastSuccess: Success = Success.None;
+    parsingCompleted:boolean = false;
 
     constructor(fileUri: string, nailgunService: NailgunService, connection: IConnection, backend: Backend) {
         this.fileUri = fileUri;
@@ -67,6 +69,11 @@ export class VerificationTask {
     }
 
     verify(backend: Backend, onlyTypeCheck: boolean, manuallyTriggered: boolean): void {
+        if(!manuallyTriggered && this.lastSuccess == Success.Error){
+            Log.log("After an internal error, reverification has to be triggered manually.",LogLevel.Info);
+            return;
+        }
+        
         this.manuallyTriggered = manuallyTriggered;
         this.backend = backend;
         this.running = true;
@@ -82,7 +89,7 @@ export class VerificationTask {
 
         Log.log(backend.name + ' verification started', LogLevel.Info);
 
-        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, success: false, firstTime: false });
+        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, firstTime: false });
 
         VerificationTask.uriToPath(this.fileUri).then((path) => {
             //start verification of current file
@@ -108,7 +115,7 @@ export class VerificationTask {
         Log.log(`Child process exited with code ${code}`, LogLevel.Debug);
 
         if (code != 0 && code != 1 && code != 899) {
-            Log.hint("Verification Backend Terminated Abnormaly: with code " + code);
+            Log.log("Verification Backend Terminated Abnormaly: with code " + code,LogLevel.Default);
             if (Settings.isWin) {
                 this.nailgunService.killNgDeamon();
                 this.nailgunService.restartNailgunServer(VerificationTask.connection, this.backend);
@@ -117,14 +124,33 @@ export class VerificationTask {
 
         // Send the computed diagnostics to VSCode.
         VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
+
+        let success: Success = Success.None;
+
+        if (this.diagnostics.length == 0 && code == 0) {
+            success = Success.Success;
+        } else if (this.diagnostics.length > 0) {
+            if (this.steps.length == 0) {
+                success = Success.ParsingFailed;
+            } else {
+                success = Success.VerificationFailed;
+            }
+        } else {
+            success = Success.Error;
+        }
+
+        this.lastSuccess = success;
+
         VerificationTask.connection.sendNotification(Commands.StateChange,
             {
                 newState: VerificationState.Ready,
-                success: this.diagnostics.length == 0 && code == 0,
+                success: success,
                 manuallyTriggered: this.manuallyTriggered,
                 filename: this.filename,
-                onlyParsed: this.steps.length == 0
+                nofErrors: this.diagnostics.length,
+                time:this.time
             });
+        this.time = 0;
         this.running = false;
 
         Log.log("Number of Steps: " + this.steps.length, LogLevel.Info);
@@ -177,7 +203,7 @@ export class VerificationTask {
                 switch (this.state) {
                     case VerificationState.Stopped:
                         if (part.startsWith("Command-line interface:")) {
-                            Log.error('Could not start verification -> fix format');
+                            Log.error('Could not start verification -> fix customArguments for backend', LogLevel.Default);
                             this.state = VerificationState.VerificationPrintingHelp;
                         }
                         if (part.startsWith("(c) ") && part.indexOf("ETH") > 0) {
@@ -196,12 +222,11 @@ export class VerificationTask {
                             try {
                                 let progress = new TotalProgress(JSON.parse(part));
                                 Log.log("Progress: " + progress.toPercent(), LogLevel.Info);
-                                VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, progress: progress.toPercent() })
+                                VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, progress: progress.toPercent(), filename: this.filename})
                             } catch (e) {
                                 Log.error("Error reading progress: " + e);
                             }
-                        }
-                        else if (part.startsWith("\"")) {
+                        }else if (part.startsWith("\"")) {
                             if (!part.endsWith("\"")) {
                                 //TODO: it can also be that the model is split among multiple stdout pieces
                                 while (i + 1 < parts.length && !part.endsWith("\"")) {
@@ -259,13 +284,8 @@ export class VerificationTask {
                         break;
                     case VerificationState.VerificationReporting:
                         if (part == 'No errors found.') {
-                            this.state = VerificationState.VerificationReporting;
-                            Log.log(this.backend.name + ": Successfully verified " + this.filename + " in " + this.time + ' seconds.', LogLevel.Default);
-                            this.time = 0;
                         }
                         else if (part.startsWith('The following errors were found')) {
-                            Log.log(this.backend.name + ': Verifying ' + this.filename + ' failed after ' + this.time + ' seconds.', LogLevel.Default);
-                            this.time = 0;
                         }
                         else if (part.startsWith('  ')) {
                             let pos = /\s*(\d+):(\d+):\s(.*)/.exec(part);
@@ -287,6 +307,8 @@ export class VerificationTask {
                                 severity: DiagnosticSeverity.Error,
                                 message: message
                             });
+                        }else{
+                            Log.error("Unexpected message during VerificationReporting: " + part);
                         }
                         break;
                     case VerificationState.VerificationPrintingHelp:

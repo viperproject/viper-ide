@@ -34,16 +34,26 @@ export class Commands {
     static ToLogFile = { method: "ToLogFile" };
 }
 
+export enum Success {
+    None = 0,
+    Success = 1,
+    ParsingFailed = 2,
+    VerificationFailed = 3,
+    Error = 4
+}
+
 export interface UpdateStatusBarParams {
     newState: VerificationState;
     progress?;
-    success?;
+    success?: Success;
     firstTime?: boolean;
     manuallyTriggered?: boolean;
     filename?: string;
-    onlyParsed?: boolean;
     backendName?: string;
+    time?: number;
+    nofErrors?: number;
 }
+
 
 export interface VerifyRequest {
     uri: string,
@@ -66,4 +76,5 @@ export interface Backend {
     paths: [string];
     mainMethod: string;
     getTrace: boolean;
+    customArguments: string;
 }

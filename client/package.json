@@ -1,7 +1,7 @@
 {
     "name": "viper",
     "displayName": "Viper",
-    "version": "0.0.7",
+    "version": "0.0.10",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "license": "MIT",
@@ -54,19 +54,15 @@
         "commands": [
             {
                 "command": "extension.verify",
-                "title": "Viper: Verify the open Document"
+                "title": "Viper: verify the open document"
             },
             {
                 "command": "extension.selectBackend",
-                "title": "Viper: Select Verification Backend"
-            },
-            {
-                "command": "extension.startDebugging",
-                "title": "Viper: Start Debugging Session"
+                "title": "Viper: select verification backend"
             },
             {
                 "command": "extension.stopVerification",
-                "title": "Viper: Stop the running verification"
+                "title": "Viper: stop the running verification"
             }
         ],
         "grammars": [
@@ -109,20 +105,14 @@
         "keybindings": [
             {
                 "command": "extension.selectBackend",
-                "key": "ctrl+j",
-                "mac": "cmd+j",
+                "key": "ctrl+l",
+                "mac": "cmd+l",
                 "when": "editorTextFocus"
             },
             {
                 "command": "extension.verify",
-                "key": "ctrl+shift+b",
-                "mac": "cmd+shift+b",
-                "when": "editorTextFocus"
-            },
-            {
-                "command": "extension.startDebugging",
-                "key": "ctrl+shift+d",
-                "mac": "cmd+shift+d",
+                "key": "f5",
+                "mac": "f5",
                 "when": "editorTextFocus"
             },
             {
@@ -145,7 +135,8 @@
                                 "%SILICON_JAR%"
                             ],
                             "mainMethod": "viper.silicon.SiliconRunner",
-                            "getTrace": true
+                            "getTrace": true,
+                            "customArguments": ""
                         }
                     ],
                     "description": "You can add your backend here.\n    // The first backend in the array will be used for verification.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."

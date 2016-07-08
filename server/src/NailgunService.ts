@@ -49,7 +49,7 @@ export class NailgunService {
                             //tempProcess.on('exit', (code, signal) => {
                             this.ready = true;
                             Log.log("Nailgun started",LogLevel.Info);
-                            connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, firstTime: true });
+                            connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, firstTime: true});
                             //});
                         }
                     });
@@ -110,7 +110,7 @@ export class NailgunService {
     }
 
     public startVerificationProcess(fileToVerify: string, ideMode: boolean, onlyTypeCheck: boolean, backend: Backend): child_process.ChildProcess {
-        let command = this.settings.nailgunClient + ' --nailgun-port ' + this.settings.nailgunPort + ' ' + backend.mainMethod + ' --ideMode' + ' --z3Exe "' + this.settings.z3Executable + '" ' + (backend.getTrace ? '--logLevel trace ' : '') + '"' + fileToVerify + '"';
+        let command = this.settings.nailgunClient + ' --nailgun-port ' + this.settings.nailgunPort + ' ' + backend.mainMethod + ' --ideMode' + ' --z3Exe "' + this.settings.z3Executable + '" ' + (backend.getTrace ? '--logLevel trace ' : '') +(backend.customArguments?backend.customArguments:"") +  ' "' + fileToVerify + '"';
         Log.log(command,LogLevel.Debug);
         return child_process.exec(command); // to set current working directory use, { cwd: verifierHome } as an additional parameter
     }

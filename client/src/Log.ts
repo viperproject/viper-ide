@@ -14,7 +14,11 @@ export class Log {
 
     public static initialize(context: vscode.ExtensionContext) {
         Log.updateSettings();
-        Log.logFilePath = path.join(vscode.workspace.rootPath, '.vscode', Log.logFilePath);
+        let rootPath = vscode.workspace.rootPath;
+        if(!rootPath){
+            rootPath = path.dirname(vscode.window.activeTextEditor.document.fileName);
+        }
+        Log.logFilePath = path.join(rootPath, '.vscode', Log.logFilePath);
         Log.log("LogFilePath is: " + Log.logFilePath, LogLevel.Debug)
         try {
             fs.closeSync(fs.openSync(Log.logFilePath, 'w'));

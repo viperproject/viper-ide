@@ -10,7 +10,7 @@ import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, T
 import {Timer} from './Timer';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
-import {Backend, ViperSettings, VerificationState, Commands, UpdateStatusBarParams, LogLevel} from './ViperProtocol';
+import {Backend, ViperSettings, VerificationState, Commands, UpdateStatusBarParams, LogLevel, Success} from './ViperProtocol';
 import Uri from '../node_modules/vscode-uri/lib/index';
 import {Log} from './Log';
 import {DebugContentProvider} from './TextDocumentContentProvider';
@@ -37,7 +37,7 @@ let manuallyTriggered: boolean;
 export function activate(context: vscode.ExtensionContext) {
     Log.initialize(context);
     checkOperatingSystem();
-    Log.log('Viper-Client is now active!',LogLevel.Info);
+    Log.log('Viper-Client is now active!', LogLevel.Info);
     state = new ExtensionState();
     context.subscriptions.push(state);
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/*.sil, **/*.vpr');
@@ -136,7 +136,7 @@ function registerHandlers() {
                     statusBarProgress.text = progressBarText(0);
                 }
                 else {
-                    statusBarItem.text = "verifying: " + params.progress.toFixed(1) + "%"
+                    statusBarItem.text = `verifying ${params.filename}: ` + params.progress.toFixed(1) + "%"
                     statusBarProgress.text = progressBarText(params.progress);
                 }
                 statusBarProgress.show();
@@ -150,18 +150,35 @@ function registerHandlers() {
                     //automatically trigger the first verification
                     verify(false);
                 } else {
-                    if (params.success) {
-                        statusBarItem.color = 'lightgreen';
-                        statusBarItem.text = `$(check) done`;
-                        if (params.manuallyTriggered) {
-                            Log.hint("Successfully Verified " + params.filename);
-                        }
-                        statusBarItem.tooltiop = "Parsing and verification succeeded"
-                    } else {
-                        statusBarItem.color = 'red';
-                        statusBarItem.text = `$(x) failed`;
-                        vscode.languages.createDiagnosticCollection()
-                        statusBarItem.tooltip = params.onlyParsed? "Parsing failed" : "Parsing succeeded, verification failed";
+                    let msg: string = "";
+                    switch (params.success) {
+                        case Success.Success:
+                            statusBarItem.color = 'lightgreen';
+                            msg = `Successfully verified ${params.filename} in ${params.time} seconds`;
+                            statusBarItem.text = "$(check) " + msg;
+                            Log.log(msg);
+                            if (params.manuallyTriggered) {
+                                Log.hint(msg);
+                            }
+                            break;
+                        case Success.ParsingFailed:
+                            Log.log(`Parsing ${params.filename} failed after ${params.time} seconds with ${params.nofErrors} errors`, LogLevel.Default);
+                            statusBarItem.color = 'red';
+                            statusBarItem.text = `$(x) Parse errors detected`;
+                            break;
+                        case Success.VerificationFailed:
+                            Log.log(`Verifying ${params.filename} failed after ${params.time} seconds with ${params.nofErrors} errors`, LogLevel.Default);
+                            statusBarItem.color = 'red';
+                            statusBarItem.text = `$(x) Verification failed with ${params.nofErrors} errors`;
+                            break;
+                        case Success.Error:
+                            statusBarItem.color = 'red';
+                            let msg2 = " - see View->Output->Viper for more info"
+                            statusBarItem.text = `$(x) Internal error` + msg2;
+                            msg = `Verifying ${params.filename} failed due to an internal error`;
+                            Log.log(msg);
+                            Log.hint(msg + msg2);
+                            break;
                     }
                 }
                 statusBarProgress.hide();
@@ -190,8 +207,13 @@ function registerHandlers() {
 
             } else if (choice.title === workspaceSettingsButton.title) {
                 try {
+                    let rootPath = vscode.workspace.rootPath;
+                    if (!rootPath) {
+                        Log.hint("Only if a folder is opened, the workspace settings can be accessed.")
+                        return;
+                    }
                     //workspaceSettings
-                    let workspaceSettingsPath = path.join(vscode.workspace.rootPath, '.vscode', 'settings.json');
+                    let workspaceSettingsPath = path.join(rootPath, '.vscode', 'settings.json');
                     Log.log("WorkspaceSettings: " + workspaceSettingsPath, LogLevel.Debug);
                     makeSureFileExists(workspaceSettingsPath);
                     showFile(workspaceSettingsPath, vscode.ViewColumn.Two);
@@ -217,15 +239,15 @@ function registerHandlers() {
     });
 
     state.client.onNotification(Commands.Log, (data: string) => {
-        Log.log((Log.logLevel>=LogLevel.Debug?"S: ":"") + data, LogLevel.Default);
+        Log.log((Log.logLevel >= LogLevel.Debug ? "S: " : "") + data, LogLevel.Default);
     });
 
     state.client.onNotification(Commands.ToLogFile, (data: string) => {
-        Log.toLogFile((Log.logLevel>=LogLevel.Debug?"S: ":"") + data, LogLevel.Default);
+        Log.toLogFile((Log.logLevel >= LogLevel.Debug ? "S: " : "") + data, LogLevel.Default);
     });
 
     state.client.onNotification(Commands.Error, (data: string) => {
-        Log.error((Log.logLevel>=LogLevel.Debug?"S: ":"") + data, LogLevel.Default);
+        Log.error((Log.logLevel >= LogLevel.Debug ? "S: " : "") + data, LogLevel.Default);
     });
 
 
