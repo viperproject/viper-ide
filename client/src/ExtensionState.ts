@@ -3,7 +3,7 @@ import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, T
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import {VerificationState, Commands,LogLevel} from './ViperProtocol';
+import {VerificationState, Commands, LogLevel} from './ViperProtocol';
 import {Log} from './Log';
 
 export class ExtensionState {
@@ -14,7 +14,11 @@ export class ExtensionState {
 
     private languageServerDisposable;
 
-    public startLanguageServer(context: vscode.ExtensionContext,fileSystemWatcher:vscode.FileSystemWatcher, brk: boolean) {
+    public isWin = /^win/.test(process.platform);
+    public isLinux = /^linux/.test(process.platform);
+    public isMac = /^darwin/.test(process.platform);
+
+    public startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, brk: boolean) {
         this.context = context;
         // The server is implemented in node
         let serverModule = this.context.asAbsolutePath(path.join('server', 'server.js'));
@@ -62,4 +66,36 @@ export class ExtensionState {
             this.languageServerDisposable.dispose();
         })
     }
+
+    public checkOperatingSystem() {
+    if ((this.isWin ? 1 : 0) + (this.isMac ? 1 : 0) + (this.isLinux ? 1 : 0) != 1) {
+        Log.error("Cannot detect OS")
+        return;
+    }
+    if (this.isWin) {
+        Log.log("OS: Windows", LogLevel.Debug);
+    }
+    else if (this.isMac) {
+        Log.log("OS: OsX", LogLevel.Debug);
+    }
+    else if (this.isLinux) {
+        Log.log("OS: Linux", LogLevel.Debug);
+    }
+}
+
+public userSettingsPath():string {
+    if (this.isWin) {
+        let appdata = process.env.APPDATA;
+        return path.join(appdata, "Code", "User", "settings.json");
+    } else {
+        let home = process.env.HOME;
+        if (this.isLinux) {
+            return path.join(home, ".config", "Code", "User", "settings.json");
+        } else if (this.isMac) {
+            return path.join(home, "Library", "Application Support", "Code", "User", "settings.json");
+        } else {
+            Log.error("unknown Operating System: " + process.platform);
+        }
+    }
+}
 }

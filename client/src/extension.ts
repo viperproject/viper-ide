@@ -17,15 +17,11 @@ import {DebugContentProvider} from './TextDocumentContentProvider';
 
 let statusBarItem;
 let statusBarProgress;
+let backendStatusBar;
 let abortButton;
-let autoSaveEnabled: boolean;
 let autoSaver: Timer;
 let previewUri = vscode.Uri.parse('viper-preview://debug');
 let state: ExtensionState;
-
-let isWin = /^win/.test(process.platform);
-let isLinux = /^linux/.test(process.platform);
-let isMac = /^darwin/.test(process.platform);
 
 let enableSecondWindow: boolean = false;
 
@@ -36,9 +32,9 @@ let manuallyTriggered: boolean;
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
     Log.initialize(context);
-    checkOperatingSystem();
     Log.log('Viper-Client is now active!', LogLevel.Info);
     state = new ExtensionState();
+    state.checkOperatingSystem();
     context.subscriptions.push(state);
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/*.sil, **/*.vpr');
     state.startLanguageServer(context, fileSystemWatcher, false); //break?
@@ -72,32 +68,40 @@ function showSecondWindow() {
 }
 
 function initializeStatusBar() {
-    statusBarProgress = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 11);
-
     state.state = VerificationState.Stopped;
+
+    statusBarProgress = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 11);
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
-    statusBarItem.color = 'white';
-    statusBarItem.text = "Hello from Viper";
-    statusBarItem.show();
+    updateStatusBarItem(statusBarItem, "Hello from Viper", "white");
 
     abortButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 9);
-    abortButton.text = "$(x) Stop";
-    abortButton.color = "orange";
     abortButton.command = "extension.stopVerification";
-    abortButton.hide();
+    updateStatusBarItem(abortButton, "$(x) Stop", "orange", null, false)
 
     state.context.subscriptions.push(statusBarProgress);
     state.context.subscriptions.push(statusBarItem);
     state.context.subscriptions.push(abortButton);
+
+    backendStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 12);
+}
+
+function updateStatusBarItem(item, text: string, color: string, tooltip: string = null, show: boolean = true) {
+    item.text = text;
+    item.color = color;
+    item.tooltip = tooltip;
+    if (show) {
+        item.show();
+    } else {
+        item.hide();
+    }
 }
 
 function startAutoSaver() {
-    autoSaveEnabled = vscode.workspace.getConfiguration("viperSettings").get('autoSave') === true;
     let autoSaveTimeout = 1000;//ms
     autoSaver = new Timer(() => {
         //only save viper files
         if (vscode.window.activeTextEditor != null && vscode.window.activeTextEditor.document.languageId == 'viper') {
-            if (autoSaveEnabled) {
+            if (getConfiguration('autoSave') === true) {
                 manuallyTriggered = false;
                 vscode.window.activeTextEditor.document.save();
                 if (enableSecondWindow) {
@@ -119,78 +123,68 @@ function resetAutoSaver() {
     autoSaver.reset();
 }
 
+function getConfiguration(setting: string) {
+    return vscode.workspace.getConfiguration("viperSettings").get(setting);
+}
+
 function registerHandlers() {
     state.client.onNotification(Commands.StateChange, (params: UpdateStatusBarParams) => {
-        Log.log("new state is " + params.newState.toString(), LogLevel.Debug);
+        Log.log("The new state is: " + VerificationState[params.newState], LogLevel.Debug);
         let window = vscode.window;
         switch (params.newState) {
             case VerificationState.Starting:
-                statusBarItem.color = 'orange';
-                statusBarItem.text = "starting";
-                statusBarItem.tooltip = null; //"Starting " + params.backendName;
+                updateStatusBarItem(statusBarItem, 'starting', 'orange'/*,"Starting " + params.backendName*/);
                 break;
             case VerificationState.VerificationRunning:
-                statusBarItem.tooltip = null;
-                statusBarItem.color = 'orange';
+                let showProgressBar = getConfiguration('showProgress') === true;
                 if (!params.progress) {
-                    statusBarItem.text = "pre-processing";
-                    statusBarProgress.text = progressBarText(0);
+                    updateStatusBarItem(statusBarItem, "pre-processing", 'orange');
+                    updateStatusBarItem(statusBarProgress, progressBarText(0), 'white', null, showProgressBar);
                 }
                 else {
-                    statusBarItem.text = `verifying ${params.filename}: ` + params.progress.toFixed(1) + "%"
-                    statusBarProgress.text = progressBarText(params.progress);
-                }
-                if (vscode.workspace.getConfiguration("viperSettings").get('showProgress') === true) {
-                    statusBarProgress.show();
+                    updateStatusBarItem(statusBarItem, `verifying ${params.filename}: ` + params.progress.toFixed(1) + "%", 'orange');
+                    updateStatusBarItem(statusBarProgress, progressBarText(params.progress), 'white', null, showProgressBar);
                 }
                 abortButton.show();
                 break;
             case VerificationState.Ready:
                 if (params.firstTime) {
-                    statusBarItem.color = 'white';
-                    statusBarItem.text = "ready";
-                    statusBarItem.tooltip = null;
+                    updateStatusBarItem(statusBarItem, "ready", 'white');
                     //automatically trigger the first verification
-                    if (params.verificationNeeded && vscode.workspace.getConfiguration("viperSettings").get('autoVerifyAfterBackendChange') === true) {
+                    if (params.verificationNeeded && getConfiguration('autoVerifyAfterBackendChange') === true) {
                         verify(false);
                     }
                 } else {
                     let msg: string = "";
                     switch (params.success) {
                         case Success.Success:
-                            statusBarItem.color = 'lightgreen';
                             msg = `Successfully verified ${params.filename} in ${params.time.toFixed(1)} seconds`;
-                            statusBarItem.text = "$(check) " + msg;
-                            Log.log(msg);
-                            if (params.manuallyTriggered) {
-                                Log.hint(msg);
-                            }
+                            Log.log(msg, LogLevel.Default);
+                            updateStatusBarItem(statusBarItem, "$(check) " + msg, 'lightgreen');
+                            if (params.manuallyTriggered) Log.hint(msg);
                             break;
                         case Success.ParsingFailed:
-                            Log.log(`Parsing ${params.filename} failed after ${params.time.toFixed(1)} seconds`, LogLevel.Default);
-                            statusBarItem.color = 'red';
-                            statusBarItem.text = `$(x) Parsing failed after ${params.time.toFixed(1)} seconds `;
+                            msg = `Parsing ${params.filename} failed after ${params.time.toFixed(1)} seconds`;
+                            Log.log(msg, LogLevel.Default);
+                            updateStatusBarItem(statusBarItem, "$(x) " + msg, 'red');
                             break;
                         case Success.TypecheckingFailed:
-                            Log.log(`Type checking ${params.filename} failed after ${params.time.toFixed(1)} seconds with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`, LogLevel.Default);
-                            statusBarItem.color = 'red';
-                            statusBarItem.text = `$(x) Type checking failed after ${params.time.toFixed(1)} seconds with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
+                            msg = `Type checking ${params.filename} failed after ${params.time.toFixed(1)} seconds with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
+                            Log.log(msg, LogLevel.Default);
+                            updateStatusBarItem(statusBarItem, "$(x) " + msg, 'red');
                             break;
                         case Success.VerificationFailed:
-                            Log.log(`Verifying ${params.filename} failed after ${params.time.toFixed(1)} seconds with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`, LogLevel.Default);
-                            statusBarItem.color = 'red';
-                            statusBarItem.text = `$(x) Verification failed after ${params.time.toFixed(1)} seconds with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
+                            msg = `Verifying ${params.filename} failed after ${params.time.toFixed(1)} seconds with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
+                            Log.log(msg, LogLevel.Default);
+                            updateStatusBarItem(statusBarItem, "$(x) " + msg, 'red');
                             break;
                         case Success.Aborted:
-                            statusBarItem.color = 'orange';
-                            statusBarItem.text = "Verification aborted";
-                            msg = `Verifying ${params.filename} was aborted`;
-                            Log.log(msg, LogLevel.Info);
+                            updateStatusBarItem(statusBarItem, "Verification aborted", 'orange');
+                            Log.log(`Verifying ${params.filename} was aborted`, LogLevel.Info);
                             break;
                         case Success.Error:
-                            statusBarItem.color = 'red';
                             let msg2 = " - see View->Output->Viper for more info"
-                            statusBarItem.text = `$(x) Internal error` + msg2;
+                            updateStatusBarItem(statusBarItem, `$(x) Internal error` + msg2, 'red');
                             msg = `Verifying ${params.filename} failed due to an internal error`;
                             Log.log(msg);
                             Log.hint(msg + msg2);
@@ -201,9 +195,7 @@ function registerHandlers() {
                 abortButton.hide();
                 break;
             case VerificationState.Stopping:
-                statusBarItem.color = 'orange';
-                statusBarItem.text = "preparing";
-                statusBarItem.tooltip = null;
+                updateStatusBarItem(statusBarItem, 'preparing', 'orange');
                 break;
             default:
                 break;
@@ -239,7 +231,7 @@ function registerHandlers() {
             } else if (choice.title === userSettingsButton.title) {
                 try {
                     //user Settings
-                    let userSettings = userSettingsPath();
+                    let userSettings = state.userSettingsPath();
                     Log.log("UserSettings: " + userSettings, LogLevel.Debug);
                     makeSureFileExists(userSettings);
                     showFile(userSettings, vscode.ViewColumn.Two);
@@ -266,6 +258,10 @@ function registerHandlers() {
         Log.error((Log.logLevel >= LogLevel.Debug ? "S: " : "") + data, LogLevel.Default);
     });
 
+
+    state.client.onNotification(Commands.BackendChange, (newBackend: string) => {
+        updateStatusBarItem(backendStatusBar, newBackend, "white");
+    });
 
     state.client.onRequest(Commands.UriToPath, (uri: string) => {
         let uriObject: vscode.Uri = vscode.Uri.parse(uri);
@@ -295,7 +291,6 @@ function registerHandlers() {
     }));
 
     state.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
-        autoSaveEnabled = vscode.workspace.getConfiguration("viperSettings").get('autoSave') === true;
         Log.updateSettings();
     }));
 
@@ -322,7 +317,7 @@ function registerHandlers() {
 
     let startDebuggingCommandDisposable = vscode.commands.registerCommand('extension.startDebugging', () => {
         let openDoc = vscode.window.activeTextEditor.document.uri.path;
-        if (isWin) {
+        if (state.isWin) {
             openDoc = openDoc.substring(1, openDoc.length);
         }
         let launchConfig = {
@@ -398,37 +393,6 @@ function progressBarText(progress: number): string {
     return bar;
 }
 
-function checkOperatingSystem() {
-    if ((isWin ? 1 : 0) + (isMac ? 1 : 0) + (isLinux ? 1 : 0) != 1) {
-        Log.error("Cannot detect OS")
-        return;
-    }
-    if (isWin) {
-        Log.log("OS: Windows", LogLevel.Debug);
-    }
-    else if (isMac) {
-        Log.log("OS: OsX", LogLevel.Debug);
-    }
-    else if (isLinux) {
-        Log.log("OS: Linux", LogLevel.Debug);
-    }
-}
-
-function userSettingsPath() {
-    if (isWin) {
-        let appdata = process.env.APPDATA;
-        return path.join(appdata, "Code", "User", "settings.json");
-    } else {
-        let home = process.env.HOME;
-        if (isLinux) {
-            return path.join(home, ".config", "Code", "User", "settings.json");
-        } else if (isMac) {
-            return path.join(home, "Library", "Application Support", "Code", "User", "settings.json");
-        } else {
-            Log.error("unknown Operating System: " + process.platform);
-        }
-    }
-}
 /*
 function colorFileGutter(color: string) {
     let window = vscode.window;

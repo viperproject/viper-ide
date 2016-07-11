@@ -329,7 +329,7 @@ export class VerificationTask {
                                     start: { line: lineNr, character: charNr },
                                     end: { line: lineNr, character: 10000 }//Number.max does not work -> 10000 is an arbitrary large number that does the job
                                 },
-                                source: this.backend.name,
+                                source: null, //this.backend.name
                                 severity: DiagnosticSeverity.Error,
                                 message: message
                             });

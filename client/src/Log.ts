@@ -15,12 +15,12 @@ export class Log {
     public static initialize(context: vscode.ExtensionContext) {
         Log.updateSettings();
         let rootPath = vscode.workspace.rootPath;
-        if(!rootPath){
+        if (!rootPath) {
             rootPath = path.dirname(vscode.window.activeTextEditor.document.fileName);
         }
         Log.logFilePath = path.join(rootPath, '.vscode', Log.logFilePath);
         //create .vscode folder if not there yet
-        if(!fs.existsSync(path.join(rootPath, '.vscode'))){
+        if (!fs.existsSync(path.join(rootPath, '.vscode'))) {
             fs.mkdirSync(path.join(rootPath, '.vscode'));
         }
 
@@ -37,9 +37,11 @@ export class Log {
     }
 
     public static updateSettings() {
+        let oldLogLevel = Log.logLevel;
         let settings = vscode.workspace.getConfiguration("viperSettings");
         Log.logLevel = settings.get<number>("logLevel", LogLevel.Default);
-        Log.log("logLevel changed to " + Log.logLevel.toString(),LogLevel.Debug);
+        if (oldLogLevel != Log.logLevel)
+            Log.log(`The logLevel was changed from ${LogLevel[oldLogLevel]} to ${LogLevel[Log.logLevel]}`, LogLevel.Debug);
     }
 
     public static log(message: string, logLevel: LogLevel = LogLevel.Default) {
@@ -76,7 +78,7 @@ export class Log {
     }
 
     public static hint(message: string) {
-        Log.log("H: " + message,LogLevel.Debug);
+        Log.log("H: " + message, LogLevel.Debug);
         vscode.window.showInformationMessage("Viper: " + message);
     }
 }

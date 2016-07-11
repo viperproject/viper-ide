@@ -26,6 +26,7 @@ export class NailgunService {
                 Log.hint("Java 8 (64bit) Runtime Environment is not installed. Please install it.");
                 return;
             }
+            connection.sendNotification(Commands.BackendChange, backend.name);
             if (!this.nailgunStarted()) {
                 Log.log("close nailgun server on port: " + this.settings.nailgunPort, LogLevel.Info)
                 let killOldNailgunProcess = child_process.exec(this.settings.nailgunClient + ' --nailgun-port ' + this.settings.nailgunPort + ' ng-stop');
