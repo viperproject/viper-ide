@@ -121,6 +121,7 @@ function resetAutoSaver() {
 
 function registerHandlers() {
     state.client.onNotification(Commands.StateChange, (params: UpdateStatusBarParams) => {
+        Log.log("new state is " + params.newState.toString(), LogLevel.Debug);
         let window = vscode.window;
         switch (params.newState) {
             case VerificationState.Starting:
@@ -139,7 +140,9 @@ function registerHandlers() {
                     statusBarItem.text = `verifying ${params.filename}: ` + params.progress.toFixed(1) + "%"
                     statusBarProgress.text = progressBarText(params.progress);
                 }
-                statusBarProgress.show();
+                if (vscode.workspace.getConfiguration("viperSettings").get('showProgress') === true) {
+                    statusBarProgress.show();
+                }
                 abortButton.show();
                 break;
             case VerificationState.Ready:
@@ -148,13 +151,15 @@ function registerHandlers() {
                     statusBarItem.text = "ready";
                     statusBarItem.tooltip = null;
                     //automatically trigger the first verification
-                    verify(false);
+                    if (params.verificationNeeded && vscode.workspace.getConfiguration("viperSettings").get('autoVerifyAfterBackendChange') === true) {
+                        verify(false);
+                    }
                 } else {
                     let msg: string = "";
                     switch (params.success) {
                         case Success.Success:
                             statusBarItem.color = 'lightgreen';
-                            msg = `Successfully verified ${params.filename} in ${params.time} seconds`;
+                            msg = `Successfully verified ${params.filename} in ${params.time.toFixed(1)} seconds`;
                             statusBarItem.text = "$(check) " + msg;
                             Log.log(msg);
                             if (params.manuallyTriggered) {
@@ -162,14 +167,25 @@ function registerHandlers() {
                             }
                             break;
                         case Success.ParsingFailed:
-                            Log.log(`Parsing ${params.filename} failed after ${params.time} seconds with ${params.nofErrors} errors`, LogLevel.Default);
+                            Log.log(`Parsing ${params.filename} failed after ${params.time.toFixed(1)} seconds`, LogLevel.Default);
                             statusBarItem.color = 'red';
-                            statusBarItem.text = `$(x) Parse errors detected`;
+                            statusBarItem.text = `$(x) Parsing failed after ${params.time.toFixed(1)} seconds `;
+                            break;
+                        case Success.TypecheckingFailed:
+                            Log.log(`Type checking ${params.filename} failed after ${params.time.toFixed(1)} seconds with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`, LogLevel.Default);
+                            statusBarItem.color = 'red';
+                            statusBarItem.text = `$(x) Type checking failed after ${params.time.toFixed(1)} seconds with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
                             break;
                         case Success.VerificationFailed:
-                            Log.log(`Verifying ${params.filename} failed after ${params.time} seconds with ${params.nofErrors} errors`, LogLevel.Default);
+                            Log.log(`Verifying ${params.filename} failed after ${params.time.toFixed(1)} seconds with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`, LogLevel.Default);
                             statusBarItem.color = 'red';
-                            statusBarItem.text = `$(x) Verification failed with ${params.nofErrors} errors`;
+                            statusBarItem.text = `$(x) Verification failed after ${params.time.toFixed(1)} seconds with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
+                            break;
+                        case Success.Aborted:
+                            statusBarItem.color = 'orange';
+                            statusBarItem.text = "Verification aborted";
+                            msg = `Verifying ${params.filename} was aborted`;
+                            Log.log(msg, LogLevel.Info);
                             break;
                         case Success.Error:
                             statusBarItem.color = 'red';
@@ -287,6 +303,7 @@ function registerHandlers() {
         manuallyTriggered = true;
         vscode.window.activeTextEditor.document.save().then(saved => {
             if (!saved) {
+                //Log.log("manual verification request",LogLevel.Debug);
                 verify(true);
             }
         });
@@ -324,10 +341,15 @@ function registerHandlers() {
     state.context.subscriptions.push(startDebuggingCommandDisposable);
 
     let selectStopVerificationDisposable = vscode.commands.registerCommand('extension.stopVerification', () => {
-        if (!state.client) {
-            Log.hint("Extension not ready yet.");
-        } else {
+        if (state.client) {
+            Log.log("Verification stop request", LogLevel.Debug);
+            abortButton.hide();
+            statusBarItem.color = 'orange';
+            statusBarItem.text = "aborting";
+            statusBarProgress.hide();
             state.client.sendRequest(Commands.StopVerification, vscode.window.activeTextEditor.document.uri.toString());
+        } else {
+            Log.hint("Extension not ready yet.");
         }
     });
     state.context.subscriptions.push(selectStopVerificationDisposable);
@@ -355,7 +377,8 @@ function verify(manuallyTriggered: boolean) {
         if (!state.client) {
             Log.hint("Extension not ready yet.");
         } else {
-            state.client.sendRequest(Commands.Verify, { uri: vscode.window.activeTextEditor.document.uri.toString(), manuallyTriggered: manuallyTriggered });
+            let workspace = vscode.workspace.rootPath ? vscode.workspace.rootPath : path.dirname(vscode.window.activeTextEditor.document.fileName);
+            state.client.sendRequest(Commands.Verify, { uri: vscode.window.activeTextEditor.document.uri.toString(), manuallyTriggered: manuallyTriggered, workspace: workspace });
         }
     }
 }

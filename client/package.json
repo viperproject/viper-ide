@@ -1,7 +1,7 @@
 {
     "name": "viper",
     "displayName": "Viper",
-    "version": "0.0.10",
+    "version": "0.0.16",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "license": "MIT",
@@ -168,6 +168,14 @@
                     "type": "number",
                     "default": 1,
                     "description": "None = 0, Default = 1, Info = 2 Verbose = 3, Debug = 4, LowLevelDebug = 5"
+                },
+                "viperSettings.autoVerifyAfterBackendChange": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "viperSettings.showProgress": {
+                    "type": "boolean",
+                    "default": false
                 }
             }
         },

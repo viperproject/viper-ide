@@ -19,6 +19,11 @@ export class Log {
             rootPath = path.dirname(vscode.window.activeTextEditor.document.fileName);
         }
         Log.logFilePath = path.join(rootPath, '.vscode', Log.logFilePath);
+        //create .vscode folder if not there yet
+        if(!fs.existsSync(path.join(rootPath, '.vscode'))){
+            fs.mkdirSync(path.join(rootPath, '.vscode'));
+        }
+
         Log.log("LogFilePath is: " + Log.logFilePath, LogLevel.Debug)
         try {
             fs.closeSync(fs.openSync(Log.logFilePath, 'w'));

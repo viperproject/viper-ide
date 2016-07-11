@@ -3,7 +3,6 @@
 // Import the module and reference it with the alias vscode in your code below
 
 import fs = require('fs');
-import child_process = require('child_process');
 
 import {
     IPCMessageReader, IPCMessageWriter,
@@ -93,6 +92,10 @@ connection.onDidChangeConfiguration((change) => {
     //pass the new settings to the verificationService and the Log
     nailgunService.changeSettings(settings);
 
+    //stop all running verifications
+    Log.log("Stop all running verificationTasks",LogLevel.Debug)
+    verificationTasks.forEach(task => { task.abortVerification(); });
+
     backend = Settings.autoselectBackend(settings);
     nailgunService.restartNailgunServer(connection, backend);
 
@@ -113,6 +116,8 @@ connection.onRequest(Commands.SelectBackend, (selectedBackend: string) => {
     if (selectedBackend) {
         Settings.selectedBackend = selectedBackend;
     }
+    Log.log("Stop all running verificationTasks")
+    verificationTasks.forEach(task => { task.abortVerification(); });
     backend = Settings.autoselectBackend(settings);
     nailgunService.restartNailgunServer(connection, backend);
 });
@@ -137,8 +142,9 @@ connection.onDidOpenTextDocument((params) => {
             //create new task for opened file
             let task = new VerificationTask(uri, nailgunService, connection, backend);
             verificationTasks.set(uri, task);
-            Log.log(`${task.path} opened, task created`, LogLevel.Debug);
+            Log.log(`${uri} opened, task created`, LogLevel.Debug);
             if (nailgunService.ready) {
+                Log.log("Opened Text Document", LogLevel.Debug);
                 startOrRestartVerification(uri, false, false);
             }
         }
@@ -167,10 +173,21 @@ connection.onDidSaveTextDocument((params) => {
     //handled in client
 })
 
-//triggered by user command
 connection.onRequest(Commands.Verify, (data: VerifyRequest) => {
     if (isViperSourceFile(data.uri)) {
-        startOrRestartVerification(data.uri, false, data.manuallyTriggered);
+        let alreadyRunning = false;
+        if (data.manuallyTriggered) {
+            //it does not make sense to reverify if no changes were made and the verification is already running
+            verificationTasks.forEach(task => {
+                if (task.running && task.fileUri === data.uri) {
+                    alreadyRunning = true;
+                }
+            });
+        }
+        if (!alreadyRunning) {
+            Settings.workspace = data.workspace;
+            startOrRestartVerification(data.uri, false, data.manuallyTriggered);
+        }
     } else if (data.manuallyTriggered) {
         Log.hint("This system can only verify .sil and .vpr files");
     }
@@ -193,13 +210,14 @@ connection.onRequest({ method: 'variablesInLine' }, (lineNumber) => {
 
 connection.onRequest(Commands.Dispose, (lineNumber) => {
     nailgunService.stopNailgunServer();
+    nailgunService.killNgDeamon();
     return null;
 });
 
 connection.onRequest(Commands.StopVerification, (uri: string) => {
     let task = verificationTasks.get(uri);
     task.abortVerification();
-    connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, firstTime: true });
+    connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, firstTime: true, verificationNeeded: false });
 });
 
 // Listen on the connection
@@ -215,7 +233,7 @@ function resetDiagnostics(uri: string) {
 }
 
 function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuallyTriggered: boolean) {
-
+    Log.log("start or restart verification of " + uri);
     //only verify if the settings are right
     if (!settings.valid) {
         connection.sendNotification(Commands.InvalidSettings, "Cannot verify, fix the settings first.");
@@ -245,9 +263,8 @@ function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuall
         Log.error("No verification task found for file: " + uri);
         return;
     }
-    //stop if needed
-    task.abortVerification();
-
+    //stop all other verifications because the backend crashes if multiple verifications are run in parallel
+    verificationTasks.forEach(task => { task.abortVerification(); });
     //start verification
     task.verify(backend, onlyTypeCheck, manuallyTriggered);
 }

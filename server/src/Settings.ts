@@ -19,6 +19,8 @@ export class Settings {
 
     public static isWin = /^win/.test(process.platform);
 
+    public static workspace;
+
     public static selectedBackend: string;
 
     public static autoselectBackend(settings: ViperSettings) {

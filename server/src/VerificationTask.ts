@@ -36,6 +36,7 @@ class TotalProgress {
 export class VerificationTask {
     //state
     running: boolean = false;
+    aborting: boolean = false;
     manuallyTriggered: boolean;
     state: VerificationState = VerificationState.Stopped;
     verifierProcess: child_process.ChildProcess;
@@ -59,7 +60,8 @@ export class VerificationTask {
     steps: Statement[];
     model: Model = new Model();
     lastSuccess: Success = Success.None;
-    parsingCompleted:boolean = false;
+    parsingCompleted: boolean = false;
+    typeCheckingCompleted: boolean = false;
 
     constructor(fileUri: string, nailgunService: NailgunService, connection: IConnection, backend: Backend) {
         this.fileUri = fileUri;
@@ -69,23 +71,23 @@ export class VerificationTask {
     }
 
     verify(backend: Backend, onlyTypeCheck: boolean, manuallyTriggered: boolean): void {
-        if(!manuallyTriggered && this.lastSuccess == Success.Error){
-            Log.log("After an internal error, reverification has to be triggered manually.",LogLevel.Info);
+        if (!manuallyTriggered && this.lastSuccess == Success.Error) {
+            Log.log("After an internal error, reverification has to be triggered manually.", LogLevel.Info);
             return;
         }
-        
+        //Initialization
         this.manuallyTriggered = manuallyTriggered;
         this.backend = backend;
         this.running = true;
-
+        this.aborting = false;
         this.state = VerificationState.Stopped;
-
-        //Initialization
         this.resetDiagnostics();
         this.wrongFormat = false;
         this.steps = [];
         this.lines = [];
         this.model = new Model();
+        this.parsingCompleted = true;
+        this.typeCheckingCompleted = true;
 
         Log.log(backend.name + ' verification started', LogLevel.Info);
 
@@ -113,10 +115,11 @@ export class VerificationTask {
 
     private verificationCompletionHandler(code) {
         Log.log(`Child process exited with code ${code}`, LogLevel.Debug);
+        if (this.aborting) return;
 
         if (code != 0 && code != 1 && code != 899) {
-            Log.log("Verification Backend Terminated Abnormaly: with code " + code,LogLevel.Default);
-            if (Settings.isWin) {
+            Log.log("Verification Backend Terminated Abnormaly: with code " + code, LogLevel.Default);
+            if (Settings.isWin && code == null) {
                 this.nailgunService.killNgDeamon();
                 this.nailgunService.restartNailgunServer(VerificationTask.connection, this.backend);
             }
@@ -130,13 +133,16 @@ export class VerificationTask {
         if (this.diagnostics.length == 0 && code == 0) {
             success = Success.Success;
         } else if (this.diagnostics.length > 0) {
-            if (this.steps.length == 0) {
+            //use tag and backend trace as indicators for completed parsing
+            if (!this.parsingCompleted && this.steps.length == 0) {
                 success = Success.ParsingFailed;
+            } else if (this.parsingCompleted && !this.typeCheckingCompleted) {
+                success = Success.TypecheckingFailed;
             } else {
                 success = Success.VerificationFailed;
             }
         } else {
-            success = Success.Error;
+            success = this.aborting ? Success.Aborted : Success.Error;
         }
 
         this.lastSuccess = success;
@@ -148,7 +154,8 @@ export class VerificationTask {
                 manuallyTriggered: this.manuallyTriggered,
                 filename: this.filename,
                 nofErrors: this.diagnostics.length,
-                time:this.time
+                time: this.time,
+                firstTime: false
             });
         this.time = 0;
         this.running = false;
@@ -164,27 +171,31 @@ export class VerificationTask {
 
     private stdErrHadler(data) {
         data = data.trim();
-        if (data.length == 0) {
+        if (data.length == 0) return;
+
+        if (data.startsWith("at ")) {
+            Log.toLogFile(data, LogLevel.LowLevelDebug);
             return;
         }
+        Log.error(data,LogLevel.Debug);
+
         if (data.startsWith("connect: No error")) {
             Log.hint("No Nailgun server is running on port " + this.nailgunService.settings.nailgunPort);
-            return;
+        }
+        else if (data.startsWith("java.lang.NullPointerException")) {
+            Log.error("A nullpointer exception happened in the verification backend.", LogLevel.Default);
         }
         else if (data.startsWith("java.lang.ClassNotFoundException:")) {
-            Log.hint("Class " + this.backend.mainMethod + " is unknown to Nailgun\nFix the backend settings for " + this.backend.name);
+            Log.error("Class " + this.backend.mainMethod + " is unknown to Nailgun\nFix the backend settings for " + this.backend.name, LogLevel.Default);
+        }
+        else if (data.startsWith("java.io.IOException: Stream closed")) {
+            Log.error("A concurrency error occured, try again.", LogLevel.Default);
         }
         else if (data.startsWith("java.lang.StackOverflowError")) {
-            Log.hint("StackOverflowError in Verification Backend");
+            Log.error("StackOverflowError in verification backend", LogLevel.Default);
         }
         else if (data.startsWith("SLF4J: Class path contains multiple SLF4J bindings")) {
-            Log.hint(this.backend.name + " is referencing two versions of the backend, fix its paths in the settings");
-        }
-        else if (data.startsWith("SLF4J: ")) {
-
-        } else {
-            //this can lead to many error messages
-            Log.error(data, LogLevel.Debug);
+            Log.error(this.backend.name + " is referencing two versions of the backend, fix its paths in the settings", LogLevel.Default);
         }
     }
     private stdOutHandler(data) {
@@ -192,6 +203,8 @@ export class VerificationTask {
             return;
         }
         Log.toLogFile(`[${this.backend.name}: stdout]: ${data}`, LogLevel.LowLevelDebug);
+
+        if (this.aborting) return;
 
         let stringData: string = data;
         let parts = stringData.split(/\r?\n/g);
@@ -222,11 +235,11 @@ export class VerificationTask {
                             try {
                                 let progress = new TotalProgress(JSON.parse(part));
                                 Log.log("Progress: " + progress.toPercent(), LogLevel.Info);
-                                VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, progress: progress.toPercent(), filename: this.filename})
+                                VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, progress: progress.toPercent(), filename: this.filename })
                             } catch (e) {
                                 Log.error("Error reading progress: " + e);
                             }
-                        }else if (part.startsWith("\"")) {
+                        } else if (part.startsWith("\"")) {
                             if (!part.endsWith("\"")) {
                                 //TODO: it can also be that the model is split among multiple stdout pieces
                                 while (i + 1 < parts.length && !part.endsWith("\"")) {
@@ -297,7 +310,20 @@ export class VerificationTask {
                             let charNr = +pos[2] - 1;
                             let message = pos[3].trim();
 
-                            Log.log(`Error: [${this.backend.name}] ${lineNr + 1}:${charNr + 1} ${message}`, LogLevel.Default);
+                            //for Marktoberdorf
+                            let tag: string;
+                            if (part.indexOf("[") >= 0 && part.indexOf("]") >= 0) {
+                                tag = part.substring(part.indexOf("[") + 1, part.indexOf("]"));
+                                if (tag == "typechecker.error") {
+                                    this.typeCheckingCompleted = false;
+                                }
+                                else if (tag == "parser.error") {
+                                    this.parsingCompleted = false;
+                                    this.typeCheckingCompleted = false;
+                                }
+                            }
+
+                            Log.log(`Error: [${this.backend.name}] ${tag ? "[" + tag + "] " : ""}${lineNr + 1}:${charNr + 1} ${message}`, LogLevel.Default);
                             this.diagnostics.push({
                                 range: {
                                     start: { line: lineNr, character: charNr },
@@ -307,7 +333,7 @@ export class VerificationTask {
                                 severity: DiagnosticSeverity.Error,
                                 message: message
                             });
-                        }else{
+                        } else {
                             Log.error("Unexpected message during VerificationReporting: " + part);
                         }
                         break;
@@ -330,11 +356,11 @@ export class VerificationTask {
     }
 
     public abortVerification() {
-        Log.log('abort running verification', LogLevel.Info);
-        if (!this.running) {
-            //Log.error('cannot abort. the verification is not running.');
-            return;
-        }
+        if (!this.running) return;
+
+        Log.log('Abort running verification', LogLevel.Info);
+        this.aborting = true;
+
         //remove impact of child_process to kill
         this.verifierProcess.removeAllListeners('close');
         this.verifierProcess.stdout.removeAllListeners('data');
@@ -346,6 +372,7 @@ export class VerificationTask {
         this.verifierProcess.kill('SIGINT');
         let l = this.verifierProcess.listeners;
         this.running = false;
+        this.lastSuccess = Success.Aborted;
     }
 
     public getStepsOnLine(line: number): Statement[] {

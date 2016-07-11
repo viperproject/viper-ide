@@ -2,6 +2,7 @@
 
 import {IConnection} from 'vscode-languageserver';
 import {Commands, LogLevel} from './ViperProtocol';
+import child_process = require('child_process'); 
 
 export class Log {
     static logLevel: LogLevel = LogLevel.Default;
@@ -13,7 +14,7 @@ export class Log {
     }
 
     static toLogFile(message: string, logLevel: LogLevel = LogLevel.Default) {
-        if ( Log.logLevel >= logLevel)
+        if (Log.logLevel >= logLevel)
             this.connection.sendNotification(Commands.ToLogFile, message);
     }
 
@@ -24,10 +25,19 @@ export class Log {
 
     static logWithOrigin(origin: string, message: string, logLevel: LogLevel = LogLevel.Default) {
         if (Log.logLevel >= logLevel)
-            this.connection.sendNotification(Commands.Log, (logLevel>=LogLevel.Debug?origin + ": ":"") + message);
+            this.connection.sendNotification(Commands.Log, (logLevel >= LogLevel.Debug ? "["+origin + "]: " : "") + message);
     }
 
     static hint(message: string) {
         this.connection.sendNotification(Commands.Hint, message);
+    }
+
+    static logOutput(process: child_process.ChildProcess,label:string) {
+        process.stdout.on('data', (data) => {
+            Log.logWithOrigin(label, data, LogLevel.LowLevelDebug);
+        });
+        process.stdout.on('data', (data) => {
+            Log.logWithOrigin(label+" error", data, LogLevel.LowLevelDebug);
+        });
     }
 } 

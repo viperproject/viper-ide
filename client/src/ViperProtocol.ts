@@ -38,8 +38,10 @@ export enum Success {
     None = 0,
     Success = 1,
     ParsingFailed = 2,
-    VerificationFailed = 3,
-    Error = 4
+    TypecheckingFailed = 3,
+    VerificationFailed = 4,
+    Aborted = 5,
+    Error = 6
 }
 
 export interface UpdateStatusBarParams {
@@ -52,11 +54,13 @@ export interface UpdateStatusBarParams {
     backendName?: string;
     time?: number;
     nofErrors?: number;
+    verificationNeeded?: boolean;
 }
 
 export interface VerifyRequest {
     uri: string,
-    manuallyTriggered: boolean
+    manuallyTriggered: boolean,
+    workspace: string
 }
 
 export interface ViperSettings {
@@ -68,6 +72,8 @@ export interface ViperSettings {
     autoSave: boolean;
     nailgunPort: string;
     logLevel: number;
+    autoVerifyAfterBackendChange: boolean;
+    showProgress: boolean;
 }
 
 export interface Backend {
