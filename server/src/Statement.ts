@@ -4,6 +4,7 @@
 import {Log} from './Log';
 import {Model} from './Model';
 import {LogLevel} from './ViperProtocol';
+let graphviz = require("graphviz");
 
 export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE };
 
@@ -93,7 +94,7 @@ export class Statement {
     oldHeap: HeapChunk[];
     conditions: string[];
 
-    public isFromMethod:boolean = false;
+    public isFromMethod: boolean = false;
 
     constructor(firstLine: string, store: string, heap: string, oldHeap: string, conditions: string, model: Model) {
         this.parseFirstLine(firstLine);
@@ -182,10 +183,15 @@ export class Statement {
         return parts;
     }
 
-    public pretty(): string {
-        let positionString = (this.position ? this.position.line + ":" + this.position.character : "<no position>") + "\n";
+    public firstLine(): string {
+        let positionString = (this.position ? (this.position.line + 1) + ":" + (this.position.character + 1) : "<no position>");
+        let res: string = StatementType[this.type] + " " + positionString;
+        return res;
+    }
 
-        let res: string = "\t" + StatementType[this.type] + " " + positionString;
+    public pretty(): string {
+        let res = "\t" + this.firstLine() + "\n";
+
         res += "\tFormula: " + this.formula + "\n";
         if (this.store.length > 0) {
             res += "\tStore: \n";
@@ -234,10 +240,45 @@ export class Statement {
     }
 
     public printGraphVizHeap(heap: HeapChunk[]) {
+    }
 
+    public toToolTip(): string {
+        let res = StatementType[this.type] + " " + this.formula + "\n";
+        if (this.store.length > 0) {
+            res += "Store:\n";
+            this.store.forEach(element => {
+                res += "    " + element.name + " = " + element.value + "\n"
+            });
+        }
+
+        if (this.heap.length > 0) {
+            res += "Heap:\n";
+            this.heap.forEach(element => {
+                res += "    " + element.pretty() + "\n";
+            });
+        }
+        return res;
+    }
+
+    public static buildGraphVizExampleGraph() {
+        try{
+        let g = graphviz.digraph("G");
+        let n1 = g.addNode("Hello", { "color": "blue" });
+        n1.set("style", "filled");
+        let e = g.addEdge(n1, "World");
+        e.set("color", "red");
+        g.addNode("World");
+        g.addEdge( n1, "World" );
+        Log.log( g.to_dot() ,LogLevel.Debug);
+        g.setGraphVizPath( "C:\\" );
+        g.output("png","graphvizTest.png");
+        }catch(e){
+            Log.error("Graphviz Error: " + e);
+        }
     }
 
     getHeapChunkVisualization(): string {
+
         let header = `digraph heap {
 rankdir=LR
 node [shape = record];
@@ -269,9 +310,9 @@ label="heap"\n`;
                 }
             }
         });
-        if(localVars != "" || heapChunks != ""){
+        if (localVars != "" || heapChunks != "") {
             return header + localVars + intermediate + heapChunks + footer;
-        }else{
+        } else {
             return null;
         }
     }

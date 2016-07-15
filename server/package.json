@@ -1,24 +1,25 @@
 {
-	"name": "viper-server",
-	"description": "Facilitates the development of Viper programs",
-	"license": "MIT",
-	"repository": {
-		"type": "hg",
-		"url": "https://bitbucket.org/viperproject/viper-ide"
-	},
-	"version": "0.0.1",
-	"publisher": "rukaelin",
-	"engines": {
-		"node": "^4.1.1"
-	},
-	"dependencies": {
-		"vscode-languageserver": "^2.2.0"
-	},
-	"devDependencies": {
-		"typescript": "^1.8.10"
-	},
-	"scripts": {
-		"compile": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc -p .",
-		"watch": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc --watch -p ."
-	}
+    "name": "viper-server",
+    "description": "Facilitates the development of Viper programs",
+    "license": "MIT",
+    "repository": {
+        "type": "hg",
+        "url": "https://bitbucket.org/viperproject/viper-ide"
+    },
+    "version": "0.0.1",
+    "publisher": "rukaelin",
+    "engines": {
+        "node": "^4.1.1"
+    },
+    "dependencies": {
+        "vscode-languageserver": "^2.2.0",
+        "graphviz": "^0.0.8"
+    },
+    "devDependencies": {
+        "typescript": "^1.8.10"
+    },
+    "scripts": {
+        "compile": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc -p .",
+        "watch": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc --watch -p ."
+    }
 }

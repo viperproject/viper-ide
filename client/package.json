@@ -14,7 +14,7 @@
         "email": "rukaelin@student.ethz.ch"
     },
     "engines": {
-        "vscode": "^1.0.0",
+        "vscode": "^1.3.0",
         "node": "^4.1.1"
     },
     "icon": "images/icon_bright_orange_avatar.png",
@@ -33,7 +33,8 @@
         "ps-node": "^0.1.1",
         "vscode-uri": "^0.0.3",
         "node-ipc": "^7.0.0",
-        "command-exists": "^1.0.1"
+        "command-exists": "^1.0.1",
+        "graphviz": "^0.0.8"
     },
     "devDependencies": {
         "typescript": "^1.8.10",
@@ -51,94 +52,78 @@
         "onLanguage:viper"
     ],
     "contributes": {
-        "commands": [
-            {
-                "command": "extension.verify",
-                "title": "Viper: verify the open document"
-            },
-            {
-                "command": "extension.selectBackend",
-                "title": "Viper: select verification backend"
-            },
-            {
-                "command": "extension.stopVerification",
-                "title": "Viper: stop the running verification"
-            }
-        ],
-        "grammars": [
-            {
-                "language": "viper",
-                "scopeName": "source.silver",
-                "path": "./syntaxes/Viper.tmLanguage"
-            }
-        ],
-        "languages": [
-            {
-                "id": "viper",
-                "extensions": [
-                    ".sil",
-                    ".vpr"
-                ],
-                "aliases": [
-                    "Viper"
-                ]
-            }
-        ],
-        "themes": [
-            {
-                "label": "Viper-Dark",
-                "uiTheme": "vs-dark",
-                "path": "./themes/Viper (Dark).tmTheme"
-            },
-            {
-                "label": "Viper-Light",
-                "uiTheme": "vs",
-                "path": "./themes/Viper (Light).tmTheme"
-            }
-        ],
-        "snippets": [
-            {
-                "language": "viper",
-                "path": "./snippets/viper.json"
-            }
-        ],
-        "keybindings": [
-            {
-                "command": "extension.selectBackend",
-                "key": "ctrl+l",
-                "mac": "cmd+l",
-                "when": "editorTextFocus"
-            },
-            {
-                "command": "extension.verify",
-                "key": "f5",
-                "mac": "f5",
-                "when": "editorTextFocus"
-            },
-            {
-                "command": "extension.stopVerification",
-                "key": "ctrl+h",
-                "mac": "cmd+h",
-                "when": "editorTextFocus"
-            }
-        ],
+        "commands": [{
+            "command": "extension.verify",
+            "title": "Viper: verify the open document"
+        }, {
+            "command": "extension.selectBackend",
+            "title": "Viper: select verification backend"
+        }, {
+            "command": "extension.stopVerification",
+            "title": "Viper: stop the running verification"
+        }, {
+            "command": "extension.startDebugging",
+            "title": "Viper: debug the open document"
+        }],
+        "grammars": [{
+            "language": "viper",
+            "scopeName": "source.silver",
+            "path": "./syntaxes/Viper.tmLanguage"
+        }],
+        "languages": [{
+            "id": "viper",
+            "extensions": [
+                ".sil",
+                ".vpr"
+            ],
+            "aliases": [
+                "Viper"
+            ]
+        }],
+        "themes": [{
+            "label": "Viper-Dark",
+            "uiTheme": "vs-dark",
+            "path": "./themes/Viper (Dark).tmTheme"
+        }, {
+            "label": "Viper-Light",
+            "uiTheme": "vs",
+            "path": "./themes/Viper (Light).tmTheme"
+        }],
+        "snippets": [{
+            "language": "viper",
+            "path": "./snippets/viper.json"
+        }],
+        "keybindings": [{
+            "command": "extension.selectBackend",
+            "key": "ctrl+l",
+            "mac": "cmd+l",
+            "when": "editorTextFocus"
+        }, {
+            "command": "extension.verify",
+            "key": "f5",
+            "mac": "f5",
+            "when": "editorTextFocus"
+        }, {
+            "command": "extension.stopVerification",
+            "key": "ctrl+h",
+            "mac": "cmd+h",
+            "when": "editorTextFocus"
+        }],
         "configuration": {
             "type": "object",
             "title": "Viper Configuration",
             "properties": {
                 "viperSettings.verificationBackends": {
                     "type": "array",
-                    "default": [
-                        {
-                            "name": "silicon",
-                            "paths": [
-                                "%SILICON_JAR%"
-                            ],
-                            "mainMethod": "viper.silicon.SiliconRunner",
-                            "getTrace": true,
-                            "customArguments": ""
-                        }
-                    ],
+                    "default": [{
+                        "name": "silicon",
+                        "paths": [
+                            "%SILICON_JAR%"
+                        ],
+                        "mainMethod": "viper.silicon.SiliconRunner",
+                        "getTrace": true,
+                        "customArguments": ""
+                    }],
                     "description": "You can add your backend here.\n    // The first backend in the array will be used for verification.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
                 },
                 "viperSettings.nailgunServerJar": {
@@ -179,46 +164,42 @@
                 }
             }
         },
-        "debuggers": [
-            {
-                "type": "viper",
-                "label": "Viper Debug",
-                "enableBreakpointsFor": {
-                    "languageIds": [
-                        "viper"
-                    ]
-                },
-                "program": "./out/debug.js",
-                "runtime": "node",
-                "configurationAttributes": {
-                    "launch": {
-                        "required": [
-                            "program"
-                        ],
-                        "properties": {
-                            "program": {
-                                "type": "string",
-                                "description": "Path to a viper source file.",
-                                "default": "${workspaceRoot}/sum.sil"
-                            },
-                            "stopOnEntry": {
-                                "type": "boolean",
-                                "description": "Automatically stop after launch.",
-                                "default": true
-                            }
+        "debuggers": [{
+            "type": "viper",
+            "label": "Viper Debug",
+            "enableBreakpointsFor": {
+                "languageIds": [
+                    "viper"
+                ]
+            },
+            "program": "./out/debug.js",
+            "runtime": "node",
+            "configurationAttributes": {
+                "launch": {
+                    "required": [
+                        "program"
+                    ],
+                    "properties": {
+                        "program": {
+                            "type": "string",
+                            "description": "Path to a viper source file.",
+                            "default": "${workspaceRoot}/sum.sil"
+                        },
+                        "stopOnEntry": {
+                            "type": "boolean",
+                            "description": "Automatically stop after launch.",
+                            "default": true
                         }
                     }
-                },
-                "initialConfigurations": [
-                    {
-                        "name": "Viper Debug",
-                        "type": "viper",
-                        "request": "launch",
-                        "program": "${workspaceRoot}/sum.sil",
-                        "stopOnEntry": true
-                    }
-                ]
-            }
-        ]
+                }
+            },
+            "initialConfigurations": [{
+                "name": "Viper Debug",
+                "type": "viper",
+                "request": "launch",
+                "program": "${workspaceRoot}/sum.sil",
+                "stopOnEntry": true
+            }]
+        }]
     }
 }

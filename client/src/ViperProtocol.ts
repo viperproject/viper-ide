@@ -33,6 +33,7 @@ export class Commands {
     static StopVerification = { method: "StopVerification" };
     static ToLogFile = { method: "ToLogFile" };
     static BackendChange = { method: "BackendChange" };
+    static StepsAsDecorationOptions = { method: "StepsAsDecorationOptions" };
 }
 
 export enum Success {

@@ -6,7 +6,7 @@ import {Settings} from './Settings'
 import {Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
-import {Statement} from './Statement';
+import {Statement,StatementType} from './Statement';
 import {Model} from './Model';
 import * as pathHelper from 'path';
 
@@ -68,6 +68,26 @@ export class VerificationTask {
         this.nailgunService = nailgunService;
         this.backend = backend;
         VerificationTask.connection = connection;
+    }
+
+    public getDecorationOptions() {
+        let result = [];
+        this.steps.forEach(step => {
+            result.push({
+            hoverMessage:step.toToolTip(),
+                range: {
+                    start: step.position,
+                    end: { line: step.position.line, character: step.position.character + 1 }
+                },
+                renderOptions: {
+                    before: {
+                        contentText: "⚫",
+                        color: "red",
+                    }
+                }
+            });
+        });
+        return result;
     }
 
     verify(backend: Backend, onlyTypeCheck: boolean, manuallyTriggered: boolean): void {
@@ -163,10 +183,15 @@ export class VerificationTask {
         Log.log("Number of Steps: " + this.steps.length, LogLevel.Info);
         //show last state
 
+        VerificationTask.connection.sendNotification(Commands.StepsAsDecorationOptions,this.getDecorationOptions());
+
+        //let allSteps = "";
         this.steps.forEach((step) => {
             Log.toLogFile(step.pretty(), LogLevel.LowLevelDebug);
+            //allSteps  += "\n" +step.firstLine();
         });
         Log.toLogFile("Model: " + this.model.pretty(), LogLevel.LowLevelDebug);
+        //Log.toLogFile("All Steps: " + allSteps,LogLevel.LowLevelDebug);
     }
 
     private stdErrHadler(data) {
@@ -177,7 +202,7 @@ export class VerificationTask {
             Log.toLogFile(data, LogLevel.LowLevelDebug);
             return;
         }
-        Log.error(data,LogLevel.Debug);
+        Log.error(data, LogLevel.Debug);
 
         if (data.startsWith("connect: No error")) {
             Log.hint("No Nailgun server is running on port " + this.nailgunService.settings.nailgunPort);

@@ -19,7 +19,7 @@ import {Settings} from './Settings'
 import {Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
-import {StatementType} from './Statement';
+import {Statement, StatementType} from './Statement';
 import {Model} from './Model';
 
 var ipc = require('node-ipc');
@@ -93,7 +93,7 @@ connection.onDidChangeConfiguration((change) => {
     nailgunService.changeSettings(settings);
 
     //stop all running verifications
-    Log.log("Stop all running verificationTasks",LogLevel.Debug)
+    Log.log("Stop all running verificationTasks", LogLevel.Debug)
     verificationTasks.forEach(task => { task.abortVerification(); });
 
     backend = Settings.autoselectBackend(settings);
@@ -106,6 +106,9 @@ connection.onDidChangeConfiguration((change) => {
     // } else {
     //     Log.error("No backend, even though the setting check succeeded?");
     // }
+
+    //Log.log("Test Graphviz Package");
+    //Statement.buildGraphVizExampleGraph()
 });
 
 connection.onRequest(Commands.SelectBackend, (selectedBackend: string) => {

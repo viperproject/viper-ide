@@ -49,7 +49,7 @@ export class ExtensionState {
             }
         }
 
-        this.client = new LanguageClient('Language Server', serverOptions, clientOptions);
+        this.client = new LanguageClient('languageServer','Language Server', serverOptions, clientOptions);
 
         // Create the language client and start the client.
         this.languageServerDisposable = this.client.start();

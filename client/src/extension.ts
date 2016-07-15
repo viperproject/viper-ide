@@ -27,6 +27,10 @@ let enableSecondWindow: boolean = false;
 
 let fileSystemWatcher: vscode.FileSystemWatcher;
 let manuallyTriggered: boolean;
+let showStepsInCode = true;
+
+let decoration: vscode.TextEditorDecorationType;
+let decorationOptions: vscode.DecorationOptions[];
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -48,13 +52,35 @@ export function activate(context: vscode.ExtensionContext) {
     }
 }
 
+function decorateText(position: vscode.Position) {
+    let ranges: vscode.Range[] = [];
+    //ranges.push(new vscode.Range(position, new vscode.Position(2,5)));
+    let decorationRenderType: vscode.TextEditorDecorationType = vscode.window.createTextEditorDecorationType({});
+    let options: vscode.DecorationOptions[] = [{
+        range: new vscode.Range(position, new vscode.Position(1, 10)),
+        renderOptions: {
+            before: {
+                contentText: "⚫",
+                color: "red",
+            }
+        }
+    }];
+    vscode.window.activeTextEditor.setDecorations(decorationRenderType, options);
+}
+
+function removeDecorations() {
+    if (decoration)
+        decoration.dispose();
+}
+
+
 export function deactivate() {
     Log.log("deactivate", LogLevel.Info);
     state.dispose();
 }
 
-let provider: DebugContentProvider;
 
+let provider: DebugContentProvider;
 function registerTextDocumentProvider() {
     provider = new DebugContentProvider();
     let registration = vscode.workspace.registerTextDocumentContentProvider('viper-preview', provider);
@@ -128,6 +154,7 @@ function getConfiguration(setting: string) {
 }
 
 function registerHandlers() {
+
     state.client.onNotification(Commands.StateChange, (params: UpdateStatusBarParams) => {
         Log.log("The new state is: " + VerificationState[params.newState], LogLevel.Debug);
         let window = vscode.window;
@@ -258,9 +285,15 @@ function registerHandlers() {
         Log.error((Log.logLevel >= LogLevel.Debug ? "S: " : "") + data, LogLevel.Default);
     });
 
-
     state.client.onNotification(Commands.BackendChange, (newBackend: string) => {
         updateStatusBarItem(backendStatusBar, newBackend, "white");
+    });
+
+    state.client.onNotification(Commands.StepsAsDecorationOptions, (decorations: vscode.DecorationOptions[]) => {
+        if (showStepsInCode) {
+            decorationOptions = decorations;
+            setDecorations();
+        }
     });
 
     state.client.onRequest(Commands.UriToPath, (uri: string) => {
@@ -293,6 +326,38 @@ function registerHandlers() {
     state.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
         Log.updateSettings();
     }));
+
+    vscode.window.onDidChangeTextEditorSelection((change) => {
+        if (change.textEditor.document.fileName == "\\2") return;
+        if (showStepsInCode) {
+            let selection = change.textEditor.selection;
+            if (!selection) {
+                Log.log("No selection", LogLevel.Debug);
+            } else {
+                //Log.log("Selection at " + selection.start.line + ":" + selection.start.character, LogLevel.Debug);
+            }
+            if (decorationOptions) {
+                let change = false;
+                for (var i = 0; i < decorationOptions.length; i++) {
+                    var option = decorationOptions[i];
+                    let a = option.range.start;
+                    let b = selection.start;
+                    if (a.line == b.line && a.character == b.character && option.renderOptions.before.color != 'blue') {
+                        option.renderOptions.before.color = 'blue';
+                        Log.log("index of selected state is " + i);
+                        change = true;
+                    } else if (option.renderOptions.before.color != 'red') {
+                        option.renderOptions.before.color = 'red';
+                        change = true;
+                    }
+                }
+                if (change) {
+                    setDecorations();
+                }
+            }
+        }
+    });
+
 
     let verifyCommandDisposable = vscode.commands.registerCommand('extension.verify', () => {
         manuallyTriggered = true;
@@ -348,6 +413,15 @@ function registerHandlers() {
         }
     });
     state.context.subscriptions.push(selectStopVerificationDisposable);
+
+}
+
+function setDecorations() {
+    if (decorationOptions) {
+        removeDecorations();
+        decoration = vscode.window.createTextEditorDecorationType({});
+        vscode.window.activeTextEditor.setDecorations(decoration, decorationOptions);
+    }
 }
 
 function showFile(filePath: string, column: vscode.ViewColumn) {
