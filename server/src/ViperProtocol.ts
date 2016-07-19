@@ -34,8 +34,9 @@ export class Commands {
     static ToLogFile = { method: "ToLogFile" };
     static BackendChange = { method: "BackendChange" };
     static StepsAsDecorationOptions = { method: "StepsAsDecorationOptions" };
+    static ShowHeap = { method: "ShowHeap" };
+    static HeapGraph = { method: "HeapGraph" };
 }
-
 
 export enum Success {
     None = 0,
@@ -60,7 +61,6 @@ export interface UpdateStatusBarParams {
     verificationNeeded?: boolean;
 }
 
-
 export interface VerifyRequest {
     uri: string,
     manuallyTriggered: boolean,
@@ -76,7 +76,7 @@ export interface ViperSettings {
     autoSave: boolean;
     nailgunPort: string;
     logLevel: number;
-    autoVerifyAfterBackendChange:boolean;
+    autoVerifyAfterBackendChange: boolean;
     showProgress: boolean;
 }
 
@@ -86,4 +86,22 @@ export interface Backend {
     mainMethod: string;
     getTrace: boolean;
     customArguments: string;
+}
+
+export interface ShowHeapParams {
+    uri: string,
+    index: number
+}
+
+export interface HeapGraph {
+    heap:string,
+    state:number,
+    fileName:string,
+    position:Position,
+    stateInfos:string
+}
+
+export interface Position {
+    line: number;
+    character: number;
 }

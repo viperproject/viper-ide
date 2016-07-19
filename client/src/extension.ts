@@ -10,10 +10,11 @@ import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, T
 import {Timer} from './Timer';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
-import {Backend, ViperSettings, VerificationState, Commands, UpdateStatusBarParams, LogLevel, Success} from './ViperProtocol';
+import {HeapGraph, Backend, ViperSettings, VerificationState, Commands, UpdateStatusBarParams, LogLevel, Success} from './ViperProtocol';
 import Uri from '../node_modules/vscode-uri/lib/index';
 import {Log} from './Log';
 import {DebugContentProvider} from './TextDocumentContentProvider';
+import child_process = require('child_process');
 
 let statusBarItem;
 let statusBarProgress;
@@ -23,7 +24,9 @@ let autoSaver: Timer;
 let previewUri = vscode.Uri.parse('viper-preview://debug');
 let state: ExtensionState;
 
-let enableSecondWindow: boolean = false;
+let graphvizProcess: child_process.ChildProcess;
+
+let enableSecondWindow: boolean = true;
 
 let fileSystemWatcher: vscode.FileSystemWatcher;
 let manuallyTriggered: boolean;
@@ -31,6 +34,7 @@ let showStepsInCode = true;
 
 let decoration: vscode.TextEditorDecorationType;
 let decorationOptions: vscode.DecorationOptions[];
+let textEditorUnderVerification: vscode.TextEditor;
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -48,7 +52,6 @@ export function activate(context: vscode.ExtensionContext) {
 
     if (enableSecondWindow) {
         registerTextDocumentProvider();
-        showSecondWindow();
     }
 }
 
@@ -65,7 +68,9 @@ function decorateText(position: vscode.Position) {
             }
         }
     }];
-    vscode.window.activeTextEditor.setDecorations(decorationRenderType, options);
+    if (textEditorUnderVerification) {
+        textEditorUnderVerification.setDecorations(decorationRenderType, options);
+    }
 }
 
 function removeDecorations() {
@@ -79,18 +84,23 @@ export function deactivate() {
     state.dispose();
 }
 
-
 let provider: DebugContentProvider;
+
 function registerTextDocumentProvider() {
     provider = new DebugContentProvider();
     let registration = vscode.workspace.registerTextDocumentContentProvider('viper-preview', provider);
 }
 
-function showSecondWindow() {
-    provider.update(previewUri);
-    return vscode.commands.executeCommand('vscode.previewHtml', previewUri, vscode.ViewColumn.Two).then((success) => { }, (reason) => {
-        vscode.window.showErrorMessage(reason);
-    });
+function showSecondWindow(heapGraph: HeapGraph) {
+    if (enableSecondWindow) {
+        provider.setState(heapGraph);
+        //TODO: make sure the image is refreshed
+        provider.update(previewUri);
+        showFile(Log.dotFilePath, vscode.ViewColumn.Two);
+        vscode.commands.executeCommand('vscode.previewHtml', previewUri, vscode.ViewColumn.Three).then((success) => { }, (reason) => {
+            vscode.window.showErrorMessage(reason);
+        });
+    }
 }
 
 function initializeStatusBar() {
@@ -130,9 +140,6 @@ function startAutoSaver() {
             if (getConfiguration('autoSave') === true) {
                 manuallyTriggered = false;
                 vscode.window.activeTextEditor.document.save();
-                if (enableSecondWindow) {
-                    showSecondWindow();
-                }
             }
         }
     }, autoSaveTimeout);
@@ -189,6 +196,8 @@ function registerHandlers() {
                             Log.log(msg, LogLevel.Default);
                             updateStatusBarItem(statusBarItem, "$(check) " + msg, 'lightgreen');
                             if (params.manuallyTriggered) Log.hint(msg);
+                            //temp: show first state, TODO: remove next line
+                            //state.client.sendRequest(Commands.ShowHeap, { uri: vscode.window.activeTextEditor.document.uri.toString(), index: 1 });
                             break;
                         case Success.ParsingFailed:
                             msg = `Parsing ${params.filename} failed after ${params.time.toFixed(1)} seconds`;
@@ -289,9 +298,14 @@ function registerHandlers() {
         updateStatusBarItem(backendStatusBar, newBackend, "white");
     });
 
-    state.client.onNotification(Commands.StepsAsDecorationOptions, (decorations: vscode.DecorationOptions[]) => {
+    state.client.onNotification(Commands.StepsAsDecorationOptions, (params: { uri: string, decorations: vscode.DecorationOptions[] }) => {
         if (showStepsInCode) {
-            decorationOptions = decorations;
+            decorationOptions = params.decorations;
+            vscode.window.visibleTextEditors.forEach(editor => {
+                if (editor.document.uri.toString() === params.uri) {
+                    textEditorUnderVerification = editor;
+                }
+            });
             setDecorations();
         }
     });
@@ -327,6 +341,39 @@ function registerHandlers() {
         Log.updateSettings();
     }));
 
+    state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
+        if(!heapGraph.heap){
+            Log.error("Error creating heap description");
+            return;
+        }
+        Log.writeToDotFile(heapGraph.heap);
+        //Log.log(graphDescription, LogLevel.Debug);
+
+        let dotExecutable: string = <string>getConfiguration("dotExecutable");
+        if (!dotExecutable || !fs.existsSync(dotExecutable)) {
+            Log.hint("Fix the path to the dotExecutable, no file found at: " + dotExecutable);
+            return;
+        }
+        //convert dot to svg
+        graphvizProcess = child_process.exec(`${dotExecutable} -Tsvg "${Log.dotFilePath}" -o "${Log.svgFilePath}"`);
+
+        graphvizProcess.on('exit', code => {
+            //show svg
+            if (code != 0) {
+                Log.error("Could not convert graph description to svg, exit code: " + code, LogLevel.Debug);
+            }
+            Log.log("Graph converted to heap.svg", LogLevel.Debug);
+            showSecondWindow(heapGraph);
+        });
+
+        graphvizProcess.stdout.on('data', data => {
+            Log.log("[Graphviz] " + data, LogLevel.Debug);
+        });
+        graphvizProcess.stderr.on('data', data => {
+            Log.log("[Graphviz stderr] " + data, LogLevel.Debug);
+        });
+    });
+
     vscode.window.onDidChangeTextEditorSelection((change) => {
         if (change.textEditor.document.fileName == "\\2") return;
         if (showStepsInCode) {
@@ -344,7 +391,8 @@ function registerHandlers() {
                     let b = selection.start;
                     if (a.line == b.line && a.character == b.character && option.renderOptions.before.color != 'blue') {
                         option.renderOptions.before.color = 'blue';
-                        Log.log("index of selected state is " + i);
+                        Log.log("Request showing the heap of state " + i);
+                        state.client.sendRequest(Commands.ShowHeap, { uri: vscode.window.activeTextEditor.document.uri.toString(), index: i });
                         change = true;
                     } else if (option.renderOptions.before.color != 'red') {
                         option.renderOptions.before.color = 'red';
@@ -414,13 +462,18 @@ function registerHandlers() {
     });
     state.context.subscriptions.push(selectStopVerificationDisposable);
 
+    if (enableSecondWindow) {
+        registerTextDocumentProvider();
+    }
 }
 
 function setDecorations() {
     if (decorationOptions) {
         removeDecorations();
         decoration = vscode.window.createTextEditorDecorationType({});
-        vscode.window.activeTextEditor.setDecorations(decoration, decorationOptions);
+        if (textEditorUnderVerification) {
+            textEditorUnderVerification.setDecorations(decoration, decorationOptions);
+        }
     }
 }
 

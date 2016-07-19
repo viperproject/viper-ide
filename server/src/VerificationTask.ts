@@ -3,10 +3,10 @@
 import child_process = require('child_process');
 import {IConnection, Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
 import {Settings} from './Settings'
-import {Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
+import {HeapGraph,Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
-import {Statement,StatementType} from './Statement';
+import {Statement, StatementType} from './Statement';
 import {Model} from './Model';
 import * as pathHelper from 'path';
 
@@ -70,11 +70,24 @@ export class VerificationTask {
         VerificationTask.connection = connection;
     }
 
+    public getHeapGraphDescription(index: number): HeapGraph {
+        if (index < 0 || index >= this.steps.length) {
+            Log.error("Cannot show heap at step " + index + " only states 0 - " + this.steps.length + " are valid");
+            return;
+        }
+        let step = this.steps[index];
+        if (!step) {
+            Log.error("Cannot show heap at step " + index + " step is null");
+            return;
+        }
+        return {heap:step.heapToDot(),state:index,fileName:this.filename,position:step.position,stateInfos:step.toToolTip()};
+    }
+
     public getDecorationOptions() {
         let result = [];
         this.steps.forEach(step => {
             result.push({
-            hoverMessage:step.toToolTip(),
+                hoverMessage: step.toToolTip(),
                 range: {
                     start: step.position,
                     end: { line: step.position.line, character: step.position.character + 1 }
@@ -183,7 +196,7 @@ export class VerificationTask {
         Log.log("Number of Steps: " + this.steps.length, LogLevel.Info);
         //show last state
 
-        VerificationTask.connection.sendNotification(Commands.StepsAsDecorationOptions,this.getDecorationOptions());
+        VerificationTask.connection.sendNotification(Commands.StepsAsDecorationOptions, {uri:this.fileUri,decorations: this.getDecorationOptions()});
 
         //let allSteps = "";
         this.steps.forEach((step) => {

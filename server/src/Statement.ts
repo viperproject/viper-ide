@@ -3,15 +3,10 @@
 //import {Position} from 'vscode';
 import {Log} from './Log';
 import {Model} from './Model';
-import {LogLevel} from './ViperProtocol';
+import {Position, LogLevel} from './ViperProtocol';
 let graphviz = require("graphviz");
 
 export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE };
-
-interface Position {
-    line: number;
-    character: number;
-}
 
 interface Variable {
     name: string;
@@ -19,64 +14,96 @@ interface Variable {
     variablesReference: number;
 }
 
+interface Name {
+    raw: string;
+    receiver?: string;
+    field?: string;
+    arguments?: string[];
+    type: NameType;
+}
+
+interface Value {
+    raw: string;
+    type: ValueType;
+}
+
+interface Permission {
+    raw: string;
+    type: PermissionType;
+}
+
+enum PermissionType { UnknownPermission, ScalarPermission }
+enum ValueType { UnknownValue, NoValue, ObjectReferenceOrScalarValue }
+enum NameType { UnknownName, QuantifiedName, FunctionApplicationName, PredicateName, FieldReferenceName }
+
 class HeapChunk {
-    name: string;
-    value: string;
-    permission: string;
+    name: Name;
+    value: Value;
+    permission: Permission;
 
     public parsed: boolean = true;
 
-    type: string;
-
     constructor(name: string, value: string, permission: string) {
-        this.name = name;
-        this.value = value;
-        this.permission = permission;
+        this.name = { raw: name, type: NameType.UnknownName };
+        this.value = { raw: value, type: ValueType.UnknownValue };
+        this.permission = { raw: permission, type: PermissionType.UnknownPermission };
 
         if (name.startsWith("QA")) {
             //TODO: handle quantified permission
             this.parsed = false;
-            this.type = "Quantified Name";
+            this.name.type = NameType.QuantifiedName;
         }
         else if (name.indexOf("[") > 0) {
-            //TODO: handle method invocation
+            //TODO: handle function application
             this.parsed = false;
-            this.type = "Method Invocation Name";
+            this.name.type = NameType.FunctionApplicationName;
         }
-        else if (/^(\$?\w+(@\d+))(\(=.+?\))?(\.\w+)+$/.test(name)) {
-            //it's a field reference
-            this.type = "Field Reference Name";
-        } else {
-            this.type = "Unknown Name";
-            this.parsed = false;
+        else if (/^\w+\(.*\)$/.test(name)) {
+            this.name.type = NameType.PredicateName;
+            this.name.receiver = name.substring(0, name.indexOf("("));
+            this.name.arguments = name.substring(name.indexOf("(") + 1, name.length - 1).split(/[;,]/);
+            for (var i = 0; i < this.name.arguments.length; i++) {
+                var element = this.name.arguments[i];
+                this.name.arguments[i] = element.trim();
+            }
+        }
+        else {
+            let matchedName = /^(\$?\w+(@\d+))(\(=.+?\))?(\.(\w+))+$/.exec(name)
+            if (matchedName && matchedName.length == 6) {
+                //it's a field reference
+                this.name.type = NameType.FieldReferenceName;
+                this.name.receiver = matchedName[1];
+                this.name.field = matchedName[5];
+            } else {
+                this.name.type = NameType.UnknownName;
+                this.parsed = false;
+            }
         }
 
         if (!value) {
-            this.type += ", No Value";
+            this.value.type = ValueType.NoValue;
         }
         else if (/^(\$?\w+(@\d+)?)(\(=.+?\))?$/.test(value)) {
             //it's an object reference or a scalar
-            this.type += ", Object reference or scalar Value";
+            this.value.type = ValueType.ObjectReferenceOrScalarValue;
         } else {
             this.parsed = false;
-            this.type += ", Unknown Value";
+            this.value.type = ValueType.UnknownValue;
         }
 
         if (/^(W|R|Z|\d+([\.\/]\d+)?)$/.test(permission)) {
-            this.type += ", Scalar Permission";
+            this.permission.type = PermissionType.ScalarPermission;
         } else {
-            this.type += ", Unknown Permission";
+            this.permission.type = PermissionType.UnknownPermission;
             this.parsed = false;
         }
-
-        this.type += " -> " + (this.parsed ? "Parsed" : "Not Parsed");
     }
 
     pretty(): string {
-        return this.name + (this.value ? " -> " + this.value : "") + " # " + this.permission;
+        return this.name.raw + (this.value.raw ? " -> " + this.value.raw : "") + " # " + this.permission.raw;
     }
     equals(other: HeapChunk): boolean {
-        return this.name == other.name && this.permission == other.permission && this.value == other.value;
+        return this.name.raw == other.name.raw && this.permission.raw == other.permission.raw && this.value.raw == other.value.raw;
     }
 }
 
@@ -127,7 +154,7 @@ export class Statement {
         } else {
             let res = [];
             line = line.substring(line.indexOf("(") + 1, line.lastIndexOf(")"));
-            line = model.fillInValues(line);
+            //line = model.fillInValues(line);
             return this.splitAtComma(line);
         }
     }
@@ -239,9 +266,6 @@ export class Statement {
         return true;
     }
 
-    public printGraphVizHeap(heap: HeapChunk[]) {
-    }
-
     public toToolTip(): string {
         let res = StatementType[this.type] + " " + this.formula + "\n";
         if (this.store.length > 0) {
@@ -261,61 +285,168 @@ export class Statement {
     }
 
     public static buildGraphVizExampleGraph() {
-        try{
-        let g = graphviz.digraph("G");
-        let n1 = g.addNode("Hello", { "color": "blue" });
-        n1.set("style", "filled");
-        let e = g.addEdge(n1, "World");
-        e.set("color", "red");
-        g.addNode("World");
-        g.addEdge( n1, "World" );
-        Log.log( g.to_dot() ,LogLevel.Debug);
-        g.setGraphVizPath( "C:\\" );
-        g.output("png","graphvizTest.png");
-        }catch(e){
+        try {
+            let g = graphviz.digraph("G");
+            let n1 = g.addNode("Hello", { "color": "blue" });
+            n1.set("style", "filled");
+            let e = g.addEdge(n1, "World");
+            e.set("color", "red");
+            g.addNode("World");
+            g.addEdge(n1, "World");
+            Log.log(g.to_dot(), LogLevel.Debug);
+            g.setGraphVizPath("C:\\");
+            g.output("png", "graphvizTest.png");
+        } catch (e) {
             Log.error("Graphviz Error: " + e);
         }
     }
 
-    getHeapChunkVisualization(): string {
+    public heapToDot(): string {
+        try {
+            let g = graphviz.digraph("G");
+            g.setNodeAttribut("shape", "record");
+            g.set("rankdir", "LR");
+            let store = g.addCluster("cluster_store");
+            store.set("style", "dotted");
+            store.set("label", "Store");
+            let heap = g.addCluster("cluster_heap");
+            heap.set("style", "dotted");
+            heap.set("label", "Heap");
 
-        let header = `digraph heap {
-rankdir=LR
-node [shape = record];
-
-subgraph cluster_local {
-graph[style=dotted]
-label="Local"\n`;
-
-        let intermediate = `}
-
-subgraph cluster_heap{
-graph[style=dotted]
-label="heap"\n`;
-
-        let footer: string = "}\n}\n";
-
-        let localVars = "";
-        this.store.forEach(variable => {
-            localVars += `${variable.name} [label = "${variable.name}\nval: ${variable.value}""]\n`;
-
-        });
-
-        let heapChunks: string = "";
-        this.heap.forEach(heapChunk => {
-            if (heapChunk.parsed) {
-                heapChunks += `${heapChunk.name} [label = "<name>${heapChunk.name}|<next>next${heapChunk.value ? "\nval: " + heapChunk.value : ""}\n(${heapChunk.permission})"]\n`;
-                if (heapChunk.value) {
-                    heapChunks += `${heapChunk.name} -> ${heapChunk.value}`;
+            //read all heap Chunks to find out all existing nodes in the heap
+            let heapChunkFields = new Map<string, string[]>();
+            this.heap.forEach(heapChunk => {
+                if (!heapChunk.parsed) {
+                    Log.log("Warning, I don't know how to visualize the heap chunk " + JSON.stringify(heapChunk.name));
                 }
-            }
-        });
-        if (localVars != "" || heapChunks != "") {
-            return header + localVars + intermediate + heapChunks + footer;
-        } else {
-            return null;
+                else {
+                    if (heapChunk.name.type == NameType.FieldReferenceName && heapChunk.value.type == ValueType.ObjectReferenceOrScalarValue) {
+                        let receiver = heapChunk.name.receiver;
+                        if (!heapChunkFields.has(receiver)) {
+                            heapChunkFields.set(receiver, []);
+                        }
+                        heapChunkFields.get(receiver).push(heapChunk.name.field);
+
+                        //let edge = heap.addEdge(heapChunk.name.receiver + ":" + heapChunk.name.field, heapChunk.value.raw);
+                        //Log.log("Draw edge from " + heapChunk.name.receiver + ":" + heapChunk.name.field + " to " + heapChunk.value.raw, LogLevel.Debug);
+                    }
+                }
+            })
+
+            //add all nodes with the appropriate fields to the heap
+            heapChunkFields.forEach((fields: string[], receiver: string) => {
+                let heapChunkNode = heap.addNode(receiver);
+                let label = "<name>";
+                fields.forEach(element => {
+                    label += `|<${element}>${element}`;
+                });
+                heapChunkNode.set("label", label);
+            });
+
+            //populate the store and add pointers from store to heap
+            let vars: Map<string, any> = new Map<string, any>();
+            this.store.forEach(variable => {
+                let variableNode = store.addNode(variable.name);
+                vars.set(variable.name, variableNode);
+                //set variable value
+                variableNode.set("label", variable.name + " = " + variable.value);
+                if (heapChunkFields.has(variable.value)) {
+                    g.addEdge(variable.name, variable.value)
+                }
+            });
+
+            //add pointers inside heap
+            //also build Predicate nodes
+            this.heap.forEach(heapChunk => {
+                if (heapChunk.parsed && heapChunk.name.type == NameType.FieldReferenceName && heapChunk.value.type == ValueType.ObjectReferenceOrScalarValue) {
+                    //add the adge only if the value is known to exist
+                    if (heapChunkFields.has(heapChunk.value.raw)) {
+                        let edge = heap.addEdge(heapChunk.name.receiver, heapChunk.value.raw);
+                        edge.set("label", heapChunk.name.field);
+                    }
+                }
+                else if (heapChunk.name.type == NameType.PredicateName) {
+                    //add predicate subgraph
+                    let predicateCluster = heap.addCluster("cluster_" + heapChunk.name.receiver);
+                    predicateCluster.set("style", "bold");
+                    predicateCluster.set("label", "Predicate " + heapChunk.name.receiver)
+                    //skip the fist argument (it's the snapshot argument)
+                    for (let i = 1; i < heapChunk.name.arguments.length; i++) {
+                        let parameter = heapChunk.name.arguments[i];
+                        if (parameter === "False" || parameter === "True" || /^\d+(\.\d+)$/.test(parameter)) {
+                            let argumentNode = predicateCluster.addNode(`arg${i} = ${parameter}`);
+                        } else {
+                            let argumentNode = predicateCluster.addNode("arg" + i);
+                            if (heapChunkFields.has(parameter)) {
+                                let edge = heap.addEdge(parameter, argumentNode)
+                                edge.set("style", "dashed");
+                            } else {
+                                //try to add edge from variable to predicate argument;
+                                this.store.forEach(element => {
+                                    if (element.value === parameter) {
+                                        let edge = heap.addEdge(vars.get(element.name), argumentNode);
+                                        edge.set("style", "dashed");
+                                    }
+                                });
+                                //try to add edge from field to predicate argument
+                                this.heap.forEach(chunk => {
+                                    if (chunk.name.type == NameType.FieldReferenceName && chunk.value.raw === parameter) {
+                                        let edge = heap.addEdge(chunk.name.receiver, argumentNode);
+                                        edge.set("style", "dashed");
+                                        edge.set("label", chunk.name.field)
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+            })
+
+            return g.to_dot();
+        } catch (e) {
+            Log.error("Graphviz Error: " + e);
         }
     }
+
+    //     getHeapChunkVisualization(): string {
+
+    //         let header = `digraph heap {
+    // rankdir=LR
+    // node [shape = record];
+
+    // subgraph cluster_local {
+    // graph[style=dotted]
+    // label="Local"\n`;
+
+    //         let intermediate = `}
+
+    // subgraph cluster_heap{
+    // graph[style=dotted]
+    // label="heap"\n`;
+
+    //         let footer: string = "}\n}\n";
+
+    //         let localVars = "";
+    //         this.store.forEach(variable => {
+    //             localVars += `${variable.name} [label = "${variable.name}\nval: ${variable.value}""]\n`;
+
+    //         });
+
+    //         let heapChunks: string = "";
+    //         this.heap.forEach(heapChunk => {
+    //             if (heapChunk.parsed) {
+    //                 heapChunks += `${heapChunk.name.raw} [label = "<name>${heapChunk.name.raw}|<next>next${heapChunk.value.raw ? "\nval: " + heapChunk.value.raw : ""}\n(${heapChunk.permission.raw})"]\n`;
+    //                 if (heapChunk.value.raw) {
+    //                     heapChunks += `${heapChunk.name.raw} -> ${heapChunk.value.raw}`;
+    //                 }
+    //             }
+    //         });
+    //         if (localVars != "" || heapChunks != "") {
+    //             return header + localVars + intermediate + heapChunks + footer;
+    //         } else {
+    //             return null;
+    //         }
+    //     }
 
     //   n4 [label = "n4\nval: n4@24"]
     //   n [label = "node($t@34;$t@33)"]

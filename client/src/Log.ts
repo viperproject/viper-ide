@@ -11,29 +11,47 @@ export class Log {
     static logFile: fs.WriteStream;
     static outputChannel = vscode.window.createOutputChannel('Viper');
     static logLevel: LogLevel;
+    static dotFilePath: string;
+    static svgFilePath: string;
+    static rootPath:string;
 
     public static initialize(context: vscode.ExtensionContext) {
         Log.updateSettings();
-        let rootPath = vscode.workspace.rootPath;
-        if (!rootPath) {
-            rootPath = path.dirname(vscode.window.activeTextEditor.document.fileName);
+        Log.rootPath = vscode.workspace.rootPath;
+        if (!Log.rootPath) {
+            Log.rootPath = path.dirname(vscode.window.activeTextEditor.document.fileName);
         }
-        Log.logFilePath = path.join(rootPath, '.vscode', Log.logFilePath);
+        Log.logFilePath = path.join(Log.rootPath, '.vscode', Log.logFilePath);
         //create .vscode folder if not there yet
-        if (!fs.existsSync(path.join(rootPath, '.vscode'))) {
-            fs.mkdirSync(path.join(rootPath, '.vscode'));
+        if (!fs.existsSync(path.join(Log.rootPath, '.vscode'))) {
+            fs.mkdirSync(path.join(Log.rootPath, '.vscode'));
         }
+
+        Log.dotFilePath = path.join(Log.rootPath, '.vscode', 'heap.dot');
+        Log.svgFilePath = path.join(Log.rootPath, '.vscode', 'heap.svg');
 
         Log.log("LogFilePath is: " + Log.logFilePath, LogLevel.Debug)
         try {
-            fs.closeSync(fs.openSync(Log.logFilePath, 'w'));
-            fs.accessSync(Log.logFilePath);
+            Log.createFile(Log.logFilePath);
             Log.logFile = fs.createWriteStream(Log.logFilePath);
+
+            Log.createFile(Log.dotFilePath);
             //make sure the logFile is closed when the extension is closed
             context.subscriptions.push(new Log());
         } catch (e) {
             Log.error("cannot write to LogFile, access denied. " + e)
         }
+    }
+
+    private static createFile(filePath: string) {
+        fs.closeSync(fs.openSync(filePath, 'w'));
+        fs.accessSync(filePath);
+    }
+
+    public static writeToDotFile(graphDescription: string) {
+        let dotFile: fs.WriteStream = fs.createWriteStream(Log.dotFilePath);
+        dotFile.write(graphDescription);
+        dotFile.close();
     }
 
     public static updateSettings() {

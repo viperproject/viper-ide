@@ -16,7 +16,7 @@ import {
 import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
 import {Settings} from './Settings'
-import {Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel} from './ViperProtocol'
+import {Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel,ShowHeapParams} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Statement, StatementType} from './Statement';
@@ -119,7 +119,7 @@ connection.onRequest(Commands.SelectBackend, (selectedBackend: string) => {
     if (selectedBackend) {
         Settings.selectedBackend = selectedBackend;
     }
-    Log.log("Stop all running verificationTasks")
+    Log.log("Stop all running verificationTasks",LogLevel.Debug)
     verificationTasks.forEach(task => { task.abortVerification(); });
     backend = Settings.autoselectBackend(settings);
     nailgunService.restartNailgunServer(connection, backend);
@@ -130,7 +130,7 @@ connection.onRequest(Commands.RequestBackendSelection, (args) => {
     if (backendNames.length > 1) {
         connection.sendRequest(Commands.AskUserToSelectBackend, backendNames);
     } else {
-        Log.hint("There less than two backends, selecting does not make sense.");
+        Log.hint("There are less than two backends, selecting does not make sense.");
     }
 });
 
@@ -221,6 +221,15 @@ connection.onRequest(Commands.StopVerification, (uri: string) => {
     let task = verificationTasks.get(uri);
     task.abortVerification();
     connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, firstTime: true, verificationNeeded: false });
+});
+
+connection.onRequest(Commands.ShowHeap, (params:ShowHeapParams) => {
+    let task = verificationTasks.get(params.uri);
+    if(!task){
+        Log.error("No verificationTask found for " + params.uri);
+        return;
+    }
+    connection.sendRequest(Commands.HeapGraph,task.getHeapGraphDescription(params.index));
 });
 
 // Listen on the connection

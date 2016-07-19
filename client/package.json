@@ -161,6 +161,10 @@
                 "viperSettings.showProgress": {
                     "type": "boolean",
                     "default": false
+                },
+                "viperSettings.dotExecutable": {
+                    "type": "string",
+                    "default": "dot"
                 }
             }
         },
