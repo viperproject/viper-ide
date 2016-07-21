@@ -94,10 +94,9 @@ function registerTextDocumentProvider() {
 function showSecondWindow(heapGraph: HeapGraph) {
     if (enableSecondWindow) {
         provider.setState(heapGraph);
-        //TODO: make sure the image is refreshed
-        provider.update(previewUri);
         showFile(Log.dotFilePath, vscode.ViewColumn.Two);
-        vscode.commands.executeCommand('vscode.previewHtml', previewUri, vscode.ViewColumn.Three).then((success) => { }, (reason) => {
+        provider.update(previewUri);
+        vscode.commands.executeCommand('vscode.previewHtml', previewUri, vscode.ViewColumn.Two).then((success) => { }, (reason) => {
             vscode.window.showErrorMessage(reason);
         });
     }
@@ -385,21 +384,27 @@ function registerHandlers() {
             }
             if (decorationOptions) {
                 let change = false;
+                let selectedState = -1;
                 for (var i = 0; i < decorationOptions.length; i++) {
                     var option = decorationOptions[i];
                     let a = option.range.start;
                     let b = selection.start;
-                    if (a.line == b.line && a.character == b.character && option.renderOptions.before.color != 'blue') {
+                    if (selectedState < 0 && a.line == b.line && a.character == b.character && option.renderOptions.before.color != 'blue') {
                         option.renderOptions.before.color = 'blue';
+                        selectedState = i;
                         Log.log("Request showing the heap of state " + i);
                         state.client.sendRequest(Commands.ShowHeap, { uri: vscode.window.activeTextEditor.document.uri.toString(), index: i });
                         change = true;
-                    } else if (option.renderOptions.before.color != 'red') {
+                    }else if (selectedState >= 0 && option.renderOptions.before.color != 'grey') {
+                        option.renderOptions.before.color = 'grey';
+                        change = true;
+                    } 
+                    else if (option.renderOptions.before.color != 'red') {
                         option.renderOptions.before.color = 'red';
                         change = true;
                     }
                 }
-                if (change) {
+                if (change && selectedState >= 0) {
                     setDecorations();
                 }
             }

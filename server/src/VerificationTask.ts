@@ -3,35 +3,14 @@
 import child_process = require('child_process');
 import {IConnection, Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
 import {Settings} from './Settings'
-import {HeapGraph,Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
+import {HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement, StatementType} from './Statement';
 import {Model} from './Model';
 import * as pathHelper from 'path';
-
-interface Progress {
-    current: number;
-    total: number;
-}
-
-class TotalProgress {
-    predicates: Progress;
-    functions: Progress;
-    methods: Progress;
-
-    constructor(json: TotalProgress) {
-        this.predicates = json.predicates;
-        this.methods = json.methods;
-        this.functions = json.functions;
-    }
-
-    public toPercent(): number {
-        let total = this.predicates.total + this.methods.total + this.functions.total;
-        let current = this.predicates.current + this.methods.current + this.functions.current;
-        return 100 * current / total;
-    }
-}
+import {HeapVisualizer} from './HeapVisualizer';
+import {TotalProgress} from './TotalProgress';
 
 export class VerificationTask {
     //state
@@ -80,12 +59,12 @@ export class VerificationTask {
             Log.error("Cannot show heap at step " + index + " step is null");
             return;
         }
-        return {heap:step.heapToDot(),state:index,fileName:this.filename,position:step.position,stateInfos:step.toToolTip()};
+        return { heap: HeapVisualizer.heapToDot(step), state: index, fileName: this.filename, position: step.position, stateInfos: step.toToolTip() };
     }
 
     public getDecorationOptions() {
         let result = [];
-        this.steps.forEach(step => {
+        this.steps.forEach((step, index) => {
             result.push({
                 hoverMessage: step.toToolTip(),
                 range: {
@@ -94,8 +73,9 @@ export class VerificationTask {
                 },
                 renderOptions: {
                     before: {
-                        contentText: "⚫",
+                        contentText: "(" + index + ")⚫",
                         color: "red",
+                        textDecoration: "font-size:5px"
                     }
                 }
             });
@@ -196,7 +176,7 @@ export class VerificationTask {
         Log.log("Number of Steps: " + this.steps.length, LogLevel.Info);
         //show last state
 
-        VerificationTask.connection.sendNotification(Commands.StepsAsDecorationOptions, {uri:this.fileUri,decorations: this.getDecorationOptions()});
+        VerificationTask.connection.sendNotification(Commands.StepsAsDecorationOptions, { uri: this.fileUri, decorations: this.getDecorationOptions() });
 
         //let allSteps = "";
         this.steps.forEach((step) => {
@@ -423,7 +403,7 @@ export class VerificationTask {
         return result;
     }
 
-    //uri helper Methods
+    //URI helper Methods
     public static uriToPath(uri: string): Thenable<string> {
         return new Promise((resolve, reject) => {
             //input check
