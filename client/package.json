@@ -64,6 +64,12 @@
         }, {
             "command": "extension.startDebugging",
             "title": "Viper: debug the open document"
+        }, {
+            "command": "extension.showStates",
+            "title": "Viper: show the states of the completed verification"
+        }, {
+            "command": "extension.hideStates",
+            "title": "Viper: hide the verificationStates"
         }],
         "grammars": [{
             "language": "viper",

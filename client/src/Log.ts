@@ -13,7 +13,7 @@ export class Log {
     static logLevel: LogLevel;
     static dotFilePath: string;
     static svgFilePath: string;
-    static rootPath:string;
+    static rootPath: string;
 
     public static initialize(context: vscode.ExtensionContext) {
         Log.updateSettings();

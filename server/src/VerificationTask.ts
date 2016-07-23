@@ -11,6 +11,7 @@ import {Model} from './Model';
 import * as pathHelper from 'path';
 import {HeapVisualizer} from './HeapVisualizer';
 import {TotalProgress} from './TotalProgress';
+import {Server} from './server';
 
 export class VerificationTask {
     //state
@@ -19,7 +20,6 @@ export class VerificationTask {
     manuallyTriggered: boolean;
     state: VerificationState = VerificationState.Stopped;
     verifierProcess: child_process.ChildProcess;
-    backend: Backend;
     nailgunService: NailgunService;
     static connection: IConnection;
 
@@ -41,11 +41,11 @@ export class VerificationTask {
     lastSuccess: Success = Success.None;
     parsingCompleted: boolean = false;
     typeCheckingCompleted: boolean = false;
+    methodBorders: { methodName: string, index: number }[];
 
-    constructor(fileUri: string, nailgunService: NailgunService, connection: IConnection, backend: Backend) {
+    constructor(fileUri: string, nailgunService: NailgunService, connection: IConnection) {
         this.fileUri = fileUri;
         this.nailgunService = nailgunService;
-        this.backend = backend;
         VerificationTask.connection = connection;
     }
 
@@ -59,7 +59,23 @@ export class VerificationTask {
             Log.error("Cannot show heap at step " + index + " step is null");
             return;
         }
-        return { heap: HeapVisualizer.heapToDot(step), state: index, fileName: this.filename, position: step.position, stateInfos: step.toToolTip() };
+        return { heap: HeapVisualizer.heapToDot(step), state: index, fileName: this.filename, position: step.position, stateInfos: step.toToolTip() + this.prettySteps() };
+    }
+
+    private prettySteps(): string {
+        let res: string = "";
+        let methodIndex = 0;
+        let maxLine = 0;
+        let indent = "";
+        this.steps.forEach((element, i) => {
+            if (i === this.methodBorders[methodIndex].index) {
+                res += "\n" + this.methodBorders[methodIndex].methodName;
+                if (methodIndex + 1 < this.methodBorders.length)
+                    methodIndex++;
+            }
+            res += "\n\t" + element.firstLine();
+        });
+        return res;
     }
 
     public getDecorationOptions() {
@@ -83,14 +99,13 @@ export class VerificationTask {
         return result;
     }
 
-    verify(backend: Backend, onlyTypeCheck: boolean, manuallyTriggered: boolean): void {
+    verify(onlyTypeCheck: boolean, manuallyTriggered: boolean): void {
         if (!manuallyTriggered && this.lastSuccess == Success.Error) {
             Log.log("After an internal error, reverification has to be triggered manually.", LogLevel.Info);
             return;
         }
         //Initialization
         this.manuallyTriggered = manuallyTriggered;
-        this.backend = backend;
         this.running = true;
         this.aborting = false;
         this.state = VerificationState.Stopped;
@@ -98,11 +113,12 @@ export class VerificationTask {
         this.wrongFormat = false;
         this.steps = [];
         this.lines = [];
+        this.methodBorders = [];
         this.model = new Model();
         this.parsingCompleted = true;
         this.typeCheckingCompleted = true;
 
-        Log.log(backend.name + ' verification started', LogLevel.Info);
+        Log.log(Server.backend.name + ' verification started', LogLevel.Info);
 
         VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, firstTime: false });
 
@@ -110,7 +126,7 @@ export class VerificationTask {
             //start verification of current file
             this.path = path
             this.filename = pathHelper.basename(path);
-            this.verifierProcess = this.nailgunService.startVerificationProcess(path, true, onlyTypeCheck, backend);
+            this.verifierProcess = this.nailgunService.startVerificationProcess(path, true, onlyTypeCheck, Server.backend);
             //subscribe handlers
             this.verifierProcess.stdout.on('data', this.stdOutHandler.bind(this));
             this.verifierProcess.stderr.on('data', this.stdErrHadler.bind(this));
@@ -134,7 +150,7 @@ export class VerificationTask {
             Log.log("Verification Backend Terminated Abnormaly: with code " + code, LogLevel.Default);
             if (Settings.isWin && code == null) {
                 this.nailgunService.killNgDeamon();
-                this.nailgunService.restartNailgunServer(VerificationTask.connection, this.backend);
+                this.nailgunService.restartNailgunServer(VerificationTask.connection, Server.backend);
             }
         }
 
@@ -204,7 +220,7 @@ export class VerificationTask {
             Log.error("A nullpointer exception happened in the verification backend.", LogLevel.Default);
         }
         else if (data.startsWith("java.lang.ClassNotFoundException:")) {
-            Log.error("Class " + this.backend.mainMethod + " is unknown to Nailgun\nFix the backend settings for " + this.backend.name, LogLevel.Default);
+            Log.error("Class " + Server.backend.mainMethod + " is unknown to Nailgun\nFix the backend settings for " + Server.backend.name, LogLevel.Default);
         }
         else if (data.startsWith("java.io.IOException: Stream closed")) {
             Log.error("A concurrency error occured, try again.", LogLevel.Default);
@@ -213,14 +229,14 @@ export class VerificationTask {
             Log.error("StackOverflowError in verification backend", LogLevel.Default);
         }
         else if (data.startsWith("SLF4J: Class path contains multiple SLF4J bindings")) {
-            Log.error(this.backend.name + " is referencing two versions of the backend, fix its paths in the settings", LogLevel.Default);
+            Log.error(Server.backend.name + " is referencing two versions of the backend, fix its paths in the settings", LogLevel.Default);
         }
     }
     private stdOutHandler(data) {
         if (data.trim().length == 0) {
             return;
         }
-        Log.toLogFile(`[${this.backend.name}: stdout]: ${data}`, LogLevel.LowLevelDebug);
+        Log.toLogFile(`[${Server.backend.name}: stdout]: ${data}`, LogLevel.LowLevelDebug);
 
         if (this.aborting) return;
 
@@ -267,6 +283,7 @@ export class VerificationTask {
                             this.model.extendModel(part);
                             //Log.toLogFile("Model: " + part);
                         } else if (part.startsWith("---------- METHOD ")) {
+                            this.methodBorders.push({ methodName: part, index: this.steps.length });
                             this.isFromMethod = true;
                             continue;
                         } else if (part.startsWith("----")) {
@@ -341,13 +358,13 @@ export class VerificationTask {
                                 }
                             }
 
-                            Log.log(`Error: [${this.backend.name}] ${tag ? "[" + tag + "] " : ""}${lineNr + 1}:${charNr + 1} ${message}`, LogLevel.Default);
+                            Log.log(`Error: [${Server.backend.name}] ${tag ? "[" + tag + "] " : ""}${lineNr + 1}:${charNr + 1} ${message}`, LogLevel.Default);
                             this.diagnostics.push({
                                 range: {
                                     start: { line: lineNr, character: charNr },
                                     end: { line: lineNr, character: 10000 }//Number.max does not work -> 10000 is an arbitrary large number that does the job
                                 },
-                                source: null, //this.backend.name
+                                source: null, //Server.backend.name
                                 severity: DiagnosticSeverity.Error,
                                 message: message
                             });
@@ -362,15 +379,16 @@ export class VerificationTask {
         }
     }
 
-    public getNextLine(previousLine): number {
-        let next = Number.MAX_VALUE;
-        this.steps.forEach(element => {
-            let line = element.position.line
-            if (line > previousLine && line < next) {
-                next = line;
+    public getLineOfState(index): number {
+        if (index < this.steps.length) {
+            if (this.steps[index].position.line) {
+                return this.steps[index].position.line;
+            }else{
+                return 0;
             }
-        });
-        return next;
+        } else {
+            return -1
+        }
     }
 
     public abortVerification() {

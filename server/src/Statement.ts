@@ -5,112 +5,16 @@ import {Log} from './Log';
 import {Model} from './Model';
 import {Position, LogLevel} from './ViperProtocol';
 
+interface Variable { name: string; value: string; variablesReference: number; }
+interface Name { raw: string; receiver?: string; field?: string; arguments?: string[]; type: NameType; }
+interface Value { raw: string; type: ValueType; }
+interface Permission { raw: string; type: PermissionType; }
+interface SplitResult { prefix: string; rest: string; }
+
 export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE };
-
-interface Variable {
-    name: string;
-    value: string;
-    variablesReference: number;
-}
-
-interface Name {
-    raw: string;
-    receiver?: string;
-    field?: string;
-    arguments?: string[];
-    type: NameType;
-}
-
-interface Value {
-    raw: string;
-    type: ValueType;
-}
-
-interface Permission {
-    raw: string;
-    type: PermissionType;
-}
-
 export enum PermissionType { UnknownPermission, ScalarPermission }
 export enum ValueType { UnknownValue, NoValue, ObjectReferenceOrScalarValue }
 export enum NameType { UnknownName, QuantifiedName, FunctionApplicationName, PredicateName, FieldReferenceName }
-
-class HeapChunk {
-    name: Name;
-    value: Value;
-    permission: Permission;
-
-    public parsed: boolean = true;
-
-    constructor(name: string, value: string, permission: string) {
-        this.name = { raw: name, type: NameType.UnknownName };
-        this.value = { raw: value, type: ValueType.UnknownValue };
-        this.permission = { raw: permission, type: PermissionType.UnknownPermission };
-
-        if (name.startsWith("QA")) {
-            //TODO: handle quantified permission
-            this.parsed = false;
-            this.name.type = NameType.QuantifiedName;
-        }
-        else if (name.indexOf("[") > 0) {
-            //TODO: handle function application
-            this.parsed = false;
-            this.name.type = NameType.FunctionApplicationName;
-        }
-        else if (/^\w+\(.*\)$/.test(name)) {
-            this.name.type = NameType.PredicateName;
-            this.name.receiver = name.substring(0, name.indexOf("("));
-            this.name.arguments = name.substring(name.indexOf("(") + 1, name.length - 1).split(/[;,]/);
-            for (var i = 0; i < this.name.arguments.length; i++) {
-                var element = this.name.arguments[i];
-                this.name.arguments[i] = element.trim();
-            }
-        }
-        else {
-            let matchedName = /^(\$?\w+(@\d+))(\(=.+?\))?(\.(\w+))+$/.exec(name)
-            if (matchedName && matchedName.length == 6) {
-                //it's a field reference
-                this.name.type = NameType.FieldReferenceName;
-                this.name.receiver = matchedName[1];
-                this.name.field = matchedName[5];
-            } else {
-                this.name.type = NameType.UnknownName;
-                this.parsed = false;
-            }
-        }
-
-        if (!value) {
-            this.value.type = ValueType.NoValue;
-        }
-        else if (/^(\$?\w+(@\d+)?)(\(=.+?\))?$/.test(value)) {
-            //it's an object reference or a scalar
-            this.value.type = ValueType.ObjectReferenceOrScalarValue;
-        } else {
-            this.parsed = false;
-            this.value.type = ValueType.UnknownValue;
-        }
-
-        if (/^(W|R|Z|\d+([\.\/]\d+)?)$/.test(permission)) {
-            this.permission.type = PermissionType.ScalarPermission;
-        } else {
-            this.permission.type = PermissionType.UnknownPermission;
-            //TODO: handle permissions like "1/4 - (2 * (b@93 ? 3 * $k@97 : $k@98))" from abstract.sil State 142 at 187:8
-            //this.parsed = false;
-        }
-    }
-
-    pretty(): string {
-        return this.name.raw + (this.value.raw ? " -> " + this.value.raw : "") + " # " + this.permission.raw;
-    }
-    equals(other: HeapChunk): boolean {
-        return this.name.raw == other.name.raw && this.permission.raw == other.permission.raw && this.value.raw == other.value.raw;
-    }
-}
-
-interface SplitResult {
-    prefix: string;
-    rest: string;
-}
 
 export class Statement {
     type: StatementType;
@@ -132,6 +36,7 @@ export class Statement {
         this.conditions = this.unpack(conditions, model);
     }
 
+    //PARSING
     private parseVariables(vars: string[]): Variable[] {
         let result = [];
         vars.forEach((variable) => {
@@ -210,6 +115,39 @@ export class Statement {
         return parts;
     }
 
+    private parseFirstLine(line: string): Position {
+        let parts = /(.*?)\s+((\d*):(\d*)|<no position>):\s+(.*)/.exec(line);
+        if (!parts) {
+            Log.error('could not parse first Line of the silicon trace message : "' + line + '"');
+            return;
+        }
+        let type = parts[1];
+        if (type === "CONSUME") {
+            this.type = StatementType.CONSUME;
+        } else if (type === "PRODUCE") {
+            this.type = StatementType.PRODUCE;
+        } else if (type === "EVAL") {
+            this.type = StatementType.EVAL;
+        } else if (type === "EXECUTE") {
+            this.type = StatementType.EXECUTE;
+        }
+        if (parts.length == 6) {
+            //subtract 1 to confirm with VS Codes 0-based numbering
+            if (!parts[3] && !parts[4]) {
+                this.position = { line: 0, character: 0 };
+            } else {
+                let lineNr = +parts[3] - 1;
+                let charNr = +parts[4] - 1;
+                this.position = { line: lineNr, character: charNr };
+            }
+            this.formula = parts[5].trim();
+        }
+        if (parts.length == 4) {
+            this.formula = parts[3].trim();
+        }
+    }
+
+    //PRINTING:
     public firstLine(): string {
         let positionString = (this.position ? (this.position.line + 1) + ":" + (this.position.character + 1) : "<no position>");
         let res: string = StatementType[this.type] + " " + positionString;
@@ -254,7 +192,6 @@ export class Statement {
     }
 
     private oldHeapEqualsHeap(): boolean {
-
         if (this.heap.length != this.oldHeap.length) {
             return false;
         }
@@ -267,7 +204,7 @@ export class Statement {
     }
 
     public toToolTip(): string {
-        let res = StatementType[this.type] + " " + this.formula + "\n";
+        let res = this.firstLine() + "\n"; //StatementType[this.type] + " " + this.formula + "\n";
         if (this.store.length > 0) {
             res += "Store:\n";
             this.store.forEach(element => {
@@ -283,33 +220,76 @@ export class Statement {
         }
         return res;
     }
+}
 
-    private parseFirstLine(line: string): Position {
-        let parts = /(.*?)\s+((\d*):(\d*)|<no position>):\s+(.*)/.exec(line);
-        if (!parts) {
-            Log.error('could not parse first Line of the silicon trace message : "' + line + '"');
-            return;
-        }
-        let type = parts[1];
-        if (type === "CONSUME") {
-            this.type = StatementType.CONSUME;
-        } else if (type === "PRODUCE") {
-            this.type = StatementType.PRODUCE;
-        } else if (type === "EVAL") {
-            this.type = StatementType.EVAL;
-        } else if (type === "EXECUTE") {
-            this.type = StatementType.EXECUTE;
-        }
-        if (parts.length == 6) {
-            //subtract 1 to confirm with VS Codes 0-based numbering
-            let lineNr = +parts[3] - 1;
-            let charNr = +parts[4] - 1;
-            this.position = { line: lineNr, character: charNr };
+class HeapChunk {
+    name: Name;
+    value: Value;
+    permission: Permission;
 
-            this.formula = parts[5].trim();
+    public parsed: boolean = true;
+
+    constructor(name: string, value: string, permission: string) {
+        this.name = { raw: name, type: NameType.UnknownName };
+        this.value = { raw: value, type: ValueType.UnknownValue };
+        this.permission = { raw: permission, type: PermissionType.UnknownPermission };
+
+        if (name.startsWith("QA")) {
+            //TODO: handle quantified permission
+            this.parsed = false;
+            this.name.type = NameType.QuantifiedName;
         }
-        if (parts.length == 4) {
-            this.formula = parts[3].trim();
+        else if (name.indexOf("[") > 0) {
+            //TODO: handle function application
+            this.parsed = false;
+            this.name.type = NameType.FunctionApplicationName;
         }
+        else if (/^\w+\(.*\)$/.test(name)) {
+            this.name.type = NameType.PredicateName;
+            this.name.receiver = name.substring(0, name.indexOf("("));
+            this.name.arguments = name.substring(name.indexOf("(") + 1, name.length - 1).split(/[;,]/);
+            for (var i = 0; i < this.name.arguments.length; i++) {
+                var element = this.name.arguments[i];
+                this.name.arguments[i] = element.trim();
+            }
+        }
+        else {
+            let matchedName = /^(\$?\w+(@\d+))(\(=.+?\))?(\.(\w+))+$/.exec(name)
+            if (matchedName && matchedName.length == 6) {
+                //it's a field reference
+                this.name.type = NameType.FieldReferenceName;
+                this.name.receiver = matchedName[1];
+                this.name.field = matchedName[5];
+            } else {
+                this.name.type = NameType.UnknownName;
+                this.parsed = false;
+            }
+        }
+
+        if (!value) {
+            this.value.type = ValueType.NoValue;
+        }
+        else if (/^(\$?\w+(@\d+)?)(\(=.+?\))?$/.test(value)) {
+            //it's an object reference or a scalar
+            this.value.type = ValueType.ObjectReferenceOrScalarValue;
+        } else {
+            this.parsed = false;
+            this.value.type = ValueType.UnknownValue;
+        }
+
+        if (/^(W|R|Z|\d+([\.\/]\d+)?)$/.test(permission)) {
+            this.permission.type = PermissionType.ScalarPermission;
+        } else {
+            this.permission.type = PermissionType.UnknownPermission;
+            //TODO: handle permissions like "1/4 - (2 * (b@93 ? 3 * $k@97 : $k@98))" from abstract.sil State 142 at 187:8
+            //this.parsed = false;
+        }
+    }
+
+    pretty(): string {
+        return this.name.raw + (this.value.raw ? " -> " + this.value.raw : "") + " # " + this.permission.raw;
+    }
+    equals(other: HeapChunk): boolean {
+        return this.name.raw == other.name.raw && this.permission.raw == other.permission.raw && this.value.raw == other.value.raw;
     }
 }

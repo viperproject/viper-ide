@@ -1,4 +1,3 @@
-
 import * as vscode from 'vscode';
 import {Log} from './Log';
 import {HeapGraph, Position, LogLevel} from './ViperProtocol';
@@ -7,7 +6,7 @@ function postInfoFromForm(info: string) {
     Log.log("Info from Form: " + info)
 }
 
-export class DebugContentProvider implements vscode.TextDocumentContentProvider {
+export class HeapProvider implements vscode.TextDocumentContentProvider {
 
     private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
 
@@ -19,9 +18,10 @@ export class DebugContentProvider implements vscode.TextDocumentContentProvider 
     public provideTextDocumentContent(uri: vscode.Uri): string {
         let body = `<body>
     <h1>Showing Heap for file ${this.heapGraph.fileName}</h1>
-    <h2>State ${this.heapGraph.state} at ${this.heapGraph.position.line}:${this.heapGraph.position.character} </h2>
-    <img src="${Log.svgFilePath}"></img>
-    <p>${this.heapGraph.stateInfos.replace(/\n/g,"<br />")}</p>
+    <h2>State ${this.heapGraph.state} at ${this.heapGraph.position.line+1}:${this.heapGraph.position.character+1} </h2>
+    <img src="${Log.svgFilePath}"></img><br />
+    <p>${this.heapGraph.stateInfos.replace(/\n/g,"<br />\n").replace(/\t/g,"&nbsp;&nbsp;&nbsp;&nbsp;")}</p><br />
+    <a href='${uri}'>view source</a>
 </body>`;
         return body;
     }

@@ -16,227 +16,194 @@ import {
 import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
 import {Settings} from './Settings'
-import {Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel,ShowHeapParams} from './ViperProtocol'
+import {Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Statement, StatementType} from './Statement';
 import {Model} from './Model';
-
+import {DebugServer} from './DebugServer';
 var ipc = require('node-ipc');
 
+export class Server {
+    static backend: Backend;
+    static settings: ViperSettings;
+    static connection: IConnection;
+    static documents: TextDocuments = new TextDocuments();
+    static verificationTasks: Map<string, VerificationTask> = new Map();
+    static nailgunService: NailgunService;
+    static workspaceRoot: string;
+    static debuggedVerificationTask: VerificationTask;
+
+    static isViperSourceFile(uri: string): boolean {
+        return uri.endsWith(".sil") || uri.endsWith(".vpr");
+    }
+}
+
 // Create a connection for the server. The connection uses Node's IPC as a transport
-let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
-//let connection: IConnection = createConnection(process.stdin, process.stdout);
-let backend: Backend;
-let documents: TextDocuments = new TextDocuments();
-let verificationTasks: Map<string, VerificationTask> = new Map();
-let nailgunService: NailgunService;
-let settings: ViperSettings;
-let workspaceRoot: string;
+Server.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
+Server.documents.listen(Server.connection);
 
-let debuggedVerificationTask: VerificationTask;
+registerHandlers();
 
-//for communication with debugger
-startIPCServer();
+function registerHandlers() {
+    //starting point (executed once)
+    Server.connection.onInitialize((params): InitializeResult => {
+        DebugServer.initialize();
 
-documents.listen(connection);
-
-//starting point (executed once)
-connection.onInitialize((params): InitializeResult => {
-    Log.connection = connection;
-    workspaceRoot = params.rootPath;
-    nailgunService = new NailgunService();
-    return {
-        capabilities: {
-            // Tell the client that the server works in FULL text document sync mode
-            textDocumentSync: documents.syncKind,
-            // Tell the client that the server support code complete
-            completionProvider: {
-                resolveProvider: true
-            }
-        }
-    }
-});
-
-// The content of a text document has changed. This event is emitted
-// when the text document first opened or when its content has changed.
-documents.onDidChangeContent((change) => {
-    Log.error("TODO: never happened before: Content Change detected")
-});
-
-connection.onExit(() => {
-    Log.log("On Exit", LogLevel.Debug);
-    //nailgunService.stopNailgunServer();
-})
-
-connection.onShutdown(() => {
-    Log.log("On Shutdown", LogLevel.Debug);
-    nailgunService.stopNailgunServer();
-})
-
-// The settings have changed. Is sent on server activation as well.
-connection.onDidChangeConfiguration((change) => {
-    settings = <ViperSettings>change.settings.viperSettings;
-    //after this line, Logging works
-    Log.logLevel = settings.logLevel;
-
-    Log.log('configuration changed', LogLevel.Info);
-    //check settings
-    let error = Settings.checkSettings(settings);
-    if (error) {
-        connection.sendNotification(Commands.InvalidSettings, error);
-        return;
-    }
-    Log.log("The settings are ok", LogLevel.Info);
-
-    //pass the new settings to the verificationService and the Log
-    nailgunService.changeSettings(settings);
-
-    //stop all running verifications
-    Log.log("Stop all running verificationTasks", LogLevel.Debug)
-    verificationTasks.forEach(task => { task.abortVerification(); });
-
-    backend = Settings.autoselectBackend(settings);
-    nailgunService.restartNailgunServer(connection, backend);
-
-    // let backendNames = Settings.getBackendNames(settings);
-    // if (backendNames.length > 0) {
-    //     Log.log("Ask user to select backend", LogLevel.Info);
-    //     connection.sendRequest(Commands.AskUserToSelectBackend, backendNames);
-    // } else {
-    //     Log.error("No backend, even though the setting check succeeded?");
-    // }
-
-    //Log.log("Test Graphviz Package");
-    //Statement.buildGraphVizExampleGraph()
-});
-
-connection.onRequest(Commands.SelectBackend, (selectedBackend: string) => {
-    if (!settings.valid) {
-        connection.sendNotification(Commands.InvalidSettings, "Cannot start backend, fix settings first.");
-        return;
-    }
-    if (selectedBackend) {
-        Settings.selectedBackend = selectedBackend;
-    }
-    Log.log("Stop all running verificationTasks",LogLevel.Debug)
-    verificationTasks.forEach(task => { task.abortVerification(); });
-    backend = Settings.autoselectBackend(settings);
-    nailgunService.restartNailgunServer(connection, backend);
-});
-
-connection.onRequest(Commands.RequestBackendSelection, (args) => {
-    let backendNames: string[] = Settings.getBackendNames(settings);
-    if (backendNames.length > 1) {
-        connection.sendRequest(Commands.AskUserToSelectBackend, backendNames);
-    } else {
-        Log.hint("There are less than two backends, selecting does not make sense.");
-    }
-});
-
-connection.onDidChangeWatchedFiles((change) => {
-    Log.log("We recevied a file change event", LogLevel.Debug)
-});
-
-connection.onDidOpenTextDocument((params) => {
-    if (isViperSourceFile(params.textDocument.uri)) {
-        let uri = params.textDocument.uri;
-        if (!verificationTasks.has(uri)) {
-            //create new task for opened file
-            let task = new VerificationTask(uri, nailgunService, connection, backend);
-            verificationTasks.set(uri, task);
-            Log.log(`${uri} opened, task created`, LogLevel.Debug);
-            if (nailgunService.ready) {
-                Log.log("Opened Text Document", LogLevel.Debug);
-                startOrRestartVerification(uri, false, false);
-            }
-        }
-    }
-});
-
-connection.onDidCloseTextDocument((params) => {
-    if (isViperSourceFile(params.textDocument.uri)) {
-        let uri = params.textDocument.uri;
-        if (verificationTasks.has(uri)) {
-            //remove no longer needed task
-            verificationTasks.delete(uri);
-            Log.log(`${params.textDocument.uri} closed, task deleted`, LogLevel.Debug);
-        }
-    }
-});
-
-connection.onDidChangeTextDocument((params) => {
-    // //reset the diagnostics for the changed file
-    // if (isViperSourceFile(params.textDocument.uri)) {
-    //     resetDiagnostics(params.textDocument.uri);
-    // }
-});
-
-connection.onDidSaveTextDocument((params) => {
-    //handled in client
-})
-
-connection.onRequest(Commands.Verify, (data: VerifyRequest) => {
-    if (isViperSourceFile(data.uri)) {
-        let alreadyRunning = false;
-        if (data.manuallyTriggered) {
-            //it does not make sense to reverify if no changes were made and the verification is already running
-            verificationTasks.forEach(task => {
-                if (task.running && task.fileUri === data.uri) {
-                    alreadyRunning = true;
+        Server.workspaceRoot = params.rootPath;
+        Server.nailgunService = new NailgunService();
+        return {
+            capabilities: {
+                // Tell the client that the server works in FULL text document sync mode
+                textDocumentSync: Server.documents.syncKind,
+                // Tell the client that the server support code complete
+                completionProvider: {
+                    resolveProvider: true
                 }
-            });
-        }
-        if (!alreadyRunning) {
-            Settings.workspace = data.workspace;
-            startOrRestartVerification(data.uri, false, data.manuallyTriggered);
-        }
-    } else if (data.manuallyTriggered) {
-        Log.hint("This system can only verify .sil and .vpr files");
-    }
-});
-
-connection.onRequest({ method: 'variablesInLine' }, (lineNumber) => {
-    let variables = [];
-    this.steps.forEach(element => {
-        if (element.position.line === lineNumber) {
-            element.store.forEach(variable => {
-                variables.push({
-                    name: variable,
-                    value: variable,
-                    variablesReference: 0
-                });
-            })
+            }
         }
     });
-});
 
-connection.onRequest(Commands.Dispose, (lineNumber) => {
-    nailgunService.stopNailgunServer();
-    nailgunService.killNgDeamon();
-    return null;
-});
+    Server.connection.onExit(() => {
+        Log.log("On Exit", LogLevel.Debug);
+    })
 
-connection.onRequest(Commands.StopVerification, (uri: string) => {
-    let task = verificationTasks.get(uri);
-    task.abortVerification();
-    connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, firstTime: true, verificationNeeded: false });
-});
+    Server.connection.onShutdown(() => {
+        Log.log("On Shutdown", LogLevel.Debug);
+        Server.nailgunService.stopNailgunServer();
+    })
 
-connection.onRequest(Commands.ShowHeap, (params:ShowHeapParams) => {
-    let task = verificationTasks.get(params.uri);
-    if(!task){
-        Log.error("No verificationTask found for " + params.uri);
-        return;
-    }
-    connection.sendRequest(Commands.HeapGraph,task.getHeapGraphDescription(params.index));
-});
+    Server.connection.onDidChangeConfiguration((change) => {
+        Server.settings = <ViperSettings>change.settings.viperSettings;
+        //after this line, Logging works
+        Log.logLevel = Server.settings.logLevel;
 
-// Listen on the connection
-connection.listen();
+        Log.log('configuration changed', LogLevel.Info);
+        //check settings
+        let error = Settings.checkSettings(Server.settings);
+        if (error) {
+            Server.connection.sendNotification(Commands.InvalidSettings, error);
+            return;
+        } else {
+            Log.log("The settings are ok", LogLevel.Info);
+        }
+
+        //pass the new settings to the verificationService and the Log
+        Server.nailgunService.changeSettings(Server.settings);
+
+        //stop all running verifications
+        Log.log("Stop all running verificationTasks", LogLevel.Debug)
+        Server.verificationTasks.forEach(task => { task.abortVerification(); });
+
+        Server.backend = Settings.autoselectBackend(Server.settings);
+        Server.nailgunService.restartNailgunServer(Server.connection, Server.backend);
+    });
+
+    Server.connection.onRequest(Commands.SelectBackend, (selectedBackend: string) => {
+        if (!Server.settings.valid) {
+            Server.connection.sendNotification(Commands.InvalidSettings, "Cannot start backend, fix settings first.");
+            return;
+        }
+        if (selectedBackend) {
+            Settings.selectedBackend = selectedBackend;
+        }
+        Log.log("Stop all running verificationTasks", LogLevel.Debug)
+        Server.verificationTasks.forEach(task => { task.abortVerification(); });
+        Server.backend = Settings.autoselectBackend(Server.settings);
+        Server.nailgunService.restartNailgunServer(Server.connection, Server.backend);
+    });
+
+    Server.connection.onRequest(Commands.RequestBackendSelection, (args) => {
+        let backendNames: string[] = Settings.getBackendNames(Server.settings);
+        if (backendNames.length > 1) {
+            Server.connection.sendRequest(Commands.AskUserToSelectBackend, backendNames);
+        } else {
+            Log.hint("There are less than two backends, selecting does not make sense.");
+        }
+    });
+
+    Server.connection.onDidChangeWatchedFiles((change) => {
+        Log.log("We recevied a file change event", LogLevel.Debug)
+    });
+
+    Server.connection.onDidOpenTextDocument((params) => {
+        if (Server.isViperSourceFile(params.textDocument.uri)) {
+            let uri = params.textDocument.uri;
+            if (!Server.verificationTasks.has(uri)) {
+                //create new task for opened file
+                let task = new VerificationTask(uri, Server.nailgunService, Server.connection);
+                Server.verificationTasks.set(uri, task);
+                Log.log(`${uri} opened, task created`, LogLevel.Debug);
+                if (Server.nailgunService.ready) {
+                    Log.log("Opened Text Document", LogLevel.Debug);
+                    startOrRestartVerification(uri, false, false);
+                }
+            }
+        }
+    });
+
+    Server.connection.onDidCloseTextDocument((params) => {
+        if (Server.isViperSourceFile(params.textDocument.uri)) {
+            let uri = params.textDocument.uri;
+            if (Server.verificationTasks.has(uri)) {
+                //remove no longer needed task
+                Server.verificationTasks.delete(uri);
+                Log.log(`${params.textDocument.uri} closed, task deleted`, LogLevel.Debug);
+            }
+        }
+    });
+
+    Server.connection.onRequest(Commands.Verify, (data: VerifyRequest) => {
+        if (Server.isViperSourceFile(data.uri)) {
+            let alreadyRunning = false;
+            if (data.manuallyTriggered) {
+                //it does not make sense to reverify if no changes were made and the verification is already running
+                Server.verificationTasks.forEach(task => {
+                    if (task.running && task.fileUri === data.uri) {
+                        alreadyRunning = true;
+                    }
+                });
+            }
+            if (!alreadyRunning) {
+                Settings.workspace = data.workspace;
+                startOrRestartVerification(data.uri, false, data.manuallyTriggered);
+            }
+        } else if (data.manuallyTriggered) {
+            Log.hint("This system can only verify .sil and .vpr files");
+        }
+    });
+
+    Server.connection.onRequest(Commands.Dispose, (lineNumber) => {
+        Server.nailgunService.stopNailgunServer();
+        Server.nailgunService.killNgDeamon();
+        return null;
+    });
+
+    Server.connection.onRequest(Commands.StopVerification, (uri: string) => {
+        let task = Server.verificationTasks.get(uri);
+        task.abortVerification();
+        Server.connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, firstTime: true, verificationNeeded: false });
+    });
+
+    Server.connection.onRequest(Commands.ShowHeap, (params: ShowHeapParams) => {
+        let task = Server.verificationTasks.get(params.uri);
+        if (!task) {
+            Log.error("No verificationTask found for " + params.uri);
+            return;
+        }
+        Server.connection.sendRequest(Commands.HeapGraph, task.getHeapGraphDescription(params.index));
+    });
+
+    // Server.documents.onDidChangeContent((change) => {Log.error("TODO: never happened before: Content Change detected")});
+    // Server.connection.onDidChangeTextDocument((params) => {});
+    // Server.connection.onDidSaveTextDocument((params) => {})
+
+    // Listen on the connection
+    Server.connection.listen();
+}
 
 function resetDiagnostics(uri: string) {
-    let task = verificationTasks.get(uri);
+    let task = Server.verificationTasks.get(uri);
     if (!task) {
         Log.error("no verification Task for file: " + uri);
         return;
@@ -247,171 +214,43 @@ function resetDiagnostics(uri: string) {
 function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuallyTriggered: boolean) {
     Log.log("start or restart verification of " + uri);
     //only verify if the settings are right
-    if (!settings.valid) {
-        connection.sendNotification(Commands.InvalidSettings, "Cannot verify, fix the settings first.");
+    if (!Server.settings.valid) {
+        Server.connection.sendNotification(Commands.InvalidSettings, "Cannot verify, fix the settings first.");
         return;
     }
 
     //only verify viper source code files
-    if (!isViperSourceFile(uri)) {
+    if (!Server.isViperSourceFile(uri)) {
         Log.hint("Only viper source files can be verified.");
         return;
     }
 
     //only verify if the settings are right
-    if (!backend) {
+    if (!Server.backend) {
         Log.log("no backend has beed selected, the first was picked by default.", LogLevel.Debug);
-        backend = settings.verificationBackends[0];
-        nailgunService.startNailgunIfNotRunning(connection, backend);
+        Server.backend = Server.settings.verificationBackends[0];
+        Server.nailgunService.startNailgunIfNotRunning(Server.connection, Server.backend);
     }
-    if (!nailgunService.ready) {
+    if (!Server.nailgunService.ready) {
         Log.hint("The verification backend is not ready yet");
         return;
     }
 
     //check if there is already a verification task for that file
-    let task = verificationTasks.get(uri);
+    let task = Server.verificationTasks.get(uri);
     if (!task) {
         Log.error("No verification task found for file: " + uri);
         return;
     }
     //stop all other verifications because the backend crashes if multiple verifications are run in parallel
-    verificationTasks.forEach(task => { task.abortVerification(); });
+    Server.verificationTasks.forEach(task => { task.abortVerification(); });
     //start verification
-    task.verify(backend, onlyTypeCheck, manuallyTriggered);
+    task.verify(onlyTypeCheck, manuallyTriggered);
 }
 
-function isViperSourceFile(uri: string): boolean {
-    return uri.endsWith(".sil") || uri.endsWith(".vpr");
-}
-
-//communication with debugger
-function startIPCServer() {
-    ipc.config.id = 'viper';
-    ipc.config.retry = 1500;
-
-    ipc.serve(
-        function () {
-            ipc.server.on(
-                'log',
-                function (data, socket) {
-                    Log.log("Debugger: " + data, LogLevel.LowLevelDebug);
-                }
-            );
-            ipc.server.on(
-                'launchRequest',
-                function (data, socket) {
-                    Log.log('Debugging was requested for file: ' + data, LogLevel.Debug);
-                    VerificationTask.pathToUri(data).then((uri) => {
-                        debuggedVerificationTask = verificationTasks.get(uri);
-                        let response = "true";
-                        if (!debuggedVerificationTask) {
-                            //TODO: use better criterion to detect a missing verification
-                            Log.hint("Cannot debug file, you must first verify the file: " + uri);
-                            response = "false";
-                        }
-                        ipc.server.emit(
-                            socket,
-                            'launchResponse',
-                            response
-                        );
-                    });
-                }
-            );
-            ipc.server.on(
-                'variablesInLineRequest',
-                function (data, socket) {
-                    Log.log('got a variables request for line ' + data, LogLevel.Debug);
-                    let lineNumber: number;
-                    try {
-                        lineNumber = data - 0;
-                    } catch (error) {
-                        Log.error("Wrong format");
-                    }
-
-                    let variables = [];
-                    if (debuggedVerificationTask) {
-                        let steps = debuggedVerificationTask.getStepsOnLine(lineNumber);
-                        if (steps.length > 0) {
-                            steps[0].store.forEach((variable) => {
-                                variables.push(variable);
-                            });
-                        }
-                    } else {
-                        Log.error("no debuggedVerificationTask available");
-                    }
-
-                    ipc.server.emit(
-                        socket,
-                        'variablesInLineResponse',
-                        JSON.stringify(variables)
-                    );
-                }
-            );
-
-            ipc.server.on(
-                'evaluateRequest',
-                function (data, socket) {
-                    Log.log(`evaluate(context: '${data.context}', '${data.expression}')`, LogLevel.LowLevelDebug);
-
-                    let evaluated: string = debuggedVerificationTask.model.values.has(data.expression)
-                        ? debuggedVerificationTask.model.values.get(data.expression)
-                        : "unknown";
-
-                    ipc.server.emit(
-                        socket,
-                        'evaluateResponse',
-                        JSON.stringify(evaluated)
-                    );
-                }
-            );
-
-            ipc.server.on(
-                'nextLineRequest',
-                function (data, socket) {
-                    Log.log(`get line after ${data}`, LogLevel.LowLevelDebug);
-
-                    let nextLine = debuggedVerificationTask.getNextLine(data);
-                    ipc.server.emit(
-                        socket,
-                        'nextLineResponse',
-                        nextLine
-                    );
-                }
-            );
-
-            ipc.server.on(
-                'stackTraceRequest',
-                function (data, socket) {
-                    Log.log('stack trace request for line ' + data, LogLevel.Debug);
-                    let lineNumber: number;
-                    try {
-                        lineNumber = data - 0;
-                    } catch (error) {
-                        Log.error("Wrong format");
-                    }
-                    let stepsOnLine = [];
-                    if (debuggedVerificationTask) {
-                        let steps = debuggedVerificationTask.getStepsOnLine(lineNumber);
-                        steps.forEach((step) => {
-                            stepsOnLine.push({ "type": StatementType[step.type], position: step.position });
-                        });
-                    }
-                    ipc.server.emit(
-                        socket,
-                        'stackTraceResponse',
-                        JSON.stringify(stepsOnLine)
-                    );
-                }
-            );
-        }
-    );
-
-    ipc.server.start();
-}
 /*
 // This handler provides the initial list of the completion items.
-connection.onCompletion((textPositionParams): CompletionItem[] => {
+Server.connection.onCompletion((textPositionParams): CompletionItem[] => {
     // The pass parameter contains the position of the text document in
     // which code complete got requested. For the example we ignore this
     // info and always provide the same completion items.
@@ -426,7 +265,7 @@ connection.onCompletion((textPositionParams): CompletionItem[] => {
 });
 // This handler resolve additional information for the item selected in
 // the completion list.
-connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
+Server.connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
     //Log.log('onCompletionResolve');
     if (item.data === 1) {
         item.detail = 'add an invariant',

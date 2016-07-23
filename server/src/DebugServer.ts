@@ -1,0 +1,176 @@
+'use strict';
+
+import fs = require('fs');
+
+import {
+    IPCMessageReader, IPCMessageWriter,
+    createConnection, IConnection, TextDocumentSyncKind,
+    TextDocuments, TextDocument, TextDocumentIdentifier, Diagnostic, DiagnosticSeverity,
+    InitializeParams, InitializeResult, TextDocumentPositionParams,
+    CompletionItem, CompletionItemKind, NotificationType,
+    RequestType, RequestHandler
+} from 'vscode-languageserver';
+import {Server} from './server';
+
+// import {LogEntry, LogType} from './LogEntry';
+import {Log} from './Log';
+// import {Settings} from './Settings'
+import {Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+// import {NailgunService} from './NailgunService';
+import {VerificationTask} from './VerificationTask';
+import {Statement, StatementType} from './Statement';
+// import {Model} from './Model';
+
+var ipc = require('node-ipc');
+
+export class DebugServer {
+
+    public static initialize() {
+        this.startIPCServer();
+        this.registerHandlers();
+    }
+
+    public static registerHandlers() {
+        Server.connection.onRequest({ method: 'variablesInLine' }, (lineNumber) => {
+            let variables = [];
+            if (Server.debuggedVerificationTask) {
+                Server.debuggedVerificationTask.steps.forEach(element => {
+                    if (element.position.line === lineNumber) {
+                        element.store.forEach(variable => {
+                            variables.push({
+                                name: variable,
+                                value: variable,
+                                variablesReference: 0
+                            });
+                        })
+                    }
+                });
+            }
+        });
+    }
+
+    //communication with debugger
+    static startIPCServer() {
+        ipc.config.id = 'viper';
+        ipc.config.retry = 1500;
+
+        ipc.serve(
+            function () {
+                ipc.server.on(
+                    'log',
+                    function (data, socket) {
+                        Log.log("Debugger: " + data, LogLevel.LowLevelDebug);
+                    }
+                );
+                ipc.server.on(
+                    'launchRequest',
+                    function (data, socket) {
+                        Log.log('Debugging was requested for file: ' + data, LogLevel.Debug);
+                        VerificationTask.pathToUri(data).then((uri) => {
+                            Server.debuggedVerificationTask = Server.verificationTasks.get(uri);
+                            let response = "true";
+                            if (!Server.debuggedVerificationTask) {
+                                //TODO: use better criterion to detect a missing verification
+                                Log.hint("Cannot debug file, you must first verify the file: " + uri);
+                                response = "false";
+                            }
+                            ipc.server.emit(
+                                socket,
+                                'launchResponse',
+                                response
+                            );
+                        });
+                    }
+                );
+                ipc.server.on(
+                    'variablesInLineRequest',
+                    function (data, socket) {
+                        Log.log('got a variables request for line ' + data, LogLevel.Debug);
+                        let lineNumber: number;
+                        try {
+                            lineNumber = data - 0;
+                        } catch (error) {
+                            Log.error("Wrong format");
+                        }
+
+                        let variables = [];
+                        if (Server.debuggedVerificationTask) {
+                            let steps = Server.debuggedVerificationTask.getStepsOnLine(lineNumber);
+                            if (steps.length > 0) {
+                                steps[0].store.forEach((variable) => {
+                                    variables.push(variable);
+                                });
+                            }
+                        } else {
+                            Log.error("no Server.debuggedVerificationTask available");
+                        }
+
+                        ipc.server.emit(
+                            socket,
+                            'variablesInLineResponse',
+                            JSON.stringify(variables)
+                        );
+                    }
+                );
+
+                ipc.server.on(
+                    'evaluateRequest',
+                    function (data, socket) {
+                        Log.log(`evaluate(context: '${data.context}', '${data.expression}')`, LogLevel.LowLevelDebug);
+
+                        let evaluated: string = Server.debuggedVerificationTask.model.values.has(data.expression)
+                            ? Server.debuggedVerificationTask.model.values.get(data.expression)
+                            : "unknown";
+
+                        ipc.server.emit(
+                            socket,
+                            'evaluateResponse',
+                            JSON.stringify(evaluated)
+                        );
+                    }
+                );
+
+                ipc.server.on(
+                    'lineOfStateRequest',
+                    function (data, socket) {
+                        Log.log(`get line of state ${data}`, LogLevel.LowLevelDebug);
+                        let nextLine = Server.debuggedVerificationTask?Server.debuggedVerificationTask.getLineOfState(data):0;
+                        ipc.server.emit(
+                            socket,
+                            'lineOfStateResponse',
+                            nextLine
+                        );
+                    }
+                );
+
+                ipc.server.on(
+                    'stackTraceRequest',
+                    function (data, socket) {
+                        Log.log('stack trace request for line ' + data, LogLevel.Debug);
+                        let lineNumber: number;
+                        try {
+                            lineNumber = data - 0;
+                        } catch (error) {
+                            Log.error("Wrong format");
+                        }
+                        let stepsOnLine = [];
+                        if (Server.debuggedVerificationTask) {
+                            let steps = Server.debuggedVerificationTask.getStepsOnLine(lineNumber);
+                            steps.forEach((step) => {
+                                stepsOnLine.push({ "type": StatementType[step.type], position: step.position });
+                            });
+                        }
+                        ipc.server.emit(
+                            socket,
+                            'stackTraceResponse',
+                            JSON.stringify(stepsOnLine)
+                        );
+                    }
+                );
+            }
+        );
+
+        ipc.server.start();
+    }
+
+}

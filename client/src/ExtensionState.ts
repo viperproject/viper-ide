@@ -12,11 +12,23 @@ export class ExtensionState {
 
     public state: VerificationState;
 
+    public static instance:ExtensionState;
+
     private languageServerDisposable;
 
     public isWin = /^win/.test(process.platform);
     public isLinux = /^linux/.test(process.platform);
     public isMac = /^darwin/.test(process.platform);
+
+    static createExtensionState():ExtensionState{
+        if(ExtensionState.instance){
+            return ExtensionState.instance;
+        }else{
+            let newState = new ExtensionState();
+            ExtensionState.instance = newState;
+            return newState;
+        }
+    }
 
     public startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, brk: boolean) {
         this.context = context;

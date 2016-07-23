@@ -3,33 +3,33 @@
 import {IConnection} from 'vscode-languageserver';
 import {Commands, LogLevel} from './ViperProtocol';
 import child_process = require('child_process'); 
+import {Server} from './server';
 
 export class Log {
     static logLevel: LogLevel = LogLevel.Default;
-    static connection: IConnection;
 
     static log(message: string, logLevel: LogLevel = LogLevel.Default) {
         if (Log.logLevel >= logLevel)
-            this.connection.sendNotification(Commands.Log, message);
+            Server.connection.sendNotification(Commands.Log, message);
     }
 
     static toLogFile(message: string, logLevel: LogLevel = LogLevel.Default) {
         if (Log.logLevel >= logLevel)
-            this.connection.sendNotification(Commands.ToLogFile, message);
+            Server.connection.sendNotification(Commands.ToLogFile, message);
     }
 
     static error(message: string, logLevel: LogLevel = LogLevel.Debug) {
         if (Log.logLevel >= logLevel)
-            this.connection.sendNotification(Commands.Error, message);
+            Server.connection.sendNotification(Commands.Error, message);
     }
 
     static logWithOrigin(origin: string, message: string, logLevel: LogLevel = LogLevel.Default) {
         if (Log.logLevel >= logLevel)
-            this.connection.sendNotification(Commands.Log, (logLevel >= LogLevel.Debug ? "["+origin + "]: " : "") + message);
+            Server.connection.sendNotification(Commands.Log, (logLevel >= LogLevel.Debug ? "["+origin + "]: " : "") + message);
     }
 
     static hint(message: string) {
-        this.connection.sendNotification(Commands.Hint, message);
+        Server.connection.sendNotification(Commands.Hint, message);
     }
 
     static logOutput(process: child_process.ChildProcess,label:string) {

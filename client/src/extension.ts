@@ -13,35 +13,25 @@ import {ExtensionState} from './ExtensionState';
 import {HeapGraph, Backend, ViperSettings, VerificationState, Commands, UpdateStatusBarParams, LogLevel, Success} from './ViperProtocol';
 import Uri from '../node_modules/vscode-uri/lib/index';
 import {Log} from './Log';
-import {DebugContentProvider} from './TextDocumentContentProvider';
-import child_process = require('child_process');
+import {StateVisualizer} from './StateVisualizer';
+import {Helper} from './Helper';
 
 let statusBarItem;
 let statusBarProgress;
 let backendStatusBar;
 let abortButton;
 let autoSaver: Timer;
-let previewUri = vscode.Uri.parse('viper-preview://debug');
 let state: ExtensionState;
-
-let graphvizProcess: child_process.ChildProcess;
-
-let enableSecondWindow: boolean = true;
 
 let fileSystemWatcher: vscode.FileSystemWatcher;
 let manuallyTriggered: boolean;
-let showStepsInCode = true;
-
-let decoration: vscode.TextEditorDecorationType;
-let decorationOptions: vscode.DecorationOptions[];
-let textEditorUnderVerification: vscode.TextEditor;
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
     Log.initialize(context);
     Log.log('Viper-Client is now active!', LogLevel.Info);
-    state = new ExtensionState();
+    state = ExtensionState.createExtensionState();
     state.checkOperatingSystem();
     context.subscriptions.push(state);
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/*.sil, **/*.vpr');
@@ -49,57 +39,30 @@ export function activate(context: vscode.ExtensionContext) {
     startAutoSaver();
     registerHandlers();
     initializeStatusBar();
-
-    if (enableSecondWindow) {
-        registerTextDocumentProvider();
-    }
+    StateVisualizer.initialize();//enable second window
 }
 
-function decorateText(position: vscode.Position) {
-    let ranges: vscode.Range[] = [];
-    //ranges.push(new vscode.Range(position, new vscode.Position(2,5)));
-    let decorationRenderType: vscode.TextEditorDecorationType = vscode.window.createTextEditorDecorationType({});
-    let options: vscode.DecorationOptions[] = [{
-        range: new vscode.Range(position, new vscode.Position(1, 10)),
-        renderOptions: {
-            before: {
-                contentText: "⚫",
-                color: "red",
-            }
-        }
-    }];
-    if (textEditorUnderVerification) {
-        textEditorUnderVerification.setDecorations(decorationRenderType, options);
-    }
-}
-
-function removeDecorations() {
-    if (decoration)
-        decoration.dispose();
-}
-
+// function decorateText(position: vscode.Position) {
+//     let ranges: vscode.Range[] = [];
+//     //ranges.push(new vscode.Range(position, new vscode.Position(2,5)));
+//     let decorationRenderType: vscode.TextEditorDecorationType = vscode.window.createTextEditorDecorationType({});
+//     let options: vscode.DecorationOptions[] = [{
+//         range: new vscode.Range(position, new vscode.Position(1, 10)),
+//         renderOptions: {
+//             before: {
+//                 contentText: "⚫",
+//                 color: "red",
+//             }
+//         }
+//     }];
+//     if (textEditorUnderVerification) {
+//         textEditorUnderVerification.setDecorations(decorationRenderType, options);
+//     }
+// }
 
 export function deactivate() {
     Log.log("deactivate", LogLevel.Info);
     state.dispose();
-}
-
-let provider: DebugContentProvider;
-
-function registerTextDocumentProvider() {
-    provider = new DebugContentProvider();
-    let registration = vscode.workspace.registerTextDocumentContentProvider('viper-preview', provider);
-}
-
-function showSecondWindow(heapGraph: HeapGraph) {
-    if (enableSecondWindow) {
-        provider.setState(heapGraph);
-        showFile(Log.dotFilePath, vscode.ViewColumn.Two);
-        provider.update(previewUri);
-        vscode.commands.executeCommand('vscode.previewHtml', previewUri, vscode.ViewColumn.Two).then((success) => { }, (reason) => {
-            vscode.window.showErrorMessage(reason);
-        });
-    }
 }
 
 function initializeStatusBar() {
@@ -136,7 +99,7 @@ function startAutoSaver() {
     autoSaver = new Timer(() => {
         //only save viper files
         if (vscode.window.activeTextEditor != null && vscode.window.activeTextEditor.document.languageId == 'viper') {
-            if (getConfiguration('autoSave') === true) {
+            if (Helper.getConfiguration('autoSave') === true) {
                 manuallyTriggered = false;
                 vscode.window.activeTextEditor.document.save();
             }
@@ -155,172 +118,149 @@ function resetAutoSaver() {
     autoSaver.reset();
 }
 
-function getConfiguration(setting: string) {
-    return vscode.workspace.getConfiguration("viperSettings").get(setting);
+function handleStateChange(params: UpdateStatusBarParams) {
+    Log.log("The new state is: " + VerificationState[params.newState], LogLevel.Debug);
+    let window = vscode.window;
+    switch (params.newState) {
+        case VerificationState.Starting:
+            updateStatusBarItem(statusBarItem, 'starting', 'orange'/*,"Starting " + params.backendName*/);
+            break;
+        case VerificationState.VerificationRunning:
+            let showProgressBar = Helper.getConfiguration('showProgress') === true;
+            if (!params.progress) {
+                updateStatusBarItem(statusBarItem, "pre-processing", 'orange');
+                updateStatusBarItem(statusBarProgress, progressBarText(0), 'white', null, showProgressBar);
+            }
+            else {
+                updateStatusBarItem(statusBarItem, `verifying ${params.filename}: ` + params.progress.toFixed(1) + "%", 'orange');
+                updateStatusBarItem(statusBarProgress, progressBarText(params.progress), 'white', null, showProgressBar);
+            }
+            abortButton.show();
+            break;
+        case VerificationState.Ready:
+            if (params.firstTime) {
+                updateStatusBarItem(statusBarItem, "ready", 'white');
+                //automatically trigger the first verification
+                if (params.verificationNeeded && Helper.getConfiguration('autoVerifyAfterBackendChange') === true) {
+                    verify(false);
+                }
+            } else {
+                let msg: string = "";
+                switch (params.success) {
+                    case Success.Success:
+                        msg = `Successfully verified ${params.filename} in ${params.time.toFixed(1)} seconds`;
+                        Log.log(msg, LogLevel.Default);
+                        updateStatusBarItem(statusBarItem, "$(check) " + msg, 'lightgreen');
+                        if (params.manuallyTriggered) Log.hint(msg);
+                        break;
+                    case Success.ParsingFailed:
+                        msg = `Parsing ${params.filename} failed after ${params.time.toFixed(1)} seconds`;
+                        Log.log(msg, LogLevel.Default);
+                        updateStatusBarItem(statusBarItem, "$(x) " + msg, 'red');
+                        break;
+                    case Success.TypecheckingFailed:
+                        msg = `Type checking ${params.filename} failed after ${params.time.toFixed(1)} seconds with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
+                        Log.log(msg, LogLevel.Default);
+                        updateStatusBarItem(statusBarItem, "$(x) " + msg, 'red');
+                        break;
+                    case Success.VerificationFailed:
+                        msg = `Verifying ${params.filename} failed after ${params.time.toFixed(1)} seconds with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
+                        Log.log(msg, LogLevel.Default);
+                        updateStatusBarItem(statusBarItem, "$(x) " + msg, 'red');
+                        break;
+                    case Success.Aborted:
+                        updateStatusBarItem(statusBarItem, "Verification aborted", 'orange');
+                        Log.log(`Verifying ${params.filename} was aborted`, LogLevel.Info);
+                        break;
+                    case Success.Error:
+                        let msg2 = " - see View->Output->Viper for more info"
+                        updateStatusBarItem(statusBarItem, `$(x) Internal error` + msg2, 'red');
+                        msg = `Verifying ${params.filename} failed due to an internal error`;
+                        Log.log(msg);
+                        Log.hint(msg + msg2);
+                        break;
+                }
+            }
+            statusBarProgress.hide();
+            abortButton.hide();
+            break;
+        case VerificationState.Stopping:
+            updateStatusBarItem(statusBarItem, 'preparing', 'orange');
+            break;
+        default:
+            break;
+    }
+}
+
+function handleInvalidSettings(data) {
+    Log.log("Invalid Settings detected", LogLevel.Default);
+    statusBarItem.color = 'red';
+    statusBarItem.text = "Invalid Settings";
+
+    let userSettingsButton: vscode.MessageItem = { title: "Open User Settings" };
+    let workspaceSettingsButton: vscode.MessageItem = { title: "Open Workspace Settings" };
+
+    vscode.window.showInformationMessage("Viper: Invalid settings: " + data, userSettingsButton, workspaceSettingsButton).then((choice) => {
+        if (!choice) {
+
+        } else if (choice.title === workspaceSettingsButton.title) {
+            try {
+                let rootPath = vscode.workspace.rootPath;
+                if (!rootPath) {
+                    Log.hint("Only if a folder is opened, the workspace settings can be accessed.")
+                    return;
+                }
+                //workspaceSettings
+                let workspaceSettingsPath = path.join(rootPath, '.vscode', 'settings.json');
+                Log.log("WorkspaceSettings: " + workspaceSettingsPath, LogLevel.Debug);
+                Helper.makeSureFileExists(workspaceSettingsPath);
+                Helper.showFile(workspaceSettingsPath, vscode.ViewColumn.Two);
+            } catch (e) {
+                Log.error("Error accessing workspace settings: " + e)
+            }
+        } else if (choice.title === userSettingsButton.title) {
+            try {
+                //user Settings
+                let userSettings = state.userSettingsPath();
+                Log.log("UserSettings: " + userSettings, LogLevel.Debug);
+                Helper.makeSureFileExists(userSettings);
+                Helper.showFile(userSettings, vscode.ViewColumn.Two);
+            } catch (e) {
+                Log.error("Error accessing user settings: " + e)
+            }
+        }
+    });
 }
 
 function registerHandlers() {
 
-    state.client.onNotification(Commands.StateChange, (params: UpdateStatusBarParams) => {
-        Log.log("The new state is: " + VerificationState[params.newState], LogLevel.Debug);
-        let window = vscode.window;
-        switch (params.newState) {
-            case VerificationState.Starting:
-                updateStatusBarItem(statusBarItem, 'starting', 'orange'/*,"Starting " + params.backendName*/);
-                break;
-            case VerificationState.VerificationRunning:
-                let showProgressBar = getConfiguration('showProgress') === true;
-                if (!params.progress) {
-                    updateStatusBarItem(statusBarItem, "pre-processing", 'orange');
-                    updateStatusBarItem(statusBarProgress, progressBarText(0), 'white', null, showProgressBar);
-                }
-                else {
-                    updateStatusBarItem(statusBarItem, `verifying ${params.filename}: ` + params.progress.toFixed(1) + "%", 'orange');
-                    updateStatusBarItem(statusBarProgress, progressBarText(params.progress), 'white', null, showProgressBar);
-                }
-                abortButton.show();
-                break;
-            case VerificationState.Ready:
-                if (params.firstTime) {
-                    updateStatusBarItem(statusBarItem, "ready", 'white');
-                    //automatically trigger the first verification
-                    if (params.verificationNeeded && getConfiguration('autoVerifyAfterBackendChange') === true) {
-                        verify(false);
-                    }
-                } else {
-                    let msg: string = "";
-                    switch (params.success) {
-                        case Success.Success:
-                            msg = `Successfully verified ${params.filename} in ${params.time.toFixed(1)} seconds`;
-                            Log.log(msg, LogLevel.Default);
-                            updateStatusBarItem(statusBarItem, "$(check) " + msg, 'lightgreen');
-                            if (params.manuallyTriggered) Log.hint(msg);
-                            //temp: show first state, TODO: remove next line
-                            //state.client.sendRequest(Commands.ShowHeap, { uri: vscode.window.activeTextEditor.document.uri.toString(), index: 1 });
-                            break;
-                        case Success.ParsingFailed:
-                            msg = `Parsing ${params.filename} failed after ${params.time.toFixed(1)} seconds`;
-                            Log.log(msg, LogLevel.Default);
-                            updateStatusBarItem(statusBarItem, "$(x) " + msg, 'red');
-                            break;
-                        case Success.TypecheckingFailed:
-                            msg = `Type checking ${params.filename} failed after ${params.time.toFixed(1)} seconds with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
-                            Log.log(msg, LogLevel.Default);
-                            updateStatusBarItem(statusBarItem, "$(x) " + msg, 'red');
-                            break;
-                        case Success.VerificationFailed:
-                            msg = `Verifying ${params.filename} failed after ${params.time.toFixed(1)} seconds with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
-                            Log.log(msg, LogLevel.Default);
-                            updateStatusBarItem(statusBarItem, "$(x) " + msg, 'red');
-                            break;
-                        case Success.Aborted:
-                            updateStatusBarItem(statusBarItem, "Verification aborted", 'orange');
-                            Log.log(`Verifying ${params.filename} was aborted`, LogLevel.Info);
-                            break;
-                        case Success.Error:
-                            let msg2 = " - see View->Output->Viper for more info"
-                            updateStatusBarItem(statusBarItem, `$(x) Internal error` + msg2, 'red');
-                            msg = `Verifying ${params.filename} failed due to an internal error`;
-                            Log.log(msg);
-                            Log.hint(msg + msg2);
-                            break;
-                    }
-                }
-                statusBarProgress.hide();
-                abortButton.hide();
-                break;
-            case VerificationState.Stopping:
-                updateStatusBarItem(statusBarItem, 'preparing', 'orange');
-                break;
-            default:
-                break;
-        }
-    });
-
-    state.client.onNotification(Commands.InvalidSettings, (data) => {
-        Log.log("Invalid Settings detected", LogLevel.Default);
-        statusBarItem.color = 'red';
-        statusBarItem.text = "Invalid Settings";
-
-        let userSettingsButton: vscode.MessageItem = { title: "Open User Settings" };
-        let workspaceSettingsButton: vscode.MessageItem = { title: "Open Workspace Settings" };
-
-        vscode.window.showInformationMessage("Viper: Invalid settings: " + data, userSettingsButton, workspaceSettingsButton).then((choice) => {
-            if (!choice) {
-
-            } else if (choice.title === workspaceSettingsButton.title) {
-                try {
-                    let rootPath = vscode.workspace.rootPath;
-                    if (!rootPath) {
-                        Log.hint("Only if a folder is opened, the workspace settings can be accessed.")
-                        return;
-                    }
-                    //workspaceSettings
-                    let workspaceSettingsPath = path.join(rootPath, '.vscode', 'settings.json');
-                    Log.log("WorkspaceSettings: " + workspaceSettingsPath, LogLevel.Debug);
-                    makeSureFileExists(workspaceSettingsPath);
-                    showFile(workspaceSettingsPath, vscode.ViewColumn.Two);
-                } catch (e) {
-                    Log.error("Error accessing workspace settings: " + e)
-                }
-            } else if (choice.title === userSettingsButton.title) {
-                try {
-                    //user Settings
-                    let userSettings = state.userSettingsPath();
-                    Log.log("UserSettings: " + userSettings, LogLevel.Debug);
-                    makeSureFileExists(userSettings);
-                    showFile(userSettings, vscode.ViewColumn.Two);
-                } catch (e) {
-                    Log.error("Error accessing user settings: " + e)
-                }
-            }
-        });
-    });
-
+    state.client.onNotification(Commands.StateChange, (params: UpdateStatusBarParams) => handleStateChange(params));
+    state.client.onNotification(Commands.InvalidSettings, (data) => handleInvalidSettings(data));
     state.client.onNotification(Commands.Hint, (data: string) => {
         Log.hint(data);
     });
-
     state.client.onNotification(Commands.Log, (data: string) => {
         Log.log((Log.logLevel >= LogLevel.Debug ? "S: " : "") + data, LogLevel.Default);
     });
-
     state.client.onNotification(Commands.ToLogFile, (data: string) => {
         Log.toLogFile((Log.logLevel >= LogLevel.Debug ? "S: " : "") + data, LogLevel.Default);
     });
-
     state.client.onNotification(Commands.Error, (data: string) => {
         Log.error((Log.logLevel >= LogLevel.Debug ? "S: " : "") + data, LogLevel.Default);
     });
-
     state.client.onNotification(Commands.BackendChange, (newBackend: string) => {
         updateStatusBarItem(backendStatusBar, newBackend, "white");
     });
-
-    state.client.onNotification(Commands.StepsAsDecorationOptions, (params: { uri: string, decorations: vscode.DecorationOptions[] }) => {
-        if (showStepsInCode) {
-            decorationOptions = params.decorations;
-            vscode.window.visibleTextEditors.forEach(editor => {
-                if (editor.document.uri.toString() === params.uri) {
-                    textEditorUnderVerification = editor;
-                }
-            });
-            setDecorations();
-        }
-    });
-
     state.client.onRequest(Commands.UriToPath, (uri: string) => {
         let uriObject: vscode.Uri = vscode.Uri.parse(uri);
         let platformIndependentPath = uriObject.fsPath;
         return platformIndependentPath;
     });
-
     state.client.onRequest(Commands.PathToUri, (path: string) => {
         let uriObject: Uri = Uri.file(path);
         let platformIndependentUri = uriObject.toString();
         return platformIndependentUri;
     });
-
     state.client.onRequest(Commands.AskUserToSelectBackend, (backendNames: string[]) => {
         //only ask the user if there is a choice
         if (backendNames.length > 1) {
@@ -331,88 +271,20 @@ function registerHandlers() {
             state.client.sendRequest(Commands.SelectBackend, backendNames[0]);
         }
     });
-
     state.context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
         verify(manuallyTriggered);
     }));
-
     state.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
         Log.updateSettings();
     }));
 
-    state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
-        if(!heapGraph.heap){
-            Log.error("Error creating heap description");
-            return;
-        }
-        Log.writeToDotFile(heapGraph.heap);
-        //Log.log(graphDescription, LogLevel.Debug);
+    //Heap visualization
+    state.client.onNotification(Commands.StepsAsDecorationOptions, (params: { uri: string, decorations: vscode.DecorationOptions[] }) => StateVisualizer.storeNewStates(params));
+    state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => StateVisualizer.showHeap(heapGraph));
+    vscode.window.onDidChangeTextEditorSelection((change) => StateVisualizer.onDidChangeTextEditorSelection(change));
 
-        let dotExecutable: string = <string>getConfiguration("dotExecutable");
-        if (!dotExecutable || !fs.existsSync(dotExecutable)) {
-            Log.hint("Fix the path to the dotExecutable, no file found at: " + dotExecutable);
-            return;
-        }
-        //convert dot to svg
-        graphvizProcess = child_process.exec(`${dotExecutable} -Tsvg "${Log.dotFilePath}" -o "${Log.svgFilePath}"`);
-
-        graphvizProcess.on('exit', code => {
-            //show svg
-            if (code != 0) {
-                Log.error("Could not convert graph description to svg, exit code: " + code, LogLevel.Debug);
-            }
-            Log.log("Graph converted to heap.svg", LogLevel.Debug);
-            showSecondWindow(heapGraph);
-        });
-
-        graphvizProcess.stdout.on('data', data => {
-            Log.log("[Graphviz] " + data, LogLevel.Debug);
-        });
-        graphvizProcess.stderr.on('data', data => {
-            Log.log("[Graphviz stderr] " + data, LogLevel.Debug);
-        });
-    });
-
-    vscode.window.onDidChangeTextEditorSelection((change) => {
-        if (change.textEditor.document.fileName == "\\2") return;
-        if (showStepsInCode) {
-            let selection = change.textEditor.selection;
-            if (!selection) {
-                Log.log("No selection", LogLevel.Debug);
-            } else {
-                //Log.log("Selection at " + selection.start.line + ":" + selection.start.character, LogLevel.Debug);
-            }
-            if (decorationOptions) {
-                let change = false;
-                let selectedState = -1;
-                for (var i = 0; i < decorationOptions.length; i++) {
-                    var option = decorationOptions[i];
-                    let a = option.range.start;
-                    let b = selection.start;
-                    if (selectedState < 0 && a.line == b.line && a.character == b.character && option.renderOptions.before.color != 'blue') {
-                        option.renderOptions.before.color = 'blue';
-                        selectedState = i;
-                        Log.log("Request showing the heap of state " + i);
-                        state.client.sendRequest(Commands.ShowHeap, { uri: vscode.window.activeTextEditor.document.uri.toString(), index: i });
-                        change = true;
-                    }else if (selectedState >= 0 && option.renderOptions.before.color != 'grey') {
-                        option.renderOptions.before.color = 'grey';
-                        change = true;
-                    } 
-                    else if (option.renderOptions.before.color != 'red') {
-                        option.renderOptions.before.color = 'red';
-                        change = true;
-                    }
-                }
-                if (change && selectedState >= 0) {
-                    setDecorations();
-                }
-            }
-        }
-    });
-
-
-    let verifyCommandDisposable = vscode.commands.registerCommand('extension.verify', () => {
+    //Command Handlers
+    state.context.subscriptions.push(vscode.commands.registerCommand('extension.verify', () => {
         manuallyTriggered = true;
         vscode.window.activeTextEditor.document.save().then(saved => {
             if (!saved) {
@@ -420,20 +292,15 @@ function registerHandlers() {
                 verify(true);
             }
         });
-    });
-
-    state.context.subscriptions.push(verifyCommandDisposable);
-
-    let selectBackendCommandDisposable = vscode.commands.registerCommand('extension.selectBackend', () => {
+    }));
+    state.context.subscriptions.push(vscode.commands.registerCommand('extension.selectBackend', () => {
         if (!state.client) {
             Log.hint("Extension not ready yet.");
         } else {
             state.client.sendRequest(Commands.RequestBackendSelection, null);
         }
-    });
-    state.context.subscriptions.push(selectBackendCommandDisposable);
-
-    let startDebuggingCommandDisposable = vscode.commands.registerCommand('extension.startDebugging', () => {
+    }));
+    state.context.subscriptions.push(vscode.commands.registerCommand('extension.startDebugging', () => {
         let openDoc = vscode.window.activeTextEditor.document.uri.path;
         if (state.isWin) {
             openDoc = openDoc.substring(1, openDoc.length);
@@ -450,10 +317,8 @@ function registerHandlers() {
         }, err => {
             Log.error(err.message);
         });
-    });
-    state.context.subscriptions.push(startDebuggingCommandDisposable);
-
-    let selectStopVerificationDisposable = vscode.commands.registerCommand('extension.stopVerification', () => {
+    }));
+    state.context.subscriptions.push(vscode.commands.registerCommand('extension.stopVerification', () => {
         if (state.client) {
             Log.log("Verification stop request", LogLevel.Debug);
             abortButton.hide();
@@ -464,43 +329,19 @@ function registerHandlers() {
         } else {
             Log.hint("Extension not ready yet.");
         }
-    });
-    state.context.subscriptions.push(selectStopVerificationDisposable);
-
-    if (enableSecondWindow) {
-        registerTextDocumentProvider();
-    }
-}
-
-function setDecorations() {
-    if (decorationOptions) {
-        removeDecorations();
-        decoration = vscode.window.createTextEditorDecorationType({});
-        if (textEditorUnderVerification) {
-            textEditorUnderVerification.setDecorations(decoration, decorationOptions);
-        }
-    }
-}
-
-function showFile(filePath: string, column: vscode.ViewColumn) {
-    let resource = vscode.Uri.file(filePath);
-    vscode.workspace.openTextDocument(resource).then((doc) => {
-        vscode.window.showTextDocument(doc, column);
-    });
-}
-
-function makeSureFileExists(fileName: string) {
-    try {
-        if (!fs.existsSync(fileName)) {
-            fs.createWriteStream(fileName).close();
-        }
-    } catch (e) {
-        Log.error("Cannot create file: " + e);
-    }
+    }));
+    state.context.subscriptions.push(vscode.commands.registerCommand('extension.showStates', () => {
+        StateVisualizer.showStates = true;
+        StateVisualizer.showDecorations();
+    }));
+    state.context.subscriptions.push(vscode.commands.registerCommand('extension.hideStates', () => {
+        StateVisualizer.showStates = false;
+        StateVisualizer.hideDecorations();
+    }));
 }
 
 function verify(manuallyTriggered: boolean) {
-    if (isViperSourceFile(vscode.window.activeTextEditor.document.uri.toString())) {
+    if (Helper.isViperSourceFile(vscode.window.activeTextEditor.document.uri.toString())) {
         if (!state.client) {
             Log.hint("Extension not ready yet.");
         } else {
@@ -508,10 +349,6 @@ function verify(manuallyTriggered: boolean) {
             state.client.sendRequest(Commands.Verify, { uri: vscode.window.activeTextEditor.document.uri.toString(), manuallyTriggered: manuallyTriggered, workspace: workspace });
         }
     }
-}
-
-function isViperSourceFile(uri: string): boolean {
-    return uri.endsWith(".sil") || uri.endsWith(".vpr");
 }
 
 function progressBarText(progress: number): string {

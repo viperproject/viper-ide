@@ -37,6 +37,8 @@ class ViperDebugSession extends DebugSession {
 	// so that the frontend can match events with breakpoints.
 	private _breakpointId = 1000;
 
+	private _currentState: number = 0;
+
 	// This is the next line that will be 'executed'
 	private __currentLine = 0;
 	private get _currentLine(): number {
@@ -46,19 +48,16 @@ class ViperDebugSession extends DebugSession {
 		this.__currentLine = line;
 		this.sendEvent(new OutputEvent(`line: ${line}\n`));	// print current line on debug console
 	}
-
 	// the initial (and one and only) file we are 'debugging'
 	private _sourceFile: string;
-
 	// the contents (= lines) of the one and only file
 	private _sourceLines = new Array<string>();
-
 	// maps from sourceFile to array of Breakpoints
 	private _breakPoints = new Map<string, DebugProtocol.Breakpoint[]>();
-
 	private _variableHandles = new Handles<string>();
-
 	private _timer;
+
+	private _stopOnEntry: boolean = true;
 
 	/**
 	 * Creates a new debug adapter that is used for one debug session.
@@ -96,6 +95,36 @@ class ViperDebugSession extends DebugSession {
 		);
 	}
 
+	private registerHandlers() {
+		this.registerIpcHandler("launch", this._sourceFile, false, (ok) => {
+			if (ok != "true") {
+				this.sendEvent(new TerminatedEvent());
+				return;
+			} else {
+				//if (this._stopOnEntry) {
+				//stop at the first State
+				this._currentState = 0;
+				this.requestFromLanguageServer("lineOfState", this._currentState);
+				//} else {
+				// we just start to run until we hit a breakpoint or an exception
+				//this.continueRequest(response, { threadId: ViperDebugSession.THREAD_ID });
+				//}
+			}
+		});
+		this.registerIpcHandler("lineOfState", this._currentState, false, line => {
+			if (line >= 0) {
+				this._currentLine = line;
+				//this.sendResponse(response);
+				this.sendEvent(new StoppedEvent("step", ViperDebugSession.THREAD_ID));
+			} else {
+				// no more lines: run to end
+				//this.sendResponse(response);
+				this.sendEvent(new TerminatedEvent());
+			}
+		});
+
+	}
+
 	/**
 	 * The 'initialize' request is the first request called by the frontend
 	 * to interrogate the features the debug adapter provides.
@@ -111,7 +140,10 @@ class ViperDebugSession extends DebugSession {
 		response.body.supportsConfigurationDoneRequest = true;
 
 		// make VS Code to use 'evaluate' when hovering over source
-		response.body.supportsEvaluateForHovers = true;
+		response.body.supportsEvaluateForHovers = false;
+
+		// make VS Code to show a 'step back' button
+		response.body.supportsStepBack = true;
 
 		this.sendResponse(response);
 	}
@@ -120,9 +152,11 @@ class ViperDebugSession extends DebugSession {
 		ipc.of.viper.emit(method, data);
 	}
 
-	private requestFromLanguageServer(method: string, data: any, isJsonResponse: boolean, onResponse): any {
+	private requestFromLanguageServer(method: string, data: any) {
 		ipc.of.viper.emit(method + "Request", data);
+	}
 
+	private registerIpcHandler(method: string, data: any, isJsonResponse: boolean, onResponse): any {
 		ipc.of.viper.on(
 			method + "Response", (data) => {
 				if (data && data != "[]") {
@@ -148,33 +182,18 @@ class ViperDebugSession extends DebugSession {
 	protected launchRequest(response: DebugProtocol.ContinueResponse, args: LaunchRequestArguments): void {
 		//start IPC connection
 		this.connectToLanguageServer();
-		// send a custom 'heartbeat' event (for demonstration purposes)
-		this._timer = setInterval(() => {
-			this.sendEvent(new Event('heartbeatEvent'));
-		}, 1000);
+		this.registerHandlers();
 
 		this._sourceFile = args.program;
+		this._stopOnEntry = args.stopOnEntry;
 		this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
 
 		//notify Language server about started debugging session
-		this.requestFromLanguageServer("launch", this._sourceFile, false, (ok) => {
-			if (ok != "true") {
-				this.sendEvent(new TerminatedEvent());
-				return;
-			}
-		});
-
-		if (args.stopOnEntry) {
-			this._currentLine = 0;
-			this.sendResponse(response);
-
-			// we stop on the first line
-			this.sendEvent(new StoppedEvent("entry", ViperDebugSession.THREAD_ID));
-		} else {
-			// we just start to run until we hit a breakpoint or an exception
-			this.continueRequest(response, { threadId: ViperDebugSession.THREAD_ID });
-		}
+		this.sendResponse(response);
+		this.requestFromLanguageServer("launch", this._sourceFile);
+		this.sendEvent(new StoppedEvent("entry", ViperDebugSession.THREAD_ID));
 	}
+
 
 	protected disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments): void {
 		// stop sending custom events
@@ -235,20 +254,24 @@ class ViperDebugSession extends DebugSession {
 	}
 
 	protected stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): void {
+
+		this.sendResponse(response);
+		/*
 		this.requestFromLanguageServer("stackTrace", this.__currentLine, true, (steps) => {
 			const frames = new Array<StackFrame>();
-
+	
 			frames.push(new StackFrame(i, "Root", new Source(basename(this._sourceFile), this.convertDebuggerPathToClient(this._sourceFile)), this.convertDebuggerLineToClient(this.__currentLine), 0));
 			for (var i = 0; i < steps.length; i++) {
 				let step = steps[i];
 				frames.push(new StackFrame(i, step.type, new Source(basename(this._sourceFile), this.convertDebuggerPathToClient(this._sourceFile)), this.convertDebuggerLineToClient(step.position.line), this.convertClientColumnToDebugger(step.position.character)));
 			}
-
+	
 			response.body = {
 				stackFrames: frames
 			};
 			this.sendResponse(response);
 		});
+		*/
 	}
 
 	protected scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
@@ -263,19 +286,23 @@ class ViperDebugSession extends DebugSession {
 		};
 		this.sendResponse(response);
 	}
-
 	protected variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments): void {
+
+		this.sendResponse(response);
+		/*
 		this.requestFromLanguageServer("variablesInLine", this.__currentLine, true, (variables) => {
 			response.body = {
 				variables: variables
 			};
 			this.sendResponse(response);
 		});
+		*/
 	}
 
 	public log(message: string) {
 		ipc.of.viper.emit('log', message);
 	}
+
 
 	protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): void {
 
@@ -308,34 +335,35 @@ class ViperDebugSession extends DebugSession {
 			// if word 'exception' found in source -> throw exception
 			if (this._sourceLines[ln].indexOf("exception") >= 0) {
 				this._currentLine = ln;
-				this.sendResponse(response);
+				//this.sendResponse(response);
 				this.sendEvent(new StoppedEvent("exception", ViperDebugSession.THREAD_ID));
 				this.sendEvent(new OutputEvent(`exception in line: ${ln}\n`, 'stderr'));
 				return;
 			}
 		}
-		this.sendResponse(response);
+		//this.sendResponse(response);
 		// no more lines: run to end
 		this.sendEvent(new TerminatedEvent());
 	}
 
 	protected nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): void {
+		this._currentState++;
+		this.requestFromLanguageServer("lineOfState", this._currentState);
+		this.sendResponse(response);
+	}
 
-		for (let ln = this._currentLine + 1; ln < this._sourceLines.length; ln++) {
-			if (this._sourceLines[ln].trim().length > 0) {   // find next non-empty line
-				this._currentLine = ln;
-				this.sendResponse(response);
-				this.sendEvent(new StoppedEvent("step", ViperDebugSession.THREAD_ID));
-				return;
-			}
+	protected stepBackRequest(response: DebugProtocol.StepBackResponse, args: DebugProtocol.StepBackArguments): void {
+		if (this._currentState > 0) {
+			this._currentState--;
+			this.requestFromLanguageServer("lineOfState", this._currentState);
 		}
 		this.sendResponse(response);
-		// no more lines: run to end
-		this.sendEvent(new TerminatedEvent());
 	}
 
 	protected evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): void {
 
+		this.sendResponse(response);
+		/*
 		this.requestFromLanguageServer("evaluate", JSON.stringify(args), false, (evaluated) => {
 			response.body = {
 				result: `${args.expression} = ${evaluated}`,
@@ -343,8 +371,9 @@ class ViperDebugSession extends DebugSession {
 			};
 			this.sendResponse(response);
 		});
+		*/
 	}
-
+	
 	protected customRequest(request: string, response: DebugProtocol.Response, args: any): void {
 		switch (request) {
 			case 'infoRequest':
