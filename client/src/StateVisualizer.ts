@@ -1,13 +1,30 @@
 'use strict';
 
 import {Log} from './Log';
-import {HeapGraph, Commands, ViperSettings, LogLevel} from './ViperProtocol';
+import {MethodBorder, Position, HeapGraph, Commands, ViperSettings, LogLevel} from './ViperProtocol';
 import * as fs from 'fs';
 import child_process = require('child_process');
 import {HeapProvider} from './TextDocumentContentProvider';
 import * as vscode from 'vscode';
 import {Helper} from './Helper';
 import {ExtensionState} from './ExtensionState';
+
+export interface StepsAsDecorationOptionsResult {
+    decorationOptions: [MyDecorationOptions],
+    methodBorders: [MethodBorder]
+    stepInfo: [StepInfo]
+}
+
+export interface MyDecorationOptions extends vscode.DecorationOptions {
+    states: [number];
+}
+
+interface StepInfo {
+    depth: number,
+    methodIndex: number,
+    index: number,
+    isErrorState: boolean
+}
 
 export class StateVisualizer {
 
@@ -16,10 +33,17 @@ export class StateVisualizer {
     static previewUri = vscode.Uri.parse('viper-preview://heapVisualization');
 
     static decoration: vscode.TextEditorDecorationType;
-    static decorationOptions: vscode.DecorationOptions[];
+    static decorationOptions: MyDecorationOptions[];
     static textEditorUnderVerification: vscode.TextEditor;
+    static methodBorders: [MethodBorder];
+    static stepInfo: [StepInfo];
 
     static showStates: boolean = true;
+
+    static shownState: number;
+    static selectedPosition: Position;
+    static debuggedUri: string;
+    static currentDepth: number;
 
     public static initialize() {
         this.registerTextDocumentProvider();
@@ -30,8 +54,10 @@ export class StateVisualizer {
         let registration = vscode.workspace.registerTextDocumentContentProvider('viper-preview', this.provider);
     }
 
-    static storeNewStates(params: { uri: string, decorations: vscode.DecorationOptions[] }) {
-        this.decorationOptions = params.decorations;
+    static storeNewStates(params: { uri: string, decorations: StepsAsDecorationOptionsResult }) {
+        this.decorationOptions = params.decorations.decorationOptions;
+        this.stepInfo = params.decorations.stepInfo;
+        this.methodBorders = params.decorations.methodBorders;
         vscode.window.visibleTextEditors.forEach(editor => {
             if (editor.document.uri.toString() === params.uri) {
                 this.textEditorUnderVerification = editor;
@@ -47,6 +73,8 @@ export class StateVisualizer {
         }
         Log.writeToDotFile(heapGraph.heap);
         //Log.log(graphDescription, LogLevel.Debug);
+
+        this.selectState(heapGraph.fileUri, heapGraph.state, heapGraph.position);
 
         let dotExecutable: string = <string>Helper.getConfiguration("dotExecutable");
         if (!dotExecutable || !fs.existsSync(dotExecutable)) {
@@ -82,39 +110,67 @@ export class StateVisualizer {
         });
     }
 
-    static onDidChangeTextEditorSelection(change) {
-        if (this.showStates) {
-            if (change.textEditor.document.fileName == "\\2") return;
-            let selection = change.textEditor.selection;
-            if (!selection) {
-                Log.log("No selection", LogLevel.Debug);
-            } else {
-                //Log.log("Selection at " + selection.start.line + ":" + selection.start.character, LogLevel.Debug);
-            }
-            if (this.decorationOptions) {
-                let change = false;
-                let selectedState = -1;
+    static selectState(uri: string, selectedState: number, pos: Position) {
+        if (this.showStates && Helper.isViperSourceFile(uri) && this.decorationOptions) {
+            //state should be visualized
+            if (selectedState >= 0 && selectedState < this.stepInfo.length) {
+                //its in range
+                this.shownState = selectedState;
+                this.debuggedUri = uri;
+                this.selectedPosition = pos;
+                this.currentDepth = this.stepInfo[selectedState].depth;
+                let currentMethodIdx = this.stepInfo[selectedState].methodIndex;
+
+                //color labels
                 for (var i = 0; i < this.decorationOptions.length; i++) {
-                    var option = this.decorationOptions[i];
-                    let a = option.range.start;
-                    let b = selection.start;
-                    if (selectedState < 0 && a.line == b.line && a.character == b.character && option.renderOptions.before.color != 'blue') {
-                        option.renderOptions.before.color = 'blue';
-                        selectedState = i;
-                        Log.log("Request showing the heap of state " + i);
-                        ExtensionState.instance.client.sendRequest(Commands.ShowHeap, { uri: vscode.window.activeTextEditor.document.uri.toString(), index: i });
-                        change = true;
-                    } else if (selectedState >= 0 && option.renderOptions.before.color != 'grey') {
-                        option.renderOptions.before.color = 'grey';
-                        change = true;
-                    }
-                    else if (option.renderOptions.before.color != 'red') {
-                        option.renderOptions.before.color = 'red';
-                        change = true;
+                    let option = this.decorationOptions[i];
+                    //default is grey
+                    option.renderOptions.before.color = 'grey';
+                    for (var j = 0; j < option.states.length; j++) {
+                        var optionState = option.states[j];
+                        if (optionState == selectedState) {
+                            //if it's the current step -> blue
+                            option.renderOptions.before.color = 'blue';
+                            break;
+                        }
+                        else if (this.stepInfo[optionState].isErrorState && option.renderOptions.before.color != 'blue') {
+                            option.renderOptions.before.color = 'red';
+                        }
+                        else if (optionState > selectedState &&
+                            option.renderOptions.before.color != 'red' &&
+                            this.stepInfo[optionState].depth <= this.stepInfo[selectedState].depth
+                        /*&& this.methodIndices[optionState] === currentMethodIdx*/) {
+                            //if its not a substep and not a previous step and in the current method -> red
+                            option.renderOptions.before.color = 'orange';
+                        }
                     }
                 }
-                if (this.showStates && change && selectedState >= 0) {
+                if (this.showStates) {
                     this.showDecorations();
+                }
+            }
+        }
+    }
+
+    static showStateSelection(uri: string, pos: { line: number, character: number }) {
+        if (this.showStates && Helper.isViperSourceFile(uri) && this.decorationOptions) {
+            //is counter example state?
+            for (let i = 0; i < this.decorationOptions.length; i++) {
+                let option = this.decorationOptions[i];
+                let a = option.range.start;
+                if (a.line == pos.line && a.character == pos.character) {
+                    if (!this.selectedPosition || this.selectedPosition.line != pos.line || this.selectedPosition.character != pos.character || uri != this.debuggedUri) {
+                        this.shownState = this.decorationOptions[i].states[0];
+                        this.selectedPosition = pos;
+                        this.debuggedUri = uri;
+                        Log.log("Request showing the heap of state " + this.shownState);
+                        ExtensionState.instance.client.sendRequest(Commands.ShowHeap, {
+                            uri: uri,
+                            index: this.shownState
+                        });
+                    } else {
+                        //Log.log("State already selected", LogLevel.Debug);
+                    }
                 }
             }
         }
@@ -125,6 +181,7 @@ export class StateVisualizer {
             this.decoration.dispose();
     }
     static showDecorations() {
+        Log.log("Show decorations", LogLevel.Debug);
         if (this.showStates && this.decorationOptions) {
             this.hideDecorations();
             this.decoration = vscode.window.createTextEditorDecorationType({});

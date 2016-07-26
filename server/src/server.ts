@@ -37,6 +37,10 @@ export class Server {
     static isViperSourceFile(uri: string): boolean {
         return uri.endsWith(".sil") || uri.endsWith(".vpr");
     }
+
+    static showHeap(task: VerificationTask, index: number) {
+        Server.connection.sendRequest(Commands.HeapGraph, task.getHeapGraphDescription(index));
+    }
 }
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
@@ -191,7 +195,8 @@ function registerHandlers() {
             Log.error("No verificationTask found for " + params.uri);
             return;
         }
-        Server.connection.sendRequest(Commands.HeapGraph, task.getHeapGraphDescription(params.index));
+        Server.showHeap(task, params.index);
+        //DebugServer.goToState(Server.debuggedVerificationTask.steps[params.index].position, params.index);
     });
 
     // Server.documents.onDidChangeContent((change) => {Log.error("TODO: never happened before: Content Change detected")});

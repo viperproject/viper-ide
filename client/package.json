@@ -114,6 +114,11 @@
             "key": "ctrl+h",
             "mac": "cmd+h",
             "when": "editorTextFocus"
+        }, {
+            "command": "extension.startDebugging",
+            "key": "ctrl+d",
+            "mac": "cmd+d",
+            "when": "editorTextFocus"
         }],
         "configuration": {
             "type": "object",

@@ -24,16 +24,24 @@ export class Statement {
     heap: HeapChunk[];
     oldHeap: HeapChunk[];
     conditions: string[];
+    isInMethod: boolean;
+    index:number;
+    methodIndex:number;
+    isErrorState:boolean = false;
 
-    public isFromMethod: boolean = false;
-
-    constructor(firstLine: string, store: string, heap: string, oldHeap: string, conditions: string, model: Model) {
+    constructor(firstLine: string, store: string, heap: string, oldHeap: string, conditions: string, model: Model,index:number,methodIndex:number) {
+        this.index = index;
+        this.methodIndex = methodIndex;
         this.parseFirstLine(firstLine);
         this.store = this.parseVariables(this.unpack(store, model));
         this.heap = this.unpackHeap(this.unpack(heap, model));
         this.oldHeap = this.unpackHeap(this.unpack(oldHeap, model));
         //TODO: implement unpackConditions
         this.conditions = this.unpack(conditions, model);
+    }
+
+    public depthLevel(): number {
+        return this.isInMethod ? 0 : 1;
     }
 
     //PARSING
@@ -150,7 +158,7 @@ export class Statement {
     //PRINTING:
     public firstLine(): string {
         let positionString = (this.position ? (this.position.line + 1) + ":" + (this.position.character + 1) : "<no position>");
-        let res: string = StatementType[this.type] + " " + positionString;
+        let res: string = StatementType[this.type] + " " + positionString + " " + this.formula;
         return res;
     }
 

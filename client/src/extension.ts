@@ -15,6 +15,7 @@ import Uri from '../node_modules/vscode-uri/lib/index';
 import {Log} from './Log';
 import {StateVisualizer} from './StateVisualizer';
 import {Helper} from './Helper';
+import {StepsAsDecorationOptionsResult,MyDecorationOptions} from './StateVisualizer';
 
 let statusBarItem;
 let statusBarProgress;
@@ -279,9 +280,22 @@ function registerHandlers() {
     }));
 
     //Heap visualization
-    state.client.onNotification(Commands.StepsAsDecorationOptions, (params: { uri: string, decorations: vscode.DecorationOptions[] }) => StateVisualizer.storeNewStates(params));
-    state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => StateVisualizer.showHeap(heapGraph));
-    vscode.window.onDidChangeTextEditorSelection((change) => StateVisualizer.onDidChangeTextEditorSelection(change));
+    state.client.onNotification(Commands.StepsAsDecorationOptions, (params: { uri: string, decorations: StepsAsDecorationOptionsResult }) => StateVisualizer.storeNewStates(params));
+    state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
+        //Log.log("HeapGraph",LogLevel.Debug);
+        StateVisualizer.showHeap(heapGraph)
+    });
+    vscode.window.onDidChangeTextEditorSelection((change) => {
+        //Log.log("OnDidChangeTextEditorSelection",LogLevel.Debug);
+        let uri = change.textEditor.document.uri.toString();
+        let start = change.textEditor.selection.start;
+        StateVisualizer.showStateSelection(uri, start);
+    });
+    state.client.onRequest(Commands.StateSelected, change => {
+        //Log.log("stateSelected",LogLevel.Debug);
+        let castChange = <{ uri: string, line: number, character: number }>change;
+        StateVisualizer.showStateSelection(castChange.uri, { line: castChange.line, character: castChange.character });
+    });
 
     //Command Handlers
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.verify', () => {

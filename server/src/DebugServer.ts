@@ -15,7 +15,7 @@ import {Server} from './server';
 // import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
 // import {Settings} from './Settings'
-import {Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+import {Position, StepType, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
 // import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Statement, StatementType} from './Statement';
@@ -59,7 +59,7 @@ export class DebugServer {
                 ipc.server.on(
                     'log',
                     function (data, socket) {
-                        Log.log("Debugger: " + data, LogLevel.LowLevelDebug);
+                        Log.logWithOrigin("Debugger", data, LogLevel.LowLevelDebug);
                     }
                 );
                 ipc.server.on(
@@ -131,14 +131,60 @@ export class DebugServer {
                 );
 
                 ipc.server.on(
-                    'lineOfStateRequest',
-                    function (data, socket) {
-                        Log.log(`get line of state ${data}`, LogLevel.LowLevelDebug);
-                        let nextLine = Server.debuggedVerificationTask?Server.debuggedVerificationTask.getLineOfState(data):0;
+                    'MoveRequest',
+                    function (dataString, socket) {
+                        let data = JSON.parse(dataString);
+                        let newState: number = -1;
+
+                        let steps = Server.debuggedVerificationTask.steps;
+                        let currentDepth = steps[data.state].depthLevel();
+                        switch (data.type) {
+                            case StepType.Stay:
+                                newState = data.state;
+                                break;
+                            case StepType.In:
+                                newState = data.state + 1;
+                                break;
+                            case StepType.Back:
+                                newState = data.state - 1;
+                                break;
+                            case StepType.Continue:
+                                Log.error("continue is not supported right now, do step next instead");
+                            case StepType.Next:
+                                for (let i = data.state + 1; i < steps.length; i++) {
+                                    let step = steps[i];
+                                    if (step.depthLevel() <= currentDepth) {
+                                        //the step is on the same level or less deap
+                                        newState = i;
+                                        break;
+                                    }
+                                }
+                                break;
+                            case StepType.Out:
+                                for (let i = data.state + 1; i < steps.length; i++) {
+                                    let step = steps[i];
+                                    if (step.depthLevel() < currentDepth) {
+                                        //the step is less deap
+                                        newState = i;
+                                        break;
+                                    }
+                                }
+                                break;
+                        }
+                        Log.log(`Step${StepType[data.type]}: state ${data.state} -> state ${newState}`, LogLevel.LowLevelDebug);
+                        let position = Server.debuggedVerificationTask ? Server.debuggedVerificationTask.getPositionOfState(newState) : { line: 0, character: 0 };
+                        if (position.line >= 0) {
+                            Server.showHeap(Server.debuggedVerificationTask, newState);
+                            /*Server.connection.sendRequest(Commands.StateSelected, {
+                                uri: Server.debuggedVerificationTask.fileUri,
+                                line: position.line,
+                                character: position.character
+                            });*/
+                        }
                         ipc.server.emit(
                             socket,
-                            'lineOfStateResponse',
-                            nextLine
+                            'MoveResponse',
+                            JSON.stringify({ position: position, state: newState })
                         );
                     }
                 );
@@ -172,5 +218,4 @@ export class DebugServer {
 
         ipc.server.start();
     }
-
 }

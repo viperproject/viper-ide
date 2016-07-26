@@ -17,6 +17,18 @@ export enum LogLevel {
     LowLevelDebug = 5
 }
 
+export enum StepType { Stay, Next, Back, In, Out, Continue }
+
+export enum Success {
+    None = 0,
+    Success = 1,
+    ParsingFailed = 2,
+    TypecheckingFailed = 3,
+    VerificationFailed = 4,
+    Aborted = 5,
+    Error = 6
+}
+
 export class Commands {
     static InvalidSettings = { method: "InvalidSettings" };
     static Hint = { method: "Hint" };
@@ -36,16 +48,7 @@ export class Commands {
     static StepsAsDecorationOptions = { method: "StepsAsDecorationOptions" };
     static ShowHeap = { method: "ShowHeap" };
     static HeapGraph = { method: "HeapGraph" };
-}
-
-export enum Success {
-    None = 0,
-    Success = 1,
-    ParsingFailed = 2,
-    TypecheckingFailed = 3,
-    VerificationFailed = 4,
-    Aborted = 5,
-    Error = 6
+    static StateSelected = { method: "StateSelected" };
 }
 
 export interface UpdateStatusBarParams {
@@ -94,14 +97,23 @@ export interface ShowHeapParams {
 }
 
 export interface HeapGraph {
-    heap:string,
-    state:number,
-    fileName:string,
-    position:Position,
-    stateInfos:string
+    heap: string,
+    state: number,
+    fileName: string,
+    fileUri: string,
+    position: Position,
+    stateInfos: string
 }
 
 export interface Position {
     line: number;
     character: number;
+}
+
+export interface MethodBorder {
+    methodName: string,
+    firstStateIndex: number,
+    lastStateIndex: number,
+    start: number,
+    end: number
 }

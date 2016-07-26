@@ -3,7 +3,7 @@
 import child_process = require('child_process');
 import {IConnection, Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
 import {Settings} from './Settings'
-import {HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
+import {MethodBorder, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement, StatementType} from './Statement';
@@ -41,7 +41,9 @@ export class VerificationTask {
     lastSuccess: Success = Success.None;
     parsingCompleted: boolean = false;
     typeCheckingCompleted: boolean = false;
-    methodBorders: { methodName: string, index: number }[];
+    methodBorders: MethodBorder[];
+
+    stateIndicesOrderedByPosition: { index: number, position: Position }[];
 
     constructor(fileUri: string, nailgunService: NailgunService, connection: IConnection) {
         this.fileUri = fileUri;
@@ -59,7 +61,14 @@ export class VerificationTask {
             Log.error("Cannot show heap at step " + index + " step is null");
             return;
         }
-        return { heap: HeapVisualizer.heapToDot(step), state: index, fileName: this.filename, position: step.position, stateInfos: step.toToolTip() + this.prettySteps() };
+        return {
+            heap: HeapVisualizer.heapToDot(step),
+            state: index,
+            fileName: this.filename,
+            fileUri: this.fileUri,
+            position: step.position,
+            stateInfos: (this.steps[index].isErrorState ? "Error State -> use the Counter Example\n" : "") + step.pretty() + this.prettySteps()
+        };
     }
 
     private prettySteps(): string {
@@ -67,36 +76,118 @@ export class VerificationTask {
         let methodIndex = 0;
         let maxLine = 0;
         let indent = "";
+
+        let currentMethod;
         this.steps.forEach((element, i) => {
-            if (i === this.methodBorders[methodIndex].index) {
-                res += "\n" + this.methodBorders[methodIndex].methodName;
+            if (i === this.methodBorders[methodIndex].firstStateIndex) {
+                currentMethod = this.methodBorders[methodIndex];
+                res += "\n" + currentMethod.methodName;
                 if (methodIndex + 1 < this.methodBorders.length)
                     methodIndex++;
             }
-            res += "\n\t" + element.firstLine();
+            res += `\n\t${i}${"\t".repeat(element.depthLevel())} ${element.firstLine()}`;
         });
         return res;
     }
 
+    private comparePositionAndIndex(a: Statement, b: Statement): number {
+        if (!a && !b) return 0;
+        if (!a) return -1;
+        if (!b) return 1;
+        if (a.position.line < b.position.line || (a.position.line === b.position.line && a.position.character < b.position.character)) {
+            return -1;
+        } else if (a.position.line === b.position.line && a.position.character === b.position.character) {
+            return (a.index < b.index) ? -1 : 1;
+        } else {
+            return 1;
+        }
+    }
+
+    private comparePosition(a: Position, b: Position): number {
+        if (!a && !b) return 0;
+        if (!a) return -1;
+        if (!b) return 1;
+        if (a.line < b.line || (a.line === b.line && a.character < b.character)) {
+            return -1;
+        } else if (a.line === b.line && a.character === b.character) {
+            return 0;
+        } else {
+            return 1;
+        }
+    }
+
+    private compareByIndex(a: Statement, b: Statement): number {
+        if (!a && !b) return 0;
+        if (!a) return -1;
+        if (!b) return 1;
+        if (a.index < b.index) {
+            return -1;
+        } else if (a.index === b.index) {
+            return 0;
+        } else {
+            return 1;
+        }
+    }
+
     public getDecorationOptions() {
         let result = [];
-        this.steps.forEach((step, index) => {
-            result.push({
-                hoverMessage: step.toToolTip(),
-                range: {
-                    start: step.position,
-                    end: { line: step.position.line, character: step.position.character + 1 }
-                },
-                renderOptions: {
-                    before: {
-                        contentText: "(" + index + ")⚫",
-                        color: "red",
-                        textDecoration: "font-size:5px"
-                    }
+        //working variables
+        let currDecoration = null;
+        let prevStep = null;
+        let label = "";
+        let toolTip = "";
+        let states = [];
+        let stateIndexToDecorationIndex = [];
+        let depths = [];
+        let methodIndices = [];
+        let stepInfo = [];
+        this.stateIndicesOrderedByPosition.forEach(idx => {
+            let step = this.steps[idx.index];
+            if (!currDecoration || this.comparePosition(step.position, prevStep.position) != 0) {
+                //we need a new decoration
+                if (currDecoration) {
+                    currDecoration.renderOptions.before.contentText = label + "⚫";
+                    currDecoration.hoverMessage = toolTip;
+                    currDecoration.states = states;
+                    result.push(currDecoration);
+                    label = "";
+                    toolTip = "";
+                    states = [];
                 }
-            });
+                currDecoration = {
+                    hoverMessage: "",
+                    range: {
+                        start: step.position,
+                        end: { line: step.position.line, character: step.position.character + 1 }
+                    },
+                    renderOptions: {
+                        before: {
+                            contentText: "⚫",
+                            color: "orange",
+                        }
+                    },
+                    states: []
+                }
+            }
+            label += `(${step.index})`;
+            toolTip += step.toToolTip() + "\n";
+            states.push(step.index);
+            prevStep = step;
+            stepInfo[step.index] = { depth: step.depthLevel(), methodIndex: step.methodIndex, index: result.length, isErrorState: step.isErrorState }
         });
-        return result;
+
+        //add the last decoration;
+        if (currDecoration) {
+            currDecoration.renderOptions.before.contentText = label + "⚫";
+            currDecoration.hoverMessage = toolTip;
+            currDecoration.states = states;
+            result.push(currDecoration);
+        }
+        return {
+            decorationOptions: result,
+            stepInfo: stepInfo,
+            methodBorders: this.methodBorders,
+        };
     }
 
     verify(onlyTypeCheck: boolean, manuallyTriggered: boolean): void {
@@ -153,6 +244,10 @@ export class VerificationTask {
                 this.nailgunService.restartNailgunServer(VerificationTask.connection, Server.backend);
             }
         }
+
+        //complete the information about the method borders.
+        //this can only be done at the end of the verification
+        this.completeVerificationState();
 
         // Send the computed diagnostics to VSCode.
         VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
@@ -282,14 +377,19 @@ export class VerificationTask {
                             }
                             this.model.extendModel(part);
                             //Log.toLogFile("Model: " + part);
-                        } else if (part.startsWith("---------- METHOD ")) {
-                            this.methodBorders.push({ methodName: part, index: this.steps.length });
-                            this.isFromMethod = true;
-                            continue;
                         } else if (part.startsWith("----")) {
-                            this.isFromMethod = false;
-                            //TODO: handle method mention if needed
-                            continue;
+                            if (this.methodBorders.length > 0) {
+                                this.methodBorders[this.methodBorders.length - 1].lastStateIndex = this.steps.length - 1;
+                            }
+                            this.methodBorders.push({ methodName: part, firstStateIndex: this.steps.length, lastStateIndex: -1, start: -1, end: -1 });
+                            if (part.startsWith("---------- METHOD ")) {
+                                this.isFromMethod = true;
+                                continue;
+                            } else {
+                                this.isFromMethod = false;
+                                //TODO: handle method predicate or function mention if needed
+                                continue;
+                            }
                         }
                         else if (part.startsWith("h = ") || part.startsWith("hLHS = ")) {
                             //TODO: handle if needed
@@ -321,7 +421,7 @@ export class VerificationTask {
                                     Log.error(msg);
                                     this.lines = [];
                                 } else {
-                                    this.steps.push(new Statement(this.lines[0], this.lines[2], this.lines[3], this.lines[4], this.lines[5], this.model));
+                                    this.steps.push(new Statement(this.lines[0], this.lines[2], this.lines[3], this.lines[4], this.lines[5], this.model, this.steps.length, this.methodBorders.length - 1));
                                     this.lines = [];
                                 }
                             }
@@ -379,15 +479,53 @@ export class VerificationTask {
         }
     }
 
-    public getLineOfState(index): number {
-        if (index < this.steps.length) {
-            if (this.steps[index].position.line) {
-                return this.steps[index].position.line;
-            }else{
-                return 0;
+    private completeVerificationState() {
+        this.methodBorders.forEach(element => {
+            element.start = this.steps[element.firstStateIndex].position.line;
+            if (element.lastStateIndex < 0) {
+                element.lastStateIndex = this.steps.length - 1;
+            }
+            element.end = this.steps[element.lastStateIndex].position.line;
+        });
+
+        let methodIndex = 0;
+        let maxLine = 0;
+        let indent = "";
+
+        let currentMethod;
+        this.stateIndicesOrderedByPosition = [];
+        this.steps.forEach((element, i) => {
+            this.stateIndicesOrderedByPosition.push({ index: element.index, position: element.position });
+            if (i === this.methodBorders[methodIndex].firstStateIndex) {
+                currentMethod = this.methodBorders[methodIndex];
+                if (methodIndex + 1 < this.methodBorders.length)
+                    methodIndex++;
+            }
+            let isInMethod = currentMethod && element.position.line >= currentMethod.start && element.position.line <= currentMethod.end;
+            if (isInMethod) {
+                element.isInMethod = isInMethod;
+            }
+            //determine if the state is an error state
+            for (let j = 0; j < this.diagnostics.length; j++) {
+                let diagnostic = this.diagnostics[j];
+                if (this.comparePosition(diagnostic.range.start, element.position) == 0) {
+                    element.isErrorState = true;
+                    break;
+                }
+            }
+        });
+        this.stateIndicesOrderedByPosition.sort(this.comparePositionAndIndex);
+    }
+
+    public getPositionOfState(index): Position {
+        if (index >= 0 && index < this.steps.length) {
+            if (this.steps[index].position) {
+                return this.steps[index].position;
+            } else {
+                return { line: 0, character: 0 };
             }
         } else {
-            return -1
+            return { line: -1, character: -1 };
         }
     }
 
