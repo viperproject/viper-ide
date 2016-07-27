@@ -196,7 +196,7 @@ function registerHandlers() {
             return;
         }
         Server.showHeap(task, params.index);
-        //DebugServer.goToState(Server.debuggedVerificationTask.steps[params.index].position, params.index);
+        //DebugServer.moveDebuggerToPos(task.steps[params.index].position);
     });
 
     // Server.documents.onDidChangeContent((change) => {Log.error("TODO: never happened before: Content Change detected")});
@@ -217,7 +217,7 @@ function resetDiagnostics(uri: string) {
 }
 
 function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuallyTriggered: boolean) {
-    Log.log("start or restart verification of " + uri);
+    Log.log("start or restart verification of " + uri,LogLevel.Info);
     //only verify if the settings are right
     if (!Server.settings.valid) {
         Server.connection.sendNotification(Commands.InvalidSettings, "Cannot verify, fix the settings first.");

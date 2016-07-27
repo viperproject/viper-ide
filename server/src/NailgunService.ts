@@ -12,6 +12,8 @@ export class NailgunService {
     settings: ViperSettings;
     maxNumberOfRetries = 20;
 
+    static startingOrRestarting = false;
+
     changeSettings(settings: ViperSettings) {
         this.settings = settings;
     }
@@ -20,6 +22,7 @@ export class NailgunService {
         return (this.nailgunProcess != null);
     }
 
+    //NailgunService.startingOrRestarting must be set to true before calling this method
     private startNailgunServer(connection, backend: Backend) {
         this.isJreInstalled().then((jreInstalled) => {
             if (!jreInstalled) {
@@ -56,6 +59,7 @@ export class NailgunService {
                 Log.log('nailgun server already running', LogLevel.Info);
             };
         });
+        NailgunService.startingOrRestarting = false;
     }
 
     private waitForNailgunToStart(retriesLeft: number, connection) {
@@ -103,6 +107,11 @@ export class NailgunService {
     }
 
     public restartNailgunServer(connection, backend: Backend) {
+        if (NailgunService.startingOrRestarting) {
+            Log.log("Server is already starting or restarting, don't restart", LogLevel.Debug);
+            return;
+        }
+        NailgunService.startingOrRestarting = true;
         this.ready = false;
         connection.sendNotification(Commands.StateChange, { newState: VerificationState.Starting, backendName: backend.name });
         if (this.nailgunProcess) {
@@ -134,6 +143,11 @@ export class NailgunService {
     }
 
     public startNailgunIfNotRunning(connection, backend: Backend) {
+        if (NailgunService.startingOrRestarting) {
+            Log.log("Server is already starting or restarting, don't start", LogLevel.Debug);
+            return;
+        }
+        NailgunService.startingOrRestarting = true;
         //startNailgun if it is not already running:
         if (!this.nailgunStarted()) {
             this.startNailgunServer(connection, backend);

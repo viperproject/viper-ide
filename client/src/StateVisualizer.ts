@@ -1,7 +1,7 @@
 'use strict';
 
 import {Log} from './Log';
-import {MethodBorder, Position, HeapGraph, Commands, ViperSettings, LogLevel} from './ViperProtocol';
+import {StateColors,MethodBorder, Position, HeapGraph, Commands, ViperSettings, LogLevel} from './ViperProtocol';
 import * as fs from 'fs';
 import child_process = require('child_process');
 import {HeapProvider} from './TextDocumentContentProvider';
@@ -124,24 +124,25 @@ export class StateVisualizer {
                 //color labels
                 for (var i = 0; i < this.decorationOptions.length; i++) {
                     let option = this.decorationOptions[i];
+                    let errorStateFound = false;
                     //default is grey
-                    option.renderOptions.before.color = 'grey';
+                    option.renderOptions.before.color = StateColors.uninterestingState;
                     for (var j = 0; j < option.states.length; j++) {
                         var optionState = option.states[j];
                         if (optionState == selectedState) {
                             //if it's the current step -> blue
-                            option.renderOptions.before.color = 'blue';
+                            option.renderOptions.before.color = StateColors.selectedState;
                             break;
                         }
-                        else if (this.stepInfo[optionState].isErrorState && option.renderOptions.before.color != 'blue') {
-                            option.renderOptions.before.color = 'red';
+                        else if (this.stepInfo[optionState].isErrorState) {
+                            option.renderOptions.before.color = StateColors.errorState;
+                            errorStateFound = true;
                         }
-                        else if (optionState > selectedState &&
-                            option.renderOptions.before.color != 'red' &&
-                            this.stepInfo[optionState].depth <= this.stepInfo[selectedState].depth
-                        /*&& this.methodIndices[optionState] === currentMethodIdx*/) {
+                        else if (optionState > selectedState && !errorStateFound &&
+                            this.stepInfo[optionState].depth <= this.stepInfo[selectedState].depth &&
+                            this.stepInfo[optionState].methodIndex === currentMethodIdx) {
                             //if its not a substep and not a previous step and in the current method -> red
-                            option.renderOptions.before.color = 'orange';
+                            option.renderOptions.before.color = StateColors.interestingState;
                         }
                     }
                 }

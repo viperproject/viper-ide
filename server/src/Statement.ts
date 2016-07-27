@@ -230,7 +230,7 @@ export class Statement {
     }
 }
 
-class HeapChunk {
+export class HeapChunk {
     name: Name;
     value: Value;
     permission: Permission;

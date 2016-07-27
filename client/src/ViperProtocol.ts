@@ -81,6 +81,8 @@ export interface ViperSettings {
     logLevel: number;
     autoVerifyAfterBackendChange: boolean;
     showProgress: boolean;
+    dotExecutable: string;
+    showSymbolicState:boolean;
 }
 
 export interface Backend {
@@ -116,4 +118,11 @@ export interface MethodBorder {
     lastStateIndex: number,
     start: number,
     end: number
+}
+
+export class StateColors{
+    static selectedState="blue";
+    static errorState = "red";
+    static interestingState = "orange";
+    static uninterestingState = "grey";
 }

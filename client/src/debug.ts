@@ -74,7 +74,7 @@ class ViperDebugSession extends DebugSession {
 	}
 
 	private connectToLanguageServer() {
-		ipc.config.id = 'viper';
+		ipc.config.id = 'viperDebugger';
 		ipc.config.retry = 1500;
 		ipc.connectTo(
 			'viper', () => {
@@ -85,16 +85,36 @@ class ViperDebugSession extends DebugSession {
 				);
 				ipc.of.viper.on(
 					'disconnect', () => {
-						ipc.log('disconnected from viper');
+						this.log('disconnected from viper');
 					}
 				);
 				ipc.of.viper.on(
 					'message', (data) => {
-						ipc.log('got a message from viper : ', data);
+						this.log('got a message from viper : ' + data);
 					}
 				);
 			}
 		);
+
+		ipc.serve(
+			function () {
+				ipc.server.on(
+					'MoveDebuggerToPos',
+					function (data, socket) {
+						try {
+							this.log("MoveDebuggerToPos " + data);
+							let position = JSON.parse(data);
+							this._currentLine = position.line;
+							this._currentCharacter = position.character;
+							this.sendEvent(new StoppedEvent("step", ViperDebugSession.THREAD_ID));
+						} catch (e) {
+							this.log(e);
+						}
+					}
+				);
+			}
+		);
+		ipc.server.start();
 	}
 
 	private registerHandlers() {

@@ -176,6 +176,10 @@
                 "viperSettings.dotExecutable": {
                     "type": "string",
                     "default": "dot"
+                },
+                "viperSettings.showSymbolicState": {
+                    "type": "boolean",
+                    "default": false
                 }
             }
         },

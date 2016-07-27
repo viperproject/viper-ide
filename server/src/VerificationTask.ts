@@ -3,7 +3,7 @@
 import child_process = require('child_process');
 import {IConnection, Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
 import {Settings} from './Settings'
-import {MethodBorder, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
+import {StateColors,MethodBorder, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement, StatementType} from './Statement';
@@ -62,7 +62,7 @@ export class VerificationTask {
             return;
         }
         return {
-            heap: HeapVisualizer.heapToDot(step),
+            heap: HeapVisualizer.heapToDot(step,step.isErrorState || this.nailgunService.settings.showSymbolicState),
             state: index,
             fileName: this.filename,
             fileUri: this.fileUri,
@@ -162,14 +162,14 @@ export class VerificationTask {
                     },
                     renderOptions: {
                         before: {
-                            contentText: "⚫",
-                            color: "orange",
+                            contentText: "",
+                            color: step.isErrorState?StateColors.errorState:StateColors.interestingState,
                         }
                     },
                     states: []
                 }
             }
-            label += `(${step.index})`;
+            label += `,${step.index}`;
             toolTip += step.toToolTip() + "\n";
             states.push(step.index);
             prevStep = step;
@@ -178,7 +178,7 @@ export class VerificationTask {
 
         //add the last decoration;
         if (currDecoration) {
-            currDecoration.renderOptions.before.contentText = label + "⚫";
+            currDecoration.renderOptions.before.contentText = `(${label.substring(1,label.length)})⚫`;
             currDecoration.hoverMessage = toolTip;
             currDecoration.states = states;
             result.push(currDecoration);
@@ -480,12 +480,20 @@ export class VerificationTask {
     }
 
     private completeVerificationState() {
-        this.methodBorders.forEach(element => {
+        let methodBorderIndicesOrderedByStart = [];
+        this.methodBorders.forEach((element,i) => {
             element.start = this.steps[element.firstStateIndex].position.line;
             if (element.lastStateIndex < 0) {
                 element.lastStateIndex = this.steps.length - 1;
             }
-            element.end = this.steps[element.lastStateIndex].position.line;
+            //element.end = this.steps[element.lastStateIndex].position.line;
+            methodBorderIndicesOrderedByStart.push({start:element.start,index:i});
+        });
+
+        methodBorderIndicesOrderedByStart.sort((a:MethodBorder,b:MethodBorder)=>{return a.start == b.start?0:(a.start<b.start?-1:1)});
+        methodBorderIndicesOrderedByStart.forEach((element,i) => {
+            let border = this.methodBorders[element.index];
+            border.end = element.index<this.methodBorders.length-1?this.methodBorders[element.index+1].start-1:Number.MAX_VALUE;
         });
 
         let methodIndex = 0;

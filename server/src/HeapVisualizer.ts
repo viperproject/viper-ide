@@ -3,12 +3,14 @@
 import {Log} from './Log';
 import {Model} from './Model';
 import {Position, LogLevel} from './ViperProtocol';
-import {Statement, NameType, ValueType, PermissionType} from './Statement'
+import {Statement, NameType, ValueType, PermissionType,HeapChunk} from './Statement';
+import {Server} from './Server';
 let graphviz = require("graphviz");
 
 export class HeapVisualizer {
 
-    public static heapToDot(state: Statement): string {
+    public static heapToDot(state: Statement,showSymbolicValues:boolean): string {
+
         let count = 0;
         try {
             let g = graphviz.digraph("G");
@@ -21,8 +23,9 @@ export class HeapVisualizer {
             heap.set("style", "dotted");
             heap.set("label", "Heap");
 
-            //read all heap Chunks to find out all existing nodes in the heap
-            let heapChunkFields = new Map<string, string[]>();
+            //read all heap Chunks to find out all existing nodes in the heap,
+            //gather information about fields
+            let heapChunkFields = new Map<string, HeapChunk[]>();
             state.heap.forEach(heapChunk => {
                 if (!heapChunk.parsed) {
                     Log.log("Warning, I don't know how to visualize the heap chunk " + JSON.stringify(heapChunk.name));
@@ -33,7 +36,7 @@ export class HeapVisualizer {
                         if (!heapChunkFields.has(receiver)) {
                             heapChunkFields.set(receiver, []);
                         }
-                        heapChunkFields.get(receiver).push(heapChunk.name.field);
+                        heapChunkFields.get(receiver).push(heapChunk);
 
                         //let edge = heap.addEdge(heapChunk.name.receiver + ":" + heapChunk.name.field, heapChunk.value.raw);
                         //Log.log("Draw edge from " + heapChunk.name.receiver + ":" + heapChunk.name.field + " to " + heapChunk.value.raw, LogLevel.Debug);
@@ -42,11 +45,11 @@ export class HeapVisualizer {
             })
 
             //add all nodes with the appropriate fields to the heap
-            heapChunkFields.forEach((fields: string[], receiver: string) => {
+            heapChunkFields.forEach((fields: HeapChunk[], receiver: string) => {
                 let heapChunkNode = heap.addNode(receiver);
                 let label = "<name>";
-                fields.forEach(element => {
-                    label += `|<${element}>${element}`;
+                fields.forEach(chunk => {
+                    label += `|<${chunk.name.field}>${chunk.name.field}`+(showSymbolicValues && chunk.value.type != ValueType.NoValue?" = "+chunk.value.raw:"");
                 });
                 heapChunkNode.set("label", label);
             });
@@ -57,7 +60,7 @@ export class HeapVisualizer {
                 let variableNode = store.addNode(variable.name);
                 vars.set(variable.name, variableNode);
                 //set variable value
-                variableNode.set("label", variable.name + " = " + variable.value);
+                variableNode.set("label", variable.name + (showSymbolicValues?" = " + variable.value:""));
                 if (heapChunkFields.has(variable.value)) {
                     g.addEdge(variable.name, variable.value)
                 }
