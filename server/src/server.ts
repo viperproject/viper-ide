@@ -78,29 +78,33 @@ function registerHandlers() {
     })
 
     Server.connection.onDidChangeConfiguration((change) => {
-        Server.settings = <ViperSettings>change.settings.viperSettings;
-        //after this line, Logging works
-        Log.logLevel = Server.settings.logLevel;
+        try {
+            Server.settings = <ViperSettings>change.settings.viperSettings;
+            //after this line, Logging works
+            Log.logLevel = Server.settings.logLevel;
 
-        Log.log('configuration changed', LogLevel.Info);
-        //check settings
-        let error = Settings.checkSettings(Server.settings);
-        if (error) {
-            Server.connection.sendNotification(Commands.InvalidSettings, error);
-            return;
-        } else {
-            Log.log("The settings are ok", LogLevel.Info);
+            Log.log('configuration changed', LogLevel.Info);
+            //check settings
+            let error = Settings.checkSettings(Server.settings);
+            if (error) {
+                Server.connection.sendNotification(Commands.InvalidSettings, error);
+                return;
+            } else {
+                Log.log("The settings are ok", LogLevel.Info);
+            }
+
+            //pass the new settings to the verificationService and the Log
+            Server.nailgunService.changeSettings(Server.settings);
+
+            //stop all running verifications
+            Log.log("Stop all running verificationTasks", LogLevel.Debug)
+            Server.verificationTasks.forEach(task => { task.abortVerification(); });
+
+            Server.backend = Settings.autoselectBackend(Server.settings);
+            Server.nailgunService.restartNailgunServer(Server.connection, Server.backend);
+        } catch (e) {
+            Log.error("Error handling configuration change: "+e);
         }
-
-        //pass the new settings to the verificationService and the Log
-        Server.nailgunService.changeSettings(Server.settings);
-
-        //stop all running verifications
-        Log.log("Stop all running verificationTasks", LogLevel.Debug)
-        Server.verificationTasks.forEach(task => { task.abortVerification(); });
-
-        Server.backend = Settings.autoselectBackend(Server.settings);
-        Server.nailgunService.restartNailgunServer(Server.connection, Server.backend);
     });
 
     Server.connection.onRequest(Commands.SelectBackend, (selectedBackend: string) => {
@@ -190,6 +194,7 @@ function registerHandlers() {
     });
 
     Server.connection.onRequest(Commands.ShowHeap, (params: ShowHeapParams) => {
+        try{
         let task = Server.verificationTasks.get(params.uri);
         if (!task) {
             Log.error("No verificationTask found for " + params.uri);
@@ -197,7 +202,10 @@ function registerHandlers() {
         }
         Server.showHeap(task, params.index);
         //DebugServer.moveDebuggerToPos(task.steps[params.index].position);
-    });
+        }catch(e){
+            Log.error("Error showing heap: "+ e);
+        }    
+});
 
     // Server.documents.onDidChangeContent((change) => {Log.error("TODO: never happened before: Content Change detected")});
     // Server.connection.onDidChangeTextDocument((params) => {});
@@ -217,7 +225,7 @@ function resetDiagnostics(uri: string) {
 }
 
 function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuallyTriggered: boolean) {
-    Log.log("start or restart verification of " + uri,LogLevel.Info);
+    Log.log("start or restart verification of " + uri, LogLevel.Info);
     //only verify if the settings are right
     if (!Server.settings.valid) {
         Server.connection.sendNotification(Commands.InvalidSettings, "Cannot verify, fix the settings first.");

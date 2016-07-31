@@ -177,7 +177,7 @@ export class NailgunService {
         return new Promise((resolve, reject) => {
             let jreTester = child_process.exec("java -version");
             jreTester.stdout.on('data', (data: string) => {
-                Log.logWithOrigin("Java checker", data, LogLevel.LowLevelDebug);
+                Log.toLogFile("[Java checker]: " + data, LogLevel.LowLevelDebug);
                 if (data.startsWith('java version')) {
                     return resolve(true);
                 } else {
@@ -185,7 +185,7 @@ export class NailgunService {
                 }
             });
             jreTester.stderr.on('data', (data: string) => {
-                Log.logWithOrigin("Java checker error", data, LogLevel.LowLevelDebug);
+                Log.toLogFile("[Java checker stderr]: " + data, LogLevel.LowLevelDebug);
                 if (data.startsWith('java version')) {
                     return resolve(true);
                 } else {
@@ -193,7 +193,7 @@ export class NailgunService {
                 }
             });
             jreTester.on('exit', () => {
-                Log.logWithOrigin("Java checker", "exit", LogLevel.LowLevelDebug);
+                Log.toLogFile("[Java checker done]", LogLevel.LowLevelDebug);
                 return resolve(false);
             });
         });

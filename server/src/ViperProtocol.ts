@@ -71,7 +71,7 @@ export interface VerifyRequest {
 }
 
 export interface ViperSettings {
-    verificationBackends: [Backend];
+    verificationBackends: Backend[];
     nailgunServerJar: string;
     nailgunClient: string;
     z3Executable: string;
@@ -82,12 +82,12 @@ export interface ViperSettings {
     autoVerifyAfterBackendChange: boolean;
     showProgress: boolean;
     dotExecutable: string;
-    showSymbolicState:boolean;
+    showSymbolicState: boolean;
 }
 
 export interface Backend {
     name: string;
-    paths: [string];
+    paths: string[];
     mainMethod: string;
     getTrace: boolean;
     customArguments: string;
@@ -120,8 +120,8 @@ export interface MethodBorder {
     end: number
 }
 
-export class StateColors{
-    static selectedState="blue";
+export class StateColors {
+    static selectedState = "blue";
     static errorState = "red";
     static interestingState = "orange";
     static uninterestingState = "grey";

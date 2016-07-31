@@ -15,7 +15,7 @@ import Uri from '../node_modules/vscode-uri/lib/index';
 import {Log} from './Log';
 import {StateVisualizer} from './StateVisualizer';
 import {Helper} from './Helper';
-import {StepsAsDecorationOptionsResult,MyDecorationOptions} from './StateVisualizer';
+import {StepsAsDecorationOptionsResult, MyDecorationOptions} from './StateVisualizer';
 
 let statusBarItem;
 let statusBarProgress;
@@ -37,8 +37,8 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(state);
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/*.sil, **/*.vpr');
     state.startLanguageServer(context, fileSystemWatcher, false); //break?
-    startAutoSaver();
     registerHandlers();
+    startAutoSaver();
     initializeStatusBar();
     StateVisualizer.initialize();//enable second window
 }
@@ -280,13 +280,19 @@ function registerHandlers() {
     }));
 
     //Heap visualization
-    state.client.onNotification(Commands.StepsAsDecorationOptions, (params: { uri: string, decorations: StepsAsDecorationOptionsResult }) => StateVisualizer.storeNewStates(params));
+    state.client.onNotification(Commands.StepsAsDecorationOptions, params => {
+        let castParams = <{ uri: string, decorations: StepsAsDecorationOptionsResult }>params;
+        StateVisualizer.storeNewStates(castParams);
+    });
     state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
         //Log.log("HeapGraph",LogLevel.Debug);
         StateVisualizer.showHeap(heapGraph)
     });
     vscode.window.onDidChangeTextEditorSelection((change) => {
         //Log.log("OnDidChangeTextEditorSelection",LogLevel.Debug);
+        if (!change.textEditor.document) {
+            Log.error("document is undefined in onDidChangeTextEditorSelection");
+        }
         let uri = change.textEditor.document.uri.toString();
         let start = change.textEditor.selection.start;
         StateVisualizer.showStateSelection(uri, start);
@@ -294,6 +300,9 @@ function registerHandlers() {
     state.client.onRequest(Commands.StateSelected, change => {
         //Log.log("stateSelected",LogLevel.Debug);
         let castChange = <{ uri: string, line: number, character: number }>change;
+        if (!castChange) {
+            Log.error("error casting stateSelected Request data");
+        }
         StateVisualizer.showStateSelection(castChange.uri, { line: castChange.line, character: castChange.character });
     });
 

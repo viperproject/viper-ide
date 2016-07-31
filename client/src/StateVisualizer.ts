@@ -1,7 +1,7 @@
 'use strict';
 
 import {Log} from './Log';
-import {StateColors,MethodBorder, Position, HeapGraph, Commands, ViperSettings, LogLevel} from './ViperProtocol';
+import {StateColors, MethodBorder, Position, HeapGraph, Commands, ViperSettings, LogLevel} from './ViperProtocol';
 import * as fs from 'fs';
 import child_process = require('child_process');
 import {HeapProvider} from './TextDocumentContentProvider';
@@ -10,13 +10,13 @@ import {Helper} from './Helper';
 import {ExtensionState} from './ExtensionState';
 
 export interface StepsAsDecorationOptionsResult {
-    decorationOptions: [MyDecorationOptions],
-    methodBorders: [MethodBorder]
-    stepInfo: [StepInfo]
+    decorationOptions: MyDecorationOptions[],
+    methodBorders: MethodBorder[]
+    stepInfo: StepInfo[]
 }
 
 export interface MyDecorationOptions extends vscode.DecorationOptions {
-    states: [number];
+    states: number[];
 }
 
 interface StepInfo {
@@ -35,8 +35,8 @@ export class StateVisualizer {
     static decoration: vscode.TextEditorDecorationType;
     static decorationOptions: MyDecorationOptions[];
     static textEditorUnderVerification: vscode.TextEditor;
-    static methodBorders: [MethodBorder];
-    static stepInfo: [StepInfo];
+    static methodBorders: MethodBorder[];
+    static stepInfo: StepInfo[];
 
     static showStates: boolean = true;
 
@@ -44,6 +44,8 @@ export class StateVisualizer {
     static selectedPosition: Position;
     static debuggedUri: string;
     static currentDepth: number;
+    static debuggedMethodName:string;
+    static currentOffset:number;
 
     public static initialize() {
         this.registerTextDocumentProvider();
@@ -55,10 +57,14 @@ export class StateVisualizer {
     }
 
     static storeNewStates(params: { uri: string, decorations: StepsAsDecorationOptionsResult }) {
+        Log.log("Store new States",LogLevel.Debug);
         this.decorationOptions = params.decorations.decorationOptions;
         this.stepInfo = params.decorations.stepInfo;
         this.methodBorders = params.decorations.methodBorders;
         vscode.window.visibleTextEditors.forEach(editor => {
+            if (!editor.document || !params) {
+                Log.error("invalid arguments for storeNewStates");
+            }
             if (editor.document.uri.toString() === params.uri) {
                 this.textEditorUnderVerification = editor;
             }
@@ -103,11 +109,27 @@ export class StateVisualizer {
 
     private static showHeapGraph(heapGraph: HeapGraph) {
         this.provider.setState(heapGraph);
-        Helper.showFile(Log.dotFilePath, vscode.ViewColumn.Two);
-        this.provider.update(this.previewUri);
-        vscode.commands.executeCommand('vscode.previewHtml', this.previewUri, vscode.ViewColumn.Two).then((success) => { }, (reason) => {
-            vscode.window.showErrorMessage(reason);
+        let dotFileShown = false;
+        let heapShown = false;
+        vscode.workspace.textDocuments.forEach(element => {
+            if (element.fileName === Log.dotFilePath) {
+                dotFileShown = true;
+            }
+            if (element.uri.toString() == this.previewUri.toString()) {
+                heapShown = true;
+            }
         });
+        if (!dotFileShown) {
+            //Log.log("Show dotFile", LogLevel.Debug);
+            Helper.showFile(Log.dotFilePath, vscode.ViewColumn.Two);
+        }
+        this.provider.update(this.previewUri);
+        if (!heapShown) {
+            //Log.log("Show heap graph", LogLevel.Debug);
+            vscode.commands.executeCommand('vscode.previewHtml', this.previewUri, vscode.ViewColumn.Two).then((success) => { }, (reason) => {
+                Log.error(reason);
+            });
+        }
     }
 
     static selectState(uri: string, selectedState: number, pos: Position) {
@@ -120,11 +142,14 @@ export class StateVisualizer {
                 this.selectedPosition = pos;
                 this.currentDepth = this.stepInfo[selectedState].depth;
                 let currentMethodIdx = this.stepInfo[selectedState].methodIndex;
+                this.debuggedMethodName = this.methodBorders[currentMethodIdx].methodName.replace(/-/g,"").trim();
 
                 //color labels
                 for (var i = 0; i < this.decorationOptions.length; i++) {
                     let option = this.decorationOptions[i];
                     let errorStateFound = false;
+                    option.renderOptions.before.contentText = this.getLabel(option,currentMethodIdx);
+
                     //default is grey
                     option.renderOptions.before.color = StateColors.uninterestingState;
                     for (var j = 0; j < option.states.length; j++) {
@@ -150,6 +175,22 @@ export class StateVisualizer {
                     this.showDecorations();
                 }
             }
+        }
+    }
+
+    private static getLabel(decoration:MyDecorationOptions,methodIndex:number){
+        let label = "";
+        let methodBorder = this.methodBorders[methodIndex];
+        this.currentOffset = methodBorder.firstStateIndex-1;
+        decoration.states.forEach(element => {
+            if(element >=methodBorder.firstStateIndex && element <= methodBorder.lastStateIndex){
+                label += ","+(element-this.currentOffset);
+            }
+        });
+        if(label.length == 0){
+            return "⚫";
+        }else{
+            return `(${label.substring(1, label.length)})⚫`
         }
     }
 
@@ -182,7 +223,7 @@ export class StateVisualizer {
             this.decoration.dispose();
     }
     static showDecorations() {
-        Log.log("Show decorations", LogLevel.Debug);
+        //Log.log("Show decorations", LogLevel.Debug);
         if (this.showStates && this.decorationOptions) {
             this.hideDecorations();
             this.decoration = vscode.window.createTextEditorDecorationType({});

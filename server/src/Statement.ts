@@ -5,9 +5,9 @@ import {Log} from './Log';
 import {Model} from './Model';
 import {Position, LogLevel} from './ViperProtocol';
 
-interface Variable { name: string; value: string; variablesReference: number; }
+interface Variable { name: string; value: string; variablesReference: number; concreteValue?: string; }
 interface Name { raw: string; receiver?: string; field?: string; arguments?: string[]; type: NameType; }
-interface Value { raw: string; type: ValueType; }
+interface Value { raw: string; type: ValueType; concreteValue?: string; }
 interface Permission { raw: string; type: PermissionType; }
 interface SplitResult { prefix: string; rest: string; }
 
@@ -24,12 +24,13 @@ export class Statement {
     heap: HeapChunk[];
     oldHeap: HeapChunk[];
     conditions: string[];
-    isInMethod: boolean;
-    index:number;
-    methodIndex:number;
-    isErrorState:boolean = false;
+    //isInMethod: boolean;
+    depth:number;
+    index: number;
+    methodIndex: number;
+    isErrorState: boolean = false;
 
-    constructor(firstLine: string, store: string, heap: string, oldHeap: string, conditions: string, model: Model,index:number,methodIndex:number) {
+    constructor(firstLine: string, store: string, heap: string, oldHeap: string, conditions: string, model: Model, index: number, methodIndex: number) {
         this.index = index;
         this.methodIndex = methodIndex;
         this.parseFirstLine(firstLine);
@@ -41,7 +42,7 @@ export class Statement {
     }
 
     public depthLevel(): number {
-        return this.isInMethod ? 0 : 1;
+        return this.depth;//this.isInMethod ? 0 : 1;
     }
 
     //PARSING
@@ -227,6 +228,21 @@ export class Statement {
             });
         }
         return res;
+    }
+
+    public fillInConcreteValues(model: Model) {
+        this.store.forEach(variable => {
+            if (model.values.has(variable.value)) {
+                variable.concreteValue = model.values.get(variable.value);
+            }
+        });
+        this.heap.forEach(chunk => {
+            if (chunk.value.type != ValueType.NoValue) {
+                if (model.values.has(chunk.value.raw)) {
+                    chunk.value.concreteValue = model.values.get(chunk.value.raw);
+                }
+            }
+        });
     }
 }
 

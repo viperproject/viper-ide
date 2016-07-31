@@ -99,7 +99,7 @@ export class Settings {
         return error;
     }
 
-    private static areBackendsValid(backends: [Backend]): string {
+    private static areBackendsValid(backends: Backend[]): string {
         if (!backends || backends.length == 0) {
             return "No backend detected, specify at least one backend";
         }

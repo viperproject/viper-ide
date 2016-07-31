@@ -3,7 +3,7 @@
 import child_process = require('child_process');
 import {IConnection, Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
 import {Settings} from './Settings'
-import {StateColors,MethodBorder, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
+import {StateColors, MethodBorder, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement, StatementType} from './Statement';
@@ -29,9 +29,11 @@ export class VerificationTask {
     path: string;
 
     //working variables
-    lines: string[] = [];
-    wrongFormat: boolean = false;
-    isFromMethod: boolean = false;
+    private lines: string[] = [];
+    private wrongFormat: boolean = false;
+    private partialData: string = "";
+    private linesToSkip: number = 0;
+    //isFromMethod: boolean = false;
 
     //verification results
     time: number = 0;
@@ -42,6 +44,7 @@ export class VerificationTask {
     parsingCompleted: boolean = false;
     typeCheckingCompleted: boolean = false;
     methodBorders: MethodBorder[];
+    methodBordersOrderedByStart = [];
 
     stateIndicesOrderedByPosition: { index: number, position: Position }[];
 
@@ -62,7 +65,7 @@ export class VerificationTask {
             return;
         }
         return {
-            heap: HeapVisualizer.heapToDot(step,step.isErrorState || this.nailgunService.settings.showSymbolicState),
+            heap: HeapVisualizer.heapToDot(step, step.isErrorState || this.nailgunService.settings.showSymbolicState, step.isErrorState),
             state: index,
             fileName: this.filename,
             fileUri: this.fileUri,
@@ -74,6 +77,7 @@ export class VerificationTask {
     private prettySteps(): string {
         let res: string = "";
         let methodIndex = 0;
+        let currentMethodOffset = -1;
         let maxLine = 0;
         let indent = "";
 
@@ -84,8 +88,9 @@ export class VerificationTask {
                 res += "\n" + currentMethod.methodName;
                 if (methodIndex + 1 < this.methodBorders.length)
                     methodIndex++;
+                    currentMethodOffset = i-1;
             }
-            res += `\n\t${i}${"\t".repeat(element.depthLevel())} ${element.firstLine()}`;
+            res += `\n\t${i-currentMethodOffset} (${i})${"\t".repeat(element.depthLevel())} ${element.firstLine()}`;
         });
         return res;
     }
@@ -130,7 +135,7 @@ export class VerificationTask {
     }
 
     public getDecorationOptions() {
-        let result = [];
+        let decorationOptions = [];
         //working variables
         let currDecoration = null;
         let prevStep = null;
@@ -146,10 +151,10 @@ export class VerificationTask {
             if (!currDecoration || this.comparePosition(step.position, prevStep.position) != 0) {
                 //we need a new decoration
                 if (currDecoration) {
-                    currDecoration.renderOptions.before.contentText = label + "⚫";
+                    currDecoration.renderOptions.before.contentText = `(${label.substring(1, label.length)})⚫`;
                     currDecoration.hoverMessage = toolTip;
                     currDecoration.states = states;
-                    result.push(currDecoration);
+                    decorationOptions.push(currDecoration);
                     label = "";
                     toolTip = "";
                     states = [];
@@ -163,7 +168,7 @@ export class VerificationTask {
                     renderOptions: {
                         before: {
                             contentText: "",
-                            color: step.isErrorState?StateColors.errorState:StateColors.interestingState,
+                            color: step.isErrorState ? StateColors.errorState : StateColors.interestingState,
                         }
                     },
                     states: []
@@ -173,18 +178,17 @@ export class VerificationTask {
             toolTip += step.toToolTip() + "\n";
             states.push(step.index);
             prevStep = step;
-            stepInfo[step.index] = { depth: step.depthLevel(), methodIndex: step.methodIndex, index: result.length, isErrorState: step.isErrorState }
+            stepInfo[step.index] = { depth: step.depthLevel(), methodIndex: step.methodIndex, index: decorationOptions.length, isErrorState: step.isErrorState }
         });
-
         //add the last decoration;
         if (currDecoration) {
-            currDecoration.renderOptions.before.contentText = `(${label.substring(1,label.length)})⚫`;
+            currDecoration.renderOptions.before.contentText = `(${label.substring(1, label.length)})⚫`;
             currDecoration.hoverMessage = toolTip;
             currDecoration.states = states;
-            result.push(currDecoration);
+            decorationOptions.push(currDecoration);
         }
         return {
-            decorationOptions: result,
+            decorationOptions: decorationOptions,
             stepInfo: stepInfo,
             methodBorders: this.methodBorders,
         };
@@ -208,6 +212,14 @@ export class VerificationTask {
         this.model = new Model();
         this.parsingCompleted = true;
         this.typeCheckingCompleted = true;
+        if (this.partialData.length > 0) {
+            Log.error("Some unparsed output was detected:\n" + this.partialData);
+            this.partialData = "";
+        }
+        if(this.linesToSkip != 0){
+            Log.error("missed lines to skip: "+ this.linesToSkip);
+            this.linesToSkip = 0;
+        }
 
         Log.log(Server.backend.name + ' verification started', LogLevel.Info);
 
@@ -234,68 +246,81 @@ export class VerificationTask {
     }
 
     private verificationCompletionHandler(code) {
-        Log.log(`Child process exited with code ${code}`, LogLevel.Debug);
-        if (this.aborting) return;
+        try {
+            Log.log(`Child process exited with code ${code}`, LogLevel.Debug);
+            if (this.aborting) return;
 
-        if (code != 0 && code != 1 && code != 899) {
-            Log.log("Verification Backend Terminated Abnormaly: with code " + code, LogLevel.Default);
-            if (Settings.isWin && code == null) {
-                this.nailgunService.killNgDeamon();
-                this.nailgunService.restartNailgunServer(VerificationTask.connection, Server.backend);
+            if (code != 0 && code != 1 && code != 899) {
+                Log.log("Verification Backend Terminated Abnormaly: with code " + code, LogLevel.Default);
+                if (Settings.isWin && code == null) {
+                    this.nailgunService.killNgDeamon();
+                    this.nailgunService.restartNailgunServer(VerificationTask.connection, Server.backend);
+                }
             }
-        }
 
-        //complete the information about the method borders.
-        //this can only be done at the end of the verification
-        this.completeVerificationState();
+            if (this.partialData.length > 0) {
+                Log.error("Some unparsed output was detected:\n" + this.partialData);
+                this.partialData = "";
+            }
 
-        // Send the computed diagnostics to VSCode.
-        VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
+            //complete the information about the method borders.
+            //this can only be done at the end of the verification
+            this.completeVerificationState();
 
-        let success: Success = Success.None;
+            // Send the computed diagnostics to VSCode.
+            VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
 
-        if (this.diagnostics.length == 0 && code == 0) {
-            success = Success.Success;
-        } else if (this.diagnostics.length > 0) {
-            //use tag and backend trace as indicators for completed parsing
-            if (!this.parsingCompleted && this.steps.length == 0) {
-                success = Success.ParsingFailed;
-            } else if (this.parsingCompleted && !this.typeCheckingCompleted) {
-                success = Success.TypecheckingFailed;
+            let success: Success = Success.None;
+
+            if (this.diagnostics.length == 0 && code == 0) {
+                success = Success.Success;
+            } else if (this.diagnostics.length > 0) {
+                //use tag and backend trace as indicators for completed parsing
+                if (!this.parsingCompleted && this.steps.length == 0) {
+                    success = Success.ParsingFailed;
+                } else if (this.parsingCompleted && !this.typeCheckingCompleted) {
+                    success = Success.TypecheckingFailed;
+                } else {
+                    success = Success.VerificationFailed;
+                }
             } else {
-                success = Success.VerificationFailed;
+                success = this.aborting ? Success.Aborted : Success.Error;
             }
-        } else {
-            success = this.aborting ? Success.Aborted : Success.Error;
-        }
 
-        this.lastSuccess = success;
+            this.lastSuccess = success;
 
-        VerificationTask.connection.sendNotification(Commands.StateChange,
-            {
-                newState: VerificationState.Ready,
-                success: success,
-                manuallyTriggered: this.manuallyTriggered,
-                filename: this.filename,
-                nofErrors: this.diagnostics.length,
-                time: this.time,
-                firstTime: false
+            VerificationTask.connection.sendNotification(Commands.StateChange,
+                {
+                    newState: VerificationState.Ready,
+                    success: success,
+                    manuallyTriggered: this.manuallyTriggered,
+                    filename: this.filename,
+                    nofErrors: this.diagnostics.length,
+                    time: this.time,
+                    firstTime: false
+                });
+            this.time = 0;
+            this.running = false;
+
+            Log.log("Number of Steps: " + this.steps.length, LogLevel.Info);
+
+            //pass decorations to language client
+            Log.log("get params for updating the decoration options", LogLevel.Debug);
+            let params = { uri: this.fileUri, decorations: this.getDecorationOptions() }
+            //Log.log(JSON.stringify(params),LogLevel.Debug);
+            Log.log("Update the decoration options (" + params.decorations.decorationOptions.length + ")", LogLevel.Debug);
+            VerificationTask.connection.sendNotification(Commands.StepsAsDecorationOptions, params);
+            Log.log("decoration options update done", LogLevel.Debug);
+            /*
+            Log.log("Print out low Level Debug info",LogLevel.Debug);
+            this.steps.forEach((step) => {
+                Log.toLogFile(step.pretty(), LogLevel.LowLevelDebug);
             });
-        this.time = 0;
-        this.running = false;
-
-        Log.log("Number of Steps: " + this.steps.length, LogLevel.Info);
-        //show last state
-
-        VerificationTask.connection.sendNotification(Commands.StepsAsDecorationOptions, { uri: this.fileUri, decorations: this.getDecorationOptions() });
-
-        //let allSteps = "";
-        this.steps.forEach((step) => {
-            Log.toLogFile(step.pretty(), LogLevel.LowLevelDebug);
-            //allSteps  += "\n" +step.firstLine();
-        });
-        Log.toLogFile("Model: " + this.model.pretty(), LogLevel.LowLevelDebug);
-        //Log.toLogFile("All Steps: " + allSteps,LogLevel.LowLevelDebug);
+            Log.toLogFile("Model: " + this.model.pretty(), LogLevel.LowLevelDebug);
+            */
+        } catch (e) {
+            Log.error("Error handling verification completion: " + e);
+        }
     }
 
     private stdErrHadler(data) {
@@ -327,202 +352,258 @@ export class VerificationTask {
             Log.error(Server.backend.name + " is referencing two versions of the backend, fix its paths in the settings", LogLevel.Default);
         }
     }
-    private stdOutHandler(data) {
+
+    private stdOutHandler(data: string) {
         if (data.trim().length == 0) {
             return;
         }
-        Log.toLogFile(`[${Server.backend.name}: stdout]: ${data}`, LogLevel.LowLevelDebug);
+        Log.toLogFile(`[${Server.backend.name}: stdout raw]: ${data}`, LogLevel.LowLevelDebug);
 
         if (this.aborting) return;
-
-        let stringData: string = data;
-        let parts = stringData.split(/\r?\n/g);
+        let parts = data.split(/\r?\n/g);
+        parts[0] = this.partialData + parts[0];
         for (var i = 0; i < parts.length; i++) {
-            let part = parts[i];
+            let line = parts[i];
 
-            //skip empty lines
-            if (part.trim().length > 0) {
-                switch (this.state) {
-                    case VerificationState.Stopped:
-                        if (part.startsWith("Command-line interface:")) {
-                            Log.error('Could not start verification -> fix customArguments for backend', LogLevel.Default);
-                            this.state = VerificationState.VerificationPrintingHelp;
+            //handle start and end of verification
+            if (line.startsWith('Silicon started') || line.startsWith('carbon started')) {
+                Log.log("State -> Verification Running", LogLevel.Info);
+                this.state = VerificationState.VerificationRunning;
+            }
+            else if (line.startsWith('Silicon finished in') || line.startsWith('carbon finished in')) {
+                Log.log("State -> Error Reporting", LogLevel.Info);
+                this.state = VerificationState.VerificationReporting;
+                this.time = Number.parseFloat(/.*?(\d*\.\d*).*/.exec(line)[1]);
+            }
+            //handle other verification outputs and results
+            else if (line.trim().length > 0) {
+                if (i < parts.length - 1 || (this.state != VerificationState.VerificationRunning)) {
+                    //only in VerificationRunning state, the lines are nicley split by newLine characters
+                    //therefore, the partialData construct is only enabled during the verification;
+                    Log.toLogFile(`[${Server.backend.name}: stdout]: ${line}`, LogLevel.LowLevelDebug);
+                    let linesToSkip = this.handleBackendOutputLine(line); {
+                        if (linesToSkip < 0) {
+                            return;
+                        } else if (linesToSkip > 0) {
+                            this.linesToSkip = linesToSkip;
                         }
-                        if (part.startsWith("(c) ") && part.indexOf("ETH") > 0) {
-                            this.state = VerificationState.VerificationRunning;
-                        }
-                        break;
-                    case VerificationState.VerificationRunning:
-                        part = part.trim();
-                        if (part.startsWith('Silicon finished in') || part.startsWith('carbon finished in')) {
-                            this.state = VerificationState.VerificationReporting;
-                            this.time = Number.parseFloat(/.*?(\d*\.\d*).*/.exec(part)[1]);
-                        }
-                        else if (part.startsWith('Silicon started') || part.startsWith('carbon started')) {
-                        }
-                        else if (part.startsWith("{\"") && part.endsWith("}")) {
-                            try {
-                                let progress = new TotalProgress(JSON.parse(part));
-                                Log.log("Progress: " + progress.toPercent(), LogLevel.Info);
-                                VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, progress: progress.toPercent(), filename: this.filename })
-                            } catch (e) {
-                                Log.error("Error reading progress: " + e);
-                            }
-                        } else if (part.startsWith("\"")) {
-                            if (!part.endsWith("\"")) {
-                                //TODO: it can also be that the model is split among multiple stdout pieces
-                                while (i + 1 < parts.length && !part.endsWith("\"")) {
-                                    part += parts[++i];
-                                }
-                            }
-                            this.model.extendModel(part);
-                            //Log.toLogFile("Model: " + part);
-                        } else if (part.startsWith("----")) {
-                            if (this.methodBorders.length > 0) {
-                                this.methodBorders[this.methodBorders.length - 1].lastStateIndex = this.steps.length - 1;
-                            }
-                            this.methodBorders.push({ methodName: part, firstStateIndex: this.steps.length, lastStateIndex: -1, start: -1, end: -1 });
-                            if (part.startsWith("---------- METHOD ")) {
-                                this.isFromMethod = true;
-                                continue;
-                            } else {
-                                this.isFromMethod = false;
-                                //TODO: handle method predicate or function mention if needed
-                                continue;
-                            }
-                        }
-                        else if (part.startsWith("h = ") || part.startsWith("hLHS = ")) {
-                            //TODO: handle if needed
-                            continue;
-                        }
-                        else if (part.startsWith("hR = ")) {
-                            i = i + 3;
-                        }
-                        else if (part.startsWith('PRODUCE') || part.startsWith('CONSUME') || part.startsWith('EVAL') || part.startsWith('EXECUTE')) {
-                            if (this.lines.length > 0) {
-                                let msg = "Warning: Ignore " + this.lines.length + " line(s):";
-                                this.lines.forEach((line) => {
-                                    msg = msg + "\n\t" + line;
-                                });
-                                Log.error(msg);
-                                Log.log("Next line: " + part, LogLevel.Debug);
-                            }
-                            this.lines = [];
-                            this.lines.push(part);
-                        }
-                        else {
-                            if (part.trim() == ')') {
-                                if (this.lines.length != 6) {
-                                    Log.error("error reading verification trace. Unexpected format.");
-                                    let msg = "Warning: Ignore " + this.lines.length + " line(s):";
-                                    this.lines.forEach((line) => {
-                                        msg = msg + "\n\t" + line;
-                                    });
-                                    Log.error(msg);
-                                    this.lines = [];
-                                } else {
-                                    this.steps.push(new Statement(this.lines[0], this.lines[2], this.lines[3], this.lines[4], this.lines[5], this.model, this.steps.length, this.methodBorders.length - 1));
-                                    this.lines = [];
-                                }
-                            }
-                            else {
-                                this.lines.push(part);
-                            }
-                        }
-                        break;
-                    case VerificationState.VerificationReporting:
-                        if (part == 'No errors found.') {
-                        }
-                        else if (part.startsWith('The following errors were found')) {
-                        }
-                        else if (part.startsWith('  ')) {
-                            let pos = /\s*(\d+):(\d+):\s(.*)/.exec(part);
-                            if (pos.length != 4) {
-                                Log.error('could not parse error description: "' + part + '"');
-                                continue;
-                            }
-                            let lineNr = +pos[1] - 1;
-                            let charNr = +pos[2] - 1;
-                            let message = pos[3].trim();
-
-                            //for Marktoberdorf
-                            let tag: string;
-                            if (part.indexOf("[") >= 0 && part.indexOf("]") >= 0) {
-                                tag = part.substring(part.indexOf("[") + 1, part.indexOf("]"));
-                                if (tag == "typechecker.error") {
-                                    this.typeCheckingCompleted = false;
-                                }
-                                else if (tag == "parser.error") {
-                                    this.parsingCompleted = false;
-                                    this.typeCheckingCompleted = false;
-                                }
-                            }
-
-                            Log.log(`Error: [${Server.backend.name}] ${tag ? "[" + tag + "] " : ""}${lineNr + 1}:${charNr + 1} ${message}`, LogLevel.Default);
-                            this.diagnostics.push({
-                                range: {
-                                    start: { line: lineNr, character: charNr },
-                                    end: { line: lineNr, character: 10000 }//Number.max does not work -> 10000 is an arbitrary large number that does the job
-                                },
-                                source: null, //Server.backend.name
-                                severity: DiagnosticSeverity.Error,
-                                message: message
-                            });
-                        } else {
-                            Log.error("Unexpected message during VerificationReporting: " + part);
-                        }
-                        break;
-                    case VerificationState.VerificationPrintingHelp:
-                        return;
+                    }
                 }
             }
+        }
+        if (this.state == VerificationState.VerificationRunning) {
+            this.partialData = parts[parts.length - 1];
+        }
+    }
+
+    private handleBackendOutputLine(line: string): number {
+        if(this.linesToSkip-- >0) return;
+        switch (this.state) {
+            case VerificationState.Stopped:
+                if (line.startsWith("Command-line interface:")) {
+                    Log.error('Could not start verification -> fix customArguments for backend', LogLevel.Default);
+                    this.state = VerificationState.VerificationPrintingHelp;
+                }
+                break;
+            case VerificationState.VerificationRunning:
+                line = line.trim();
+                if (line.startsWith("{\"") && line.endsWith("}")) {
+                    try {
+                        let progress = new TotalProgress(JSON.parse(line));
+                        Log.log("Progress: " + progress.toPercent(), LogLevel.Info);
+                        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, progress: progress.toPercent(), filename: this.filename })
+                    } catch (e) {
+                        Log.error("Error reading progress: " + e);
+                    }
+                }
+                else if (line.startsWith('Silicon finished in') || line.startsWith('carbon finished in')) {
+                    Log.log("WARNING: analyze the reason for this code to be executed", LogLevel.Debug);
+                    this.state = VerificationState.VerificationReporting;
+                    this.time = Number.parseFloat(/.*?(\d*\.\d*).*/.exec(line)[1]);
+                } else if (line.startsWith("\"")) {
+                    let moreThanOne = false;
+                    while (line.startsWith("\"") && line.indexOf("\"", 1) > 0 && line.indexOf("\"", 1) != line.lastIndexOf("\"")) {
+                        //we have multiple objects in this line -> split them
+                        moreThanOne = true;
+                        this.handleBackendOutputLine(line.substring(0, line.indexOf("\"", 1) + 1));
+                        line = line.substring(line.indexOf("\"", 1) + 1, line.length);
+                    }
+                    if (moreThanOne) {
+                        this.handleBackendOutputLine(line);
+                    } else {
+                        this.model.extendModel(line);
+                    }
+                    //Log.toLogFile("Model: " + line);
+                } else if (line.startsWith("----")) {
+                    if (this.methodBorders.length > 0) {
+                        this.methodBorders[this.methodBorders.length - 1].lastStateIndex = this.steps.length - 1;
+                    }
+                    this.methodBorders.push({ methodName: line, firstStateIndex: this.steps.length, lastStateIndex: -1, start: -1, end: -1 });
+
+                    // if (line.startsWith("---------- METHOD ")) {
+                    //     //this.isFromMethod = true;
+                    // } else {
+                    //     //this.isFromMethod = false;
+                    //     //TODO: handle method predicate or function mention if needed
+                    // }
+                    return 0;
+                }
+                else if (line.startsWith("h = ") || line.startsWith("hLHS = ")) {
+                    //TODO: handle if needed
+                    return 0;
+                }
+                else if (line.startsWith("hR = ")) {
+                    Log.log("skip the next 3 lines",LogLevel.Info);
+                    return 3;
+                    //i = i + 3;
+                }
+                else if (line.startsWith('PRODUCE') || line.startsWith('CONSUME') || line.startsWith('EVAL') || line.startsWith('EXECUTE')) {
+                    if (this.lines.length > 0) {
+                        let msg = "Warning: Ignore " + this.lines.length + " line(s):";
+                        this.lines.forEach((line) => {
+                            msg = msg + "\n\t" + line;
+                        });
+                        Log.error(msg);
+                        Log.log("Next line: " + line, LogLevel.Debug);
+                    }
+                    this.lines = [];
+                    this.lines.push(line);
+                }
+                else {
+                    if (line.trim() == ')') {
+                        if (this.lines.length != 6) {
+                            Log.error("error reading verification trace. Unexpected format.");
+                            let msg = "Warning: Ignore " + this.lines.length + " line(s):";
+                            this.lines.forEach((line) => {
+                                msg = msg + "\n\t" + line;
+                            });
+                            Log.error(msg);
+                            this.lines = [];
+                        } else {
+                            this.steps.push(new Statement(this.lines[0], this.lines[2], this.lines[3], this.lines[4], this.lines[5], this.model, this.steps.length, this.methodBorders.length - 1));
+                            this.lines = [];
+                        }
+                    }
+                    else {
+                        this.lines.push(line);
+                    }
+                }
+                break;
+            case VerificationState.VerificationReporting:
+                if (line == 'No errors found.') {
+                }
+                else if (line.startsWith('The following errors were found')) {
+                }
+                else if (line.startsWith('  ')) {
+                    let pos = /\s*(\d+):(\d+):\s(.*)/.exec(line);
+                    if (pos.length != 4) {
+                        Log.error('could not parse error description: "' + line + '"');
+                        return 0;
+                    }
+                    let lineNr = +pos[1] - 1;
+                    let charNr = +pos[2] - 1;
+                    let message = pos[3].trim();
+
+                    //for Marktoberdorf
+                    let tag: string;
+                    if (line.indexOf("[") >= 0 && line.indexOf("]") >= 0) {
+                        tag = line.substring(line.indexOf("[") + 1, line.indexOf("]"));
+                        if (tag == "typechecker.error") {
+                            this.typeCheckingCompleted = false;
+                        }
+                        else if (tag == "parser.error") {
+                            this.parsingCompleted = false;
+                            this.typeCheckingCompleted = false;
+                        }
+                    }
+
+                    Log.log(`Error: [${Server.backend.name}] ${tag ? "[" + tag + "] " : ""}${lineNr + 1}:${charNr + 1} ${message}`, LogLevel.Default);
+                    this.diagnostics.push({
+                        range: {
+                            start: { line: lineNr, character: charNr },
+                            end: { line: lineNr, character: 10000 }//Number.max does not work -> 10000 is an arbitrary large number that does the job
+                        },
+                        source: null, //Server.backend.name
+                        severity: DiagnosticSeverity.Error,
+                        message: message
+                    });
+                } else {
+                    Log.error("Unexpected message during VerificationReporting: " + line);
+                }
+                break;
+            case VerificationState.VerificationPrintingHelp:
+                return -1;
         }
     }
 
     private completeVerificationState() {
-        let methodBorderIndicesOrderedByStart = [];
-        this.methodBorders.forEach((element,i) => {
+        this.methodBordersOrderedByStart = [];
+        this.methodBorders.forEach((element, i) => {
             element.start = this.steps[element.firstStateIndex].position.line;
             if (element.lastStateIndex < 0) {
                 element.lastStateIndex = this.steps.length - 1;
             }
             //element.end = this.steps[element.lastStateIndex].position.line;
-            methodBorderIndicesOrderedByStart.push({start:element.start,index:i});
+            this.methodBordersOrderedByStart.push({ start: element.start, index: i });
         });
 
-        methodBorderIndicesOrderedByStart.sort((a:MethodBorder,b:MethodBorder)=>{return a.start == b.start?0:(a.start<b.start?-1:1)});
-        methodBorderIndicesOrderedByStart.forEach((element,i) => {
+        this.methodBordersOrderedByStart.sort((a: MethodBorder, b: MethodBorder) => { return a.start == b.start ? 0 : (a.start < b.start ? -1 : 1) });
+        this.methodBordersOrderedByStart.forEach((element, i) => {
             let border = this.methodBorders[element.index];
-            border.end = element.index<this.methodBorders.length-1?this.methodBorders[element.index+1].start-1:Number.MAX_VALUE;
+            border.end = element.index < this.methodBorders.length - 1 ? this.methodBorders[element.index + 1].start - 1 : Number.MAX_VALUE;
         });
 
-        let methodIndex = 0;
-        let maxLine = 0;
-        let indent = "";
-
-        let currentMethod;
         this.stateIndicesOrderedByPosition = [];
+
+        let depth = -1;
+        let methodStack = [];
+        let lastElement;
         this.steps.forEach((element, i) => {
+            //determine depth
+            let currentStepsMethod: number = this.getMethodIndex(element);
+            if (depth === -1 || element.index === this.methodBorders[element.methodIndex].firstStateIndex) {
+                // the depth of the first state in a method is 0
+                depth = 0;
+                methodStack[depth] = currentStepsMethod;
+            } else {
+                if (methodStack[depth] === currentStepsMethod) {
+                    //stay on same depth
+                } else if (depth > 0 && methodStack[depth - 1] === currentStepsMethod) {
+                    depth--;
+                } else {
+                    methodStack[++depth] = currentStepsMethod;
+                }
+            }
+            element.depth = depth + (lastElement && this.comparePosition(element.position, lastElement.position) == 0 ? 1 : 0);
+
             this.stateIndicesOrderedByPosition.push({ index: element.index, position: element.position });
-            if (i === this.methodBorders[methodIndex].firstStateIndex) {
-                currentMethod = this.methodBorders[methodIndex];
-                if (methodIndex + 1 < this.methodBorders.length)
-                    methodIndex++;
-            }
-            let isInMethod = currentMethod && element.position.line >= currentMethod.start && element.position.line <= currentMethod.end;
-            if (isInMethod) {
-                element.isInMethod = isInMethod;
-            }
             //determine if the state is an error state
             for (let j = 0; j < this.diagnostics.length; j++) {
                 let diagnostic = this.diagnostics[j];
                 if (this.comparePosition(diagnostic.range.start, element.position) == 0) {
                     element.isErrorState = true;
+                    element.fillInConcreteValues(this.model);
                     break;
                 }
             }
+            lastElement = element;
         });
         this.stateIndicesOrderedByPosition.sort(this.comparePositionAndIndex);
+    }
+
+    private getMethodIndex(step: Statement): number {
+        //TODO: is this a good idea? assuming that the 
+        if (step.position.line == 0 && step.position.character == 0) {
+            return step.methodIndex;
+        }
+        for (let i = 0; i < this.methodBordersOrderedByStart.length; i++) {
+            let border = this.methodBorders[this.methodBordersOrderedByStart[i].index];
+            if (step.position.line >= border.start && step.position.line <= border.end) {
+                return this.methodBordersOrderedByStart[i].index;
+            }
+        }
+        Log.error("getMethodIndex failed for step: " + step.index);
+        return -1;
     }
 
     public getPositionOfState(index): Position {

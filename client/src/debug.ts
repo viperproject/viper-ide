@@ -204,7 +204,7 @@ class ViperDebugSession extends DebugSession {
 		//start IPC connection
 		this.connectToLanguageServer();
 		this.registerHandlers();
-		this.log("launchRequest");
+		//this.log("launchRequest");
 
 		this._sourceFile = args.program;
 		this._stopOnEntry = args.stopOnEntry;
@@ -215,7 +215,7 @@ class ViperDebugSession extends DebugSession {
 	}
 
 	protected disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments): void {
-		this.log("disconnectRequest");
+		//this.log("disconnectRequest");
 		// stop sending custom events
 		clearInterval(this._timer);
 		super.disconnectRequest(response, args);
@@ -313,7 +313,7 @@ class ViperDebugSession extends DebugSession {
 	}
 
 	protected scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
-		this.log("scopesRequest");
+		//this.log("scopesRequest");
 		const frameReference = args.frameId;
 		const scopes = new Array<Scope>();
 
@@ -325,7 +325,7 @@ class ViperDebugSession extends DebugSession {
 		this.sendResponse(response);
 	}
 	protected variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments): void {
-		this.log("variablesRequest");
+		//this.log("variablesRequest");
 		this.sendResponse(response);
 		/*
 		this.requestFromLanguageServer("variablesInLine", this.__currentLine, true, (variables) => {

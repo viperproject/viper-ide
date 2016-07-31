@@ -3,13 +3,13 @@
 import {Log} from './Log';
 import {Model} from './Model';
 import {Position, LogLevel} from './ViperProtocol';
-import {Statement, NameType, ValueType, PermissionType,HeapChunk} from './Statement';
+import {Statement, NameType, ValueType, PermissionType, HeapChunk} from './Statement';
 import {Server} from './Server';
 let graphviz = require("graphviz");
 
 export class HeapVisualizer {
 
-    public static heapToDot(state: Statement,showSymbolicValues:boolean): string {
+    public static heapToDot(state: Statement, showSymbolicValues: boolean, showConcreteValues: boolean): string {
 
         let count = 0;
         try {
@@ -49,7 +49,13 @@ export class HeapVisualizer {
                 let heapChunkNode = heap.addNode(receiver);
                 let label = "<name>";
                 fields.forEach(chunk => {
-                    label += `|<${chunk.name.field}>${chunk.name.field}`+(showSymbolicValues && chunk.value.type != ValueType.NoValue?" = "+chunk.value.raw:"");
+                    label += `|<${chunk.name.field}>${chunk.name.field}`;
+                    if (showSymbolicValues && chunk.value.type != ValueType.NoValue) {
+                        label += " = " + chunk.value.raw;
+                        if (showConcreteValues && chunk.value.concreteValue) {
+                            label += "(=" + chunk.value.concreteValue + ")";
+                        }
+                    }
                 });
                 heapChunkNode.set("label", label);
             });
@@ -60,7 +66,15 @@ export class HeapVisualizer {
                 let variableNode = store.addNode(variable.name);
                 vars.set(variable.name, variableNode);
                 //set variable value
-                variableNode.set("label", variable.name + (showSymbolicValues?" = " + variable.value:""));
+                let variableValue = variable.name;
+                //add symbolic and concrete values;
+                if (showSymbolicValues && variable.value) {
+                    variableValue += " = " + variable.value;
+                    if (showConcreteValues && variable.concreteValue) {
+                        variableValue += "(=" + variable.concreteValue + ")";
+                    }
+                }
+                variableNode.set("label", variableValue);
                 if (heapChunkFields.has(variable.value)) {
                     g.addEdge(variable.name, variable.value)
                 }
@@ -91,27 +105,27 @@ export class HeapVisualizer {
                             parameter = parameter.substring(1, parameter.length);
                         }
                         if (parameter === "False" || parameter === "True" || /^\d+(\.\d+)$/.test(parameter)) {
-                            let argumentNode = predicateCluster.addNode(`predicate_${count}_arg${i} = ${negated?"!":""}${parameter}`);
+                            let argumentNode = predicateCluster.addNode(`predicate_${count}_arg${i} = ${negated ? "!" : ""}${parameter}`);
                             argumentNode.set("label", `arg${i} = ${negated ? "!" : ""}${parameter}`)
                         } else {
                             let argumentNode = predicateCluster.addNode(`predicate_${count}_arg ${i}`);
                             argumentNode.set("label", `arg ${i}`)
                             if (heapChunkFields.has(parameter)) {
                                 let edge = heap.addEdge(parameter, argumentNode)
-                                this.configureEdge(edge,negated,"dashed");
+                                this.configureEdge(edge, negated, "dashed");
                             } else {
                                 //try to add edge from variable to predicate argument;
                                 state.store.forEach(element => {
                                     if (element.value === parameter) {
                                         let edge = heap.addEdge(vars.get(element.name), argumentNode);
-                                        this.configureEdge(edge,negated,"dashed");
+                                        this.configureEdge(edge, negated, "dashed");
                                     }
                                 });
                                 //try to add edge from field to predicate argument
                                 state.heap.forEach(chunk => {
                                     if (chunk.name.type == NameType.FieldReferenceName && chunk.value.raw === parameter) {
                                         let edge = heap.addEdge(chunk.name.receiver, argumentNode);
-                                        this.configureEdge(edge,(negated?"!":"")+ chunk.name.field,"dashed");
+                                        this.configureEdge(edge, (negated ? "!" : "") + chunk.name.field, "dashed");
                                     }
                                 });
                             }

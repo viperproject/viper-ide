@@ -8,9 +8,25 @@ export class Helper {
 
     public static showFile(filePath: string, column: vscode.ViewColumn) {
         let resource = vscode.Uri.file(filePath);
-        vscode.workspace.openTextDocument(resource).then((doc) => {
+        let doc;
+        //see if the document is already open
+        for (let i = 0; i < vscode.workspace.textDocuments.length; i++) {
+            let elem = vscode.workspace.textDocuments[i];
+            if (elem.fileName === filePath) {
+                doc = elem;
+            }
+        }
+        if (doc) {
+            //just show it if its open already
             vscode.window.showTextDocument(doc, column);
-        });
+        } else {
+            //open it
+            vscode.workspace.openTextDocument(resource).then((doc) => {
+                vscode.window.showTextDocument(doc, column);
+            }, (reason) => {
+                Log.error(reason);
+            });
+        }
     }
 
     public static getConfiguration(setting: string) {
