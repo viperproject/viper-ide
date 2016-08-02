@@ -30,7 +30,7 @@ export class StateVisualizer {
 
     static graphvizProcess: child_process.ChildProcess;
     static provider: HeapProvider;
-    static previewUri = vscode.Uri.parse('viper-preview://heapVisualization');
+    static previewUri = vscode.Uri.parse('viper-preview:State Visualization');
 
     static decoration: vscode.TextEditorDecorationType;
     static decorationOptions: MyDecorationOptions[];

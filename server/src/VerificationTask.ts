@@ -76,21 +76,23 @@ export class VerificationTask {
 
     private prettySteps(): string {
         let res: string = "";
-        let methodIndex = 0;
+        let methodIndex = -1;
         let currentMethodOffset = -1;
         let maxLine = 0;
         let indent = "";
+        let allBordersPrinted = false;
 
         let currentMethod;
         this.steps.forEach((element, i) => {
-            if (i === this.methodBorders[methodIndex].firstStateIndex) {
-                currentMethod = this.methodBorders[methodIndex];
-                res += "\n" + currentMethod.methodName;
-                if (methodIndex + 1 < this.methodBorders.length)
+            while (!allBordersPrinted && i === this.methodBorders[this.methodBordersOrderedByStart[methodIndex+1].index].firstStateIndex) {
                     methodIndex++;
-                    currentMethodOffset = i-1;
+                if (methodIndex + 1 >= this.methodBorders.length)
+                    allBordersPrinted = true;
+                currentMethod = this.methodBorders[this.methodBordersOrderedByStart[methodIndex].index];
+                res += "\n" + currentMethod.methodName;
+                currentMethodOffset = i - 1;
             }
-            res += `\n\t${i-currentMethodOffset} (${i})${"\t".repeat(element.depthLevel())} ${element.firstLine()}`;
+            res += `\n\t${i - currentMethodOffset} (${i}) (mi:${methodIndex}) ${"\t".repeat(element.depthLevel())} ${element.firstLine()}`;
         });
         return res;
     }
@@ -216,8 +218,8 @@ export class VerificationTask {
             Log.error("Some unparsed output was detected:\n" + this.partialData);
             this.partialData = "";
         }
-        if(this.linesToSkip != 0){
-            Log.error("missed lines to skip: "+ this.linesToSkip);
+        if (this.linesToSkip != 0) {
+            Log.error("missed lines to skip: " + this.linesToSkip);
             this.linesToSkip = 0;
         }
 
@@ -380,7 +382,7 @@ export class VerificationTask {
                 if (i < parts.length - 1 || (this.state != VerificationState.VerificationRunning)) {
                     //only in VerificationRunning state, the lines are nicley split by newLine characters
                     //therefore, the partialData construct is only enabled during the verification;
-                    Log.toLogFile(`[${Server.backend.name}: stdout]: ${line}`, LogLevel.LowLevelDebug);
+                    //Log.toLogFile(`[${Server.backend.name}: stdout]: ${line}`, LogLevel.LowLevelDebug);
                     let linesToSkip = this.handleBackendOutputLine(line); {
                         if (linesToSkip < 0) {
                             return;
@@ -397,7 +399,7 @@ export class VerificationTask {
     }
 
     private handleBackendOutputLine(line: string): number {
-        if(this.linesToSkip-- >0) return;
+        if (this.linesToSkip-- > 0) return;
         switch (this.state) {
             case VerificationState.Stopped:
                 if (line.startsWith("Command-line interface:")) {
@@ -434,7 +436,7 @@ export class VerificationTask {
                         this.model.extendModel(line);
                     }
                     //Log.toLogFile("Model: " + line);
-                } else if (line.startsWith("----")) {
+                } else if (line.startsWith("---------- FUNCTION") || line.startsWith("---------- PREDICATE") || line.startsWith("---------- METHOD")) {
                     if (this.methodBorders.length > 0) {
                         this.methodBorders[this.methodBorders.length - 1].lastStateIndex = this.steps.length - 1;
                     }
@@ -447,13 +449,15 @@ export class VerificationTask {
                     //     //TODO: handle method predicate or function mention if needed
                     // }
                     return 0;
+                } else if (line.startsWith("-----")) {
+
                 }
                 else if (line.startsWith("h = ") || line.startsWith("hLHS = ")) {
                     //TODO: handle if needed
                     return 0;
                 }
                 else if (line.startsWith("hR = ")) {
-                    Log.log("skip the next 3 lines",LogLevel.Info);
+                    Log.log("skip the next 3 lines", LogLevel.Info);
                     return 3;
                     //i = i + 3;
                 }
@@ -536,10 +540,16 @@ export class VerificationTask {
         }
     }
 
+    //TODO: might be source of bugs, if methods don't contain a state
     private completeVerificationState() {
         this.methodBordersOrderedByStart = [];
         this.methodBorders.forEach((element, i) => {
-            element.start = this.steps[element.firstStateIndex].position.line;
+            //firstStateInfo can point to non existing state, e.g. if there is no state in a method
+            if (element.firstStateIndex < this.steps.length) {
+                element.start = this.steps[element.firstStateIndex].position.line;
+            } else {
+                element.start = Number.MAX_SAFE_INTEGER;
+            }
             if (element.lastStateIndex < 0) {
                 element.lastStateIndex = this.steps.length - 1;
             }
@@ -558,20 +568,26 @@ export class VerificationTask {
         let depth = -1;
         let methodStack = [];
         let lastElement;
+        let methodIndex = -1;
         this.steps.forEach((element, i) => {
+            while (methodIndex + 1 < this.methodBorders.length && i === this.methodBorders[this.methodBordersOrderedByStart[methodIndex + 1].index].firstStateIndex) {
+                methodIndex++;
+            }
+
+            element.methodIndex = this.methodBordersOrderedByStart[methodIndex].index;
             //determine depth
-            let currentStepsMethod: number = this.getMethodIndex(element);
+            let methodContainingCurrentStep: number = this.getMethodContainingCurrentStep(element);
             if (depth === -1 || element.index === this.methodBorders[element.methodIndex].firstStateIndex) {
                 // the depth of the first state in a method is 0
                 depth = 0;
-                methodStack[depth] = currentStepsMethod;
+                methodStack[depth] = methodContainingCurrentStep;
             } else {
-                if (methodStack[depth] === currentStepsMethod) {
+                if (methodStack[depth] === methodContainingCurrentStep) {
                     //stay on same depth
-                } else if (depth > 0 && methodStack[depth - 1] === currentStepsMethod) {
+                } else if (depth > 0 && methodStack[depth - 1] === methodContainingCurrentStep) {
                     depth--;
                 } else {
-                    methodStack[++depth] = currentStepsMethod;
+                    methodStack[++depth] = methodContainingCurrentStep;
                 }
             }
             element.depth = depth + (lastElement && this.comparePosition(element.position, lastElement.position) == 0 ? 1 : 0);
@@ -591,7 +607,7 @@ export class VerificationTask {
         this.stateIndicesOrderedByPosition.sort(this.comparePositionAndIndex);
     }
 
-    private getMethodIndex(step: Statement): number {
+    private getMethodContainingCurrentStep(step: Statement): number {
         //TODO: is this a good idea? assuming that the 
         if (step.position.line == 0 && step.position.character == 0) {
             return step.methodIndex;

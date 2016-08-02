@@ -142,6 +142,30 @@
 						<key>2</key>
 						<dict>
 							<key>name</key>
+							<string>entity.name.function.silver</string>
+						</dict>
+					</dict>
+					<key>match</key>
+					<string>\b(axiom)\b\s+(\w+(\.\w+)?)</string>
+					<key>name</key>
+					<string>meta.axiom.silver</string>
+					<key>patterns</key>
+					<dict>
+						<key>include</key>
+						<string>#parameter-list</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>captures</key>
+					<dict>
+						<key>1</key>
+						<dict>
+							<key>name</key>
+							<string>keyword.declaration.silver</string>
+						</dict>
+						<key>2</key>
+						<dict>
+							<key>name</key>
 							<string>entity.name.import.silver</string>
 						</dict>
 					</dict>
@@ -192,6 +216,30 @@
 					<string>\b(method)\b\s+(\w+(\.\w+)?)</string>
 					<key>name</key>
 					<string>meta.method.silver</string>
+					<key>patterns</key>
+					<dict>
+						<key>include</key>
+						<string>#parameter-list</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>captures</key>
+					<dict>
+						<key>1</key>
+						<dict>
+							<key>name</key>
+							<string>keyword.declaration.silver</string>
+						</dict>
+						<key>2</key>
+						<dict>
+							<key>name</key>
+							<string>entity.name.function.silver</string>
+						</dict>
+					</dict>
+					<key>match</key>
+					<string>\b(domain)\b\s+(\w+(\.\w+)?)</string>
+					<key>name</key>
+					<string>meta.domain.silver</string>
 					<key>patterns</key>
 					<dict>
 						<key>include</key>
