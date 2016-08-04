@@ -11,9 +11,12 @@ export class Log {
     static logFile: fs.WriteStream;
     static outputChannel = vscode.window.createOutputChannel('Viper');
     static logLevel: LogLevel;
-    static dotFilePath: string;
-    static svgFilePath: string;
+    static _dotBasePath: string;
+    static _svgBasePath: string;
+    private static _nofFiles: number = 0;
     static rootPath: string;
+
+    static MAX_DOT_FILES: number = 2;
 
     public static initialize(context: vscode.ExtensionContext) {
         Log.updateSettings();
@@ -27,15 +30,14 @@ export class Log {
             fs.mkdirSync(path.join(Log.rootPath, '.vscode'));
         }
 
-        Log.dotFilePath = path.join(Log.rootPath, '.vscode', 'heap.dot');
-        Log.svgFilePath = path.join(Log.rootPath, '.vscode', 'heap.svg');
+        Log._dotBasePath = path.join(Log.rootPath, '.vscode', 'heap');
+        Log._svgBasePath = path.join(Log.rootPath, '.vscode', 'heap');
 
         Log.log("LogFilePath is: " + Log.logFilePath, LogLevel.Debug)
         try {
             Log.createFile(Log.logFilePath);
             Log.logFile = fs.createWriteStream(Log.logFilePath);
 
-            Log.createFile(Log.dotFilePath);
             //make sure the logFile is closed when the extension is closed
             context.subscriptions.push(new Log());
         } catch (e) {
@@ -43,15 +45,61 @@ export class Log {
         }
     }
 
-    private static createFile(filePath: string) {
-        fs.closeSync(fs.openSync(filePath, 'w'));
-        fs.accessSync(filePath);
+    ///return the path to the indexth dot file
+    ///creates non existing files
+    public static dotFilePath(index: number): string {
+        if (index < 0) {
+            Log.error("don't use negative indices for dotFilePath");
+            return this._dotBasePath + ".dot";
+        }
+        if (index >= this.MAX_DOT_FILES) {
+            Log.error("don't use more than " + this.MAX_DOT_FILES + " dotFiles");
+            return this._dotBasePath + ".dot";
+        }
+        return this._dotBasePath + index + ".dot";
     }
 
-    public static writeToDotFile(graphDescription: string) {
-        let dotFile: fs.WriteStream = fs.createWriteStream(Log.dotFilePath);
+    public static svgFilePath(index: number): string {
+        if (index < 0) {
+            Log.error("don't use negative indices for svgFilePath");
+            return this._svgBasePath + ".svg";
+        }
+        if (index >= this.MAX_DOT_FILES) {
+            Log.error("don't use more than " + this.MAX_DOT_FILES + " svgFiles");
+            return this._svgBasePath + ".svg";
+        }
+        return this._svgBasePath + index + ".svg";
+    }
+
+    private static createFile(filePath: string) {
+        if (!fs.existsSync(filePath)) {
+            fs.closeSync(fs.openSync(filePath, 'w'));
+            fs.accessSync(filePath);
+        }
+    }
+
+    public static writeToDotFile(graphDescription: string, index: number) {
+        //delete and recreate file to fix the problem of not being able to open the dot files      
+        let dotFilePath = this.dotFilePath(index);
+        this.createFile(dotFilePath);
+        let dotFile: fs.WriteStream = fs.createWriteStream(dotFilePath);
         dotFile.write(graphDescription);
         dotFile.close();
+    }
+
+    public static deleteDotFiles() {
+        //delete all dotFiles
+        for (let i = 0; i < this.MAX_DOT_FILES; i++) {
+            this.deleteDotFile(i);
+        }
+        this._nofFiles = 0;
+    }
+
+    public static deleteDotFile(index: number) {
+        let dotFile = this.dotFilePath(index);
+        if (fs.existsSync(dotFile)) {
+            fs.unlinkSync(dotFile);
+        };
     }
 
     public static updateSettings() {

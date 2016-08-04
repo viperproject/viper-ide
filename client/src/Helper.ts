@@ -18,13 +18,17 @@ export class Helper {
         }
         if (doc) {
             //just show it if its open already
-            vscode.window.showTextDocument(doc, column);
+            vscode.window.showTextDocument(doc, column, true).then(msg => {
+                Log.log("file shown (already open): " + msg.document.fileName)
+            });
         } else {
             //open it
             vscode.workspace.openTextDocument(resource).then((doc) => {
-                vscode.window.showTextDocument(doc, column);
+                vscode.window.showTextDocument(doc, column, true).then(msg => {
+                    Log.log("file shown: " + msg.document.fileName)
+                });
             }, (reason) => {
-                Log.error(reason);
+                Log.error("Show file error: " + reason);
             });
         }
     }

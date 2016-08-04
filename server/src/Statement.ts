@@ -9,12 +9,14 @@ interface Variable { name: string; value: string; variablesReference: number; co
 interface Name { raw: string; receiver?: string; field?: string; arguments?: string[]; type: NameType; }
 interface Value { raw: string; type: ValueType; concreteValue?: string; }
 interface Permission { raw: string; type: PermissionType; }
+interface Condition { raw: string, type: ConditionType; value?: boolean; lhs?: string, rhs?: string }
 interface SplitResult { prefix: string; rest: string; }
 
 export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE };
 export enum PermissionType { UnknownPermission, ScalarPermission }
 export enum ValueType { UnknownValue, NoValue, ObjectReferenceOrScalarValue }
 export enum NameType { UnknownName, QuantifiedName, FunctionApplicationName, PredicateName, FieldReferenceName }
+export enum ConditionType { UnknownCondition, EqualityCondition, NullityCondition, WildCardCondition }
 
 export class Statement {
     type: StatementType;
@@ -23,9 +25,9 @@ export class Statement {
     public store: Variable[];
     heap: HeapChunk[];
     oldHeap: HeapChunk[];
-    conditions: string[];
+    conditions: Condition[];
     //isInMethod: boolean;
-    depth:number;
+    depth: number;
     index: number;
     methodIndex: number;
     isErrorState: boolean = false;
@@ -38,7 +40,7 @@ export class Statement {
         this.heap = this.unpackHeap(this.unpack(heap, model));
         this.oldHeap = this.unpackHeap(this.unpack(oldHeap, model));
         //TODO: implement unpackConditions
-        this.conditions = this.unpack(conditions, model);
+        this.conditions = this.unpackPathConditions(this.unpack(conditions, model));
     }
 
     public depthLevel(): number {
@@ -71,6 +73,45 @@ export class Statement {
             //line = model.fillInValues(line);
             return this.splitAtComma(line);
         }
+    }
+
+    private unpackPathConditions(parts: string[]): Condition[] {
+        let result = [];
+        let indentation = 0;
+        parts.forEach(part => {
+            for (let i = 0; i < part.length; i++) {
+                if (part[i] === '(') {
+                    indentation++;
+                } else if (part[i] === ')') {
+                    indentation--;
+                }
+                if (i > 0 && indentation == 0 && part[i] == '&' && part[i - 1] == '&') {
+                    //split
+                    let head = part.substring(0, i - 1);
+                    result.push(this.createCondition(head.trim()));
+                    part = part.substring(i + 1, part.length);
+                    i = 0;
+                }
+            }
+            result.push(this.createCondition(part.trim()))
+        });
+        return result;
+    }
+
+    private createCondition(condition: string): Condition {
+        let regex = condition.match(/^([\w$]+@\d+)\s*(==|!=)\s*([\w$]+@\d+|\d+|_|Null)$/);
+        if (regex && regex.length == 4) {
+            let lhs = regex[1];
+            let rhs = regex[3];
+            let value = regex[2] === "==";
+            if (rhs === "Null") {
+                return { raw: condition, type: ConditionType.NullityCondition, value: value, lhs: lhs };
+            } else if (rhs == "_") {
+                return { raw: condition, type: ConditionType.WildCardCondition, value: value, lhs: lhs };
+            }
+            return { raw: condition, type: ConditionType.EqualityCondition, value: value, lhs: lhs, rhs: rhs };
+        }
+        return { raw: condition, type: ConditionType.UnknownCondition, value: true };
     }
 
     private unpackHeap(parts: string[]): HeapChunk[] {
@@ -194,10 +235,27 @@ export class Statement {
         if (this.conditions.length > 0) {
             res += "\tCondition: \n";
             this.conditions.forEach(element => {
-                res += "\t\t" + element + "\n"
+                res += "\t\t" + element.raw + " (" + ConditionType[element.type] + ")\n"
             });
         }
         return res;
+    }
+
+    public prettyConditions(): string[] {
+        let result = [];
+        this.conditions.forEach(cond => {
+            switch (cond.type) {
+                case ConditionType.NullityCondition:
+                    result.push(cond.lhs + " " + (cond.value ? "==" : "!=") + " Null")
+                    break;
+                case ConditionType.EqualityCondition:
+                    result.push(cond.lhs + " " + (cond.value ? "==" : "!=") + " " + cond.rhs)
+                    break;
+                case ConditionType.UnknownCondition:
+                    result.push(cond.raw);
+            }
+        });
+        return result;
     }
 
     private oldHeapEqualsHeap(): boolean {

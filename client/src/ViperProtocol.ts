@@ -83,6 +83,7 @@ export interface ViperSettings {
     showProgress: boolean;
     dotExecutable: string;
     showSymbolicState: boolean;
+    darkGraphs: boolean;
 }
 
 export interface Backend {
@@ -104,7 +105,11 @@ export interface HeapGraph {
     fileName: string,
     fileUri: string,
     position: Position,
-    stateInfos: string
+    stateInfos: string,
+    methodName: string,
+    methodType: string,
+    methodOffset: number,
+    conditions: string[]
 }
 
 export interface Position {
@@ -113,6 +118,8 @@ export interface Position {
 }
 
 export interface MethodBorder {
+    name: string,
+    methodType: string,
     methodName: string,
     firstStateIndex: number,
     lastStateIndex: number,
@@ -121,8 +128,9 @@ export interface MethodBorder {
 }
 
 export class StateColors {
-    static selectedState = "blue";
-    static errorState = "red";
-    static interestingState = "orange";
+    static currentState = "red";
+    static previousState = "green";
+    static errorState = "yellow";
+    static interestingState = "yellow";
     static uninterestingState = "grey";
 }

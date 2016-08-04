@@ -146,6 +146,7 @@ function handleStateChange(params: UpdateStatusBarParams) {
                     verify(false);
                 }
             } else {
+                StateVisualizer.provider.resetState();
                 let msg: string = "";
                 switch (params.success) {
                     case Success.Success:
@@ -286,7 +287,8 @@ function registerHandlers() {
     });
     state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
         //Log.log("HeapGraph",LogLevel.Debug);
-        StateVisualizer.showHeap(heapGraph)
+        StateVisualizer.createAndShowHeap(heapGraph,StateVisualizer.nextHeapIndex);
+        StateVisualizer.nextHeapIndex = 1-StateVisualizer.nextHeapIndex;
     });
     vscode.window.onDidChangeTextEditorSelection((change) => {
         //Log.log("OnDidChangeTextEditorSelection",LogLevel.Debug);

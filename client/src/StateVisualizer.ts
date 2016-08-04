@@ -11,8 +11,9 @@ import {ExtensionState} from './ExtensionState';
 
 export interface StepsAsDecorationOptionsResult {
     decorationOptions: MyDecorationOptions[],
-    methodBorders: MethodBorder[]
-    stepInfo: StepInfo[]
+    methodBorders: MethodBorder[],
+    stepInfo: StepInfo[],
+    globalInfo:string
 }
 
 export interface MyDecorationOptions extends vscode.DecorationOptions {
@@ -37,15 +38,19 @@ export class StateVisualizer {
     static textEditorUnderVerification: vscode.TextEditor;
     static methodBorders: MethodBorder[];
     static stepInfo: StepInfo[];
+    static globalInfo: string;
 
     static showStates: boolean = true;
 
     static shownState: number;
     static selectedPosition: Position;
+    static previousState:number;
     static debuggedUri: string;
     static currentDepth: number;
-    static debuggedMethodName:string;
-    static currentOffset:number;
+    static debuggedMethodName: string;
+    static currentOffset: number;
+
+    static nextHeapIndex = 0;
 
     public static initialize() {
         this.registerTextDocumentProvider();
@@ -57,10 +62,12 @@ export class StateVisualizer {
     }
 
     static storeNewStates(params: { uri: string, decorations: StepsAsDecorationOptionsResult }) {
-        Log.log("Store new States",LogLevel.Debug);
+        Log.log("Store new States", LogLevel.Debug);
+        this.previousState = -1;
         this.decorationOptions = params.decorations.decorationOptions;
         this.stepInfo = params.decorations.stepInfo;
         this.methodBorders = params.decorations.methodBorders;
+        this.globalInfo = params.decorations.globalInfo;
         vscode.window.visibleTextEditors.forEach(editor => {
             if (!editor.document || !params) {
                 Log.error("invalid arguments for storeNewStates");
@@ -69,15 +76,16 @@ export class StateVisualizer {
                 this.textEditorUnderVerification = editor;
             }
         });
+        Log.deleteDotFiles();
         this.showDecorations();
     }
 
-    public static showHeap(heapGraph: HeapGraph) {
+    public static createAndShowHeap(heapGraph: HeapGraph, index: number) {
         if (!heapGraph.heap) {
             Log.error("Error creating heap description");
             return;
         }
-        Log.writeToDotFile(heapGraph.heap);
+        Log.writeToDotFile(heapGraph.heap, index);
         //Log.log(graphDescription, LogLevel.Debug);
 
         this.selectState(heapGraph.fileUri, heapGraph.state, heapGraph.position);
@@ -88,15 +96,14 @@ export class StateVisualizer {
             return;
         }
         //convert dot to svg
-        this.graphvizProcess = child_process.exec(`${dotExecutable} -Tsvg "${Log.dotFilePath}" -o "${Log.svgFilePath}"`);
-
+        this.graphvizProcess = child_process.exec(`${dotExecutable} -Tsvg "${Log.dotFilePath(index)}" -o "${Log.svgFilePath(index)}"`);
         this.graphvizProcess.on('exit', code => {
             //show svg
             if (code != 0) {
                 Log.error("Could not convert graph description to svg, exit code: " + code, LogLevel.Debug);
             }
             Log.log("Graph converted to heap.svg", LogLevel.Debug);
-            this.showHeapGraph(heapGraph);
+            this.showHeapGraph(heapGraph, index);
         });
 
         this.graphvizProcess.stdout.on('data', data => {
@@ -107,12 +114,12 @@ export class StateVisualizer {
         });
     }
 
-    private static showHeapGraph(heapGraph: HeapGraph) {
-        this.provider.setState(heapGraph);
+    private static showHeapGraph(heapGraph: HeapGraph, index: number) {
+        this.provider.setState(heapGraph, index);
         let dotFileShown = false;
         let heapShown = false;
         vscode.workspace.textDocuments.forEach(element => {
-            if (element.fileName === Log.dotFilePath) {
+            if (element.fileName === Log.dotFilePath(index)) {
                 dotFileShown = true;
             }
             if (element.uri.toString() == this.previewUri.toString()) {
@@ -121,13 +128,13 @@ export class StateVisualizer {
         });
         if (!dotFileShown) {
             //Log.log("Show dotFile", LogLevel.Debug);
-            Helper.showFile(Log.dotFilePath, vscode.ViewColumn.Two);
+            Helper.showFile(Log.dotFilePath(index), vscode.ViewColumn.Two);
         }
         this.provider.update(this.previewUri);
         if (!heapShown) {
             //Log.log("Show heap graph", LogLevel.Debug);
             vscode.commands.executeCommand('vscode.previewHtml', this.previewUri, vscode.ViewColumn.Two).then((success) => { }, (reason) => {
-                Log.error(reason);
+                Log.error("HTML Preview error: " + reason);
             });
         }
     }
@@ -142,31 +149,34 @@ export class StateVisualizer {
                 this.selectedPosition = pos;
                 this.currentDepth = this.stepInfo[selectedState].depth;
                 let currentMethodIdx = this.stepInfo[selectedState].methodIndex;
-                this.debuggedMethodName = this.methodBorders[currentMethodIdx].methodName.replace(/-/g,"").trim();
+                this.debuggedMethodName = this.methodBorders[currentMethodIdx].methodName.replace(/-/g, "").trim();
 
                 //color labels
                 for (var i = 0; i < this.decorationOptions.length; i++) {
                     let option = this.decorationOptions[i];
                     let errorStateFound = false;
-                    option.renderOptions.before.contentText = this.getLabel(option,currentMethodIdx);
+                    option.renderOptions.before.contentText = this.getLabel(option, currentMethodIdx);
 
                     //default is grey
                     option.renderOptions.before.color = StateColors.uninterestingState;
                     for (var j = 0; j < option.states.length; j++) {
                         var optionState = option.states[j];
                         if (optionState == selectedState) {
-                            //if it's the current step -> blue
-                            option.renderOptions.before.color = StateColors.selectedState;
+                            //if it's the current step -> red
+                            option.renderOptions.before.color = StateColors.currentState;
                             break;
                         }
-                        else if (this.stepInfo[optionState].isErrorState) {
+                        if (optionState == this.previousState) {
+                            option.renderOptions.before.color = StateColors.previousState;
+                            break;
+                        }
+                        else if (this.stepInfo[optionState].isErrorState && this.stepInfo[optionState].methodIndex === currentMethodIdx) {
                             option.renderOptions.before.color = StateColors.errorState;
                             errorStateFound = true;
                         }
                         else if (optionState > selectedState && !errorStateFound &&
                             this.stepInfo[optionState].depth <= this.stepInfo[selectedState].depth &&
                             this.stepInfo[optionState].methodIndex === currentMethodIdx) {
-                            //if its not a substep and not a previous step and in the current method -> red
                             option.renderOptions.before.color = StateColors.interestingState;
                         }
                     }
@@ -174,22 +184,24 @@ export class StateVisualizer {
                 if (this.showStates) {
                     this.showDecorations();
                 }
+
+                this.previousState = selectedState;
             }
         }
     }
 
-    private static getLabel(decoration:MyDecorationOptions,methodIndex:number){
+    private static getLabel(decoration: MyDecorationOptions, methodIndex: number) {
         let label = "";
         let methodBorder = this.methodBorders[methodIndex];
-        this.currentOffset = methodBorder.firstStateIndex-1;
+        this.currentOffset = methodBorder.firstStateIndex - 1;
         decoration.states.forEach(element => {
-            if(element >=methodBorder.firstStateIndex && element <= methodBorder.lastStateIndex){
-                label += ","+(element-this.currentOffset);
+            if (element >= methodBorder.firstStateIndex && element <= methodBorder.lastStateIndex) {
+                label += "," + (element - this.currentOffset);
             }
         });
-        if(label.length == 0){
+        if (label.length == 0) {
             return "⚫";
-        }else{
+        } else {
             return `(${label.substring(1, label.length)})⚫`
         }
     }

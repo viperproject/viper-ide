@@ -180,6 +180,10 @@
                 "viperSettings.showSymbolicState": {
                     "type": "boolean",
                     "default": false
+                },
+                "viperSettings.darkGraphs": {
+                    "type": "boolean",
+                    "default": true
                 }
             }
         },

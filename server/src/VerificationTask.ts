@@ -70,31 +70,39 @@ export class VerificationTask {
             fileName: this.filename,
             fileUri: this.fileUri,
             position: step.position,
-            stateInfos: (this.steps[index].isErrorState ? "Error State -> use the Counter Example\n" : "") + step.pretty() + this.prettySteps()
+            stateInfos: (this.steps[index].isErrorState ? "Error State -> use the Counter Example\n" : "") + step.pretty(),
+            methodName: this.methodBorders[step.methodIndex].methodName,
+            methodType: this.methodBorders[step.methodIndex].methodType,
+            methodOffset: this.methodBorders[step.methodIndex].firstStateIndex - 1,
+            conditions:step.prettyConditions()
         };
     }
 
     private prettySteps(): string {
-        let res: string = "";
-        let methodIndex = -1;
-        let currentMethodOffset = -1;
-        let maxLine = 0;
-        let indent = "";
-        let allBordersPrinted = false;
+        try {
+            let res: string = "";
+            let methodIndex = -1;
+            let currentMethodOffset = -1;
+            let maxLine = 0;
+            let indent = "";
+            let allBordersPrinted = false;
 
-        let currentMethod;
-        this.steps.forEach((element, i) => {
-            while (!allBordersPrinted && i === this.methodBorders[this.methodBordersOrderedByStart[methodIndex+1].index].firstStateIndex) {
+            let currentMethod;
+            this.steps.forEach((element, i) => {
+                while (!allBordersPrinted && i === this.methodBorders[this.methodBordersOrderedByStart[methodIndex + 1].index].firstStateIndex) {
                     methodIndex++;
-                if (methodIndex + 1 >= this.methodBorders.length)
-                    allBordersPrinted = true;
-                currentMethod = this.methodBorders[this.methodBordersOrderedByStart[methodIndex].index];
-                res += "\n" + currentMethod.methodName;
-                currentMethodOffset = i - 1;
-            }
-            res += `\n\t${i - currentMethodOffset} (${i}) (mi:${methodIndex}) ${"\t".repeat(element.depthLevel())} ${element.firstLine()}`;
-        });
-        return res;
+                    if (methodIndex + 1 >= this.methodBorders.length)
+                        allBordersPrinted = true;
+                    currentMethod = this.methodBorders[this.methodBordersOrderedByStart[methodIndex].index];
+                    res += "\n" + currentMethod.methodType + " " + currentMethod.methodName;
+                    currentMethodOffset = i - 1;
+                }
+                res += `\n\t${i - currentMethodOffset} (${i}) ${"\t".repeat(element.depthLevel())} ${element.firstLine()}`;
+            });
+            return res;
+        } catch (e) {
+            Log.error("Runtime Error in Pretty Steps: " + e)
+        }
     }
 
     private comparePositionAndIndex(a: Statement, b: Statement): number {
@@ -137,63 +145,68 @@ export class VerificationTask {
     }
 
     public getDecorationOptions() {
-        let decorationOptions = [];
-        //working variables
-        let currDecoration = null;
-        let prevStep = null;
-        let label = "";
-        let toolTip = "";
-        let states = [];
-        let stateIndexToDecorationIndex = [];
-        let depths = [];
-        let methodIndices = [];
-        let stepInfo = [];
-        this.stateIndicesOrderedByPosition.forEach(idx => {
-            let step = this.steps[idx.index];
-            if (!currDecoration || this.comparePosition(step.position, prevStep.position) != 0) {
-                //we need a new decoration
-                if (currDecoration) {
-                    currDecoration.renderOptions.before.contentText = `(${label.substring(1, label.length)})⚫`;
-                    currDecoration.hoverMessage = toolTip;
-                    currDecoration.states = states;
-                    decorationOptions.push(currDecoration);
-                    label = "";
-                    toolTip = "";
-                    states = [];
+        try {
+            let decorationOptions = [];
+            //working variables
+            let currDecoration = null;
+            let prevStep = null;
+            let label = "";
+            let toolTip = "";
+            let states = [];
+            let stateIndexToDecorationIndex = [];
+            let depths = [];
+            let methodIndices = [];
+            let stepInfo = [];
+            this.stateIndicesOrderedByPosition.forEach(idx => {
+                let step = this.steps[idx.index];
+                if (!currDecoration || this.comparePosition(step.position, prevStep.position) != 0) {
+                    //we need a new decoration
+                    if (currDecoration) {
+                        currDecoration.renderOptions.before.contentText = `(${label.substring(1, label.length)})⚫`;
+                        currDecoration.hoverMessage = toolTip;
+                        currDecoration.states = states;
+                        decorationOptions.push(currDecoration);
+                        label = "";
+                        toolTip = "";
+                        states = [];
+                    }
+                    currDecoration = {
+                        hoverMessage: "",
+                        range: {
+                            start: step.position,
+                            end: { line: step.position.line, character: step.position.character + 1 }
+                        },
+                        renderOptions: {
+                            before: {
+                                contentText: "",
+                                color: step.isErrorState ? StateColors.errorState : StateColors.interestingState,
+                            }
+                        },
+                        states: []
+                    }
                 }
-                currDecoration = {
-                    hoverMessage: "",
-                    range: {
-                        start: step.position,
-                        end: { line: step.position.line, character: step.position.character + 1 }
-                    },
-                    renderOptions: {
-                        before: {
-                            contentText: "",
-                            color: step.isErrorState ? StateColors.errorState : StateColors.interestingState,
-                        }
-                    },
-                    states: []
-                }
+                label += `,${step.index}`;
+                toolTip += step.toToolTip() + "\n";
+                states.push(step.index);
+                prevStep = step;
+                stepInfo[step.index] = { depth: step.depthLevel(), methodIndex: step.methodIndex, index: decorationOptions.length, isErrorState: step.isErrorState }
+            });
+            //add the last decoration;
+            if (currDecoration) {
+                currDecoration.renderOptions.before.contentText = `(${label.substring(1, label.length)})⚫`;
+                currDecoration.hoverMessage = toolTip;
+                currDecoration.states = states;
+                decorationOptions.push(currDecoration);
             }
-            label += `,${step.index}`;
-            toolTip += step.toToolTip() + "\n";
-            states.push(step.index);
-            prevStep = step;
-            stepInfo[step.index] = { depth: step.depthLevel(), methodIndex: step.methodIndex, index: decorationOptions.length, isErrorState: step.isErrorState }
-        });
-        //add the last decoration;
-        if (currDecoration) {
-            currDecoration.renderOptions.before.contentText = `(${label.substring(1, label.length)})⚫`;
-            currDecoration.hoverMessage = toolTip;
-            currDecoration.states = states;
-            decorationOptions.push(currDecoration);
+            return {
+                decorationOptions: decorationOptions,
+                stepInfo: stepInfo,
+                methodBorders: this.methodBorders,
+                globalInfo:this.prettySteps()
+            };
+        } catch (e) {
+            Log.error("Runtime Error in getGecorationOptions: " + e)
         }
-        return {
-            decorationOptions: decorationOptions,
-            stepInfo: stepInfo,
-            methodBorders: this.methodBorders,
-        };
     }
 
     verify(onlyTypeCheck: boolean, manuallyTriggered: boolean): void {
@@ -399,7 +412,10 @@ export class VerificationTask {
     }
 
     private handleBackendOutputLine(line: string): number {
-        if (this.linesToSkip-- > 0) return;
+        if (this.linesToSkip - 1 > 0) {
+            this.linesToSkip--;
+            return;
+        }
         switch (this.state) {
             case VerificationState.Stopped:
                 if (line.startsWith("Command-line interface:")) {
@@ -423,24 +439,27 @@ export class VerificationTask {
                     this.state = VerificationState.VerificationReporting;
                     this.time = Number.parseFloat(/.*?(\d*\.\d*).*/.exec(line)[1]);
                 } else if (line.startsWith("\"")) {
-                    let moreThanOne = false;
-                    while (line.startsWith("\"") && line.indexOf("\"", 1) > 0 && line.indexOf("\"", 1) != line.lastIndexOf("\"")) {
-                        //we have multiple objects in this line -> split them
-                        moreThanOne = true;
-                        this.handleBackendOutputLine(line.substring(0, line.indexOf("\"", 1) + 1));
-                        line = line.substring(line.indexOf("\"", 1) + 1, line.length);
-                    }
-                    if (moreThanOne) {
-                        this.handleBackendOutputLine(line);
-                    } else {
+                    // let moreThanOne = false;
+                    // while (line.startsWith("\"") && line.indexOf("\"", 1) > 0 && line.indexOf("\"", 1) != line.lastIndexOf("\"")) {
+                    //     //we have multiple objects in this line -> split them
+                    //     moreThanOne = true;
+                    //     this.handleBackendOutputLine(line.substring(0, line.indexOf("\"", 1) + 1));
+                    //     line = line.substring(line.indexOf("\"", 1) + 1, line.length);
+                    // }
+                    // if (moreThanOne) {
+                    //     this.handleBackendOutputLine(line);
+                    // } else {
                         this.model.extendModel(line);
-                    }
+                    // }
                     //Log.toLogFile("Model: " + line);
                 } else if (line.startsWith("---------- FUNCTION") || line.startsWith("---------- PREDICATE") || line.startsWith("---------- METHOD")) {
                     if (this.methodBorders.length > 0) {
                         this.methodBorders[this.methodBorders.length - 1].lastStateIndex = this.steps.length - 1;
                     }
-                    this.methodBorders.push({ methodName: line, firstStateIndex: this.steps.length, lastStateIndex: -1, start: -1, end: -1 });
+
+                    let nameParts = line.replace(/-/g, "").trim().split(" ");
+
+                    this.methodBorders.push({ name: line, methodName: nameParts[1], methodType: nameParts[0].toLowerCase(), firstStateIndex: this.steps.length, lastStateIndex: -1, start: -1, end: -1 });
 
                     // if (line.startsWith("---------- METHOD ")) {
                     //     //this.isFromMethod = true;
@@ -607,6 +626,7 @@ export class VerificationTask {
         this.stateIndicesOrderedByPosition.sort(this.comparePositionAndIndex);
     }
 
+    //-1 means in no method
     private getMethodContainingCurrentStep(step: Statement): number {
         //TODO: is this a good idea? assuming that the 
         if (step.position.line == 0 && step.position.character == 0) {
@@ -618,7 +638,7 @@ export class VerificationTask {
                 return this.methodBordersOrderedByStart[i].index;
             }
         }
-        Log.error("getMethodIndex failed for step: " + step.index);
+        Log.log("step " + step.index + " is in no method (using define can cause this)", LogLevel.Debug);
         return -1;
     }
 

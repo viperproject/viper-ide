@@ -15,7 +15,7 @@ export interface ResolvedPath {
 }
 
 export class Settings {
-    public static viperSettings: ViperSettings;
+    public static settings: ViperSettings;
 
     public static isWin = /^win/.test(process.platform);
 

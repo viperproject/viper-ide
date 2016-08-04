@@ -1,33 +1,80 @@
 import * as vscode from 'vscode';
 import {Log} from './Log';
-import {HeapGraph, Position, LogLevel} from './ViperProtocol';
+import {HeapGraph, Position, LogLevel, StateColors} from './ViperProtocol';
 import {StateVisualizer} from './StateVisualizer';
-
-function postInfoFromForm(info: string) {
-    Log.log("Info from Form: " + info)
-}
 
 export class HeapProvider implements vscode.TextDocumentContentProvider {
 
     private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
 
-    private heapGraph: HeapGraph;
-    public setState(heapGraph: HeapGraph) {
-        this.heapGraph = heapGraph;
+    private heapGraphs: HeapGraph[];
+    public setState(heapGraph: HeapGraph, index: number) {
+        this.heapGraphs[index] = heapGraph;
+    }
+
+    public resetState() {
+        this.heapGraphs = [];
     }
 
     public provideTextDocumentContent(uri: vscode.Uri): string {
+        let table: string;
+        if (this.heapGraphs.length > 1) {
+            table = ` <table>
+  <tr><td>
+   <h1 style="color:${StateColors.currentState}">Current</h1>
+   ${this.heapGraphToContent(1 - StateVisualizer.nextHeapIndex,StateVisualizer.nextHeapIndex)}
+  </td><td>
+   <h1 style="color:${StateColors.previousState}">Previous</h1>
+   ${this.heapGraphToContent(StateVisualizer.nextHeapIndex,1 - StateVisualizer.nextHeapIndex)}
+  </td></tr>
+ </table>`;
+        } else if (this.heapGraphs.length == 1) {
+            table = ` <h1 style="color:${StateColors.currentState}">Current</h1>${this.heapGraphToContent(0)}`;
+        } else {
+            table = " <p>No graph to show</p>";
+        }
 
-        let methodNameAndType = StateVisualizer.debuggedMethodName.split(" ");
-
-        let body = `<body>
-    <h2>Showing heap for ${methodNameAndType[0].toLowerCase()} ${methodNameAndType[1]} in file ${this.heapGraph.fileName}</h2>
-    <h3>State ${this.heapGraph.state-StateVisualizer.currentOffset} at ${this.heapGraph.position.line+1}:${this.heapGraph.position.character+1} </h3>
-    <img src="${Log.svgFilePath}"></img><br />
-    <p>${this.heapGraph.stateInfos.replace(/\n/g,"<br />\n").replace(/\t/g,"&nbsp;&nbsp;&nbsp;&nbsp;")}</p><br />
-    <a href='${uri}'>view source</a>
+        return `<body>
+ ${table}
+ <p>${this.stringToHtml(StateVisualizer.globalInfo)}</p>
+ <a href='${uri}'>view source</a>
 </body>`;
-        return body;
+    }
+
+    private heapGraphToContent(index: number, otherIndex?: number): string {
+        let heapGraph = this.heapGraphs[index];
+        if (!heapGraph) {
+            Log.error("invalid index for heapGraphToContent: " + index);
+            return;
+        }
+
+        let compareToOther: boolean = typeof otherIndex !== 'undefined';
+        let otherHeapGraph: HeapGraph;
+        if (compareToOther) {
+            otherHeapGraph = this.heapGraphs[otherIndex];
+        }
+
+        let conditions = "";
+        if (heapGraph.conditions.length > 0) {
+            heapGraph.conditions.forEach(element => {
+                //if the condition is new, draw it in bold (non optimized)
+                let isNew = compareToOther && otherHeapGraph.conditions.indexOf(element) < 0;
+                conditions += `     <tr><td>${isNew?"<b>":""}${element}${isNew?"</b>":""}</td></tr>\n`;
+            });
+            conditions = `<h3>Path condition</h3>
+    <table border="solid">${conditions}
+    </table>`
+        } else {
+            conditions = `<h3>No path condition</h3>`;
+        }
+
+        let content = `
+    <h2>Showing heap for ${heapGraph.methodType} ${heapGraph.methodName} in file ${heapGraph.fileName}</h2>
+    <h3>State ${heapGraph.state - heapGraph.methodOffset} at ${heapGraph.position.line + 1}:${heapGraph.position.character + 1} </h3>
+    <img src="${Log.svgFilePath(index)}"></img><br />
+    ${conditions}
+    <p>${this.stringToHtml(heapGraph.stateInfos)}</p><br />`;
+        return content;
     }
 
     get onDidChange(): vscode.Event<vscode.Uri> {
@@ -40,9 +87,11 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
     }
 
     private errorSnippet(error: string): string {
-        return `<body>
-                    ${error}
-                </body>`;
+        return `<body>\n\t${error}\n</body>`;
+    }
+
+    private stringToHtml(s: string): string {
+        return s.replace(/\n/g, "<br />\n    ").replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;");
     }
 }
 

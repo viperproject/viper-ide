@@ -16,7 +16,7 @@ import {
 import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
 import {Settings} from './Settings'
-import {Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+import {HeapGraph,Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Statement, StatementType} from './Statement';
@@ -26,7 +26,7 @@ var ipc = require('node-ipc');
 
 export class Server {
     static backend: Backend;
-    static settings: ViperSettings;
+    //static settings: ViperSettings;
     static connection: IConnection;
     static documents: TextDocuments = new TextDocuments();
     static verificationTasks: Map<string, VerificationTask> = new Map();
@@ -79,13 +79,13 @@ function registerHandlers() {
 
     Server.connection.onDidChangeConfiguration((change) => {
         try {
-            Server.settings = <ViperSettings>change.settings.viperSettings;
+            Settings.settings = <ViperSettings>change.settings.viperSettings;
             //after this line, Logging works
-            Log.logLevel = Server.settings.logLevel;
+            Log.logLevel = Settings.settings.logLevel;
 
             Log.log('configuration changed', LogLevel.Info);
             //check settings
-            let error = Settings.checkSettings(Server.settings);
+            let error = Settings.checkSettings(Settings.settings);
             if (error) {
                 Server.connection.sendNotification(Commands.InvalidSettings, error);
                 return;
@@ -94,13 +94,13 @@ function registerHandlers() {
             }
 
             //pass the new settings to the verificationService and the Log
-            Server.nailgunService.changeSettings(Server.settings);
+            Server.nailgunService.changeSettings(Settings.settings);
 
             //stop all running verifications
             Log.log("Stop all running verificationTasks", LogLevel.Debug)
             Server.verificationTasks.forEach(task => { task.abortVerification(); });
 
-            Server.backend = Settings.autoselectBackend(Server.settings);
+            Server.backend = Settings.autoselectBackend(Settings.settings);
             Server.nailgunService.restartNailgunServer(Server.connection, Server.backend);
         } catch (e) {
             Log.error("Error handling configuration change: "+e);
@@ -108,7 +108,7 @@ function registerHandlers() {
     });
 
     Server.connection.onRequest(Commands.SelectBackend, (selectedBackend: string) => {
-        if (!Server.settings.valid) {
+        if (!Settings.settings.valid) {
             Server.connection.sendNotification(Commands.InvalidSettings, "Cannot start backend, fix settings first.");
             return;
         }
@@ -117,12 +117,12 @@ function registerHandlers() {
         }
         Log.log("Stop all running verificationTasks", LogLevel.Debug)
         Server.verificationTasks.forEach(task => { task.abortVerification(); });
-        Server.backend = Settings.autoselectBackend(Server.settings);
+        Server.backend = Settings.autoselectBackend(Settings.settings);
         Server.nailgunService.restartNailgunServer(Server.connection, Server.backend);
     });
 
     Server.connection.onRequest(Commands.RequestBackendSelection, (args) => {
-        let backendNames: string[] = Settings.getBackendNames(Server.settings);
+        let backendNames: string[] = Settings.getBackendNames(Settings.settings);
         if (backendNames.length > 1) {
             Server.connection.sendRequest(Commands.AskUserToSelectBackend, backendNames);
         } else {
@@ -227,7 +227,7 @@ function resetDiagnostics(uri: string) {
 function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuallyTriggered: boolean) {
     Log.log("start or restart verification of " + uri, LogLevel.Info);
     //only verify if the settings are right
-    if (!Server.settings.valid) {
+    if (!Settings.settings.valid) {
         Server.connection.sendNotification(Commands.InvalidSettings, "Cannot verify, fix the settings first.");
         return;
     }
@@ -241,7 +241,7 @@ function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuall
     //only verify if the settings are right
     if (!Server.backend) {
         Log.log("no backend has beed selected, the first was picked by default.", LogLevel.Debug);
-        Server.backend = Server.settings.verificationBackends[0];
+        Server.backend = Settings.settings.verificationBackends[0];
         Server.nailgunService.startNailgunIfNotRunning(Server.connection, Server.backend);
     }
     if (!Server.nailgunService.ready) {

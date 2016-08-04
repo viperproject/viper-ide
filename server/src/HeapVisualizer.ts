@@ -3,19 +3,32 @@
 import {Log} from './Log';
 import {Model} from './Model';
 import {Position, LogLevel} from './ViperProtocol';
-import {Statement, NameType, ValueType, PermissionType, HeapChunk} from './Statement';
+import {Statement, NameType, ValueType, PermissionType, ConditionType, HeapChunk} from './Statement';
 import {Server} from './Server';
+import {Settings} from './Settings';
 let graphviz = require("graphviz");
+
+let NULL = "Null";
+let TRUE = "True";
+let FALSE = "False";
 
 export class HeapVisualizer {
 
     public static heapToDot(state: Statement, showSymbolicValues: boolean, showConcreteValues: boolean): string {
-
         let count = 0;
         try {
             let g = graphviz.digraph("G");
             g.setNodeAttribut("shape", "record");
             g.set("rankdir", "LR");
+            if(Settings.settings.darkGraphs){
+                g.set("bgcolor","#272822");
+                g.set("color","white");
+                g.set("fontcolor","white");
+                g.setNodeAttribut("color","white");
+                g.setNodeAttribut("fontcolor","white");
+                g.setEdgeAttribut("color","white");
+                g.setEdgeAttribut("fontcolor","white");
+            }
             let store = g.addCluster("cluster_store");
             store.set("style", "dotted");
             store.set("label", "Store");
@@ -50,8 +63,9 @@ export class HeapVisualizer {
                 let label = "<name>";
                 fields.forEach(chunk => {
                     label += `|<${chunk.name.field}>${chunk.name.field}`;
-                    if (showSymbolicValues && chunk.value.type != ValueType.NoValue) {
-                        label += " = " + chunk.value.raw;
+                    let isValueNull = this.isKnownToBeNull(chunk.value.raw, state, showConcreteValues);
+                    if (chunk.value.type != ValueType.NoValue && (showSymbolicValues || isValueNull)) {
+                        label += " = " + (isValueNull ? NULL : chunk.value.raw);
                         if (showConcreteValues && chunk.value.concreteValue) {
                             label += "(=" + chunk.value.concreteValue + ")";
                         }
@@ -68,8 +82,9 @@ export class HeapVisualizer {
                 //set variable value
                 let variableValue = variable.name;
                 //add symbolic and concrete values;
-                if (showSymbolicValues && variable.value) {
-                    variableValue += " = " + variable.value;
+                let isValueNull = this.isKnownToBeNull(variable.value, state, showConcreteValues);
+                if (variable.value && (showSymbolicValues || isValueNull)) {
+                    variableValue += " = " + (isValueNull ? NULL : variable.value);
                     if (showConcreteValues && variable.concreteValue) {
                         variableValue += "(=" + variable.concreteValue + ")";
                     }
@@ -104,7 +119,7 @@ export class HeapVisualizer {
                             negated = "not";
                             parameter = parameter.substring(1, parameter.length);
                         }
-                        if (parameter === "False" || parameter === "True" || /^\d+(\.\d+)$/.test(parameter)) {
+                        if (parameter === FALSE || parameter === TRUE || /^\d+(\.\d+)$/.test(parameter)) {
                             let argumentNode = predicateCluster.addNode(`predicate_${count}_arg${i} = ${negated ? "!" : ""}${parameter}`);
                             argumentNode.set("label", `arg${i} = ${negated ? "!" : ""}${parameter}`)
                         } else {
@@ -140,6 +155,21 @@ export class HeapVisualizer {
         }
     }
 
+    //TODO: could be optimized if needed using a hash map storing all variables with value null
+    private static isKnownToBeNull(symbolicValue: string, state: Statement, showConcreteValues: boolean): boolean {
+        if (symbolicValue === NULL) return true;
+        for (let i = 0; i < state.conditions.length; i++) {
+            let cond = state.conditions[i];
+            if (cond.type == ConditionType.NullityCondition && cond.value && cond.lhs === symbolicValue) {
+                return true;
+            }
+        };
+        if (showConcreteValues) {
+            //TODO: use counterexample model to determine more nullity conditions 
+        }
+        return false;
+    }
+
     private static configureEdge(edge, label?: string, style?: string) {
         if (style) {
             edge.set("style", style);
@@ -148,75 +178,6 @@ export class HeapVisualizer {
             edge.set("label", label);
         }
     }
-    //   public static buildGraphVizExampleGraph() {
-    //     try {
-    //         let g = graphviz.digraph("G");
-    //         let n1 = g.addNode("Hello", { "color": "blue" });
-    //         n1.set("style", "filled");
-    //         let e = g.addEdge(n1, "World");
-    //         e.set("color", "red");
-    //         g.addNode("World");
-    //         g.addEdge(n1, "World");
-    //         Log.log(g.to_dot(), LogLevel.Debug);
-    //         g.setGraphVizPath("C:\\");
-    //         g.output("png", "graphvizTest.png");
-    //     } catch (e) {
-    //         Log.error("Graphviz Error: " + e);
-    //     }
-    // }
-
-    //     getHeapChunkVisualization(): string {
-    //         let header = `digraph heap {
-    // rankdir=LR
-    // node [shape = record];
-
-    // subgraph cluster_local {
-    // graph[style=dotted]
-    // label="Local"\n`;
-
-    //         let intermediate = `}
-
-    // subgraph cluster_heap{
-    // graph[style=dotted]
-    // label="heap"\n`;
-
-    //         let footer: string = "}\n}\n";
-
-    //         let localVars = "";
-    //         this.store.forEach(variable => {
-    //             localVars += `${variable.name} [label = "${variable.name}\nval: ${variable.value}""]\n`;
-
-    //         });
-
-    //         let heapChunks: string = "";
-    //         this.heap.forEach(heapChunk => {
-    //             if (heapChunk.parsed) {
-    //                 heapChunks += `${heapChunk.name.raw} [label = "<name>${heapChunk.name.raw}|<next>next${heapChunk.value.raw ? "\nval: " + heapChunk.value.raw : ""}\n(${heapChunk.permission.raw})"]\n`;
-    //                 if (heapChunk.value.raw) {
-    //                     heapChunks += `${heapChunk.name.raw} -> ${heapChunk.value.raw}`;
-    //                 }
-    //             }
-    //         });
-    //         if (localVars != "" || heapChunks != "") {
-    //             return header + localVars + intermediate + heapChunks + footer;
-    //         } else {
-    //             return null;
-    //         }
-    //     }
-
-    //   n4 [label = "n4\nval: n4@24"]
-    //   n [label = "node($t@34;$t@33)"]
-
-    // 	n4_24 [label = "<name>$Ref!val!0|<next>next\nval: $t@27\n(W)"]
-    // 	t_27 [label = "<name>$Ref!val!1|<next>next\nval: $t@29\n(W)"]
-    // 	t_29 [label = "<name>$Ref!val!1|<next>next\nval: $t@31\n(W)"]
-    // 	t_31 [label = "<name>$Ref!val!1|<next>next\n(W)"]
-    // 	t_33 [label = "<name>$t@33\nval: $Ref!val!1|<next>next"]
-    // 	t_34 [label = "<name>$t@34\nval: $Ref!val!1|<next>next"]
-
-    // 	temp [label= "<name>|(W)"]
-
-    // 	n -> temp:name
 }
 
 
