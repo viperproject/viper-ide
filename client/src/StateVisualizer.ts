@@ -58,6 +58,11 @@ export class StateVisualizer {
         let registration = vscode.workspace.registerTextDocumentContentProvider('viper-preview', this.provider);
     }
 
+    public static reset(){
+        this.nextHeapIndex = 0;
+        this.provider.resetState();
+    }
+
     static storeNewStates(params: { uri: string, decorations: StepsAsDecorationOptionsResult }) {
         Log.log("Store new States", LogLevel.Debug);
         this.previousState = -1;
@@ -123,7 +128,7 @@ export class StateVisualizer {
                 dotFileShown = true;
             }
             if (element.uri.toString() == this.previewUri.toString()) {
-                heapShown = true;
+                //heapShown = true;
             }
         });
         if (!dotFileShown) {

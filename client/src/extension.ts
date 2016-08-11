@@ -37,6 +37,8 @@ let workList: Task[];
 let verifiedFile: string;
 let backendReady: boolean = false;
 
+let lastActiveTextEditor: vscode.Uri;
+
 interface Task {
     type: TaskType;
     uri?: vscode.Uri;
@@ -68,7 +70,17 @@ export function activate(context: vscode.ExtensionContext) {
     Log.deleteDotFiles();
     StateVisualizer.initialize();//enable second window
     registerFormatter();
+    lastActiveTextEditor = vscode.window.activeTextEditor.document.uri;
     startVerificationController();
+}
+
+function resetViperFiles(){
+    ExtensionState.viperFiles.forEach(element =>{
+        element.changed = true;
+        element.verified = false;
+        element.verifying = false;
+        element.decorationsShown = false;
+    });
 }
 
 function startVerificationController() {
@@ -84,18 +96,25 @@ function startVerificationController() {
             }
 
             while (!done && workList.length > i) {
-                let task = workList[i];
+                let task = workList[i++];
+                if (!Helper.isViperSourceFile(task.uri.toString())) {
+                    task.type = TaskType.NoOp;
+                    Log.log("Warning: only handle viper files, not file: " + task.uri.toString());
+                }
                 let fileState = ExtensionState.viperFiles.get(task.uri.toString());
                 switch (task.type) {
                     case TaskType.Verify:
                         if (backendReady) {
                             Log.log("Verify " + path.basename(task.uri.toString()) + " is handled", LogLevel.Info);
-                            let activeFile = vscode.window.activeTextEditor.document.uri.toString();
+
+                            let activeFile;
+                            if(vscode.window.activeTextEditor)
+                                activeFile = vscode.window.activeTextEditor.document.uri.toString();
                             if (!fileState.open ||
                                 (!fileState.changed && !task.manuallyTriggered) ||
                                 fileState.verifying ||
                                 (fileState.verified && !task.manuallyTriggered)) { }
-                            else if (activeFile !== task.uri.toString() || (fileState.decorationsShown && !task.manuallyTriggered)) {
+                            else if (!activeFile || activeFile !== task.uri.toString() || (fileState.decorationsShown && !task.manuallyTriggered)) {
                                 fileState.needsVerification = true;
                             } else {
                                 fileState.changed = false;
@@ -110,8 +129,8 @@ function startVerificationController() {
                         break;
                     case TaskType.Save:
                         Log.log("Save " + path.basename(task.uri.toString()) + " is handled", LogLevel.Info);
-                        fileState.verified = false;
                         fileState.changed = true;
+                        fileState.verified = false;
                         workList.push({ type: TaskType.Verify, uri: task.uri, manuallyTriggered: false });
                         task.type = TaskType.NoOp;
                         break;
@@ -128,10 +147,10 @@ function startVerificationController() {
                     //     task.type = TaskType.NoOp;
                     //     break;
                 }
-                i++;
             }
         } catch (e) {
             Log.error("Error in verification controller: " + e);
+            workList.shift();
         }
     }, verificationTimeout);
     state.context.subscriptions.push(verificationController);
@@ -139,13 +158,27 @@ function startVerificationController() {
     //trigger verification texteditorChange
     state.context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(() => {
         try {
-            if (vscode.window.activeTextEditor) {
-                let uri = vscode.window.activeTextEditor.document.uri;
-                let fileState = ExtensionState.viperFiles.get(uri.toString());
-                if (fileState.verified) {
-                    StateVisualizer.showDecorations();
-                } else {
+            let editor = vscode.window.activeTextEditor;
+            if (editor) {
+                if (Helper.isViperSourceFile(editor.document.uri.toString())) {
+                    if (lastActiveTextEditor) {
+                        if (lastActiveTextEditor.toString() === editor.document.uri.toString()){
+                            return;
+                        }
+                        let oldFileState = ExtensionState.viperFiles.get(lastActiveTextEditor.toString());
+                        oldFileState.decorationsShown = false;
+                        ViperFormatter.removeSpecialCharsFromClosedDocument(lastActiveTextEditor.fsPath, () => { });
+                    }
+                    let uri = vscode.window.activeTextEditor.document.uri;
+                    let fileState = ExtensionState.viperFiles.get(uri.toString());
+                    /*if (fileState.verified) {
+                        ViperFormatter.addCharacterToDecorationOptionLocations();
+                        StateVisualizer.showDecorations();
+                    } else {*/
+                    Log.log("reverify because the active text editor changed");
                     workList.push({ type: TaskType.Verify, uri: uri, manuallyTriggered: false })
+                    //}
+                    lastActiveTextEditor = uri;
                 }
             }
         } catch (e) {
@@ -248,8 +281,9 @@ function handleStateChange(params: UpdateStatusBarParams) {
                     //automatically trigger the first verification
                     if (params.verificationNeeded && Helper.getConfiguration('autoVerifyAfterBackendChange') === true) {
                         if (vscode.window.activeTextEditor.document.languageId === 'viper') {
+                            Log.log("autoVerify after backend change");
+                            resetViperFiles()
                             workList.push({ type: TaskType.Verify, uri: vscode.window.activeTextEditor.document.uri, manuallyTriggered: false });
-                            //verify(false);
                         }
                     }
                 } else {
@@ -260,7 +294,6 @@ function handleStateChange(params: UpdateStatusBarParams) {
                     }
 
                     //workList.push({ type: TaskType.VerificationCompleted, uri: uri, success: params.success });
-                    StateVisualizer.provider.resetState();
                     let msg: string = "";
                     switch (params.success) {
                         case Success.Success:
@@ -511,6 +544,8 @@ function verify(uri: vscode.Uri, manuallyTriggered: boolean) {
             Log.hint("Extension not ready yet.");
         } else {
             ViperFormatter.removeSpecialCharacters(() => {
+                StateVisualizer.hideDecorations();
+                StateVisualizer.reset();
                 Log.log("verify");
                 let workspace = vscode.workspace.rootPath ? vscode.workspace.rootPath : path.dirname(uri.fsPath);
                 state.client.sendRequest(Commands.Verify, { uri: uri.toString(), manuallyTriggered: manuallyTriggered, workspace: workspace });

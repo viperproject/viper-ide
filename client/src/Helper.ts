@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import {Log} from './Log';
+import * as path from 'path';
 
 export class Helper {
 
@@ -19,7 +20,7 @@ export class Helper {
         if (doc) {
             //just show it if its open already
             vscode.window.showTextDocument(doc, column, true).then(msg => {
-                Log.log("file shown (already open): " + msg.document.fileName)
+                Log.log("file shown (already open): " + path.basename(msg.document.uri.toString()))
             });
         } else {
             if(!resource){
@@ -33,7 +34,7 @@ export class Helper {
                     return;
                 }
                 vscode.window.showTextDocument(doc, column, true).then(msg => {
-                    Log.log("file shown: " + msg.document.fileName)
+                    //Log.log("file shown: " + path.basename(msg.document.uri.toString()))
 
                     //TODO: Hack: to alleviate the graph image refresh and the vscode bug 
                     Log.deleteDotFiles();

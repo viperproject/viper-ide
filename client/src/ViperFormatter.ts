@@ -58,7 +58,9 @@ export class ViperFormatter {
 				}
 			}
 		}
-		vscode.workspace.applyEdit(edit);
+		vscode.workspace.applyEdit(edit).then(params => {
+			openDoc.save();
+		});
 	}
 
 	public static addCharacterToDecorationOptionLocations() {
@@ -72,7 +74,9 @@ export class ViperFormatter {
 				let pos = new vscode.Position(p.line, p.character);
 				edit.insert(openDoc.uri, pos, '⦿');
 			});
-			vscode.workspace.applyEdit(edit);
+			vscode.workspace.applyEdit(edit).then(params => {
+				openDoc.save();
+			});
 		}
 	}
 
