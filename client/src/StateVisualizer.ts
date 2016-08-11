@@ -1,30 +1,24 @@
 'use strict';
 
 import {Log} from './Log';
-import {StateColors, MethodBorder, Position, HeapGraph, Commands, ViperSettings, LogLevel} from './ViperProtocol';
+import {StepInfo, StateColors, MethodBorder, Position, HeapGraph, Commands, ViperSettings, LogLevel} from './ViperProtocol';
 import * as fs from 'fs';
 import child_process = require('child_process');
 import {HeapProvider} from './TextDocumentContentProvider';
 import * as vscode from 'vscode';
 import {Helper} from './Helper';
 import {ExtensionState} from './ExtensionState';
+import {ViperFormatter} from './ViperFormatter';
 
 export interface StepsAsDecorationOptionsResult {
     decorationOptions: MyDecorationOptions[],
     methodBorders: MethodBorder[],
     stepInfo: StepInfo[],
-    globalInfo:string
+    globalInfo: string
 }
 
 export interface MyDecorationOptions extends vscode.DecorationOptions {
     states: number[];
-}
-
-interface StepInfo {
-    depth: number,
-    methodIndex: number,
-    index: number,
-    isErrorState: boolean
 }
 
 export class StateVisualizer {
@@ -44,11 +38,14 @@ export class StateVisualizer {
 
     static shownState: number;
     static selectedPosition: Position;
-    static previousState:number;
+    static previousState: number;
     static debuggedUri: string;
     static currentDepth: number;
     static debuggedMethodName: string;
     static currentOffset: number;
+    //static areDecorationsShown: boolean = false;
+
+    static decorationOptionsOrderedByState: MyDecorationOptions[];
 
     static nextHeapIndex = 0;
 
@@ -77,6 +74,9 @@ export class StateVisualizer {
             }
         });
         Log.deleteDotFiles();
+        ViperFormatter.addCharacterToDecorationOptionLocations();
+        this.decorationOptionsOrderedByState = [];
+        this.completeDecorationOptions();
         this.showDecorations();
     }
 
@@ -139,6 +139,16 @@ export class StateVisualizer {
         }
     }
 
+    static completeDecorationOptions() {
+        for (var i = 0; i < this.decorationOptions.length; i++) {
+            let option = this.decorationOptions[i];
+            //fill decorationOptionsOrderedByState
+            option.states.forEach(state => {
+                this.decorationOptionsOrderedByState[state] = option;
+            });
+        }
+    }
+
     static selectState(uri: string, selectedState: number, pos: Position) {
         if (this.showStates && Helper.isViperSourceFile(uri) && this.decorationOptions) {
             //state should be visualized
@@ -146,7 +156,7 @@ export class StateVisualizer {
                 //its in range
                 this.shownState = selectedState;
                 this.debuggedUri = uri;
-                this.selectedPosition = pos;
+                this.selectedPosition = this.decorationOptionsOrderedByState[selectedState].range.start;
                 this.currentDepth = this.stepInfo[selectedState].depth;
                 let currentMethodIdx = this.stepInfo[selectedState].methodIndex;
                 this.debuggedMethodName = this.methodBorders[currentMethodIdx].methodName.replace(/-/g, "").trim();
@@ -174,9 +184,10 @@ export class StateVisualizer {
                             option.renderOptions.before.color = StateColors.errorState;
                             errorStateFound = true;
                         }
-                        else if (optionState > selectedState && !errorStateFound &&
-                            this.stepInfo[optionState].depth <= this.stepInfo[selectedState].depth &&
-                            this.stepInfo[optionState].methodIndex === currentMethodIdx) {
+                        else if (!errorStateFound &&
+                            this.stepInfo[optionState].depth <= this.stepInfo[selectedState].depth
+                            && this.stepInfo[optionState].methodIndex === currentMethodIdx //&& optionState > selectedState
+                        ) {
                             option.renderOptions.before.color = StateColors.interestingState;
                         }
                     }
@@ -202,7 +213,7 @@ export class StateVisualizer {
         if (label.length == 0) {
             return "⚫";
         } else {
-            return `(${label.substring(1, label.length)})⚫`
+            return `(${label.substring(1, label.length)})`
         }
     }
 
@@ -231,13 +242,22 @@ export class StateVisualizer {
     }
 
     static hideDecorations() {
-        if (this.decoration)
-            this.decoration.dispose();
+        Log.log("Hide decorations", LogLevel.Debug);
+        this.doHideDecorations();
+        ExtensionState.viperFiles.get(vscode.window.activeTextEditor.document.uri.toString()).decorationsShown = false;
     }
+
+    private static doHideDecorations() {
+        if (this.decoration) {
+            this.decoration.dispose();
+        }
+    }
+
     static showDecorations() {
-        //Log.log("Show decorations", LogLevel.Debug);
         if (this.showStates && this.decorationOptions) {
-            this.hideDecorations();
+            ExtensionState.viperFiles.get(vscode.window.activeTextEditor.document.uri.toString()).decorationsShown = true;
+            Log.log("Show decorations", LogLevel.Debug);
+            this.doHideDecorations();
             this.decoration = vscode.window.createTextEditorDecorationType({});
             if (this.textEditorUnderVerification) {
                 this.textEditorUnderVerification.setDecorations(this.decoration, this.decorationOptions);

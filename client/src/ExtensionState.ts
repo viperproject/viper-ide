@@ -3,7 +3,7 @@ import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, T
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import {VerificationState, Commands, LogLevel} from './ViperProtocol';
+import {ViperFileState,VerificationState, Commands, LogLevel} from './ViperProtocol';
 import {Log} from './Log';
 
 export class ExtensionState {
@@ -11,6 +11,8 @@ export class ExtensionState {
     public context: vscode.ExtensionContext;
 
     public state: VerificationState;
+
+    public static viperFiles:Map<string, ViperFileState>;
 
     public static instance:ExtensionState;
 

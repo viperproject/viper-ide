@@ -61,13 +61,15 @@ class ViperDebugSession extends DebugSession {
 
 	private _stopOnEntry: boolean = true;
 
+	private static self:ViperDebugSession;
+
 	/**
 	 * Creates a new debug adapter that is used for one debug session.
 	 * We configure the default implementation of a debug adapter here.
 	 */
 	public constructor() {
 		super();
-
+		ViperDebugSession.self = this;
 		// this debugger uses zero-based lines and columns
 		this.setDebuggerLinesStartAt1(false);
 		this.setDebuggerColumnsStartAt1(false);
@@ -80,17 +82,17 @@ class ViperDebugSession extends DebugSession {
 			'viper', () => {
 				ipc.of.viper.on(
 					'connect', () => {
-						this.log("Debugger connected to Language Server");
+						ViperDebugSession.log("Debugger connected to Language Server");
 					}
 				);
 				ipc.of.viper.on(
 					'disconnect', () => {
-						this.log('disconnected from viper');
+						ViperDebugSession.log('disconnected from viper');
 					}
 				);
 				ipc.of.viper.on(
 					'message', (data) => {
-						this.log('got a message from viper : ' + data);
+						ViperDebugSession.log('got a message from viper : ' + data);
 					}
 				);
 			}
@@ -102,13 +104,14 @@ class ViperDebugSession extends DebugSession {
 					'MoveDebuggerToPos',
 					function (data, socket) {
 						try {
-							this.log("MoveDebuggerToPos " + data);
-							let position = JSON.parse(data);
-							this._currentLine = position.line;
-							this._currentCharacter = position.character;
-							this.sendEvent(new StoppedEvent("step", ViperDebugSession.THREAD_ID));
+							ViperDebugSession.log("MoveDebuggerToPos " + data);
+							let obj = JSON.parse(data);
+							ViperDebugSession.self._currentLine = obj.position.line;
+							ViperDebugSession.self._currentCharacter = obj.position.character;
+							ViperDebugSession.self._currentState = obj.step;
+							ViperDebugSession.self.sendEvent(new StoppedEvent("step", ViperDebugSession.THREAD_ID));
 						} catch (e) {
-							this.log(e);
+							ViperDebugSession.log("MoveDebuggerToPos "+e);
 						}
 					}
 				);
@@ -181,14 +184,14 @@ class ViperDebugSession extends DebugSession {
 		ipc.of.viper.on(
 			method + "Response", (data) => {
 				if (data && data != "[]") {
-					this.log(data);
+					ViperDebugSession.log(data);
 				}
 				let parsedData;
 				if (isJsonResponse) {
 					try {
 						parsedData = JSON.parse(data);
 					} catch (error) {
-						this.log("Error:" + error.toString());
+						ViperDebugSession.log("Error:" + error.toString());
 						return;
 					}
 				} else {
@@ -204,7 +207,7 @@ class ViperDebugSession extends DebugSession {
 		//start IPC connection
 		this.connectToLanguageServer();
 		this.registerHandlers();
-		//this.log("launchRequest");
+		//ViperDebugSession.log("launchRequest");
 
 		this._sourceFile = args.program;
 		this._stopOnEntry = args.stopOnEntry;
@@ -215,14 +218,14 @@ class ViperDebugSession extends DebugSession {
 	}
 
 	protected disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments): void {
-		//this.log("disconnectRequest");
+		//ViperDebugSession.log("disconnectRequest");
 		// stop sending custom events
 		clearInterval(this._timer);
 		super.disconnectRequest(response, args);
 	}
 
 	protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {
-		this.log("setBreakPointsRequest is not supported");
+		ViperDebugSession.log("setBreakPointsRequest is not supported");
 		this.sendResponse(response);
 
 		// var path = args.source.path;
@@ -265,7 +268,7 @@ class ViperDebugSession extends DebugSession {
 	}
 
 	protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {
-		//this.log("threadsRequest");
+		//ViperDebugSession.log("threadsRequest");
 		// return the default thread
 		response.body = {
 			threads: [
@@ -276,7 +279,7 @@ class ViperDebugSession extends DebugSession {
 	}
 
 	protected stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): void {
-		//this.log("stackTraceRequest: " + JSON.stringify(args));
+		//ViperDebugSession.log("stackTraceRequest: " + JSON.stringify(args));
 
 		const startFrame = typeof args.startFrame === 'number' ? args.startFrame : 0;
 		const maxLevels = typeof args.levels;
@@ -313,7 +316,7 @@ class ViperDebugSession extends DebugSession {
 	}
 
 	protected scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
-		//this.log("scopesRequest");
+		//ViperDebugSession.log("scopesRequest");
 		const frameReference = args.frameId;
 		const scopes = new Array<Scope>();
 
@@ -325,7 +328,7 @@ class ViperDebugSession extends DebugSession {
 		this.sendResponse(response);
 	}
 	protected variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments): void {
-		//this.log("variablesRequest");
+		//ViperDebugSession.log("variablesRequest");
 		this.sendResponse(response);
 		/*
 		this.requestFromLanguageServer("variablesInLine", this.__currentLine, true, (variables) => {
@@ -337,12 +340,12 @@ class ViperDebugSession extends DebugSession {
 		*/
 	}
 
-	public log(message: string) {
+	public static log(message: string) {
 		ipc.of.viper.emit('log', message);
 	}
 
 	protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): void {
-		this.log("continueRequest does the same as next");
+		ViperDebugSession.log("continueRequest does the same as next");
 		this.nextRequest(response, args);
 		// // find the breakpoints for the current source file
 		// const breakpoints = this._breakPoints.get(this._sourceFile);
@@ -385,31 +388,31 @@ class ViperDebugSession extends DebugSession {
 	}
 
 	protected nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): void {
-		this.log("nextRequest");
+		ViperDebugSession.log("nextRequest");
 		this.requestFromLanguageServer("Move", JSON.stringify({ type: StepType.Next, state: this._currentState }));
 		this.sendResponse(response);
 	}
 
 	protected stepBackRequest(response: DebugProtocol.StepBackResponse, args: DebugProtocol.StepBackArguments): void {
-		this.log("stepBackRequest");
+		ViperDebugSession.log("stepBackRequest");
 		this.requestFromLanguageServer("Move", JSON.stringify({ type: StepType.Back, state: this._currentState }));
 		this.sendResponse(response);
 	}
 
 	protected stepInRequest(response: DebugProtocol.StepInResponse, args: DebugProtocol.StepInArguments) {
-		this.log("stepInRequest");
+		ViperDebugSession.log("stepInRequest");
 		this.requestFromLanguageServer("Move", JSON.stringify({ type: StepType.In, state: this._currentState }));
 		this.sendResponse(response);
 	}
 
 	protected stepOutRequest(response: DebugProtocol.StepOutResponse, args: DebugProtocol.StepOutArguments) {
-		this.log("stepOutRequest");
+		ViperDebugSession.log("stepOutRequest");
 		this.requestFromLanguageServer("Move", JSON.stringify({ type: StepType.Out, state: this._currentState }));
 		this.sendResponse(response);
 	}
 
 	protected evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): void {
-		this.log("evaluateRequest");
+		ViperDebugSession.log("evaluateRequest");
 		this.sendResponse(response);
 		/*
 		this.requestFromLanguageServer("evaluate", JSON.stringify(args), false, (evaluated) => {
@@ -423,7 +426,7 @@ class ViperDebugSession extends DebugSession {
 	}
 
 	protected customRequest(request: string, response: DebugProtocol.Response, args: any): void {
-		this.log("customRequest");
+		ViperDebugSession.log("customRequest");
 		switch (request) {
 			case 'infoRequest':
 				response.body = {

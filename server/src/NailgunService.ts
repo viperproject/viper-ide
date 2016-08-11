@@ -74,10 +74,10 @@ export class NailgunService {
                     this.waitForNailgunToStart(retriesLeft - 1, connection);
                 }, 100);
             } else {
-                //the nailgun server is confirmed to be runnings
+                //the nailgun server is confirmed to be running
                 this.ready = true;
                 Log.log("Nailgun started", LogLevel.Info);
-                connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, firstTime: true, verificationNeeded: true });
+                connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, verificationCompleted: false, verificationNeeded: true });
             }
         });
     }

@@ -119,6 +119,11 @@
             "key": "ctrl+d",
             "mac": "cmd+d",
             "when": "editorTextFocus"
+        }, {
+            "command": "extension.format",
+            "key": "alt+shift+f",
+            "mac": "alt+shift+f",
+            "when": "editorTextFocus"
         }],
         "configuration": {
             "type": "object",

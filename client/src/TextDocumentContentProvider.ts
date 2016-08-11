@@ -21,10 +21,10 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         if (this.heapGraphs.length > 1) {
             table = ` <table>
   <tr><td>
-   <h1 style="color:${StateColors.currentState}">Current</h1>
+   <h1 style="color:${StateColors.currentState}">Current State</h1>
    ${this.heapGraphToContent(1 - StateVisualizer.nextHeapIndex,StateVisualizer.nextHeapIndex)}
   </td><td>
-   <h1 style="color:${StateColors.previousState}">Previous</h1>
+   <h1 style="color:${StateColors.previousState}">Previous State</h1>
    ${this.heapGraphToContent(StateVisualizer.nextHeapIndex,1 - StateVisualizer.nextHeapIndex)}
   </td></tr>
  </table>`;
@@ -34,7 +34,14 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
             table = " <p>No graph to show</p>";
         }
 
-        return `<body>
+        return `<head>
+<style>
+ table td, table td * {
+  vertical-align: top;
+ }
+</style>        
+</head>
+<body>
  ${table}
  <p>${this.stringToHtml(StateVisualizer.globalInfo)}</p>
  <a href='${uri}'>view source</a>
@@ -69,8 +76,8 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         }
 
         let content = `
-    <h2>Showing heap for ${heapGraph.methodType} ${heapGraph.methodName} in file ${heapGraph.fileName}</h2>
-    <h3>State ${heapGraph.state - heapGraph.methodOffset} at ${heapGraph.position.line + 1}:${heapGraph.position.character + 1} </h3>
+    <h2>file: ${heapGraph.fileName}<br />${heapGraph.methodType}: ${heapGraph.methodName}</h2>
+    <h3>state ${heapGraph.state - heapGraph.methodOffset}<br />position: ${heapGraph.position.line + 1}:${heapGraph.position.character + 1}</h3>
     <img src="${Log.svgFilePath(index)}"></img><br />
     ${conditions}
     <p>${this.stringToHtml(heapGraph.stateInfos)}</p><br />`;

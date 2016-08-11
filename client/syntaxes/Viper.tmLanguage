@@ -16,15 +16,15 @@
 		</dict>
 		<dict>
 			<key>include</key>
-			<string>#constants</string>
-		</dict>
-		<dict>
-			<key>include</key>
 			<string>#keywords</string>
 		</dict>
 		<dict>
 			<key>include</key>
 			<string>#declarations</string>
+		</dict>
+		<dict>
+			<key>include</key>
+			<string>#constants</string>
 		</dict>
 	</array>
 	<key>repository</key>
@@ -91,7 +91,7 @@
 				</dict>
 				<dict>
 					<key>match</key>
-					<string>\b((\+|-)?[0-9]+)\b</string>
+					<string>(?<![\w$])((\+|-)?[0-9]+)\b</string>
 					<key>name</key>
 					<string>constant.numeric.silver</string>
 				</dict>

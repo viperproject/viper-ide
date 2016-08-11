@@ -25,6 +25,8 @@ let ipc = require('node-ipc');
 
 export class DebugServer {
 
+    public static debuggerRunning = false;
+
     public static initialize() {
         this.startIPCServer();
         this.registerHandlers();
@@ -65,6 +67,7 @@ export class DebugServer {
                 ipc.server.on(
                     'launchRequest',
                     function (data, socket) {
+                        DebugServer.debuggerRunning = true;
                         Log.log('Debugging was requested for file: ' + data, LogLevel.Debug);
                         VerificationTask.pathToUri(data).then((uri) => {
                             Server.debuggedVerificationTask = Server.verificationTasks.get(uri);
@@ -85,13 +88,14 @@ export class DebugServer {
                                 'viperDebugger', () => {
                                     ipc.of.viperDebugger.on(
                                         'connect', () => {
-                                            Log.log("Language Server connected to Debugger, as client",LogLevel.Debug);
+                                            Log.log("Language Server connected to Debugger, as client", LogLevel.Debug);
                                         }
                                     );
                                     ipc.of.viperDebugger.on(
                                         'disconnect', () => {
-                                            Log.log('LanguageServer disconnected from Debugger',LogLevel.Debug);
-                                        }
+                                            Log.log('LanguageServer disconnected from Debugger', LogLevel.Debug);
+                                            DebugServer.debuggerRunning = false;
+                                     }
                                     );
                                 }
                             )
@@ -229,12 +233,14 @@ export class DebugServer {
         ipc.server.start();
     }
 
-    static moveDebuggerToPos(position: Position) {
-        try {
-            ipc.of.viperDebugger.emit("MoveDebuggerToPos", JSON.stringify(position));
-            Log.log("LanguageServer is telling Debugger to Move to Position.")
-        } catch (e) {
-            Log.error("MoveDebuggerToPos: " + e);
+    static moveDebuggerToPos(position: Position,step) {
+        if (DebugServer.debuggerRunning) {
+            try {
+                ipc.of.viperDebugger.emit("MoveDebuggerToPos", JSON.stringify({position:position,step:step}));
+                Log.log("LanguageServer is telling Debugger to Move to Position of State "+ step)
+            } catch (e) {
+                Log.error("MoveDebuggerToPos: " + e);
+            }
         }
     }
 }

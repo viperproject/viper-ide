@@ -3,11 +3,6 @@
 import {Log} from './Log';
 import {LogLevel} from './ViperProtocol';
 
-interface ConcreteVariable {
-    name: string;
-    value: string;
-}
-
 export class Model {
     public values: Map<string, string>;
 
@@ -36,6 +31,8 @@ export class Model {
         for (var i = 2; i < parts.length; i += 3) {
             let name = parts[i - 2];
             let value = parts[i];
+
+            //assemble values, needed for e.g. snap values
             if (value.startsWith("(")) {
                 let bracketCount = this.countBrackets(value);
                 while (!(value.endsWith(")") && bracketCount == 0) && ++i < parts.length) {
@@ -48,8 +45,25 @@ export class Model {
             //         Log.error("model inconsistency: " + name + " has values " + this.values.get(name) + " and " + value);
             //     }
             // }
-            this.values.set(name, value);
+            this.values.set(name, this.simplifyValue(value));
         }
+    }
+
+    private simplifyValue(value: string): string {
+        let isSnap = value.indexOf("$Snap.") >= 0;
+        if (isSnap) {
+            value = value.replace(/\$Snap\./g, "");
+            return "Snap: " + value;
+        } else {
+            let match = /\$Ref!val!(\d+)/.exec(value);
+            if (match && match.length == 2) {
+                return "Ref_" + match[1];
+            } else {
+                return value;
+            }
+
+        }
+
     }
 
     private countBrackets(value: string): number {

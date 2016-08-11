@@ -3,7 +3,7 @@
 import child_process = require('child_process');
 import {IConnection, Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
 import {Settings} from './Settings'
-import {StateColors, MethodBorder, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
+import {StepInfo, StateColors, MethodBorder, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement, StatementType} from './Statement';
@@ -12,6 +12,7 @@ import * as pathHelper from 'path';
 import {HeapVisualizer} from './HeapVisualizer';
 import {TotalProgress} from './TotalProgress';
 import {Server} from './server';
+import {DebugServer} from './DebugServer';
 
 export class VerificationTask {
     //state
@@ -64,8 +65,12 @@ export class VerificationTask {
             Log.error("Cannot show heap at step " + index + " step is null");
             return;
         }
+
+        //inform debug server about selected State
+        DebugServer.moveDebuggerToPos(step.position, step.index);
+
         return {
-            heap: HeapVisualizer.heapToDot(step, step.isErrorState || this.nailgunService.settings.showSymbolicState, step.isErrorState),
+            heap: HeapVisualizer.heapToDot(step, step.isErrorState || this.nailgunService.settings.showSymbolicState, step.isErrorState, this.model),
             state: index,
             fileName: this.filename,
             fileUri: this.fileUri,
@@ -74,7 +79,7 @@ export class VerificationTask {
             methodName: this.methodBorders[step.methodIndex].methodName,
             methodType: this.methodBorders[step.methodIndex].methodType,
             methodOffset: this.methodBorders[step.methodIndex].firstStateIndex - 1,
-            conditions:step.prettyConditions()
+            conditions: step.prettyConditions()
         };
     }
 
@@ -147,62 +152,39 @@ export class VerificationTask {
     public getDecorationOptions() {
         try {
             let decorationOptions = [];
+            let line = 0;
+            let optionsInLine = -1;
             //working variables
-            let currDecoration = null;
-            let prevStep = null;
-            let label = "";
-            let toolTip = "";
-            let states = [];
-            let stateIndexToDecorationIndex = [];
-            let depths = [];
-            let methodIndices = [];
-            let stepInfo = [];
+            let stepInfo: StepInfo[] = [];
             this.stateIndicesOrderedByPosition.forEach(idx => {
                 let step = this.steps[idx.index];
-                if (!currDecoration || this.comparePosition(step.position, prevStep.position) != 0) {
-                    //we need a new decoration
-                    if (currDecoration) {
-                        currDecoration.renderOptions.before.contentText = `(${label.substring(1, label.length)})⚫`;
-                        currDecoration.hoverMessage = toolTip;
-                        currDecoration.states = states;
-                        decorationOptions.push(currDecoration);
-                        label = "";
-                        toolTip = "";
-                        states = [];
-                    }
-                    currDecoration = {
-                        hoverMessage: "",
-                        range: {
-                            start: step.position,
-                            end: { line: step.position.line, character: step.position.character + 1 }
-                        },
-                        renderOptions: {
-                            before: {
-                                contentText: "",
-                                color: step.isErrorState ? StateColors.errorState : StateColors.interestingState,
-                            }
-                        },
-                        states: []
-                    }
+                if (step.position.line === line) {
+                    optionsInLine++;
+                } else {
+                    line = step.position.line;
+                    optionsInLine = 0;
                 }
-                label += `,${step.index}`;
-                toolTip += step.toToolTip() + "\n";
-                states.push(step.index);
-                prevStep = step;
-                stepInfo[step.index] = { depth: step.depthLevel(), methodIndex: step.methodIndex, index: decorationOptions.length, isErrorState: step.isErrorState }
+                decorationOptions.push({
+                    hoverMessage: step.toToolTip(),
+                    range: {
+                        start: { line: step.position.line, character: step.position.character + optionsInLine + 1 },
+                        end: { line: step.position.line, character: step.position.character + optionsInLine + 2 }
+                    },
+                    renderOptions: {
+                        before: {
+                            contentText: "(" + (step.index + 1) + ")",
+                            color: step.isErrorState ? StateColors.errorState : StateColors.interestingState,
+                        }
+                    },
+                    states: [step.index],
+                });
+                stepInfo[step.index] = { originalPosition: step.position, depth: step.depthLevel(), methodIndex: step.methodIndex, index: decorationOptions.length, isErrorState: step.isErrorState }
             });
-            //add the last decoration;
-            if (currDecoration) {
-                currDecoration.renderOptions.before.contentText = `(${label.substring(1, label.length)})⚫`;
-                currDecoration.hoverMessage = toolTip;
-                currDecoration.states = states;
-                decorationOptions.push(currDecoration);
-            }
             return {
                 decorationOptions: decorationOptions,
                 stepInfo: stepInfo,
                 methodBorders: this.methodBorders,
-                globalInfo:this.prettySteps()
+                globalInfo: this.prettySteps() + "\n" + this.model.pretty()
             };
         } catch (e) {
             Log.error("Runtime Error in getGecorationOptions: " + e)
@@ -238,7 +220,7 @@ export class VerificationTask {
 
         Log.log(Server.backend.name + ' verification started', LogLevel.Info);
 
-        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, firstTime: false });
+        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning});
 
         VerificationTask.uriToPath(this.fileUri).then((path) => {
             //start verification of current file
@@ -312,7 +294,8 @@ export class VerificationTask {
                     filename: this.filename,
                     nofErrors: this.diagnostics.length,
                     time: this.time,
-                    firstTime: false
+                    verificationCompleted: true,
+                    uri:this.fileUri
                 });
             this.time = 0;
             this.running = false;
@@ -346,8 +329,6 @@ export class VerificationTask {
             Log.toLogFile(data, LogLevel.LowLevelDebug);
             return;
         }
-        Log.error(data, LogLevel.Debug);
-
         if (data.startsWith("connect: No error")) {
             Log.hint("No Nailgun server is running on port " + this.nailgunService.settings.nailgunPort);
         }
@@ -365,6 +346,8 @@ export class VerificationTask {
         }
         else if (data.startsWith("SLF4J: Class path contains multiple SLF4J bindings")) {
             Log.error(Server.backend.name + " is referencing two versions of the backend, fix its paths in the settings", LogLevel.Default);
+        }else{
+            Log.error("Unknown backend error message: "+data, LogLevel.Debug);
         }
     }
 
@@ -449,7 +432,7 @@ export class VerificationTask {
                     // if (moreThanOne) {
                     //     this.handleBackendOutputLine(line);
                     // } else {
-                        this.model.extendModel(line);
+                    this.model.extendModel(line);
                     // }
                     //Log.toLogFile("Model: " + line);
                 } else if (line.startsWith("---------- FUNCTION") || line.startsWith("---------- PREDICATE") || line.startsWith("---------- METHOD")) {

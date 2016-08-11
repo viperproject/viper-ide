@@ -5,7 +5,7 @@ import {Log} from './Log';
 import {Model} from './Model';
 import {Position, LogLevel} from './ViperProtocol';
 
-interface Variable { name: string; value: string; variablesReference: number; concreteValue?: string; }
+export interface Variable { name: string; value: string; variablesReference: number; concreteValue?: string; }
 interface Name { raw: string; receiver?: string; field?: string; arguments?: string[]; type: NameType; }
 interface Value { raw: string; type: ValueType; concreteValue?: string; }
 interface Permission { raw: string; type: PermissionType; }
@@ -329,7 +329,7 @@ export class HeapChunk {
         else if (/^\w+\(.*\)$/.test(name)) {
             this.name.type = NameType.PredicateName;
             this.name.receiver = name.substring(0, name.indexOf("("));
-            this.name.arguments = name.substring(name.indexOf("(") + 1, name.length - 1).split(/[;,]/);
+            this.name.arguments = name.substring(name.indexOf(";") + 1, name.length - 1).split(/,/);
             for (var i = 0; i < this.name.arguments.length; i++) {
                 var element = this.name.arguments[i];
                 this.name.arguments[i] = element.trim();

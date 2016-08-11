@@ -49,19 +49,22 @@ export class Commands {
     static ShowHeap = { method: "ShowHeap" };
     static HeapGraph = { method: "HeapGraph" };
     static StateSelected = { method: "StateSelected" };
+    static FileOpened = { method: "FileOpened" };
+    static FileClosed = { method: "FileClosed" };
 }
 
 export interface UpdateStatusBarParams {
     newState: VerificationState;
     progress?;
     success?: Success;
-    firstTime?: boolean;
+    verificationCompleted?: boolean;
     manuallyTriggered?: boolean;
     filename?: string;
     backendName?: string;
     time?: number;
     nofErrors?: number;
     verificationNeeded?: boolean;
+    uri?:string;
 }
 
 export interface VerifyRequest {
@@ -133,4 +136,21 @@ export class StateColors {
     static errorState = "yellow";
     static interestingState = "yellow";
     static uninterestingState = "grey";
+}
+
+export interface StepInfo {
+    originalPosition: Position,
+    depth: number,
+    methodIndex: number,
+    index: number,
+    isErrorState: boolean
+}
+
+export interface ViperFileState {
+    verified: boolean;
+    verifying: boolean;
+    open: boolean;
+    changed: boolean;
+    needsVerification: boolean;
+    decorationsShown: boolean;
 }

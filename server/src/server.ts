@@ -16,7 +16,7 @@ import {
 import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
 import {Settings} from './Settings'
-import {HeapGraph,Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+import {HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Statement, StatementType} from './Statement';
@@ -103,7 +103,7 @@ function registerHandlers() {
             Server.backend = Settings.autoselectBackend(Settings.settings);
             Server.nailgunService.restartNailgunServer(Server.connection, Server.backend);
         } catch (e) {
-            Log.error("Error handling configuration change: "+e);
+            Log.error("Error handling configuration change: " + e);
         }
     });
 
@@ -137,14 +137,16 @@ function registerHandlers() {
     Server.connection.onDidOpenTextDocument((params) => {
         if (Server.isViperSourceFile(params.textDocument.uri)) {
             let uri = params.textDocument.uri;
+            //notify client;
+            Server.connection.sendNotification(Commands.FileOpened, params.textDocument.uri);
             if (!Server.verificationTasks.has(uri)) {
                 //create new task for opened file
                 let task = new VerificationTask(uri, Server.nailgunService, Server.connection);
                 Server.verificationTasks.set(uri, task);
-                Log.log(`${uri} opened, task created`, LogLevel.Debug);
+                //Log.log(`${uri} opened, task created`, LogLevel.Debug);
                 if (Server.nailgunService.ready) {
-                    Log.log("Opened Text Document", LogLevel.Debug);
-                    startOrRestartVerification(uri, false, false);
+                    // Log.log("Opened Text Document", LogLevel.Debug);
+                    // startOrRestartVerification(uri, false, false);
                 }
             }
         }
@@ -153,10 +155,12 @@ function registerHandlers() {
     Server.connection.onDidCloseTextDocument((params) => {
         if (Server.isViperSourceFile(params.textDocument.uri)) {
             let uri = params.textDocument.uri;
+            //notify client;
+            Server.connection.sendNotification(Commands.FileClosed, uri);
             if (Server.verificationTasks.has(uri)) {
                 //remove no longer needed task
                 Server.verificationTasks.delete(uri);
-                Log.log(`${params.textDocument.uri} closed, task deleted`, LogLevel.Debug);
+                //Log.log(`${params.textDocument.uri} closed, task deleted`, LogLevel.Debug);
             }
         }
     });
@@ -190,22 +194,22 @@ function registerHandlers() {
     Server.connection.onRequest(Commands.StopVerification, (uri: string) => {
         let task = Server.verificationTasks.get(uri);
         task.abortVerification();
-        Server.connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, firstTime: true, verificationNeeded: false });
+        Server.connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, verificationCompleted: false, verificationNeeded: false, uri: uri });
     });
 
     Server.connection.onRequest(Commands.ShowHeap, (params: ShowHeapParams) => {
-        try{
-        let task = Server.verificationTasks.get(params.uri);
-        if (!task) {
-            Log.error("No verificationTask found for " + params.uri);
-            return;
+        try {
+            let task = Server.verificationTasks.get(params.uri);
+            if (!task) {
+                Log.error("No verificationTask found for " + params.uri);
+                return;
+            }
+            Server.showHeap(task, params.index);
+            //DebugServer.moveDebuggerToPos(task.steps[params.index].position);
+        } catch (e) {
+            Log.error("Error showing heap: " + e);
         }
-        Server.showHeap(task, params.index);
-        //DebugServer.moveDebuggerToPos(task.steps[params.index].position);
-        }catch(e){
-            Log.error("Error showing heap: "+ e);
-        }    
-});
+    });
 
     // Server.documents.onDidChangeContent((change) => {Log.error("TODO: never happened before: Content Change detected")});
     // Server.connection.onDidChangeTextDocument((params) => {});
@@ -240,12 +244,13 @@ function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuall
 
     //only verify if the settings are right
     if (!Server.backend) {
-        Log.log("no backend has beed selected, the first was picked by default.", LogLevel.Debug);
+        Log.log("no backend has been selected, the first was picked by default.", LogLevel.Debug);
         Server.backend = Settings.settings.verificationBackends[0];
         Server.nailgunService.startNailgunIfNotRunning(Server.connection, Server.backend);
     }
     if (!Server.nailgunService.ready) {
-        Log.hint("The verification backend is not ready yet");
+        if (manuallyTriggered)
+            Log.hint("The verification backend is not ready yet");
         return;
     }
 

@@ -22,10 +22,21 @@ export class Helper {
                 Log.log("file shown (already open): " + msg.document.fileName)
             });
         } else {
+            if(!resource){
+                Log.error("resource is undefined");
+                return;
+            }
             //open it
             vscode.workspace.openTextDocument(resource).then((doc) => {
+                if(!doc){
+                    Log.error("doc is undefined");
+                    return;
+                }
                 vscode.window.showTextDocument(doc, column, true).then(msg => {
                     Log.log("file shown: " + msg.document.fileName)
+
+                    //TODO: Hack: to alleviate the graph image refresh and the vscode bug 
+                    Log.deleteDotFiles();
                 });
             }, (reason) => {
                 Log.error("Show file error: " + reason);
