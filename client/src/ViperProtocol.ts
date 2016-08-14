@@ -36,7 +36,7 @@ export class Commands {
     static PathToUri = { method: "PathToUri" };
     static SelectBackend = { method: "SelectBackend" };
     static AskUserToSelectBackend = { method: "AskUserToSelectBackend" };
-    static RequestBackendSelection = { method: "RequestBackendSelection" };
+    static RequestBackendNames = { method: "RequestBackendNames" };
     static StateChange = { method: "StateChange" };
     static Dispose = { method: "Dispose" };
     static Verify = { method: "Verify" };
@@ -144,13 +144,4 @@ export interface StepInfo {
     methodIndex: number,
     index: number,
     isErrorState: boolean
-}
-
-export interface ViperFileState {
-    verified: boolean;
-    verifying: boolean;
-    open: boolean;
-    changed: boolean;
-    needsVerification: boolean;
-    decorationsShown: boolean;
 }

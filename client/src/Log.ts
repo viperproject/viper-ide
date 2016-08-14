@@ -33,7 +33,7 @@ export class Log {
         Log._dotBasePath = path.join(Log.rootPath, '.vscode', 'heap');
         Log._svgBasePath = path.join(Log.rootPath, '.vscode', 'heap');
 
-        Log.log("LogFilePath is: " + Log.logFilePath, LogLevel.Debug)
+        Log.log("LogFilePath is: " + Log.logFilePath, LogLevel.LowLevelDebug)
         try {
             Log.createFile(Log.logFilePath);
             Log.logFile = fs.createWriteStream(Log.logFilePath);
@@ -106,18 +106,29 @@ export class Log {
         let oldLogLevel = Log.logLevel;
         let settings = vscode.workspace.getConfiguration("viperSettings");
         Log.logLevel = settings.get<number>("logLevel", LogLevel.Default);
-        if (oldLogLevel != Log.logLevel)
-            Log.log(`The logLevel was changed from ${LogLevel[oldLogLevel]} to ${LogLevel[Log.logLevel]}`, LogLevel.Debug);
+        if (oldLogLevel && oldLogLevel != Log.logLevel)
+            Log.log(`The logLevel was changed from ${LogLevel[oldLogLevel]} to ${LogLevel[Log.logLevel]}`, LogLevel.LowLevelDebug);
     }
 
     public static log(message: string, logLevel: LogLevel = LogLevel.Default) {
         let messageNewLine = message + "\n";
+        message = this.prefix(logLevel) + message;
         if (Log.logLevel >= logLevel) {
             console.log(message);
             Log.outputChannel.append(messageNewLine);
         }
         if (Log.logFile) {
             Log.logFile.write(messageNewLine);
+        }
+    }
+
+    private static prefix(logLevel: LogLevel): string {
+        if (logLevel <= LogLevel.Info)
+            return "";
+        if(logLevel == LogLevel.Debug)
+            return "> ";
+        if(logLevel > LogLevel.Debug){
+            return "- ";
         }
     }
 

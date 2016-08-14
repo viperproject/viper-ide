@@ -79,13 +79,27 @@ export class Statement {
         let result = [];
         let indentation = 0;
         parts.forEach(part => {
+            part = part.trim();
+            let qaFound = false;
+            let qaAtIndentation = -1;
             for (let i = 0; i < part.length; i++) {
                 if (part[i] === '(') {
                     indentation++;
                 } else if (part[i] === ')') {
                     indentation--;
+                    if(qaAtIndentation > indentation){
+                        qaFound = false;
+                    }
+                } else if (part[i] == 'Q' && i + 2 < part.length && part[i + 1] == 'A' && part[i + 2] == ' ') {
+                    //we have a quantified condition stop splitting 
+                    qaFound = true;
+                    if (indentation == 0){
+                         break;
+                    }else{
+                        qaAtIndentation = indentation;
+                    }
                 }
-                if (i > 0 && indentation == 0 && part[i] == '&' && part[i - 1] == '&') {
+                if (!qaFound && i > 0 && indentation == 0 && part[i] == '&' && part[i - 1] == '&') {
                     //split
                     let head = part.substring(0, i - 1);
                     result.push(this.createCondition(head.trim()));
@@ -99,7 +113,7 @@ export class Statement {
     }
 
     private createCondition(condition: string): Condition {
-        let regex = condition.match(/^([\w$]+@\d+)\s*(==|!=)\s*([\w$]+@\d+|\d+|_|Null)$/);
+        let regex = condition.match(/^([\w$]+@\d+)\s+(==|!=)\s+([\w$]+@\d+|\d+|_|Null)$/);
         if (regex && regex.length == 4) {
             let lhs = regex[1];
             let rhs = regex[3];
@@ -153,7 +167,7 @@ export class Statement {
             else if (char == ')' || char == ']' || char == '}') {
                 bracketCount--;
             }
-            else if (char == ',' && bracketCount == 0) {
+            else if (char == ',' && bracketCount == 0 && i + 1 < line.length && line[i + 1] == ' ') {
                 parts.push(line.substring(lastIndex + 1, i).trim())
                 lastIndex = i;
             }
@@ -253,6 +267,10 @@ export class Statement {
                     break;
                 case ConditionType.UnknownCondition:
                     result.push(cond.raw);
+                    break;
+                case ConditionType.WildCardCondition:
+                    result.push(cond.raw);
+                    break;
             }
         });
         return result;

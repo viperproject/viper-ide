@@ -22,32 +22,19 @@ import {VerificationTask} from './VerificationTask';
 import {Statement, StatementType} from './Statement';
 import {Model} from './Model';
 import {DebugServer} from './DebugServer';
+import {Server} from './ServerClass';
 var ipc = require('node-ipc');
-
-export class Server {
-    static backend: Backend;
-    //static settings: ViperSettings;
-    static connection: IConnection;
-    static documents: TextDocuments = new TextDocuments();
-    static verificationTasks: Map<string, VerificationTask> = new Map();
-    static nailgunService: NailgunService;
-    static workspaceRoot: string;
-    static debuggedVerificationTask: VerificationTask;
-
-    static isViperSourceFile(uri: string): boolean {
-        return uri.endsWith(".sil") || uri.endsWith(".vpr");
-    }
-
-    static showHeap(task: VerificationTask, index: number) {
-        Server.connection.sendRequest(Commands.HeapGraph, task.getHeapGraphDescription(index));
-    }
-}
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 Server.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
 Server.documents.listen(Server.connection);
 
 registerHandlers();
+
+// Listen on the connection
+Server.connection.listen();
+
+//let count =0;
 
 function registerHandlers() {
     //starting point (executed once)
@@ -59,11 +46,11 @@ function registerHandlers() {
         return {
             capabilities: {
                 // Tell the client that the server works in FULL text document sync mode
-                textDocumentSync: Server.documents.syncKind,
+                //textDocumentSync: Server.documents.syncKind,
                 // Tell the client that the server support code complete
-                completionProvider: {
-                    resolveProvider: true
-                }
+                // completionProvider: {
+                //     resolveProvider: true
+                // }
             }
         }
     });
@@ -80,28 +67,25 @@ function registerHandlers() {
     Server.connection.onDidChangeConfiguration((change) => {
         try {
             Settings.settings = <ViperSettings>change.settings.viperSettings;
-            //after this line, Logging works
             Log.logLevel = Settings.settings.logLevel;
+            //after this line, Logging works
 
-            Log.log('configuration changed', LogLevel.Info);
+            //Log.log("New configuration: "+JSON.stringify(change));
+
+            Log.log('configuration changed' + (++Server.count), LogLevel.Info);
             //check settings
             let error = Settings.checkSettings(Settings.settings);
             if (error) {
                 Server.connection.sendNotification(Commands.InvalidSettings, error);
                 return;
-            } else {
-                Log.log("The settings are ok", LogLevel.Info);
             }
+
+            Log.log("The settings are ok", LogLevel.Info);
 
             //pass the new settings to the verificationService and the Log
             Server.nailgunService.changeSettings(Settings.settings);
 
-            //stop all running verifications
-            Log.log("Stop all running verificationTasks", LogLevel.Debug)
-            Server.verificationTasks.forEach(task => { task.abortVerification(); });
-
-            Server.backend = Settings.autoselectBackend(Settings.settings);
-            Server.nailgunService.restartNailgunServer(Server.connection, Server.backend);
+            restartBackendIfNeeded();
         } catch (e) {
             Log.error("Error handling configuration change: " + e);
         }
@@ -115,13 +99,10 @@ function registerHandlers() {
         if (selectedBackend) {
             Settings.selectedBackend = selectedBackend;
         }
-        Log.log("Stop all running verificationTasks", LogLevel.Debug)
-        Server.verificationTasks.forEach(task => { task.abortVerification(); });
-        Server.backend = Settings.autoselectBackend(Settings.settings);
-        Server.nailgunService.restartNailgunServer(Server.connection, Server.backend);
+        restartBackendIfNeeded();
     });
 
-    Server.connection.onRequest(Commands.RequestBackendSelection, (args) => {
+    Server.connection.onRequest(Commands.RequestBackendNames, args => {
         let backendNames: string[] = Settings.getBackendNames(Settings.settings);
         if (backendNames.length > 1) {
             Server.connection.sendRequest(Commands.AskUserToSelectBackend, backendNames);
@@ -210,13 +191,6 @@ function registerHandlers() {
             Log.error("Error showing heap: " + e);
         }
     });
-
-    // Server.documents.onDidChangeContent((change) => {Log.error("TODO: never happened before: Content Change detected")});
-    // Server.connection.onDidChangeTextDocument((params) => {});
-    // Server.connection.onDidSaveTextDocument((params) => {})
-
-    // Listen on the connection
-    Server.connection.listen();
 }
 
 function resetDiagnostics(uri: string) {
@@ -228,8 +202,22 @@ function resetDiagnostics(uri: string) {
     task.resetDiagnostics();
 }
 
+function restartBackendIfNeeded() {
+    let newBackend = Settings.autoselectBackend(Settings.settings);
+    //only restart the backend after settings changed if the active backend was affected
+    if (!Settings.backendEquals(Server.backend, newBackend)) {
+        Log.log(`Change Backend: from ${Server.backend?Server.backend.name:"No Backend"} to ${newBackend?newBackend.name:"No Backend"}`)
+        Server.backend = newBackend;
+        //stop all running verifications
+        Server.nailgunService.restartNailgunServer(Server.connection, Server.backend);
+    } else {
+        Log.log("No need to restart backend. The setting changes did not affect it.")
+        Server.backend = newBackend;
+    }
+}
+
 function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuallyTriggered: boolean) {
-    Log.log("start or restart verification of " + uri, LogLevel.Info);
+    Log.log("start or restart verification",LogLevel.Info);
     //only verify if the settings are right
     if (!Settings.settings.valid) {
         Server.connection.sendNotification(Commands.InvalidSettings, "Cannot verify, fix the settings first.");
@@ -265,125 +253,3 @@ function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuall
     //start verification
     task.verify(onlyTypeCheck, manuallyTriggered);
 }
-
-/*
-// This handler provides the initial list of the completion items.
-Server.connection.onCompletion((textPositionParams): CompletionItem[] => {
-    // The pass parameter contains the position of the text document in
-    // which code complete got requested. For the example we ignore this
-    // info and always provide the same completion items.
-    var res = [];
-    let completionItem: CompletionItem = {
-        label: 'invariant',
-        kind: CompletionItemKind.Text,
-        data: 1
-    };
-    res.push(completionItem);
-    return res;
-});
-// This handler resolve additional information for the item selected in
-// the completion list.
-Server.connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
-    //Log.log('onCompletionResolve');
-    if (item.data === 1) {
-        item.detail = 'add an invariant',
-            item.documentation = 'The invariant needs to hold before and after the loop body'
-    }
-    return item;
-});
-*/
-/*
-function readZ3LogFile(path: string): LogEntry[] {
-    let res: LogEntry[] = new Array<LogEntry>();
-    if (!fs.existsSync(path)) {
-        Log.error("cannot find log file at: " + path);
-        return;
-    }
-    let content = fs.readFileSync(path, "utf8").split(/\n(?!\s)/g);
-
-    for (var i = 0; i < content.length; i++) {
-        var line = content[i].replace("\n", "").trim();
-
-        if (line == '') {
-            continue;
-        }
-        let prefix = ';';
-        if (line.startsWith(prefix)) {
-            res.push(new LogEntry(LogType.Comment, line.substring(prefix.length)));
-            continue;
-        }
-        prefix = '(push)';
-        if (line.startsWith(prefix)) {
-            res.push(new LogEntry(LogType.Push, line.substring(prefix.length)));
-            continue;
-        }
-        prefix = '(pop)';
-        if (line.startsWith(prefix)) {
-            res.push(new LogEntry(LogType.Pop, line.substring(prefix.length)));
-            continue;
-        }
-        prefix = '(set-option';
-        if (line.startsWith(prefix)) {
-            res.push(new LogEntry(LogType.SetOption, line));
-            continue;
-        }
-        prefix = '(declare-const';
-        if (line.startsWith(prefix)) {
-            res.push(new LogEntry(LogType.DeclareConst, line));
-            continue;
-        }
-        prefix = '(declare-fun';
-        if (line.startsWith(prefix)) {
-            res.push(new LogEntry(LogType.DeclareFun, line));
-            continue;
-        }
-        prefix = '(declare-datatypes';
-        if (line.startsWith(prefix)) {
-            res.push(new LogEntry(LogType.DeclareDatatypes, line));
-            continue;
-        }
-        prefix = '(declare-sort';
-        if (line.startsWith(prefix)) {
-            res.push(new LogEntry(LogType.DeclareSort, line));
-            continue;
-        }
-        prefix = '(define-const';
-        if (line.startsWith(prefix)) {
-            res.push(new LogEntry(LogType.DefineConst, line));
-            continue;
-        }
-        prefix = '(define-fun';
-        if (line.startsWith(prefix)) {
-            res.push(new LogEntry(LogType.DefineFun, line));
-            continue;
-        }
-        prefix = '(define-datatypes';
-        if (line.startsWith(prefix)) {
-            res.push(new LogEntry(LogType.DefineDatatypes, line));
-            continue;
-        }
-        prefix = '(define-sort';
-        if (line.startsWith(prefix)) {
-            res.push(new LogEntry(LogType.DefineSort, line));
-            continue;
-        }
-        prefix = '(assert';
-        if (line.startsWith(prefix)) {
-            res.push(new LogEntry(LogType.Assert, line));
-            continue;
-        }
-        prefix = '(check-sat)';
-        if (line.startsWith(prefix)) {
-            res.push(new LogEntry(LogType.CheckSat, line.substring(prefix.length)));
-            continue;
-        }
-        prefix = '(get-info';
-        if (line.startsWith(prefix)) {
-            res.push(new LogEntry(LogType.GetInfo, line));
-            continue;
-        }
-        Log.error("unknown log-entry-type detected: " + line);
-    }
-    return res;
-}
-*/

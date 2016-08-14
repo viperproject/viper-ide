@@ -3,8 +3,9 @@ import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, T
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import {ViperFileState,VerificationState, Commands, LogLevel} from './ViperProtocol';
+import {VerificationState, Commands, LogLevel} from './ViperProtocol';
 import {Log} from './Log';
+import {ViperFileState} from './ViperFileState';
 
 export class ExtensionState {
     public client: LanguageClient;
@@ -65,6 +66,7 @@ export class ExtensionState {
 
         this.client = new LanguageClient('languageServer','Language Server', serverOptions, clientOptions);
 
+        Log.log("Start Language Server",LogLevel.Info);
         // Create the language client and start the client.
         this.languageServerDisposable = this.client.start();
 

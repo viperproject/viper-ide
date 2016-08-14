@@ -23,8 +23,24 @@ export class Settings {
 
     public static selectedBackend: string;
 
+    public static backendEquals(a: Backend, b: Backend) {
+        if (!a || !b) {
+            return false;
+        }
+        let same = a.customArguments === b.customArguments;
+        same = same && a.getTrace === b.getTrace;
+        same = same && a.mainMethod === b.mainMethod;
+        same = same && a.name === b.name;
+        same = same && a.paths.length === b.paths.length;
+        if (!same) return false;
+        for (let i = 0; i < a.paths.length; i++) {
+            same = same && a.paths[i] === b.paths[i];
+        }
+        return same;
+    }
+
     public static autoselectBackend(settings: ViperSettings) {
-        if(!settings || !settings.verificationBackends || settings.verificationBackends.length == 0){
+        if (!settings || !settings.verificationBackends || settings.verificationBackends.length == 0) {
             Log.error("No backend, even though the setting check succeeded.");
             return;
         }
@@ -49,54 +65,58 @@ export class Settings {
     }
 
     public static checkSettings(settings: ViperSettings): string {
-        settings.valid = false;
-        Log.log("Checking Backends...", LogLevel.Debug);
-        let error = Settings.areBackendsValid(settings.verificationBackends);
-        if (!error) {
+        try {
+            settings.valid = false;
+            Log.log("Checking Backends...", LogLevel.Debug);
+            let error = Settings.areBackendsValid(settings.verificationBackends);
+            if (!error) {
 
-            if (!settings.nailgunPort) {
-                error = "NailgunPort is missing";
-            } else if (!/\d+/.test(settings.nailgunPort)) {
-                error = "Invalid NailgunPort: " + settings.nailgunPort;
-            }
+                if (!settings.nailgunPort) {
+                    error = "NailgunPort is missing";
+                } else if (!/\d+/.test(settings.nailgunPort)) {
+                    error = "Invalid NailgunPort: " + settings.nailgunPort;
+                }
 
-            Log.log("Checking Other Settings...", LogLevel.Debug);
-            if (!settings.nailgunServerJar || settings.nailgunServerJar.length == 0) {
-                error = "Path to nailgun server jar is missing"
-            } else {
-                let resolvedPath = Settings.resolvePath(settings.nailgunServerJar)
-                if (!resolvedPath.exists) {
-                    error = "No nailgun server jar file found at path: " + resolvedPath.path;
-                }
-                settings.nailgunServerJar = resolvedPath.path;
-            }
-        }
-        if (!error) {
-            if (!settings.nailgunClient || settings.nailgunClient.length == 0) {
-                error = "Path to nailgun client executable is missing"
-            } else {
-                let resolvedPath = Settings.resolvePath(settings.nailgunClient)
-                if (!resolvedPath.exists) {
-                    error = "No nailgun client executable file found at path: " + resolvedPath.path;
+                Log.log("Checking Other Settings...", LogLevel.Debug);
+                if (!settings.nailgunServerJar || settings.nailgunServerJar.length == 0) {
+                    error = "Path to nailgun server jar is missing"
                 } else {
-                    settings.nailgunClient = resolvedPath.path;
+                    let resolvedPath = Settings.resolvePath(settings.nailgunServerJar)
+                    if (!resolvedPath.exists) {
+                        error = "No nailgun server jar file found at path: " + resolvedPath.path;
+                    }
+                    settings.nailgunServerJar = resolvedPath.path;
                 }
             }
-        }
-        if (!error) {
-            if (!settings.z3Executable || settings.z3Executable.length == 0) {
-                error = "Path to z3 executable is missing"
-            } else {
-                let resolvedPath = Settings.resolvePath(settings.z3Executable)
-                if (!resolvedPath.exists) {
-                    error = "No z3 executable file found at path: " + resolvedPath.path;
+            if (!error) {
+                if (!settings.nailgunClient || settings.nailgunClient.length == 0) {
+                    error = "Path to nailgun client executable is missing"
                 } else {
-                    settings.z3Executable = resolvedPath.path;
+                    let resolvedPath = Settings.resolvePath(settings.nailgunClient)
+                    if (!resolvedPath.exists) {
+                        error = "No nailgun client executable file found at path: " + resolvedPath.path;
+                    } else {
+                        settings.nailgunClient = resolvedPath.path;
+                    }
                 }
             }
+            if (!error) {
+                if (!settings.z3Executable || settings.z3Executable.length == 0) {
+                    error = "Path to z3 executable is missing"
+                } else {
+                    let resolvedPath = Settings.resolvePath(settings.z3Executable)
+                    if (!resolvedPath.exists) {
+                        error = "No z3 executable file found at path: " + resolvedPath.path;
+                    } else {
+                        settings.z3Executable = resolvedPath.path;
+                    }
+                }
+            }
+            settings.valid = !error;
+            return error;
+        } catch (e) {
+            Log.error("Error checking settings: " + e);
         }
-        settings.valid = !error;
-        return error;
     }
 
     private static areBackendsValid(backends: Backend[]): string {
@@ -104,8 +124,15 @@ export class Settings {
             return "No backend detected, specify at least one backend";
         }
 
+        let backendNames: Set<string> = new Set<string>();
+
         for (let i = 0; i < backends.length; i++) {
             let backend = backends[i];
+            if (backendNames.has(backend.name)) {
+                return "Dublicated backend name: " + backend.name
+            } else {
+                backendNames.add(backend.name);
+            }
             if (!backend) {
                 return "Empty backend detected";
             }
@@ -198,7 +225,7 @@ export class Settings {
             return { path: path, exists: false };
         }
         path = path.trim();
-        //handle env Vatrs
+        //handle env Vars
         let envVar = this.extractEnvVars(path);
         if (!envVar) {
             return { path: path, exists: false };

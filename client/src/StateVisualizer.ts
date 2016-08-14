@@ -9,12 +9,15 @@ import * as vscode from 'vscode';
 import {Helper} from './Helper';
 import {ExtensionState} from './ExtensionState';
 import {ViperFormatter} from './ViperFormatter';
+import {ViperFileState} from './ViperFileState';
+import * as path from 'path';
 
 export interface StepsAsDecorationOptionsResult {
     decorationOptions: MyDecorationOptions[],
     methodBorders: MethodBorder[],
     stepInfo: StepInfo[],
     globalInfo: string
+    uri: string;
 }
 
 export interface MyDecorationOptions extends vscode.DecorationOptions {
@@ -23,69 +26,76 @@ export interface MyDecorationOptions extends vscode.DecorationOptions {
 
 export class StateVisualizer {
 
-    static graphvizProcess: child_process.ChildProcess;
-    static provider: HeapProvider;
-    static previewUri = vscode.Uri.parse('viper-preview:State Visualization');
-
-    static decoration: vscode.TextEditorDecorationType;
-    static decorationOptions: MyDecorationOptions[];
-    static textEditorUnderVerification: vscode.TextEditor;
-    static methodBorders: MethodBorder[];
-    static stepInfo: StepInfo[];
-    static globalInfo: string;
-
     static showStates: boolean = true;
 
-    static shownState: number;
-    static selectedPosition: Position;
-    static previousState: number;
-    static debuggedUri: string;
-    static currentDepth: number;
-    static debuggedMethodName: string;
-    static currentOffset: number;
-    //static areDecorationsShown: boolean = false;
+    viperFile: ViperFileState;
 
-    static decorationOptionsOrderedByState: MyDecorationOptions[];
+    graphvizProcess: child_process.ChildProcess;
+    provider: HeapProvider;
+    previewUri = vscode.Uri.parse('viper-preview:State Visualization');
 
-    static nextHeapIndex = 0;
+    decoration: vscode.TextEditorDecorationType;
+    decorationOptions: MyDecorationOptions[];
+    //textEditorUnderVerification: vscode.TextEditor;
+    methodBorders: MethodBorder[];
+    stepInfo: StepInfo[];
+    globalInfo: string;
+    uri: vscode.Uri;
 
-    public static initialize() {
+    shownState: number;
+    selectedPosition: Position;
+    previousState: number;
+    currentDepth: number;
+    debuggedMethodName: string;
+    currentOffset: number;
+
+    decorationOptionsOrderedByState: MyDecorationOptions[];
+
+    nextHeapIndex = 0;
+
+    private removingSpecialChars = false;
+    private addingSpecialChars = false;
+
+    public initialize(viperFile: ViperFileState) {
+        this.viperFile = viperFile;
+        this.uri = viperFile.uri;
         this.registerTextDocumentProvider();
     }
 
-    static registerTextDocumentProvider() {
+    registerTextDocumentProvider() {
         this.provider = new HeapProvider();
+        this.provider.stateVisualizer = this;
         let registration = vscode.workspace.registerTextDocumentContentProvider('viper-preview', this.provider);
     }
 
-    public static reset(){
+    public reset() {
         this.nextHeapIndex = 0;
         this.provider.resetState();
+        this.selectedPosition = null;
     }
 
-    static storeNewStates(params: { uri: string, decorations: StepsAsDecorationOptionsResult }) {
+    storeNewStates(decorations: StepsAsDecorationOptionsResult) {
         Log.log("Store new States", LogLevel.Debug);
+
+        if (!decorations) {
+            Log.error("invalid arguments for storeNewStates");
+            return;
+        }
+
         this.previousState = -1;
-        this.decorationOptions = params.decorations.decorationOptions;
-        this.stepInfo = params.decorations.stepInfo;
-        this.methodBorders = params.decorations.methodBorders;
-        this.globalInfo = params.decorations.globalInfo;
-        vscode.window.visibleTextEditors.forEach(editor => {
-            if (!editor.document || !params) {
-                Log.error("invalid arguments for storeNewStates");
-            }
-            if (editor.document.uri.toString() === params.uri) {
-                this.textEditorUnderVerification = editor;
-            }
-        });
+        this.decorationOptions = decorations.decorationOptions;
+        this.stepInfo = decorations.stepInfo;
+        this.methodBorders = decorations.methodBorders;
+        this.globalInfo = decorations.globalInfo;
+
         Log.deleteDotFiles();
-        ViperFormatter.addCharacterToDecorationOptionLocations();
+        this.addCharacterToDecorationOptionLocations();
         this.decorationOptionsOrderedByState = [];
         this.completeDecorationOptions();
         this.showDecorations();
     }
 
-    public static createAndShowHeap(heapGraph: HeapGraph, index: number) {
+    public createAndShowHeap(heapGraph: HeapGraph, index: number) {
         if (!heapGraph.heap) {
             Log.error("Error creating heap description");
             return;
@@ -93,7 +103,12 @@ export class StateVisualizer {
         Log.writeToDotFile(heapGraph.heap, index);
         //Log.log(graphDescription, LogLevel.Debug);
 
-        this.selectState(heapGraph.fileUri, heapGraph.state, heapGraph.position);
+        if (heapGraph.fileUri != this.uri.toString()) {
+            Log.error("Uri mismatch in StateVisualizer: " + this.uri.toString() + " expected, " + heapGraph.fileUri + " found.")
+            return
+        }
+
+        this.selectState(heapGraph.state, heapGraph.position);
 
         let dotExecutable: string = <string>Helper.getConfiguration("dotExecutable");
         if (!dotExecutable || !fs.existsSync(dotExecutable)) {
@@ -119,7 +134,7 @@ export class StateVisualizer {
         });
     }
 
-    private static showHeapGraph(heapGraph: HeapGraph, index: number) {
+    private showHeapGraph(heapGraph: HeapGraph, index: number) {
         this.provider.setState(heapGraph, index);
         let dotFileShown = false;
         let heapShown = false;
@@ -144,7 +159,7 @@ export class StateVisualizer {
         }
     }
 
-    static completeDecorationOptions() {
+    completeDecorationOptions() {
         for (var i = 0; i < this.decorationOptions.length; i++) {
             let option = this.decorationOptions[i];
             //fill decorationOptionsOrderedByState
@@ -154,13 +169,12 @@ export class StateVisualizer {
         }
     }
 
-    static selectState(uri: string, selectedState: number, pos: Position) {
-        if (this.showStates && Helper.isViperSourceFile(uri) && this.decorationOptions) {
+    selectState(selectedState: number, pos: Position) {
+        if (StateVisualizer.showStates && this.decorationOptions) {
             //state should be visualized
             if (selectedState >= 0 && selectedState < this.stepInfo.length) {
                 //its in range
                 this.shownState = selectedState;
-                this.debuggedUri = uri;
                 this.selectedPosition = this.decorationOptionsOrderedByState[selectedState].range.start;
                 this.currentDepth = this.stepInfo[selectedState].depth;
                 let currentMethodIdx = this.stepInfo[selectedState].methodIndex;
@@ -197,7 +211,7 @@ export class StateVisualizer {
                         }
                     }
                 }
-                if (this.showStates) {
+                if (StateVisualizer.showStates) {
                     this.showDecorations();
                 }
 
@@ -206,7 +220,7 @@ export class StateVisualizer {
         }
     }
 
-    private static getLabel(decoration: MyDecorationOptions, methodIndex: number) {
+    private getLabel(decoration: MyDecorationOptions, methodIndex: number) {
         let label = "";
         let methodBorder = this.methodBorders[methodIndex];
         this.currentOffset = methodBorder.firstStateIndex - 1;
@@ -222,20 +236,19 @@ export class StateVisualizer {
         }
     }
 
-    static showStateSelection(uri: string, pos: { line: number, character: number }) {
-        if (this.showStates && Helper.isViperSourceFile(uri) && this.decorationOptions) {
+    showStateSelection(pos: { line: number, character: number }) {
+        if (StateVisualizer.showStates && this.decorationOptions) {
             //is counter example state?
             for (let i = 0; i < this.decorationOptions.length; i++) {
                 let option = this.decorationOptions[i];
                 let a = option.range.start;
                 if (a.line == pos.line && a.character == pos.character) {
-                    if (!this.selectedPosition || this.selectedPosition.line != pos.line || this.selectedPosition.character != pos.character || uri != this.debuggedUri) {
+                    if (!this.selectedPosition || this.selectedPosition.line != pos.line || this.selectedPosition.character != pos.character) {
                         this.shownState = this.decorationOptions[i].states[0];
                         this.selectedPosition = pos;
-                        this.debuggedUri = uri;
                         Log.log("Request showing the heap of state " + this.shownState);
                         ExtensionState.instance.client.sendRequest(Commands.ShowHeap, {
-                            uri: uri,
+                            uri: this.uri.toString(),
                             index: this.shownState
                         });
                     } else {
@@ -246,27 +259,149 @@ export class StateVisualizer {
         }
     }
 
-    static hideDecorations() {
+    hideDecorations() {
         Log.log("Hide decorations", LogLevel.Debug);
         this.doHideDecorations();
-        ExtensionState.viperFiles.get(vscode.window.activeTextEditor.document.uri.toString()).decorationsShown = false;
+        this.viperFile.decorationsShown = false;
     }
 
-    private static doHideDecorations() {
+    private doHideDecorations() {
         if (this.decoration) {
             this.decoration.dispose();
         }
     }
 
-    static showDecorations() {
-        if (this.showStates && this.decorationOptions) {
-            ExtensionState.viperFiles.get(vscode.window.activeTextEditor.document.uri.toString()).decorationsShown = true;
+    showDecorations() {
+        let editor = this.viperFile.editor;
+        if (StateVisualizer.showStates && this.decorationOptions) {
+            if (editor.document.uri.toString() !== this.uri.toString()) {
+                Log.log("Don't show states file mismatch", LogLevel.Debug);
+                return;
+            }
+            this.viperFile.decorationsShown = true;
             Log.log("Show decorations", LogLevel.Debug);
             this.doHideDecorations();
             this.decoration = vscode.window.createTextEditorDecorationType({});
-            if (this.textEditorUnderVerification) {
-                this.textEditorUnderVerification.setDecorations(this.decoration, this.decorationOptions);
+            if (editor) {
+                editor.setDecorations(this.decoration, this.decorationOptions);
+            } else {
+                Log.error("cannot show decorations: no editor to show it in");
             }
+        }
+    }
+
+
+    //SPECIAL CHARACTER METHODS
+
+    private areSpecialCharsBeingModified(s: string) {
+        if (this.addingSpecialChars) {
+            Log.log(s + " they are already being added to "+ this.viperFile.name(),LogLevel.Debug);
+            return true;
+        }
+        if (this.removingSpecialChars) {
+            Log.log(s + " they are already being removed from "+ this.viperFile.name(),LogLevel.Debug);
+            return true;
+        }
+        return false;
+    }
+
+    addCharacterToDecorationOptionLocations() {
+        if (this.areSpecialCharsBeingModified("Don't add special chars,")) return;
+        try {
+            this.addingSpecialChars = true;
+            this.viperFile.specialCharsShown = true;
+            let editor = this.viperFile.editor;
+            if (StateVisualizer.showStates && editor) {
+                Log.log("addCharacterToDecorationOptionLocations", LogLevel.Debug);
+                let openDoc = editor.document;
+                let edit = new vscode.WorkspaceEdit();
+                this.decorationOptions.forEach((element, i) => {
+                    let p = this.stepInfo[i].originalPosition;
+                    //need to create a propper vscode.Position object
+                    let pos = new vscode.Position(p.line, p.character);
+                    edit.insert(openDoc.uri, pos, '⦿');
+                });
+                vscode.workspace.applyEdit(edit).then(params => {
+                    openDoc.save().then(() => {
+                        this.addingSpecialChars = false;
+                    });
+                });
+            }
+        } catch (e) {
+            this.addingSpecialChars = false;
+            Log.error("Error adding special chars: " + e);
+        }
+    }
+
+    public removeSpecialCharacters(callback) {
+        if (this.areSpecialCharsBeingModified("Don't remove special chars,")) return;
+        try {
+            if (!this.viperFile.editor || !this.viperFile.editor.document) {
+                Log.error("Error removing special chars, no document to remove it from");
+                return;
+            }
+            this.removingSpecialChars = true;
+            //Log.log("Remove special characters from " + path.basename(this.uri.toString()), LogLevel.Info);
+            let openDoc = this.viperFile.editor.document;
+            let edit = new vscode.WorkspaceEdit();
+            let content = openDoc.getText();
+            let start = 0;
+            let found = false;
+            for (let i = 0; i < content.length; i++) {
+                if (content[i] === '⦿') {
+                    if (!found) {
+                        found = true;
+                        start = i;
+                    }
+                } else if (found) {
+                    let range = new vscode.Range(openDoc.positionAt(start), openDoc.positionAt(i));
+                    edit.delete(openDoc.uri, range);
+                    found = false;
+                }
+
+            }
+            vscode.workspace.applyEdit(edit).then(resolve => {
+                if (resolve) {
+                    this.viperFile.editor.document.save().then(saved => {
+                        Log.log("Special Chars removed from file " + this.viperFile.name(), LogLevel.Info)
+                        this.removingSpecialChars = false;
+                        this.viperFile.specialCharsShown = false;
+                        callback();
+                    });
+                } else {
+                    this.removingSpecialChars = false;
+                }
+            });
+        } catch (e) {
+            this.removingSpecialChars = false;
+            Log.error("Eror removing special characters: " + e);
+        }
+    }
+
+    public removeSpecialCharsFromClosedDocument(callback) {
+        if (this.areSpecialCharsBeingModified("Don't remove special chars from closed file,")) return;
+        try {
+            this.removingSpecialChars = true;
+            fs.readFile(this.uri.fsPath, (err, data) => {
+                if (!err && data) {
+                    let newData = data.toString();
+                    if (newData.indexOf("⦿") >= 0) {
+                        newData = newData.replace(/⦿/g, "");
+                        fs.writeFileSync(this.uri.fsPath, newData);
+                    }
+                    Log.log("Special Chars removed from closed file " + this.viperFile.name(), LogLevel.Info)
+                    this.removingSpecialChars = false;
+                    this.viperFile.specialCharsShown = false;
+                    callback();
+                }
+                else {
+                    this.removingSpecialChars = false;
+                    Log.error("cannot remove special chars from closed file: " + err.message);
+                }
+            });
+        } catch (e) {
+            this.removingSpecialChars = false;
+            Log.error("Error removing special chars form closed file: " + e);
         }
     }
 }

@@ -63,74 +63,8 @@ export class ViperFormatter {
 		});
 	}
 
-	public static addCharacterToDecorationOptionLocations() {
-		if (StateVisualizer.showStates) {
-			Log.log("addCharacterToDecorationOptionLocations", LogLevel.Debug);
-			let openDoc = vscode.window.activeTextEditor.document;
-			let edit = new vscode.WorkspaceEdit();
-			StateVisualizer.decorationOptions.forEach((element, i) => {
-				let p = StateVisualizer.stepInfo[i].originalPosition;
-				//need to create a propper vscode.Position object
-				let pos = new vscode.Position(p.line, p.character);
-				edit.insert(openDoc.uri, pos, '⦿');
-			});
-			vscode.workspace.applyEdit(edit).then(params => {
-				openDoc.save();
-			});
-		}
-	}
-
 	public static containsSpecialCharacters(s: string): boolean {
 		return s.indexOf('⦿') >= 0
-	}
-
-	public static removeSpecialCharacters(callback) {
-		try {
-			let openDoc = vscode.window.activeTextEditor.document;
-			Log.log("Remove Special Characters", LogLevel.Debug);
-			let edit = new vscode.WorkspaceEdit();
-			let content = openDoc.getText();
-			let start = 0;
-			let found = false;
-			for (let i = 0; i < content.length; i++) {
-				if (content[i] === '⦿') {
-					if (!found) {
-						found = true;
-						start = i;
-					}
-				} else if (found) {
-					let range = new vscode.Range(openDoc.positionAt(start), openDoc.positionAt(i));
-					edit.delete(openDoc.uri, range);
-					found = false;
-				}
-
-			}
-			vscode.workspace.applyEdit(edit).then(resolve => {
-				if (resolve) {
-					vscode.window.activeTextEditor.document.save().then(saved => {
-						callback();
-					});
-				}
-			});
-		} catch (e) {
-			Log.error("Eror removing special characters: " + e);
-		}
-	}
-
-	public static removeSpecialCharsFromClosedDocument(filename: string, callback) {
-		fs.readFile(filename, (err, data) => {
-			if (!err) {
-				let newData = data.toString();
-				if (newData.indexOf("⦿") >= 0) {
-					newData = newData.replace(/⦿/g, "");
-					fs.writeFileSync(filename, newData);
-				}
-				callback();
-			}
-			else {
-				Log.error("cannot remove special chars from closed file: " + err.message);
-			}
-		});
 	}
 
 	private isWhiteSpace(char) {

@@ -5,6 +5,7 @@ import child_process = require('child_process');
 import {Log} from './Log'
 import {Settings} from './Settings'
 import {Backend, ViperSettings, Commands, VerificationState, LogLevel} from './ViperProtocol'
+import {Server} from './ServerClass';
 
 export class NailgunService {
     nailgunProcess: child_process.ChildProcess;
@@ -112,6 +113,11 @@ export class NailgunService {
             return;
         }
         NailgunService.startingOrRestarting = true;
+
+        //Stop all running verificationTasks before restarting backend
+        Log.log("Stop all running verificationTasks before restarting backend", LogLevel.Debug)
+        Server.verificationTasks.forEach(task => { task.abortVerification(); });
+
         this.ready = false;
         connection.sendNotification(Commands.StateChange, { newState: VerificationState.Starting, backendName: backend.name });
         if (this.nailgunProcess) {

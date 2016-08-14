@@ -16,16 +16,18 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         this.heapGraphs = [];
     }
 
+    stateVisualizer:StateVisualizer;
+
     public provideTextDocumentContent(uri: vscode.Uri): string {
         let table: string;
         if (this.heapGraphs.length > 1) {
             table = ` <table>
   <tr><td>
    <h1 style="color:${StateColors.currentState}">Current State</h1>
-   ${this.heapGraphToContent(1 - StateVisualizer.nextHeapIndex,StateVisualizer.nextHeapIndex)}
+   ${this.heapGraphToContent(1 - this.stateVisualizer.nextHeapIndex,this.stateVisualizer.nextHeapIndex)}
   </td><td>
    <h1 style="color:${StateColors.previousState}">Previous State</h1>
-   ${this.heapGraphToContent(StateVisualizer.nextHeapIndex,1 - StateVisualizer.nextHeapIndex)}
+   ${this.heapGraphToContent(this.stateVisualizer.nextHeapIndex,1 - this.stateVisualizer.nextHeapIndex)}
   </td></tr>
  </table>`;
         } else if (this.heapGraphs.length == 1) {
@@ -43,7 +45,7 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
 </head>
 <body>
  ${table}
- <p>${this.stringToHtml(StateVisualizer.globalInfo)}</p>
+ <p>${this.stringToHtml(this.stateVisualizer.globalInfo)}</p>
  <a href='${uri}'>view source</a>
 </body>`;
     }

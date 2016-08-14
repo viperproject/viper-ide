@@ -11,7 +11,7 @@ import {Model} from './Model';
 import * as pathHelper from 'path';
 import {HeapVisualizer} from './HeapVisualizer';
 import {TotalProgress} from './TotalProgress';
-import {Server} from './server';
+import {Server} from './ServerClass';
 import {DebugServer} from './DebugServer';
 
 export class VerificationTask {
@@ -56,8 +56,11 @@ export class VerificationTask {
     }
 
     public getHeapGraphDescription(index: number): HeapGraph {
+        if(!this.steps){
+            Log.error("Cannot show heap: no steps avaliable, a reverification is needed.");
+        }
         if (index < 0 || index >= this.steps.length) {
-            Log.error("Cannot show heap at step " + index + " only states 0 - " + this.steps.length + " are valid");
+            Log.error("Cannot show heap at step " + index + " only states 0 - " + (this.steps.length-1) + " are valid");
             return;
         }
         let step = this.steps[index];
@@ -184,7 +187,8 @@ export class VerificationTask {
                 decorationOptions: decorationOptions,
                 stepInfo: stepInfo,
                 methodBorders: this.methodBorders,
-                globalInfo: this.prettySteps() + "\n" + this.model.pretty()
+                globalInfo: this.prettySteps() + "\n" + this.model.pretty(),
+                uri:this.fileUri
             };
         } catch (e) {
             Log.error("Runtime Error in getGecorationOptions: " + e)

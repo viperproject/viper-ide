@@ -10,7 +10,7 @@ import {
     CompletionItem, CompletionItemKind, NotificationType,
     RequestType, RequestHandler
 } from 'vscode-languageserver';
-import {Server} from './server';
+import {Server} from './ServerClass';
 
 // import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
