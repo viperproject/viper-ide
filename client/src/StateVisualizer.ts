@@ -136,16 +136,16 @@ export class StateVisualizer {
 
     private showHeapGraph(heapGraph: HeapGraph, index: number) {
         this.provider.setState(heapGraph, index);
-        let dotFileShown = false;
-        vscode.workspace.textDocuments.forEach(element => {
-            if (element.fileName === Log.dotFilePath(index)) {
-                dotFileShown = true;
-            }
-        });
-        if (!dotFileShown) {
-            //Log.log("Show dotFile", LogLevel.Debug);
-            Helper.showFile(Log.dotFilePath(index), vscode.ViewColumn.Two);
-        }
+        // let dotFileShown = false;
+        // vscode.workspace.textDocuments.forEach(element => {
+        //     if (element.fileName === Log.dotFilePath(index)) {
+        //         dotFileShown = true;
+        //     }
+        // });
+        // if (!dotFileShown) {
+        //     //Log.log("Show dotFile", LogLevel.Debug);
+        //     //Helper.showFile(Log.dotFilePath(index), vscode.ViewColumn.Two);
+        // }
         this.provider.update(this.previewUri);
         //Log.log("Show heap graph", LogLevel.Debug);
         vscode.commands.executeCommand('vscode.previewHtml', this.previewUri, vscode.ViewColumn.Two).then((success) => { }, (reason) => {
@@ -180,28 +180,29 @@ export class StateVisualizer {
                     let errorStateFound = false;
                     option.renderOptions.before.contentText = this.getLabel(option, currentMethodIdx);
 
+                    let darkGraphs = <boolean>Helper.getConfiguration("darkGraphs");
                     //default is grey
-                    option.renderOptions.before.color = StateColors.uninterestingState;
+                    option.renderOptions.before.color = StateColors.uninterestingState(darkGraphs);
                     for (var j = 0; j < option.states.length; j++) {
                         var optionState = option.states[j];
                         if (optionState == selectedState) {
                             //if it's the current step -> red
-                            option.renderOptions.before.color = StateColors.currentState;
+                            option.renderOptions.before.color = StateColors.currentState(darkGraphs);
                             break;
                         }
                         if (optionState == this.previousState) {
-                            option.renderOptions.before.color = StateColors.previousState;
+                            option.renderOptions.before.color = StateColors.previousState(darkGraphs);
                             break;
                         }
                         else if (this.stepInfo[optionState].isErrorState && this.stepInfo[optionState].methodIndex === currentMethodIdx) {
-                            option.renderOptions.before.color = StateColors.errorState;
+                            option.renderOptions.before.color = StateColors.errorState(darkGraphs);
                             errorStateFound = true;
                         }
                         else if (!errorStateFound &&
                             this.stepInfo[optionState].depth <= this.stepInfo[selectedState].depth
                             && this.stepInfo[optionState].methodIndex === currentMethodIdx //&& optionState > selectedState
                         ) {
-                            option.renderOptions.before.color = StateColors.interestingState;
+                            option.renderOptions.before.color = StateColors.interestingState(darkGraphs);
                         }
                     }
                 }

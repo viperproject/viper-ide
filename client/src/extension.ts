@@ -99,12 +99,13 @@ function startVerificationController() {
                 let task = workList[i++];
                 if (!Helper.isViperSourceFile(task.uri.toString())) {
                     task.type = TaskType.NoOp;
-                    Log.log("Warning: only handle viper files, not file: " + task.uri.toString());
+                    Log.log("Warning: Only handle viper files, not file: " + task.uri.toString());
+                    continue;
                 }
                 let fileState = ExtensionState.viperFiles.get(task.uri.toString());
                 if (!fileState) {
                     Log.error("The file is unknown to the verification controller: " + path.basename(task.uri.toString()));
-                    return;
+                    continue;
                 }
                 switch (task.type) {
                     case TaskType.Verify:
@@ -135,9 +136,9 @@ function startVerificationController() {
                             } else if (activeFile !== task.uri.toString()) {
                                 fileState.needsVerification = true;
                                 Log.log(`Verify ${path.basename(task.uri.toString())} later: !another file is active`, LogLevel.Debug);
-                                } else if (fileState.decorationsShown && !task.manuallyTriggered) {
-                                     fileState.needsVerification = true;
-                                     Log.log(`Verify ${path.basename(task.uri.toString())} later: !manuallyTriggered and the decorations are shown`, LogLevel.Debug);
+                            } else if (fileState.decorationsShown && !task.manuallyTriggered) {
+                                fileState.needsVerification = true;
+                                Log.log(`Verify ${path.basename(task.uri.toString())} later: !manuallyTriggered and the decorations are shown`, LogLevel.Debug);
                             } else {
                                 verify(fileState, task.manuallyTriggered);
                             }
@@ -516,6 +517,16 @@ function registerHandlers() {
         }
         let visualizer = ExtensionState.viperFiles.get(castChange.uri).stateVisualizer;
         visualizer.showStateSelection({ line: castChange.line, character: castChange.character });
+    });
+
+    state.client.onNotification(Commands.VerificationNotStarted, uri => {
+        try {
+            Log.log("Verification not started for " + path.basename(<string>uri));
+            //reset the verifying flag if it is not beeing verified
+            let fileState = ExtensionState.viperFiles.get(<string>uri).verifying = false;
+        } catch (e) {
+            Log.error("Error handling verification not started request: " + e);
+        }
     });
 
     //Command Handlers

@@ -51,6 +51,7 @@ export class Commands {
     static StateSelected = { method: "StateSelected" };
     static FileOpened = { method: "FileOpened" };
     static FileClosed = { method: "FileClosed" };
+    static VerificationNotStarted = { method: "VerificationNotStarted" };
 }
 
 export interface UpdateStatusBarParams {
@@ -64,7 +65,7 @@ export interface UpdateStatusBarParams {
     time?: number;
     nofErrors?: number;
     verificationNeeded?: boolean;
-    uri?:string;
+    uri?: string;
 }
 
 export interface VerifyRequest {
@@ -131,11 +132,21 @@ export interface MethodBorder {
 }
 
 export class StateColors {
-    static currentState = "red";
-    static previousState = "green";
-    static errorState = "yellow";
-    static interestingState = "yellow";
-    static uninterestingState = "grey";
+    static currentState(dark: boolean): string {
+        return dark ? "red" : "red";
+    };
+    static previousState(dark: boolean): string {
+        return dark ? "green" : "green";
+    };
+    static errorState(dark: boolean): string {
+        return dark ? "yellow" : "orange";
+    };
+    static interestingState(dark: boolean): string {
+        return dark ? "yellow" : "orange";
+    };
+    static uninterestingState(dark: boolean): string {
+        return dark ? "grey" : "grey";
+    };
 }
 
 export interface StepInfo {
@@ -148,7 +159,7 @@ export interface StepInfo {
 
 export interface ViperFileState {
     verified: boolean;
-    success:Success;
+    success: Success;
     verifying: boolean;
     open: boolean;
     changed: boolean;

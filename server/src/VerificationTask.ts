@@ -176,7 +176,7 @@ export class VerificationTask {
                     renderOptions: {
                         before: {
                             contentText: "(" + (step.index + 1) + ")",
-                            color: step.isErrorState ? StateColors.errorState : StateColors.interestingState,
+                            color: step.isErrorState ? StateColors.errorState(this.nailgunService.settings.darkGraphs) : StateColors.interestingState(this.nailgunService.settings.darkGraphs),
                         }
                     },
                     states: [step.index],
@@ -191,7 +191,7 @@ export class VerificationTask {
                 uri: this.fileUri
             };
         } catch (e) {
-            Log.error("Runtime Error in getGecorationOptions: " + e)
+            Log.error("Error getting decoration options: " + e)
         }
     }
 
@@ -311,12 +311,13 @@ export class VerificationTask {
             Log.log("Number of Steps: " + this.steps.length, LogLevel.Info);
 
             //pass decorations to language client
-            Log.log("get params for updating the decoration options", LogLevel.Debug);
-            let params = { uri: this.fileUri, decorations: this.getDecorationOptions() }
-            //Log.log(JSON.stringify(params),LogLevel.Debug);
-            Log.log("Update the decoration options (" + params.decorations.decorationOptions.length + ")", LogLevel.Debug);
-            VerificationTask.connection.sendNotification(Commands.StepsAsDecorationOptions, params);
-            Log.log("decoration options update done", LogLevel.Debug);
+            let decorations = this.getDecorationOptions();
+            if (decorations.decorationOptions.length > 0) {
+                //Log.log(JSON.stringify(params),LogLevel.Debug);
+                Log.log("Update the decoration options (" + decorations.decorationOptions.length + ")", LogLevel.Debug);
+                VerificationTask.connection.sendNotification(Commands.StepsAsDecorationOptions, { uri: this.fileUri, decorations: decorations });
+                //Log.log("decoration options update done", LogLevel.Debug);
+            }
             /*
             Log.log("Print out low Level Debug info",LogLevel.Debug);
             this.steps.forEach((step) => {
@@ -379,7 +380,7 @@ export class VerificationTask {
             else if (line.startsWith('Silicon finished in') || line.startsWith('carbon finished in')) {
                 Log.log("State -> Error Reporting", LogLevel.Info);
                 this.state = VerificationState.VerificationReporting;
-                this.time = Number.parseFloat(/.*?(\d*\.\d*).*/.exec(line)[1]);
+                this.time = this.extractNumber(line);
             }
             //handle other verification outputs and results
             else if (line.trim().length > 0) {
@@ -428,7 +429,7 @@ export class VerificationTask {
                 else if (line.startsWith('Silicon finished in') || line.startsWith('carbon finished in')) {
                     Log.log("WARNING: analyze the reason for this code to be executed", LogLevel.Debug);
                     this.state = VerificationState.VerificationReporting;
-                    this.time = Number.parseFloat(/.*?(\d*\.\d*).*/.exec(line)[1]);
+                    this.time = this.extractNumber(line);
                 } else if (line.startsWith("\"")) {
                     // let moreThanOne = false;
                     // while (line.startsWith("\"") && line.indexOf("\"", 1) > 0 && line.indexOf("\"", 1) != line.lastIndexOf("\"")) {
@@ -510,7 +511,7 @@ export class VerificationTask {
                 }
                 else if (line.startsWith('  ')) {
                     let pos = /\s*(\d+):(\d+):\s(.*)/.exec(line);
-                    if (pos.length != 4) {
+                    if (!pos || pos.length != 4) {
                         Log.error('could not parse error description: "' + line + '"');
                         return 0;
                     }
@@ -548,6 +549,17 @@ export class VerificationTask {
             case VerificationState.VerificationPrintingHelp:
                 return -1;
         }
+    }
+
+    private extractNumber(s: string): number {
+        let regex = /^.*?(\d+)([\.,](\d+))?.*$/.exec(s);
+        if (regex && regex.length == 2) {
+            return Number.parseInt(regex[1]);
+        } else if (regex && regex.length == 4) {
+            return Number.parseFloat(regex[1] + "." + regex[3]);
+        }
+        Log.error("Error extracting number from \"" + s + "\"");
+        return 0;
     }
 
     //TODO: might be source of bugs, if methods don't contain a state

@@ -2,11 +2,13 @@ import * as vscode from 'vscode';
 import {Log} from './Log';
 import {HeapGraph, Position, LogLevel, StateColors} from './ViperProtocol';
 import {StateVisualizer} from './StateVisualizer';
+import * as fs from 'fs';
+import {Helper} from './Helper';
 
 export class HeapProvider implements vscode.TextDocumentContentProvider {
 
     private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
-    
+
     private heapGraphs: HeapGraph[];
     public setState(heapGraph: HeapGraph, index: number) {
         this.heapGraphs[index] = heapGraph;
@@ -16,22 +18,23 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         this.heapGraphs = [];
     }
 
-    stateVisualizer:StateVisualizer;
+    stateVisualizer: StateVisualizer;
 
     public provideTextDocumentContent(uri: vscode.Uri): string {
         let table: string;
+        let darkGraphs = <boolean>Helper.getConfiguration("darkGraphs");
         if (this.heapGraphs.length > 1) {
             table = ` <table>
   <tr><td>
-   <h1 style="color:${StateColors.currentState}">Current State</h1>
-   ${this.heapGraphToContent(1 - this.stateVisualizer.nextHeapIndex,this.stateVisualizer.nextHeapIndex)}
+   <h1 style="color:${StateColors.currentState(darkGraphs)}">Current State</h1>
+   ${this.heapGraphToContent(1 - this.stateVisualizer.nextHeapIndex, this.stateVisualizer.nextHeapIndex)}
   </td><td>
-   <h1 style="color:${StateColors.previousState}">Previous State</h1>
-   ${this.heapGraphToContent(this.stateVisualizer.nextHeapIndex,1 - this.stateVisualizer.nextHeapIndex)}
+   <h1 style="color:${StateColors.previousState(darkGraphs)}">Previous State</h1>
+   ${this.heapGraphToContent(this.stateVisualizer.nextHeapIndex, 1 - this.stateVisualizer.nextHeapIndex)}
   </td></tr>
  </table>`;
         } else if (this.heapGraphs.length == 1) {
-            table = ` <h1 style="color:${StateColors.currentState}">Current</h1>${this.heapGraphToContent(0)}`;
+            table = ` <h1 style="color:${StateColors.currentState(darkGraphs)}">Current</h1>${this.heapGraphToContent(0)}`;
         } else {
             table = " <p>No graph to show</p>";
         }
@@ -68,7 +71,7 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
             heapGraph.conditions.forEach(element => {
                 //if the condition is new, draw it in bold (non optimized)
                 let isNew = compareToOther && otherHeapGraph.conditions.indexOf(element) < 0;
-                conditions += `     <tr><td>${isNew?"<b>":""}${element}${isNew?"</b>":""}</td></tr>\n`;
+                conditions += `     <tr><td>${isNew ? "<b>" : ""}${element}${isNew ? "</b>" : ""}</td></tr>\n`;
             });
             conditions = `<h3>Path condition</h3>
     <table border="solid">${conditions}
@@ -77,13 +80,25 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
             conditions = `<h3>No path condition</h3>`;
         }
 
+        let circle = `
+    <svg width="100" height="100">
+      <circle cx="50" cy="50" r="40" stroke="green" stroke-width="4" fill="yellow" />
+    </svg>`
+
         let content = `
     <h2>file: ${heapGraph.fileName}<br />${heapGraph.methodType}: ${heapGraph.methodName}</h2>
     <h3>state ${heapGraph.state - heapGraph.methodOffset}<br />position: ${heapGraph.position.line + 1}:${heapGraph.position.character + 1}</h3>
-    <img src="${Log.svgFilePath(index)}"></img><br />
+    ${this.getSvgContent(Log.svgFilePath(index))}
     ${conditions}
     <p>${this.stringToHtml(heapGraph.stateInfos)}</p><br />`;
         return content;
+    }
+
+    //<img src="${Log.svgFilePath(index)}"></img><br />
+
+    private getSvgContent(filePath:string):string{
+        let content = fs.readFileSync(filePath).toString();
+        return content.substring(content.indexOf("<svg"),content.length);
     }
 
     get onDidChange(): vscode.Event<vscode.Uri> {

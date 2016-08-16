@@ -37,7 +37,7 @@ export class Helper {
                     //Log.log("file shown: " + path.basename(msg.document.uri.toString()))
 
                     //TODO: Hack: to alleviate the graph image refresh and the vscode bug 
-                    Log.deleteDotFiles();
+                    //Log.deleteDotFiles();
                 });
             }, (reason) => {
                 Log.error("Show file error: " + reason);

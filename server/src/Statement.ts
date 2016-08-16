@@ -113,40 +113,53 @@ export class Statement {
     }
 
     private createCondition(condition: string): Condition {
+        let unicodeCondition = this.unicodify(condition);
         let regex = condition.match(/^([\w$]+@\d+)\s+(==|!=)\s+([\w$]+@\d+|\d+|_|Null)$/);
         if (regex && regex.length == 4) {
             let lhs = regex[1];
             let rhs = regex[3];
             let value = regex[2] === "==";
-            if (rhs === "Null") {
-                return { raw: this.unicodify(condition), type: ConditionType.NullityCondition, value: value, lhs: lhs };
-            } else if (rhs == "_") {
-                return { raw: this.unicodify(condition), type: ConditionType.WildCardCondition, value: value, lhs: lhs };
-            }
-            return { raw: this.unicodify(condition), type: ConditionType.EqualityCondition, value: value, lhs: lhs, rhs: rhs };
-        }
-        regex = condition.match(/^QA\s((([\w$]+@\d+),?)+)\s::\s(.*)$/);
-        if (regex && regex.length == 5) {
-            let variables: string[] = regex[1].split(',');
-            let body = this.unicodify(regex[4]);
-            //simplify all bound variables: e.g. i@6 -> i
-            variables.forEach((variable, i) => {
-                let atPos = variable.indexOf("@");
-                if (atPos > 0) {
-                    let v = variable.substring(0, atPos);
 
-                    body = body.replace(new RegExp(variable, 'g'), v);
-                    variables[i] = v;
-                }
-            });
-            let vars = variables.join(",");
-            return { raw: this.unicodify(condition), type: ConditionType.QuantifiedCondition, value: true, lhs: vars, rhs: body };
+            if (rhs === "Null") {
+                return { raw: unicodeCondition, type: ConditionType.NullityCondition, value: value, lhs: lhs };
+            } else if (rhs == "_") {
+                return { raw: unicodeCondition, type: ConditionType.WildCardCondition, value: value, lhs: lhs };
+            }
+            return { raw: unicodeCondition, type: ConditionType.EqualityCondition, value: value, lhs: lhs, rhs: rhs };
         }
-        return { raw: this.unicodify(condition), type: ConditionType.UnknownCondition, value: true };
+        if (condition.startsWith('∀')) {
+            return { raw: unicodeCondition, type: ConditionType.QuantifiedCondition, value: true };
+        }
+        return { raw: unicodeCondition, type: ConditionType.UnknownCondition, value: true };
     }
 
     private unicodify(condition: string): string {
-        return condition.trim().replace(/==>/g, '⇒')
+
+        let done: boolean = false;
+        while (!done) {
+            let regex = condition.match(/^(.*?)QA\s((([\w$]+@\d+),?)+)\s::\s(.*)$/);
+            if (regex && regex.length == 6) {
+                let prefix = regex[1].trim();
+                let variables: string[] = regex[2].split(',');
+                let body = regex[5].trim();
+                //simplify all bound variables: e.g. i@6 -> i
+                variables.forEach((variable, i) => {
+                    let atPos = variable.indexOf("@");
+                    if (atPos > 0) {
+                        let v = variable.substring(0, atPos);
+
+                        body = body.replace(new RegExp(variable, 'g'), v);
+                        variables[i] = v;
+                    }
+                });
+                let vars = variables.join(",");
+                condition = `${prefix} ∀ ${vars} :: ${body}`;
+            } else {
+                done = true;
+            }
+        }
+        return condition.trim().replace(/==>/g, '⇒').replace(/<=/g,'≤').replace(/>=/g,'≥');
+
     }
 
     private unpackHeap(parts: string[]): HeapChunk[] {
@@ -293,7 +306,7 @@ export class Statement {
                     result.push(cond.raw);
                     break;
                 case ConditionType.QuantifiedCondition:
-                    result.push(`∀ ${cond.lhs} :: ${cond.rhs}`);
+                    result.push(cond.raw);
                     break;
             }
         });

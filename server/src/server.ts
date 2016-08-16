@@ -167,10 +167,11 @@ function registerHandlers() {
                 Log.hint("This system can only verify .sil and .vpr files");
             }
             if (!verificationstarted) {
-                //TODO: notify Client about no having started a verification
+                Server.connection.sendNotification(Commands.VerificationNotStarted,data.uri);
             }
         } catch (e) {
-            //TODO: notify Client about no having started a verification
+            Log.error("Error handling verify request: "+e);
+            Server.connection.sendNotification(Commands.VerificationNotStarted,data.uri);
         }
     });
 
