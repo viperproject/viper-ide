@@ -16,7 +16,7 @@ export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE };
 export enum PermissionType { UnknownPermission, ScalarPermission }
 export enum ValueType { UnknownValue, NoValue, ObjectReferenceOrScalarValue }
 export enum NameType { UnknownName, QuantifiedName, FunctionApplicationName, PredicateName, FieldReferenceName }
-export enum ConditionType { UnknownCondition, EqualityCondition, NullityCondition, WildCardCondition }
+export enum ConditionType { UnknownCondition, EqualityCondition, NullityCondition, WildCardCondition, QuantifiedCondition }
 
 export class Statement {
     type: StatementType;
@@ -87,15 +87,15 @@ export class Statement {
                     indentation++;
                 } else if (part[i] === ')') {
                     indentation--;
-                    if(qaAtIndentation > indentation){
+                    if (qaAtIndentation > indentation) {
                         qaFound = false;
                     }
                 } else if (part[i] == 'Q' && i + 2 < part.length && part[i + 1] == 'A' && part[i + 2] == ' ') {
                     //we have a quantified condition stop splitting 
                     qaFound = true;
-                    if (indentation == 0){
-                         break;
-                    }else{
+                    if (indentation == 0) {
+                        break;
+                    } else {
                         qaAtIndentation = indentation;
                     }
                 }
@@ -119,13 +119,34 @@ export class Statement {
             let rhs = regex[3];
             let value = regex[2] === "==";
             if (rhs === "Null") {
-                return { raw: condition, type: ConditionType.NullityCondition, value: value, lhs: lhs };
+                return { raw: this.unicodify(condition), type: ConditionType.NullityCondition, value: value, lhs: lhs };
             } else if (rhs == "_") {
-                return { raw: condition, type: ConditionType.WildCardCondition, value: value, lhs: lhs };
+                return { raw: this.unicodify(condition), type: ConditionType.WildCardCondition, value: value, lhs: lhs };
             }
-            return { raw: condition, type: ConditionType.EqualityCondition, value: value, lhs: lhs, rhs: rhs };
+            return { raw: this.unicodify(condition), type: ConditionType.EqualityCondition, value: value, lhs: lhs, rhs: rhs };
         }
-        return { raw: condition, type: ConditionType.UnknownCondition, value: true };
+        regex = condition.match(/^QA\s((([\w$]+@\d+),?)+)\s::\s(.*)$/);
+        if (regex && regex.length == 5) {
+            let variables: string[] = regex[1].split(',');
+            let body = this.unicodify(regex[4]);
+            //simplify all bound variables: e.g. i@6 -> i
+            variables.forEach((variable, i) => {
+                let atPos = variable.indexOf("@");
+                if (atPos > 0) {
+                    let v = variable.substring(0, atPos);
+
+                    body = body.replace(new RegExp(variable, 'g'), v);
+                    variables[i] = v;
+                }
+            });
+            let vars = variables.join(",");
+            return { raw: this.unicodify(condition), type: ConditionType.QuantifiedCondition, value: true, lhs: vars, rhs: body };
+        }
+        return { raw: this.unicodify(condition), type: ConditionType.UnknownCondition, value: true };
+    }
+
+    private unicodify(condition: string): string {
+        return condition.trim().replace(/==>/g, '⇒')
     }
 
     private unpackHeap(parts: string[]): HeapChunk[] {
@@ -270,6 +291,9 @@ export class Statement {
                     break;
                 case ConditionType.WildCardCondition:
                     result.push(cond.raw);
+                    break;
+                case ConditionType.QuantifiedCondition:
+                    result.push(`∀ ${cond.lhs} :: ${cond.rhs}`);
                     break;
             }
         });

@@ -67,41 +67,106 @@ export class DebugServer {
                 ipc.server.on(
                     'launchRequest',
                     function (data, socket) {
-                        DebugServer.debuggerRunning = true;
-                        Log.log('Debugging was requested for file: ' + data, LogLevel.Debug);
-                        VerificationTask.pathToUri(data).then((uri) => {
-                            Server.debuggedVerificationTask = Server.verificationTasks.get(uri);
-                            let response = "true";
-                            if (!Server.debuggedVerificationTask) {
-                                //TODO: use better criterion to detect a missing verification
-                                Log.hint("Cannot debug file, you must first verify the file: " + uri);
-                                response = "false";
+                        try {
+                            DebugServer.debuggerRunning = true;
+                            Log.log('Debugging was requested for file: ' + data, LogLevel.Debug);
+                            VerificationTask.pathToUri(data).then((uri) => {
+                                Server.debuggedVerificationTask = Server.verificationTasks.get(uri);
+                                let response = "true";
+                                if (!Server.debuggedVerificationTask) {
+                                    //TODO: use better criterion to detect a missing verification
+                                    Log.hint("Cannot debug file, you must first verify the file: " + uri);
+                                    response = "false";
+                                }
+                                ipc.server.emit(
+                                    socket,
+                                    'launchResponse',
+                                    response
+                                );
+
+                                //connect to Debugger as client to be able to send messages
+                                ipc.connectTo(
+                                    'viperDebugger', () => {
+                                        ipc.of.viperDebugger.on(
+                                            'connect', () => {
+                                                Log.log("Language Server connected to Debugger, as client", LogLevel.Debug);
+                                            }
+                                        );
+                                        ipc.of.viperDebugger.on(
+                                            'disconnect', () => {
+                                                Log.log('LanguageServer disconnected from Debugger', LogLevel.Debug);
+                                                DebugServer.debuggerRunning = false;
+                                            }
+                                        );
+                                    }
+                                )
+                            });
+                        } catch (e) {
+                            Log.error("Error handling lanch request: " + e);
+                        }
+                    }
+                );
+
+                ipc.server.on(
+                    'MoveRequest',
+                    function (dataString, socket) {
+                        try {
+                            let data = JSON.parse(dataString);
+                            let newState: number = -1;
+
+                            let steps = Server.debuggedVerificationTask.steps;
+                            let currentDepth = steps[data.state].depthLevel();
+                            switch (data.type) {
+                                case StepType.Stay:
+                                    newState = data.state;
+                                    break;
+                                case StepType.In:
+                                    newState = data.state + 1;
+                                    break;
+                                case StepType.Back:
+                                    newState = data.state - 1;
+                                    break;
+                                case StepType.Continue:
+                                    Log.error("continue is not supported right now, do step next instead");
+                                case StepType.Next:
+                                    for (let i = data.state + 1; i < steps.length; i++) {
+                                        let step = steps[i];
+                                        if (step.depthLevel() <= currentDepth) {
+                                            //the step is on the same level or less deap
+                                            newState = i;
+                                            break;
+                                        }
+                                    }
+                                    break;
+                                case StepType.Out:
+                                    for (let i = data.state + 1; i < steps.length; i++) {
+                                        let step = steps[i];
+                                        if (step.depthLevel() < currentDepth) {
+                                            //the step is less deap
+                                            newState = i;
+                                            break;
+                                        }
+                                    }
+                                    break;
+                            }
+                            Log.log(`Step${StepType[data.type]}: state ${data.state} -> state ${newState}`, LogLevel.LowLevelDebug);
+                            let position = Server.debuggedVerificationTask ? Server.debuggedVerificationTask.getPositionOfState(newState) : { line: 0, character: 0 };
+                            if (position.line >= 0) {
+                                Server.showHeap(Server.debuggedVerificationTask, newState);
                             }
                             ipc.server.emit(
                                 socket,
-                                'launchResponse',
-                                response
+                                'MoveResponse',
+                                JSON.stringify({ position: position, state: newState })
                             );
 
-                            //connect to Debugger as client to be able to send messages
-                            ipc.connectTo(
-                                'viperDebugger', () => {
-                                    ipc.of.viperDebugger.on(
-                                        'connect', () => {
-                                            Log.log("Language Server connected to Debugger, as client", LogLevel.Debug);
-                                        }
-                                    );
-                                    ipc.of.viperDebugger.on(
-                                        'disconnect', () => {
-                                            Log.log('LanguageServer disconnected from Debugger', LogLevel.Debug);
-                                            DebugServer.debuggerRunning = false;
-                                     }
-                                    );
-                                }
-                            )
-                        });
+                        }
+                        catch (e) {
+                            Log.log("Error handling move request: " + e);
+                        }
                     }
                 );
+
                 ipc.server.on(
                     'variablesInLineRequest',
                     function (data, socket) {
@@ -151,60 +216,6 @@ export class DebugServer {
                 );
 
                 ipc.server.on(
-                    'MoveRequest',
-                    function (dataString, socket) {
-                        let data = JSON.parse(dataString);
-                        let newState: number = -1;
-
-                        let steps = Server.debuggedVerificationTask.steps;
-                        let currentDepth = steps[data.state].depthLevel();
-                        switch (data.type) {
-                            case StepType.Stay:
-                                newState = data.state;
-                                break;
-                            case StepType.In:
-                                newState = data.state + 1;
-                                break;
-                            case StepType.Back:
-                                newState = data.state - 1;
-                                break;
-                            case StepType.Continue:
-                                Log.error("continue is not supported right now, do step next instead");
-                            case StepType.Next:
-                                for (let i = data.state + 1; i < steps.length; i++) {
-                                    let step = steps[i];
-                                    if (step.depthLevel() <= currentDepth) {
-                                        //the step is on the same level or less deap
-                                        newState = i;
-                                        break;
-                                    }
-                                }
-                                break;
-                            case StepType.Out:
-                                for (let i = data.state + 1; i < steps.length; i++) {
-                                    let step = steps[i];
-                                    if (step.depthLevel() < currentDepth) {
-                                        //the step is less deap
-                                        newState = i;
-                                        break;
-                                    }
-                                }
-                                break;
-                        }
-                        Log.log(`Step${StepType[data.type]}: state ${data.state} -> state ${newState}`, LogLevel.LowLevelDebug);
-                        let position = Server.debuggedVerificationTask ? Server.debuggedVerificationTask.getPositionOfState(newState) : { line: 0, character: 0 };
-                        if (position.line >= 0) {
-                            Server.showHeap(Server.debuggedVerificationTask, newState);
-                        }
-                        ipc.server.emit(
-                            socket,
-                            'MoveResponse',
-                            JSON.stringify({ position: position, state: newState })
-                        );
-                    }
-                );
-
-                ipc.server.on(
                     'stackTraceRequest',
                     function (data, socket) {
                         Log.log('stack trace request for line ' + data, LogLevel.Debug);
@@ -233,13 +244,24 @@ export class DebugServer {
         ipc.server.start();
     }
 
-    static moveDebuggerToPos(position: Position,step) {
+    static moveDebuggerToPos(position: Position, step) {
         if (DebugServer.debuggerRunning) {
             try {
-                ipc.of.viperDebugger.emit("MoveDebuggerToPos", JSON.stringify({position:position,step:step}));
-                Log.log("LanguageServer is telling Debugger to Move to Position of State "+ step)
+                ipc.of.viperDebugger.emit("MoveDebuggerToPos", JSON.stringify({ position: position, step: step }));
+                Log.log("LanguageServer is telling Debugger to Move to Position of State " + step)
             } catch (e) {
-                Log.error("MoveDebuggerToPos: " + e);
+                Log.error("Error sending MoveDebuggerToPos request: " + e);
+            }
+        }
+    }
+
+    static stopDebugging() {
+        if (DebugServer.debuggerRunning) {
+            try {
+                ipc.of.viperDebugger.emit("StopDebugging");
+                Log.log("LanguageServer is telling Debugger to stop debugging")
+            } catch (e) {
+                Log.error("Error sending StopDebugging request: " + e);
             }
         }
     }

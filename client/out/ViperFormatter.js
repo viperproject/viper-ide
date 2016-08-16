@@ -1,62 +1,98 @@
 'use-strict';
 "use strict";
 const vscode = require('vscode');
+const Log_1 = require('./Log');
 class ViperFormatter {
     formatOpenDoc() {
-        let indent = "\t";
-        let openDoc = vscode.window.activeTextEditor.document;
-        let content = openDoc.getText();
-        let edit = new vscode.WorkspaceEdit();
-        let indentLevel = 0;
-        let start = 0;
-        let newLineCount = 0;
-        let minNewLineCount = 0;
-        for (let i = 0; i < content.length; i++) {
-            let curr = content[i];
-            if (!this.isWhiteSpace(curr)) {
-                let doReplace = true;
-                if (content[start] === '{') {
-                    if (curr != '}') {
-                        indentLevel++;
-                        minNewLineCount = 1;
+        try {
+            let indent = "\t";
+            let openDoc = vscode.window.activeTextEditor.document;
+            let content = openDoc.getText();
+            let edit = new vscode.WorkspaceEdit();
+            let indentLevel = 0;
+            let start = 0;
+            let startIsInComment = false;
+            let newLineCount = 0;
+            let minNewLineCount = 0;
+            let isInLineComment = false;
+            let isInMultiLineComment = false;
+            for (let i = 0; i < content.length; i++) {
+                let curr = content[i];
+                if (!this.isWhiteSpace(curr)) {
+                    let doReplace = true;
+                    //detect comment end
+                    if (i + 1 < content.length) {
+                        if (curr == '*' && content[i + 1] == "/") {
+                            isInMultiLineComment = false;
+                        }
+                    }
+                    if (!isInLineComment && !isInMultiLineComment) {
+                        if (content[start] === '{' && !startIsInComment) {
+                            if (curr != '}') {
+                                indentLevel++;
+                                minNewLineCount = 1;
+                            }
+                            else {
+                                newLineCount = 0;
+                                minNewLineCount = 0;
+                            }
+                        }
+                        else if (curr === "}") {
+                            indentLevel--;
+                            minNewLineCount = 1;
+                        }
+                        else if (curr === '{' || (content[start] === '}' && !startIsInComment)) {
+                            minNewLineCount = 1;
+                        }
+                        else if (newLineCount > 0 || (this.isWhiteSpace(content[start]) && !startIsInComment)) {
+                            minNewLineCount = 0;
+                        }
+                        else {
+                            doReplace = false;
+                        }
                     }
                     else {
-                        newLineCount = 0;
                         minNewLineCount = 0;
+                        if (newLineCount <= 0) {
+                            doReplace = false;
+                        }
                     }
-                }
-                else if (curr === "}") {
-                    indentLevel--;
-                    minNewLineCount = 1;
-                }
-                else if (curr === '{' || content[start] === '}') {
-                    minNewLineCount = 1;
-                }
-                else if (newLineCount > 0 || this.isWhiteSpace(content[start])) {
-                    minNewLineCount = 0;
+                    if (doReplace) {
+                        newLineCount = Math.max(minNewLineCount, newLineCount);
+                        let range = new vscode.Range(openDoc.positionAt(start + 1), openDoc.positionAt(i));
+                        let replacement = ("\r\n".repeat(newLineCount)) + ("\t".repeat(indentLevel));
+                        edit.replace(openDoc.uri, range, replacement);
+                    }
+                    //detect comment start
+                    if (i + 1 < content.length && !isInLineComment && !isInMultiLineComment) {
+                        if (curr == '/' && content[i + 1] == "/") {
+                            isInLineComment = true;
+                            i++;
+                        }
+                        if (curr == '/' && content[i + 1] == "*") {
+                            isInMultiLineComment = true;
+                            i++;
+                        }
+                    }
+                    //add a new line?
+                    start = i;
+                    startIsInComment = isInLineComment || isInMultiLineComment;
+                    newLineCount = 0;
                 }
                 else {
-                    doReplace = false;
-                }
-                if (doReplace) {
-                    newLineCount = Math.max(minNewLineCount, newLineCount);
-                    let range = new vscode.Range(openDoc.positionAt(start + 1), openDoc.positionAt(i));
-                    let replacement = ("\r\n".repeat(newLineCount)) + ("\t".repeat(indentLevel));
-                    edit.replace(openDoc.uri, range, replacement);
-                }
-                //add a new line?
-                start = i;
-                newLineCount = 0;
-            }
-            else {
-                if (curr == "\n") {
-                    newLineCount++;
+                    if (curr == "\n") {
+                        newLineCount++;
+                        isInLineComment = false;
+                    }
                 }
             }
+            vscode.workspace.applyEdit(edit).then(params => {
+                openDoc.save();
+            });
         }
-        vscode.workspace.applyEdit(edit).then(params => {
-            openDoc.save();
-        });
+        catch (e) {
+            Log_1.Log.error("Error formatting document: " + e);
+        }
     }
     static containsSpecialCharacters(s) {
         return s.indexOf('⦿') >= 0;
@@ -66,4 +102,4 @@ class ViperFormatter {
     }
 }
 exports.ViperFormatter = ViperFormatter;
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiVmlwZXJGb3JtYXR0ZXIuanMiLCJzb3VyY2VSb290IjoiIiwic291cmNlcyI6WyIuLi9zcmMvVmlwZXJGb3JtYXR0ZXIudHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBQUEsWUFBWSxDQUFBOztBQUVaLE1BQVksTUFBTSxXQUFNLFFBQVEsQ0FBQyxDQUFBO0FBTWpDO0lBQ1EsYUFBYTtRQUNuQixJQUFJLE1BQU0sR0FBRyxJQUFJLENBQUM7UUFFbEIsSUFBSSxPQUFPLEdBQUcsTUFBTSxDQUFDLE1BQU0sQ0FBQyxnQkFBZ0IsQ0FBQyxRQUFRLENBQUM7UUFDdEQsSUFBSSxPQUFPLEdBQUcsT0FBTyxDQUFDLE9BQU8sRUFBRSxDQUFDO1FBQ2hDLElBQUksSUFBSSxHQUFHLElBQUksTUFBTSxDQUFDLGFBQWEsRUFBRSxDQUFDO1FBQ3RDLElBQUksV0FBVyxHQUFHLENBQUMsQ0FBQztRQUNwQixJQUFJLEtBQUssR0FBRyxDQUFDLENBQUM7UUFDZCxJQUFJLFlBQVksR0FBRyxDQUFDLENBQUM7UUFDckIsSUFBSSxlQUFlLEdBQUcsQ0FBQyxDQUFDO1FBQ3hCLEdBQUcsQ0FBQyxDQUFDLElBQUksQ0FBQyxHQUFHLENBQUMsRUFBRSxDQUFDLEdBQUcsT0FBTyxDQUFDLE1BQU0sRUFBRSxDQUFDLEVBQUUsRUFBRSxDQUFDO1lBQ3pDLElBQUksSUFBSSxHQUFHLE9BQU8sQ0FBQyxDQUFDLENBQUMsQ0FBQztZQUN0QixFQUFFLENBQUMsQ0FBQyxDQUFDLElBQUksQ0FBQyxZQUFZLENBQUMsSUFBSSxDQUFDLENBQUMsQ0FBQyxDQUFDO2dCQUM5QixJQUFJLFNBQVMsR0FBRyxJQUFJLENBQUM7Z0JBQ3JCLEVBQUUsQ0FBQyxDQUFDLE9BQU8sQ0FBQyxLQUFLLENBQUMsS0FBSyxHQUFHLENBQUMsQ0FBQyxDQUFDO29CQUM1QixFQUFFLENBQUMsQ0FBQyxJQUFJLElBQUksR0FBRyxDQUFDLENBQUMsQ0FBQzt3QkFDakIsV0FBVyxFQUFFLENBQUM7d0JBQ2QsZUFBZSxHQUFH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
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiVmlwZXJGb3JtYXR0ZXIuanMiLCJzb3VyY2VSb290IjoiIiwic291cmNlcyI6WyIuLi9zcmMvVmlwZXJGb3JtYXR0ZXIudHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBQUEsWUFBWSxDQUFBOztBQUVaLE1BQVksTUFBTSxXQUFNLFFBQVEsQ0FBQyxDQUFBO0FBRWpDLHNCQUFrQixPQUFPLENBQUMsQ0FBQTtBQUkxQjtJQUNRLGFBQWE7UUFDbkIsSUFBRyxDQUFDO1lBQ0osSUFBSSxNQUFNLEdBQUcsSUFBSSxDQUFDO1lBRWxCLElBQUksT0FBTyxHQUFHLE1BQU0sQ0FBQyxNQUFNLENBQUMsZ0JBQWdCLENBQUMsUUFBUSxDQUFDO1lBQ3RELElBQUksT0FBTyxHQUFHLE9BQU8sQ0FBQyxPQUFPLEVBQUUsQ0FBQztZQUNoQyxJQUFJLElBQUksR0FBRyxJQUFJLE1BQU0sQ0FBQyxhQUFhLEVBQUUsQ0FBQztZQUN0QyxJQUFJLFdBQVcsR0FBRyxDQUFDLENBQUM7WUFDcEIsSUFBSSxLQUFLLEdBQUcsQ0FBQyxDQUFDO1lBQ2QsSUFBSSxnQkFBZ0IsR0FBRyxLQUFLLENBQUM7WUFDN0IsSUFBSSxZQUFZLEdBQUcsQ0FBQyxDQUFDO1lBQ3JCLElBQUksZUFBZSxHQUFHLENBQUMsQ0FBQztZQUN4QixJQUFJLGVBQWUsR0FBRyxLQUFLLENBQUM7WUFDNUIsSUFBSSxvQkFBb0IsR0FBRyxLQUFLLENBQUM7WUFDakMsR0FBRyxDQUFDLENBQUMsSUFBSSxDQUFDLEdBQUcsQ0FBQyxFQUFFLENBQUMsR0FBRyxPQUFPLENBQUMsTUFBTSxFQUFFLENBQUMsRUFBRSxFQUFFLENBQUM7Z0JBQ3pDLElBQUksSUFBSSxHQUFHLE9BQU8sQ0FBQyxDQUFDLENBQUMsQ0FBQztnQkFDdEIsRUFBRSxDQUFDLENBQUMsQ0FBQyxJQUFJLENBQUMsWUFBWSxDQUFDLElBQUksQ0FBQyxDQUFDLENBQUMsQ0FBQztvQkFDOUIsSUFBSSxTQUFTLEdBQUcsSUFBSSxDQUFDO29CQUVyQixvQkFBb0I7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

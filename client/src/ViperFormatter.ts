@@ -8,6 +8,7 @@ import * as fs from 'fs';
 
 export class ViperFormatter {
 	public formatOpenDoc() {
+		try{
 		let indent = "\t";
 
 		let openDoc = vscode.window.activeTextEditor.document;
@@ -15,32 +16,50 @@ export class ViperFormatter {
 		let edit = new vscode.WorkspaceEdit();
 		let indentLevel = 0;
 		let start = 0;
+		let startIsInComment = false;
 		let newLineCount = 0;
 		let minNewLineCount = 0;
+		let isInLineComment = false;
+		let isInMultiLineComment = false;
 		for (let i = 0; i < content.length; i++) {
 			let curr = content[i];
 			if (!this.isWhiteSpace(curr)) {
 				let doReplace = true;
-				if (content[start] === '{') {
-					if (curr != '}') {
-						indentLevel++;
-						minNewLineCount = 1;
-					} else {
-						newLineCount = 0;
-						minNewLineCount = 0;
+
+				//detect comment end
+				if (i + 1 < content.length) {
+					if (curr == '*' && content[i + 1] == "/") {
+						isInMultiLineComment = false;
 					}
 				}
-				else if (curr === "}") {
-					indentLevel--;
-					minNewLineCount = 1;
-				}
-				else if (curr === '{' || content[start] === '}') {
-					minNewLineCount = 1;
-				}
-				else if (newLineCount > 0 || this.isWhiteSpace(content[start])) {
-					minNewLineCount = 0;
+
+				if (!isInLineComment && !isInMultiLineComment) {
+					if (content[start] === '{' && !startIsInComment) {
+						if (curr != '}') {
+							indentLevel++;
+							minNewLineCount = 1;
+						} else {
+							newLineCount = 0;
+							minNewLineCount = 0;
+						}
+					}
+					else if (curr === "}") {
+						indentLevel--;
+						minNewLineCount = 1;
+					}
+					else if (curr === '{' || (content[start] === '}' && !startIsInComment)) {
+						minNewLineCount = 1;
+					}
+					else if (newLineCount > 0 || (this.isWhiteSpace(content[start]) && !startIsInComment)) {
+						minNewLineCount = 0;
+					} else {
+						doReplace = false;
+					}
 				} else {
-					doReplace = false;
+					minNewLineCount = 0;
+					if (newLineCount <= 0) {
+						doReplace = false;
+					}
 				}
 
 				if (doReplace) {
@@ -49,18 +68,35 @@ export class ViperFormatter {
 					let replacement = ("\r\n".repeat(newLineCount)) + ("\t".repeat(indentLevel));
 					edit.replace(openDoc.uri, range, replacement);
 				}
+
+				//detect comment start
+				if (i + 1 < content.length && !isInLineComment && !isInMultiLineComment) {
+					if (curr == '/' && content[i + 1] == "/") {
+						isInLineComment = true;
+						i++;
+					}
+					if (curr == '/' && content[i + 1] == "*") {
+						isInMultiLineComment = true;
+						i++;
+					}
+				}
 				//add a new line?
 				start = i;
+				startIsInComment = isInLineComment || isInMultiLineComment;
 				newLineCount = 0;
 			} else {
 				if (curr == "\n") {
 					newLineCount++;
+					isInLineComment = false;
 				}
 			}
 		}
 		vscode.workspace.applyEdit(edit).then(params => {
 			openDoc.save();
 		});
+		}catch(e){
+			Log.error("Error formatting document: " +e)
+		}
 	}
 
 	public static containsSpecialCharacters(s: string): boolean {

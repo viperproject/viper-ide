@@ -137,13 +137,9 @@ export class StateVisualizer {
     private showHeapGraph(heapGraph: HeapGraph, index: number) {
         this.provider.setState(heapGraph, index);
         let dotFileShown = false;
-        let heapShown = false;
         vscode.workspace.textDocuments.forEach(element => {
             if (element.fileName === Log.dotFilePath(index)) {
                 dotFileShown = true;
-            }
-            if (element.uri.toString() == this.previewUri.toString()) {
-                //heapShown = true;
             }
         });
         if (!dotFileShown) {
@@ -151,12 +147,10 @@ export class StateVisualizer {
             Helper.showFile(Log.dotFilePath(index), vscode.ViewColumn.Two);
         }
         this.provider.update(this.previewUri);
-        if (!heapShown) {
-            //Log.log("Show heap graph", LogLevel.Debug);
-            vscode.commands.executeCommand('vscode.previewHtml', this.previewUri, vscode.ViewColumn.Two).then((success) => { }, (reason) => {
-                Log.error("HTML Preview error: " + reason);
-            });
-        }
+        //Log.log("Show heap graph", LogLevel.Debug);
+        vscode.commands.executeCommand('vscode.previewHtml', this.previewUri, vscode.ViewColumn.Two).then((success) => { }, (reason) => {
+            Log.error("HTML Preview error: " + reason);
+        });
     }
 
     completeDecorationOptions() {
@@ -295,11 +289,11 @@ export class StateVisualizer {
 
     private areSpecialCharsBeingModified(s: string) {
         if (this.addingSpecialChars) {
-            Log.log(s + " they are already being added to "+ this.viperFile.name(),LogLevel.Debug);
+            Log.log(s + " they are already being added to " + this.viperFile.name(), LogLevel.Debug);
             return true;
         }
         if (this.removingSpecialChars) {
-            Log.log(s + " they are already being removed from "+ this.viperFile.name(),LogLevel.Debug);
+            Log.log(s + " they are already being removed from " + this.viperFile.name(), LogLevel.Debug);
             return true;
         }
         return false;
@@ -319,13 +313,15 @@ export class StateVisualizer {
                     let p = this.stepInfo[i].originalPosition;
                     //need to create a propper vscode.Position object
                     let pos = new vscode.Position(p.line, p.character);
-                    edit.insert(openDoc.uri, pos, '⦿');
+                    edit.insert(openDoc.uri, pos, '\u200B');
                 });
                 vscode.workspace.applyEdit(edit).then(params => {
                     openDoc.save().then(() => {
                         this.addingSpecialChars = false;
                     });
                 });
+            }else{
+                this.addingSpecialChars = false;
             }
         } catch (e) {
             this.addingSpecialChars = false;
@@ -348,7 +344,7 @@ export class StateVisualizer {
             let start = 0;
             let found = false;
             for (let i = 0; i < content.length; i++) {
-                if (content[i] === '⦿') {
+                if (content[i] === '⦿' || content[i] === '\u200B') {
                     if (!found) {
                         found = true;
                         start = i;
@@ -385,8 +381,8 @@ export class StateVisualizer {
             fs.readFile(this.uri.fsPath, (err, data) => {
                 if (!err && data) {
                     let newData = data.toString();
-                    if (newData.indexOf("⦿") >= 0) {
-                        newData = newData.replace(/⦿/g, "");
+                    if (newData.indexOf("⦿") >= 0 || newData.indexOf("\u200B") >= 0) {
+                        newData = newData.replace(/[⦿\u200B]/g, "");
                         fs.writeFileSync(this.uri.fsPath, newData);
                     }
                     Log.log("Special Chars removed from closed file " + this.viperFile.name(), LogLevel.Info)

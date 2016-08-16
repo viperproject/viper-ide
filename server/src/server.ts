@@ -147,22 +147,30 @@ function registerHandlers() {
     });
 
     Server.connection.onRequest(Commands.Verify, (data: VerifyRequest) => {
-        if (Server.isViperSourceFile(data.uri)) {
-            let alreadyRunning = false;
-            if (data.manuallyTriggered) {
-                //it does not make sense to reverify if no changes were made and the verification is already running
-                Server.verificationTasks.forEach(task => {
-                    if (task.running && task.fileUri === data.uri) {
-                        alreadyRunning = true;
-                    }
-                });
+        try {
+            let verificationstarted = false;
+            if (Server.isViperSourceFile(data.uri)) {
+                let alreadyRunning = false;
+                if (data.manuallyTriggered) {
+                    //it does not make sense to reverify if no changes were made and the verification is already running
+                    Server.verificationTasks.forEach(task => {
+                        if (task.running && task.fileUri === data.uri) {
+                            alreadyRunning = true;
+                        }
+                    });
+                }
+                if (!alreadyRunning) {
+                    Settings.workspace = data.workspace;
+                    verificationstarted = startOrRestartVerification(data.uri, false, data.manuallyTriggered);
+                }
+            } else if (data.manuallyTriggered) {
+                Log.hint("This system can only verify .sil and .vpr files");
             }
-            if (!alreadyRunning) {
-                Settings.workspace = data.workspace;
-                startOrRestartVerification(data.uri, false, data.manuallyTriggered);
+            if (!verificationstarted) {
+                //TODO: notify Client about no having started a verification
             }
-        } else if (data.manuallyTriggered) {
-            Log.hint("This system can only verify .sil and .vpr files");
+        } catch (e) {
+            //TODO: notify Client about no having started a verification
         }
     });
 
@@ -206,7 +214,7 @@ function restartBackendIfNeeded() {
     let newBackend = Settings.autoselectBackend(Settings.settings);
     //only restart the backend after settings changed if the active backend was affected
     if (!Settings.backendEquals(Server.backend, newBackend)) {
-        Log.log(`Change Backend: from ${Server.backend?Server.backend.name:"No Backend"} to ${newBackend?newBackend.name:"No Backend"}`)
+        Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`)
         Server.backend = newBackend;
         //stop all running verifications
         Server.nailgunService.restartNailgunServer(Server.connection, Server.backend);
@@ -216,18 +224,17 @@ function restartBackendIfNeeded() {
     }
 }
 
-function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuallyTriggered: boolean) {
-    Log.log("start or restart verification",LogLevel.Info);
+function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuallyTriggered: boolean): boolean {
     //only verify if the settings are right
     if (!Settings.settings.valid) {
         Server.connection.sendNotification(Commands.InvalidSettings, "Cannot verify, fix the settings first.");
-        return;
+        return false;
     }
 
     //only verify viper source code files
     if (!Server.isViperSourceFile(uri)) {
         Log.hint("Only viper source files can be verified.");
-        return;
+        return false;
     }
 
     //only verify if the settings are right
@@ -239,17 +246,19 @@ function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuall
     if (!Server.nailgunService.ready) {
         if (manuallyTriggered)
             Log.hint("The verification backend is not ready yet");
-        return;
+        return false;
     }
 
     //check if there is already a verification task for that file
     let task = Server.verificationTasks.get(uri);
     if (!task) {
         Log.error("No verification task found for file: " + uri);
-        return;
+        return false;
     }
+
+    Log.log("start or restart verification", LogLevel.Info);
     //stop all other verifications because the backend crashes if multiple verifications are run in parallel
     Server.verificationTasks.forEach(task => { task.abortVerification(); });
     //start verification
-    task.verify(onlyTypeCheck, manuallyTriggered);
+    return task.verify(onlyTypeCheck, manuallyTriggered);
 }

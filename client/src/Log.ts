@@ -96,10 +96,14 @@ export class Log {
     }
 
     public static deleteDotFile(index: number) {
-        let dotFile = this.dotFilePath(index);
-        if (fs.existsSync(dotFile)) {
-            fs.unlinkSync(dotFile);
-        };
+        try {
+            let dotFile = this.dotFilePath(index);
+            if (fs.existsSync(dotFile)) {
+                fs.unlinkSync(dotFile);
+            };
+        } catch (e) {
+            Log.error("error deleting file " + index);
+        }
     }
 
     public static updateSettings() {
@@ -125,9 +129,9 @@ export class Log {
     private static prefix(logLevel: LogLevel): string {
         if (logLevel <= LogLevel.Info)
             return "";
-        if(logLevel == LogLevel.Debug)
+        if (logLevel == LogLevel.Debug)
             return "> ";
-        if(logLevel > LogLevel.Debug){
+        if (logLevel > LogLevel.Debug) {
             return "- ";
         }
     }

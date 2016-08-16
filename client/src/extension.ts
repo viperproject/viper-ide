@@ -131,18 +131,15 @@ function startVerificationController() {
                             }
                             else if (!activeFile) {
                                 fileState.needsVerification = true;
-                                Log.log(`Verify ${path.basename(task.uri.toString())} later: !no file is active`, LogLevel.Debug);
+                                Log.log(`Verify ${path.basename(task.uri.toString())} later: no file is active`, LogLevel.Debug);
                             } else if (activeFile !== task.uri.toString()) {
                                 fileState.needsVerification = true;
                                 Log.log(`Verify ${path.basename(task.uri.toString())} later: !another file is active`, LogLevel.Debug);
-                            } else if (fileState.decorationsShown && !task.manuallyTriggered) {
-                                fileState.needsVerification = true;
-                                Log.log(`Verify ${path.basename(task.uri.toString())} later: !manuallyTriggered and the decorations are shown`, LogLevel.Debug);
+                                } else if (fileState.decorationsShown && !task.manuallyTriggered) {
+                                     fileState.needsVerification = true;
+                                     Log.log(`Verify ${path.basename(task.uri.toString())} later: !manuallyTriggered and the decorations are shown`, LogLevel.Debug);
                             } else {
-                                fileState.changed = false;
-                                fileState.verified = false;
-                                fileState.verifying = true;
-                                verify(task.uri, task.manuallyTriggered);
+                                verify(fileState, task.manuallyTriggered);
                             }
                         } else {
                             fileState.needsVerification = true;
@@ -213,12 +210,17 @@ function startVerificationController() {
     }));
 }
 
-export function deactivate() {
+export function deactivate()/*: Thenable<boolean>*/ {
+    //return new Promise((resolve, reject) => {
     Log.log("deactivate", LogLevel.Info);
     state.dispose();
     //TODO: make sure no doc contains special chars any more
     let oldFileState = ExtensionState.viperFiles.get(lastActiveTextEditor.toString());
-    oldFileState.stateVisualizer.removeSpecialCharacters(() => { Log.log("deactivated", LogLevel.Info); });
+    oldFileState.stateVisualizer.removeSpecialCharacters(() => {
+        Log.log("deactivated", LogLevel.Info);
+        //resolve(true);
+    });
+    //});
 }
 
 function registerFormatter() {
@@ -440,7 +442,9 @@ function registerHandlers() {
         if (!ExtensionState.viperFiles.has(uri)) {
             ExtensionState.viperFiles.set(uri, new ViperFileState(uriObject));
         } else {
-            ExtensionState.viperFiles.get(uri).open = true;
+            let fileState = ExtensionState.viperFiles.get(uri);
+            fileState.open = true;
+            fileState.verifying = false;
         }
         workList.push({ type: TaskType.Verify, uri: uriObject, manuallyTriggered: false });
     });
@@ -579,18 +583,25 @@ function registerHandlers() {
     }));
 }
 
-function verify(uri: vscode.Uri, manuallyTriggered: boolean) {
-    if (Helper.isViperSourceFile(uri.toString())) {
+function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
+    let uri = fileState.uri.toString();
+    if (Helper.isViperSourceFile(uri)) {
         if (!state.client) {
             Log.hint("Extension not ready yet.");
         } else {
-            let visualizer = ExtensionState.viperFiles.get(uri.toString()).stateVisualizer;
+            let visualizer = ExtensionState.viperFiles.get(uri).stateVisualizer;
             visualizer.removeSpecialCharacters(() => {
                 visualizer.hideDecorations();
                 visualizer.reset();
-                Log.log("verify " + path.basename(uri.toString()));
-                let workspace = vscode.workspace.rootPath ? vscode.workspace.rootPath : path.dirname(uri.fsPath);
-                state.client.sendRequest(Commands.Verify, { uri: uri.toString(), manuallyTriggered: manuallyTriggered, workspace: workspace });
+                Log.log("verify " + path.basename(uri));
+
+                //change fileState
+                fileState.changed = false;
+                fileState.verified = false;
+                fileState.verifying = true;
+
+                let workspace = vscode.workspace.rootPath ? vscode.workspace.rootPath : path.dirname(fileState.uri.fsPath);
+                state.client.sendRequest(Commands.Verify, { uri: uri, manuallyTriggered: manuallyTriggered, workspace: workspace });
             });
         }
     }

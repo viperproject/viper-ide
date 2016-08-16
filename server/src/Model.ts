@@ -52,8 +52,9 @@ export class Model {
     private simplifyValue(value: string): string {
         let isSnap = value.indexOf("$Snap.") >= 0;
         if (isSnap) {
-            value = value.replace(/\$Snap\./g, "");
-            return "Snap: " + value;
+            //value = value.replace(/\$Snap\./g, "");
+            //return "Snap: " + value;
+            return "_";
         } else {
             let match = /\$Ref!val!(\d+)/.exec(value);
             if (match && match.length == 2) {

@@ -48,7 +48,7 @@ class ViperDebugSession extends DebugSession {
     }
 	private set _currentState(state: number) {
 		this.__currentState = state;
-		this.sendEvent(new OutputEvent(`state: ${state}\n`));	// print current line on debug console
+		//this.sendEvent(new OutputEvent(`state: ${state}\n`));	// print current line on debug console
 	}
 	// the initial (and one and only) file we are 'debugging'
 	private _sourceFile: string;
@@ -104,14 +104,24 @@ class ViperDebugSession extends DebugSession {
 					'MoveDebuggerToPos',
 					function (data, socket) {
 						try {
-							ViperDebugSession.log("MoveDebuggerToPos " + data);
+							//ViperDebugSession.log("MoveDebuggerToPos " + data);
 							let obj = JSON.parse(data);
 							ViperDebugSession.self._currentLine = obj.position.line;
 							ViperDebugSession.self._currentCharacter = obj.position.character;
 							ViperDebugSession.self._currentState = obj.step;
 							ViperDebugSession.self.sendEvent(new StoppedEvent("step", ViperDebugSession.THREAD_ID));
 						} catch (e) {
-							ViperDebugSession.log("MoveDebuggerToPos "+e);
+							ViperDebugSession.log("Error handling MoveDebuggerToPos request: "+e);
+						}
+					}
+				);
+				ipc.server.on(
+					'StopDebugging',
+					function (data, socket) {
+						try {
+							ViperDebugSession.self.sendEvent(new TerminatedEvent(false));
+						} catch (e) {
+							ViperDebugSession.log("Error handling StopDebugging request: "+e);
 						}
 					}
 				);
@@ -123,7 +133,7 @@ class ViperDebugSession extends DebugSession {
 	private registerHandlers() {
 		this.registerIpcHandler("launch", false, (ok) => {
 			if (ok != "true") {
-				this.sendEvent(new TerminatedEvent());
+				this.sendEvent(new TerminatedEvent(false));
 				return;
 			} else {
 				//if (this._stopOnEntry) {

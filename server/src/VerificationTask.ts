@@ -56,11 +56,11 @@ export class VerificationTask {
     }
 
     public getHeapGraphDescription(index: number): HeapGraph {
-        if(!this.steps){
+        if (!this.steps) {
             Log.error("Cannot show heap: no steps avaliable, a reverification is needed.");
         }
         if (index < 0 || index >= this.steps.length) {
-            Log.error("Cannot show heap at step " + index + " only states 0 - " + (this.steps.length-1) + " are valid");
+            Log.error("Cannot show heap at step " + index + " only states 0 - " + (this.steps.length - 1) + " are valid");
             return;
         }
         let step = this.steps[index];
@@ -188,17 +188,17 @@ export class VerificationTask {
                 stepInfo: stepInfo,
                 methodBorders: this.methodBorders,
                 globalInfo: this.prettySteps() + "\n" + this.model.pretty(),
-                uri:this.fileUri
+                uri: this.fileUri
             };
         } catch (e) {
             Log.error("Runtime Error in getGecorationOptions: " + e)
         }
     }
 
-    verify(onlyTypeCheck: boolean, manuallyTriggered: boolean): void {
+    verify(onlyTypeCheck: boolean, manuallyTriggered: boolean): boolean {
         if (!manuallyTriggered && this.lastSuccess == Success.Error) {
             Log.log("After an internal error, reverification has to be triggered manually.", LogLevel.Info);
-            return;
+            return false;
         }
         //Initialization
         this.manuallyTriggered = manuallyTriggered;
@@ -224,9 +224,12 @@ export class VerificationTask {
 
         Log.log(Server.backend.name + ' verification started', LogLevel.Info);
 
-        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning});
+        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning });
 
         VerificationTask.uriToPath(this.fileUri).then((path) => {
+
+            //Request the debugger to terminate it's session
+            DebugServer.stopDebugging();
             //start verification of current file
             this.path = path
             this.filename = pathHelper.basename(path);
@@ -239,6 +242,7 @@ export class VerificationTask {
                 Log.log("verifierProcess onExit: " + code + " and " + msg, LogLevel.Debug);
             });
         });
+        return true;
     }
 
     resetDiagnostics() {
@@ -299,7 +303,7 @@ export class VerificationTask {
                     nofErrors: this.diagnostics.length,
                     time: this.time,
                     verificationCompleted: true,
-                    uri:this.fileUri
+                    uri: this.fileUri
                 });
             this.time = 0;
             this.running = false;
@@ -350,8 +354,8 @@ export class VerificationTask {
         }
         else if (data.startsWith("SLF4J: Class path contains multiple SLF4J bindings")) {
             Log.error(Server.backend.name + " is referencing two versions of the backend, fix its paths in the settings", LogLevel.Default);
-        }else{
-            Log.error("Unknown backend error message: "+data, LogLevel.Debug);
+        } else {
+            Log.error("Unknown backend error message: " + data, LogLevel.Debug);
         }
     }
 
