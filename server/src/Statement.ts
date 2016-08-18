@@ -12,7 +12,7 @@ interface Permission { raw: string; type: PermissionType; }
 interface Condition { raw: string, type: ConditionType; value?: boolean; lhs?: string, rhs?: string }
 interface SplitResult { prefix: string; rest: string; }
 
-export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE };
+export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE, UNKONWN };
 export enum PermissionType { UnknownPermission, ScalarPermission }
 export enum ValueType { UnknownValue, NoValue, ObjectReferenceOrScalarValue }
 export enum NameType { UnknownName, QuantifiedName, FunctionApplicationName, PredicateName, FieldReferenceName }
@@ -31,6 +31,7 @@ export class Statement {
     index: number;
     methodIndex: number;
     isErrorState: boolean = false;
+    logEntryIndex: number = -1;
 
     constructor(firstLine: string, store: string, heap: string, oldHeap: string, conditions: string, model: Model, index: number, methodIndex: number) {
         this.index = index;
@@ -158,7 +159,7 @@ export class Statement {
                 done = true;
             }
         }
-        return condition.trim().replace(/==>/g, '⇒').replace(/<=/g,'≤').replace(/>=/g,'≥');
+        return condition.trim().replace(/==>/g, '⇒').replace(/<=/g, '≤').replace(/>=/g, '≥');
 
     }
 
@@ -214,35 +215,44 @@ export class Statement {
     }
 
     private parseFirstLine(line: string): Position {
-        let parts = /(.*?)\s+((\d*):(\d*)|<no position>):\s+(.*)/.exec(line);
-        if (!parts) {
+        let parts = /^(PRODUCE|EVAL|EXECUTE|CONSUME).*?(\d+:\d+|<no position>):\s*(.*)$/.exec(line);
+        if (!parts || parts.length != 4) {
             Log.error('could not parse first Line of the silicon trace message : "' + line + '"');
             return;
         }
-        let type = parts[1];
-        if (type === "CONSUME") {
-            this.type = StatementType.CONSUME;
-        } else if (type === "PRODUCE") {
-            this.type = StatementType.PRODUCE;
-        } else if (type === "EVAL") {
-            this.type = StatementType.EVAL;
-        } else if (type === "EXECUTE") {
-            this.type = StatementType.EXECUTE;
-        }
-        if (parts.length == 6) {
-            //subtract 1 to confirm with VS Codes 0-based numbering
-            if (!parts[3] && !parts[4]) {
-                this.position = { line: 0, character: 0 };
-            } else {
-                let lineNr = +parts[3] - 1;
-                let charNr = +parts[4] - 1;
-                this.position = { line: lineNr, character: charNr };
+        this.type = Statement.parseStatementType(parts[1]);
+        this.position = Statement.parsePosition(parts[2]);
+        this.formula = parts[3].trim();
+    }
+
+    public static parseStatementType(s: string): StatementType {
+        if (s) {
+            let type = s.trim().toLowerCase();
+            if (type === "consume") {
+                return StatementType.CONSUME;
+            } else if (type === "produce") {
+                return StatementType.PRODUCE;
+            } else if (type === "eval" || type === "evaluate") {
+                return StatementType.EVAL;
+            } else if (type === "execute") {
+                return StatementType.EXECUTE;
             }
-            this.formula = parts[5].trim();
         }
-        if (parts.length == 4) {
-            this.formula = parts[3].trim();
+        //Log.error("Unknown StatementType: " + s);
+        return StatementType.UNKONWN;
+    }
+
+    public static parsePosition(s: string): Position {
+        if (s) {
+            let regex = /^((\d+):(\d+)|<no position>):?$/.exec(s);
+            if (regex && regex.length == 4) {
+                //subtract 1 to confirm with VS Codes 0-based numbering
+                let lineNr = +regex[2] - 1;
+                let charNr = +regex[3] - 1;
+                return { line: lineNr, character: charNr };
+            }
         }
+        return { line: 0, character: 0 };
     }
 
     //PRINTING:

@@ -48,7 +48,7 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
 </head>
 <body>
  ${table}
- <p>${this.stringToHtml(this.stateVisualizer.globalInfo)}</p>
+ <p><font face="courier">${this.stringToHtml(this.stateVisualizer.globalInfo)}</font></p>
  <a href='${uri}'>view source</a>
 </body>`;
     }
@@ -80,11 +80,6 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
             conditions = `<h3>No path condition</h3>`;
         }
 
-        let circle = `
-    <svg width="100" height="100">
-      <circle cx="50" cy="50" r="40" stroke="green" stroke-width="4" fill="yellow" />
-    </svg>`
-
         let content = `
     <h2>file: ${heapGraph.fileName}<br />${heapGraph.methodType}: ${heapGraph.methodName}</h2>
     <h3>state ${heapGraph.state - heapGraph.methodOffset}<br />position: ${heapGraph.position.line + 1}:${heapGraph.position.character + 1}</h3>
@@ -115,7 +110,7 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
     }
 
     private stringToHtml(s: string): string {
-        return s.replace(/\n/g, "<br />\n    ").replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;");
+        return s.replace(/\n/g, "<br />\n    ").replace(/\t/g, "&nbsp;");
     }
 }
 

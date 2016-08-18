@@ -14,6 +14,15 @@ import {TotalProgress} from './TotalProgress';
 import {Server} from './ServerClass';
 import {DebugServer} from './DebugServer';
 
+interface SymbExLogEntry {
+    isMethod: boolean;
+    type?: string;
+    statementType?: StatementType;
+    pos?: Position;
+    formula: string;
+    depth: number;
+}
+
 export class VerificationTask {
     //state
     running: boolean = false;
@@ -34,6 +43,7 @@ export class VerificationTask {
     private wrongFormat: boolean = false;
     private partialData: string = "";
     private linesToSkip: number = 0;
+    private inSymbExLoggerHierarchy: boolean = false;
     //isFromMethod: boolean = false;
 
     //verification results
@@ -46,6 +56,7 @@ export class VerificationTask {
     typeCheckingCompleted: boolean = false;
     methodBorders: MethodBorder[];
     methodBordersOrderedByStart = [];
+    symbExLog: SymbExLogEntry[] = [];
 
     stateIndicesOrderedByPosition: { index: number, position: Position }[];
 
@@ -105,7 +116,10 @@ export class VerificationTask {
                     res += "\n" + currentMethod.methodType + " " + currentMethod.methodName;
                     currentMethodOffset = i - 1;
                 }
-                res += `\n\t${i - currentMethodOffset} (${i}) ${"\t".repeat(element.depthLevel())} ${element.firstLine()}`;
+                let spacesToPut = 4 - Math.floor(Math.log10(i - currentMethodOffset <= 0 ? 1 : i - currentMethodOffset)) - Math.floor(Math.log10(i <= 0 ? 1 : i));
+                spacesToPut = spacesToPut < 0 ? 0 : spacesToPut;
+
+                res += `\n\t${i - currentMethodOffset} (${i}) ${"\t".repeat(spacesToPut)}|${"\t".repeat(element.depthLevel())} ${element.firstLine()}`;
             });
             return res;
         } catch (e) {
@@ -210,9 +224,11 @@ export class VerificationTask {
         this.steps = [];
         this.lines = [];
         this.methodBorders = [];
+        this.symbExLog = [];
         this.model = new Model();
         this.parsingCompleted = true;
         this.typeCheckingCompleted = true;
+        this.inSymbExLoggerHierarchy = false;
         if (this.partialData.length > 0) {
             Log.error("Some unparsed output was detected:\n" + this.partialData);
             this.partialData = "";
@@ -326,6 +342,7 @@ export class VerificationTask {
             Log.toLogFile("Model: " + this.model.pretty(), LogLevel.LowLevelDebug);
             */
         } catch (e) {
+            VerificationTask.connection.sendNotification(Commands.VerificationNotStarted, this.fileUri);
             Log.error("Error handling verification completion: " + e);
         }
     }
@@ -424,6 +441,33 @@ export class VerificationTask {
                         VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, progress: progress.toPercent(), filename: this.filename })
                     } catch (e) {
                         Log.error("Error reading progress: " + e);
+                    }
+                } else if (line.startsWith("SymbExLoggerHierarchyStart")) {
+                    this.inSymbExLoggerHierarchy = true;
+                } else if (line.startsWith("SymbExLoggerHierarchyEnd")) {
+                    this.inSymbExLoggerHierarchy = false;
+                } else if (this.inSymbExLoggerHierarchy) {
+                    try {
+                        if (line.startsWith("predicate") || line.startsWith("function") || line.startsWith("method")) {
+                            let method = line;
+                            this.symbExLog.push({ depth: 0, isMethod: true, formula: method });
+                        } else {
+                            let regex = /^(\d+)\s*((pre|post|if|else|branch[12]|comment|param):)?\s*(Unreachable|((produce|evaluate|execute|consume)?\s*([^,]*,)?(\d+:\d+|<no position>)?\s*(.*)))?$/.exec(line);
+                            if (!regex) {
+                                Log.error("Error parsing symbExLoggerLine: " + line);
+                                break;
+                            }
+                            if (regex.length == 10) {
+                                let indent: number = Number.parseInt(regex[1]);
+                                let type: string = regex[3] || "";
+                                let statementType = Statement.parseStatementType(regex[6]); //produce|evaluate|execute|consume
+                                let pos = Statement.parsePosition(regex[8]);
+                                let formula = regex[9] || "";
+                                this.symbExLog.push({ depth: indent, isMethod: false, type: type, statementType: statementType, pos: pos, formula: formula });
+                            }
+                        }
+                    } catch (e) {
+                        Log.error("Error handling SymbexLoggerLine: " + line + " Error: " + e);
                     }
                 }
                 else if (line.startsWith('Silicon finished in') || line.startsWith('carbon finished in')) {
@@ -564,6 +608,7 @@ export class VerificationTask {
 
     //TODO: might be source of bugs, if methods don't contain a state
     private completeVerificationState() {
+        //complete methodBorders
         this.methodBordersOrderedByStart = [];
         this.methodBorders.forEach((element, i) => {
             //firstStateInfo can point to non existing state, e.g. if there is no state in a method
@@ -586,10 +631,12 @@ export class VerificationTask {
         });
 
         this.stateIndicesOrderedByPosition = [];
-
-        let depth = -1;
-        let methodStack = [];
-        let lastElement;
+        // //for reconstructing depth
+        //let depth = -1;
+        //let methodStack = [];
+        //let lastElement;
+        let symbExLogIndex: number = 0;
+        let lastMatchingLogIndex = -1;
         let methodIndex = -1;
         this.steps.forEach((element, i) => {
             while (methodIndex + 1 < this.methodBorders.length && i === this.methodBorders[this.methodBordersOrderedByStart[methodIndex + 1].index].firstStateIndex) {
@@ -597,22 +644,40 @@ export class VerificationTask {
             }
 
             element.methodIndex = this.methodBordersOrderedByStart[methodIndex].index;
-            //determine depth
-            let methodContainingCurrentStep: number = this.getMethodContainingCurrentStep(element);
-            if (depth === -1 || element.index === this.methodBorders[element.methodIndex].firstStateIndex) {
-                // the depth of the first state in a method is 0
-                depth = 0;
-                methodStack[depth] = methodContainingCurrentStep;
-            } else {
-                if (methodStack[depth] === methodContainingCurrentStep) {
-                    //stay on same depth
-                } else if (depth > 0 && methodStack[depth - 1] === methodContainingCurrentStep) {
-                    depth--;
-                } else {
-                    methodStack[++depth] = methodContainingCurrentStep;
+            // //for reconstructing depth
+            // let methodContainingCurrentStep: number = this.getMethodContainingCurrentStep(element);
+            // if (depth === -1 || element.index === this.methodBorders[element.methodIndex].firstStateIndex) {
+            //     // the depth of the first state in a method is 0
+            //     depth = 0;
+            //     methodStack[depth] = methodContainingCurrentStep;
+            // } else {
+            //     if (methodStack[depth] === methodContainingCurrentStep) {
+            //         //stay on same depth
+            //     } else if (depth > 0 && methodStack[depth - 1] === methodContainingCurrentStep) {
+            //         depth--;
+            //     } else {
+            //         methodStack[++depth] = methodContainingCurrentStep;
+            //     }
+            // }
+            // element.depth = depth + (lastElement && this.comparePosition(element.position, lastElement.position) == 0 ? 1 : 0);
+
+            //determine depth using symbExLog
+            let logEntryFound = false;
+            while (symbExLogIndex < this.symbExLog.length && !logEntryFound) {
+                let logEntry = this.symbExLog[symbExLogIndex];
+                if (this.matches(element, logEntry)) {
+                    element.depth = logEntry.depth;
+                    element.logEntryIndex = symbExLogIndex;
+                    lastMatchingLogIndex = symbExLogIndex;
+                    logEntryFound = true;
                 }
+                symbExLogIndex++;
             }
-            element.depth = depth + (lastElement && this.comparePosition(element.position, lastElement.position) == 0 ? 1 : 0);
+            if (!logEntryFound) {
+                element.depth = 0;
+                symbExLogIndex = lastMatchingLogIndex + 1;
+                Log.error("Could not find depth of step " + element.index + " in SymbExLog");
+            }
 
             this.stateIndicesOrderedByPosition.push({ index: element.index, position: element.position });
             //determine if the state is an error state
@@ -624,9 +689,23 @@ export class VerificationTask {
                     break;
                 }
             }
-            lastElement = element;
+            // //for reconstructing depth
+            //lastElement = element;
         });
         this.stateIndicesOrderedByPosition.sort(this.comparePositionAndIndex);
+    }
+
+    private matches(stmt: Statement, logEntry: SymbExLogEntry): boolean {
+        if (this.comparePosition(stmt.position, logEntry.pos) != 0) {
+            return false;
+        }
+        if (stmt.type != logEntry.statementType) {
+            return false;
+        }
+        if (stmt.formula != logEntry.formula) {
+            return false;
+        }
+        return true;
     }
 
     //-1 means in no method

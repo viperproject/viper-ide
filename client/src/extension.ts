@@ -334,6 +334,13 @@ function handleStateChange(params: UpdateStatusBarParams) {
                             Log.log(msg, LogLevel.Default);
                             updateStatusBarItem(statusBarItem, "$(check) " + msg, 'lightgreen');
                             if (params.manuallyTriggered) Log.hint(msg);
+                            //for SymbexLogger
+                            let symbexDotFile = path.resolve(path.join(vscode.workspace.rootPath,".vscode", "dot_input.dot"));
+                            let symbexSvgFile = path.resolve(path.join(vscode.workspace.rootPath,".vscode", "symbExLoggerOutput.svg"))
+                            if (fs.existsSync(symbexDotFile)) {
+                                let fileState = ExtensionState.viperFiles.get(params.uri);
+                                fileState.stateVisualizer.generateSvg(symbexDotFile, symbexSvgFile, () => { });
+                            }
                             break;
                         case Success.ParsingFailed:
                             msg = `Parsing ${params.filename} failed after ${params.time.toFixed(1)} seconds`;

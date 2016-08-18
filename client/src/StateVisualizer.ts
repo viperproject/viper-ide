@@ -105,27 +105,36 @@ export class StateVisualizer {
 
         if (heapGraph.fileUri != this.uri.toString()) {
             Log.error("Uri mismatch in StateVisualizer: " + this.uri.toString() + " expected, " + heapGraph.fileUri + " found.")
-            return
+            return;
         }
 
         this.selectState(heapGraph.state, heapGraph.position);
 
+        this.generateSvg(Log.dotFilePath(index), Log.svgFilePath(index), () => {
+            this.showHeapGraph(heapGraph, index);
+        })
+    }
+
+    public generateSvg(dotFilePath: string, svgFilePath: string, callback) {
         let dotExecutable: string = <string>Helper.getConfiguration("dotExecutable");
         if (!dotExecutable || !fs.existsSync(dotExecutable)) {
             Log.hint("Fix the path to the dotExecutable, no file found at: " + dotExecutable);
             return;
         }
+
+        if (!fs.existsSync(dotFilePath)) {
+            Log.error("Cannot generate svg, dot file not found at: " + dotFilePath);
+        }
         //convert dot to svg
-        this.graphvizProcess = child_process.exec(`${dotExecutable} -Tsvg "${Log.dotFilePath(index)}" -o "${Log.svgFilePath(index)}"`);
+        this.graphvizProcess = child_process.exec(`${dotExecutable} -Tsvg "${dotFilePath}" -o "${svgFilePath}"`);
         this.graphvizProcess.on('exit', code => {
             //show svg
             if (code != 0) {
-                Log.error("Could not convert graph description to svg, exit code: " + code, LogLevel.Debug);
+                Log.error("Could not convert dot to svg, exit code: " + code, LogLevel.Debug);
             }
-            Log.log("Graph converted to heap.svg", LogLevel.Debug);
-            this.showHeapGraph(heapGraph, index);
+            Log.log(`${path.basename(dotFilePath)} converted to ${path.basename(svgFilePath)}`, LogLevel.Debug);
+            callback();
         });
-
         this.graphvizProcess.stdout.on('data', data => {
             Log.log("[Graphviz] " + data, LogLevel.Debug);
         });
@@ -321,7 +330,7 @@ export class StateVisualizer {
                         this.addingSpecialChars = false;
                     });
                 });
-            }else{
+            } else {
                 this.addingSpecialChars = false;
             }
         } catch (e) {
@@ -371,7 +380,7 @@ export class StateVisualizer {
             });
         } catch (e) {
             this.removingSpecialChars = false;
-            Log.error("Eror removing special characters: " + e);
+            Log.error("Error removing special characters: " + e);
         }
     }
 
