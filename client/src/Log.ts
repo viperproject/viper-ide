@@ -131,9 +131,12 @@ export class Log {
             return "";
         if (logLevel == LogLevel.Debug)
             return "> ";
-        if (logLevel > LogLevel.Debug) {
+        if (logLevel == LogLevel.Verbose)
             return "- ";
+        if (logLevel == LogLevel.LowLevelDebug) {
+            return ". ";
         }
+
     }
 
     public static toLogFile(message: string, logLevel: LogLevel = LogLevel.Default) {

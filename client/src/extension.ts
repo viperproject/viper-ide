@@ -70,7 +70,7 @@ export function activate(context: vscode.ExtensionContext) {
     initializeStatusBar();
     Log.deleteDotFiles();
     registerFormatter();
-    lastActiveTextEditor = vscode.window.activeTextEditor.document.uri;
+    lastActiveTextEditor = Helper.isViperSourceFile(vscode.window.activeTextEditor.document.uri.toString()) ? vscode.window.activeTextEditor.document.uri : null;
     startVerificationController();
 }
 
@@ -182,26 +182,27 @@ function startVerificationController() {
         try {
             let editor = vscode.window.activeTextEditor;
             if (editor) {
-                if (Helper.isViperSourceFile(editor.document.uri.toString())) {
+                let uri = editor.document.uri;
+                if (Helper.isViperSourceFile(uri.toString())) {
                     if (lastActiveTextEditor) {
-                        if (lastActiveTextEditor.toString() === editor.document.uri.toString()) {
+                        if (lastActiveTextEditor.toString() === uri.toString()) {
+                            Log.log("No change in active viper file");
                             return;
                         }
                         let oldFileState = ExtensionState.viperFiles.get(lastActiveTextEditor.toString());
                         oldFileState.decorationsShown = false;
                         oldFileState.stateVisualizer.removeSpecialCharsFromClosedDocument(() => { });
                     }
-                    let uri = vscode.window.activeTextEditor.document.uri;
                     let fileState = ExtensionState.viperFiles.get(uri.toString());
                     fileState.setEditor(editor);
 
                     if (fileState.verified) {
-                        fileState.stateVisualizer.addCharacterToDecorationOptionLocations();
-                        fileState.stateVisualizer.showDecorations();
+                        //showStates(()=>{});
                     } else {
                         Log.log("reverify because the active text editor changed");
                         workList.push({ type: TaskType.Verify, uri: uri, manuallyTriggered: false })
                     }
+                    Log.log("Active viper file changed to " + path.basename(uri.toString()), LogLevel.Info);
                     lastActiveTextEditor = uri;
                 }
             }
@@ -211,17 +212,14 @@ function startVerificationController() {
     }));
 }
 
-export function deactivate()/*: Thenable<boolean>*/ {
-    //return new Promise((resolve, reject) => {
+export function deactivate() {
     Log.log("deactivate", LogLevel.Info);
     state.dispose();
     //TODO: make sure no doc contains special chars any more
     let oldFileState = ExtensionState.viperFiles.get(lastActiveTextEditor.toString());
     oldFileState.stateVisualizer.removeSpecialCharacters(() => {
         Log.log("deactivated", LogLevel.Info);
-        //resolve(true);
     });
-    //});
 }
 
 function registerFormatter() {
@@ -335,8 +333,8 @@ function handleStateChange(params: UpdateStatusBarParams) {
                             updateStatusBarItem(statusBarItem, "$(check) " + msg, 'lightgreen');
                             if (params.manuallyTriggered) Log.hint(msg);
                             //for SymbexLogger
-                            let symbexDotFile = path.resolve(path.join(vscode.workspace.rootPath,".vscode", "dot_input.dot"));
-                            let symbexSvgFile = path.resolve(path.join(vscode.workspace.rootPath,".vscode", "symbExLoggerOutput.svg"))
+                            let symbexDotFile = path.resolve(path.join(vscode.workspace.rootPath, ".vscode", "dot_input.dot"));
+                            let symbexSvgFile = path.resolve(path.join(vscode.workspace.rootPath, ".vscode", "symbExLoggerOutput.svg"))
                             if (fs.existsSync(symbexDotFile)) {
                                 let fileState = ExtensionState.viperFiles.get(params.uri);
                                 fileState.stateVisualizer.generateSvg(symbexDotFile, symbexSvgFile, () => { });
@@ -446,7 +444,7 @@ function registerHandlers() {
     });
     state.client.onNotification(Commands.FileOpened, (uri: string) => {
         let uriObject: vscode.Uri = vscode.Uri.parse(uri);
-        Log.log("File openend: " + uriObject.path, LogLevel.Info);
+        Log.log("File openend: " + path.basename(uriObject.path), LogLevel.Info);
         if (!ExtensionState.viperFiles.has(uri)) {
             ExtensionState.viperFiles.set(uri, new ViperFileState(uriObject));
         } else {
@@ -536,6 +534,12 @@ function registerHandlers() {
         }
     });
 
+    state.client.onNotification(Commands.StopDebugging, () => {
+        Log.log("Stop Debugging", LogLevel.Info);
+        let visualizer = ExtensionState.viperFiles.get(lastActiveTextEditor.toString()).stateVisualizer;
+        hideStates(() => { }, visualizer);
+    })
+
     //Command Handlers
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.verify', () => {
         workList.push({ type: TaskType.Verify, uri: vscode.window.activeTextEditor.document.uri, manuallyTriggered: true });
@@ -550,22 +554,42 @@ function registerHandlers() {
         }
     }));
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.startDebugging', () => {
-        let openDoc = vscode.window.activeTextEditor.document.uri.path;
-        if (state.isWin) {
-            openDoc = openDoc.substring(1, openDoc.length);
+        if (!vscode.window.activeTextEditor) {
+            Log.log("don't debug, active file is not editable.", LogLevel.Debug);
+            return;
         }
-        let launchConfig = {
-            name: "Viper Debug",
-            type: "viper",
-            request: "launch",
-            program: openDoc,
-            stopOnEntry: true
+        let uri = vscode.window.activeTextEditor.document.uri;
+        if (!Helper.isViperSourceFile(uri.toString())) {
+            Log.log("don't debug, active file is no viper file.", LogLevel.Debug);
+            return;
         }
-        vscode.commands.executeCommand('vscode.startDebug', launchConfig).then(() => {
-            Log.log('Debug session started successfully', LogLevel.Info);
-        }, err => {
-            Log.error(err.message);
-        });
+        if (!backendReady) {
+            Log.log("don't debug, backend is not ready.", LogLevel.Debug);
+            return;
+        }
+
+        try {
+            let openDoc = uri.path;
+            if (state.isWin) {
+                openDoc = openDoc.substring(1, openDoc.length);
+            }
+            let launchConfig = {
+                name: "Viper Debug",
+                type: "viper",
+                request: "launch",
+                program: openDoc,
+                stopOnEntry: true
+            }
+            showStates(() => {
+                vscode.commands.executeCommand('vscode.startDebug', launchConfig).then(() => {
+                    Log.log('Debug session started successfully', LogLevel.Info);
+                }, err => {
+                    Log.error("Error starting debugger: " + err.message);
+                });
+            });
+        }catch(e){
+            Log.error("Error starting debug session: " + e);
+        }
     }));
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.stopVerification', () => {
         if (state.client) {
@@ -581,24 +605,53 @@ function registerHandlers() {
     }));
 
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.showStates', () => {
-        StateVisualizer.showStates = true;
-        let visualizer = ExtensionState.viperFiles.get(lastActiveTextEditor.toString()).stateVisualizer;
-        visualizer.removeSpecialCharacters(() => {
-            visualizer.addCharacterToDecorationOptionLocations();
-            visualizer.showDecorations();
-        });
+        showStates(() => { });
     }));
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.hideStates', () => {
-        StateVisualizer.showStates = false;
-        ExtensionState.viperFiles.forEach(file => {
-            file.stateVisualizer.removeSpecialCharacters(() => {
-                file.stateVisualizer.hideDecorations();
-            });
-        });
+        let visualizer = ExtensionState.viperFiles.get(lastActiveTextEditor.toString()).stateVisualizer;
+        hideStates(() => { }, visualizer);
     }));
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.format', () => {
         formatter.formatOpenDoc();
     }));
+}
+
+function showStates(callback) {
+    try {
+        if (!StateVisualizer.showStates) {
+            StateVisualizer.showStates = true;
+            let visualizer = ExtensionState.viperFiles.get(lastActiveTextEditor.toString()).stateVisualizer;
+            visualizer.removeSpecialCharacters(() => {
+                visualizer.addCharacterToDecorationOptionLocations(() => {
+                    visualizer.showDecorations();
+                    callback();
+                });
+            });
+        }
+    } catch (e) {
+        Log.error("Error showing States: " + e);
+    }
+}
+
+function hideStates(callback, visualizer: StateVisualizer) {
+    try {
+        vscode.commands.executeCommand('workbench.action.focusFirstEditorGroup').then(success => { }, error => {
+            Log.error("Error changing the focus to the first editorGroup");
+        });
+        Log.log("Hide states for " + visualizer.viperFile.name(), LogLevel.Info);
+        //if (StateVisualizer.showStates) {
+        StateVisualizer.showStates = false;
+        //ExtensionState.viperFiles.forEach(file => {
+        visualizer.removeSpecialCharacters(() => {
+            visualizer.hideDecorations();
+            visualizer.reset();
+            callback();
+        });
+        //});
+        //}
+    } catch (e) {
+        Log.error("Error hiding States: " + e);
+    }
 }
 
 function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
@@ -608,11 +661,8 @@ function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
             Log.hint("Extension not ready yet.");
         } else {
             let visualizer = ExtensionState.viperFiles.get(uri).stateVisualizer;
-            visualizer.removeSpecialCharacters(() => {
-                visualizer.hideDecorations();
-                visualizer.reset();
+            hideStates(() => {
                 Log.log("verify " + path.basename(uri));
-
                 //change fileState
                 fileState.changed = false;
                 fileState.verified = false;
@@ -620,7 +670,7 @@ function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
 
                 let workspace = vscode.workspace.rootPath ? vscode.workspace.rootPath : path.dirname(fileState.uri.fsPath);
                 state.client.sendRequest(Commands.Verify, { uri: uri, manuallyTriggered: manuallyTriggered, workspace: workspace });
-            });
+            }, visualizer);
         }
     }
 }

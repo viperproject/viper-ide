@@ -83,7 +83,7 @@ export class DebugServer {
                                     'launchResponse',
                                     response
                                 );
-
+                                //TODO: is it right to connect each time debugging is started?
                                 //connect to Debugger as client to be able to send messages
                                 ipc.connectTo(
                                     'viperDebugger', () => {
@@ -94,8 +94,12 @@ export class DebugServer {
                                         );
                                         ipc.of.viperDebugger.on(
                                             'disconnect', () => {
-                                                Log.log('LanguageServer disconnected from Debugger', LogLevel.Debug);
-                                                DebugServer.debuggerRunning = false;
+                                                ipc.disconnect()
+                                                if (DebugServer.debuggerRunning) {
+                                                    Log.log('LanguageServer disconnected from Debugger', LogLevel.Debug);
+                                                    DebugServer.debuggerRunning = false;
+                                                    VerificationTask.connection.sendNotification(Commands.StopDebugging);
+                                                }
                                             }
                                         );
                                     }

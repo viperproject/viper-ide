@@ -179,7 +179,7 @@ export class NailgunService {
     }
 
     public isJreInstalled(): Thenable<boolean> {
-        Log.log("Check if Jre is installed", LogLevel.Info);
+        Log.log("Check if Jre is installed", LogLevel.Verbose);
         return new Promise((resolve, reject) => {
             let jreTester = child_process.exec("java -version");
             jreTester.stdout.on('data', (data: string) => {

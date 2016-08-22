@@ -52,6 +52,7 @@ export class Commands {
     static FileOpened = { method: "FileOpened" };
     static FileClosed = { method: "FileClosed" };
     static VerificationNotStarted = { method: "VerificationNotStarted" };
+    static StopDebugging = { method: "StopDebugging" };
 }
 
 export interface UpdateStatusBarParams {

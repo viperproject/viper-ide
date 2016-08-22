@@ -116,7 +116,7 @@ export class Statement {
     private createCondition(condition: string): Condition {
         let unicodeCondition = this.unicodify(condition);
         let regex = condition.match(/^([\w$]+@\d+)\s+(==|!=)\s+([\w$]+@\d+|\d+|_|Null)$/);
-        if (regex && regex.length == 4) {
+        if (regex && regex[1] && regex[2] && regex[3]) {
             let lhs = regex[1];
             let rhs = regex[3];
             let value = regex[2] === "==";
@@ -139,7 +139,7 @@ export class Statement {
         let done: boolean = false;
         while (!done) {
             let regex = condition.match(/^(.*?)QA\s((([\w$]+@\d+),?)+)\s::\s(.*)$/);
-            if (regex && regex.length == 6) {
+            if (regex && regex[1] && regex[2] && regex[5]) {
                 let prefix = regex[1].trim();
                 let variables: string[] = regex[2].split(',');
                 let body = regex[5].trim();
@@ -216,7 +216,7 @@ export class Statement {
 
     private parseFirstLine(line: string): Position {
         let parts = /^(PRODUCE|EVAL|EXECUTE|CONSUME).*?(\d+:\d+|<no position>):\s*(.*)$/.exec(line);
-        if (!parts || parts.length != 4) {
+        if (!parts || !parts[1] || !parts[2] || !parts[3]) {
             Log.error('could not parse first Line of the silicon trace message : "' + line + '"');
             return;
         }
@@ -245,7 +245,7 @@ export class Statement {
     public static parsePosition(s: string): Position {
         if (s) {
             let regex = /^((\d+):(\d+)|<no position>):?$/.exec(s);
-            if (regex && regex.length == 4) {
+            if (regex && regex[2] && regex[3]) {
                 //subtract 1 to confirm with VS Codes 0-based numbering
                 let lineNr = +regex[2] - 1;
                 let charNr = +regex[3] - 1;
@@ -401,12 +401,12 @@ export class HeapChunk {
             }
         }
         else {
-            let matchedName = /^(\$?\w+(@\d+))(\(=.+?\))?(\.(\w+))+$/.exec(name)
-            if (matchedName && matchedName.length == 6) {
+            let match = /^(\$?\w+(@\d+))(\(=.+?\))?(\.(\w+))+$/.exec(name)
+            if (match && match[1] && match[5]) {
                 //it's a field reference
                 this.name.type = NameType.FieldReferenceName;
-                this.name.receiver = matchedName[1];
-                this.name.field = matchedName[5];
+                this.name.receiver = match[1];
+                this.name.field = match[5];
             } else {
                 this.name.type = NameType.UnknownName;
                 this.parsed = false;
@@ -424,7 +424,7 @@ export class HeapChunk {
             this.value.type = ValueType.UnknownValue;
         }
 
-        if (/^(W|R|Z|\d+([\.\/]\d+)?)$/.test(permission)) {
+        if (/^(W|R|Z|\d+([\.,\/]\d+)?)$/.test(permission)) {
             this.permission.type = PermissionType.ScalarPermission;
         } else {
             this.permission.type = PermissionType.UnknownPermission;

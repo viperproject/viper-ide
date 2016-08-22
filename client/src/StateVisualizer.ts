@@ -26,7 +26,7 @@ export interface MyDecorationOptions extends vscode.DecorationOptions {
 
 export class StateVisualizer {
 
-    static showStates: boolean = true;
+    static showStates: boolean = false;
 
     viperFile: ViperFileState;
 
@@ -88,11 +88,11 @@ export class StateVisualizer {
         this.methodBorders = decorations.methodBorders;
         this.globalInfo = decorations.globalInfo;
 
-        Log.deleteDotFiles();
-        this.addCharacterToDecorationOptionLocations();
+        //Log.deleteDotFiles();
         this.decorationOptionsOrderedByState = [];
         this.completeDecorationOptions();
-        this.showDecorations();
+        //this.addCharacterToDecorationOptionLocations();
+        //this.showDecorations();
     }
 
     public createAndShowHeap(heapGraph: HeapGraph, index: number) {
@@ -294,7 +294,6 @@ export class StateVisualizer {
         }
     }
 
-
     //SPECIAL CHARACTER METHODS
 
     private areSpecialCharsBeingModified(s: string) {
@@ -309,14 +308,15 @@ export class StateVisualizer {
         return false;
     }
 
-    addCharacterToDecorationOptionLocations() {
+    addCharacterToDecorationOptionLocations(callback) {
+        Log.log("Try to add special chars to " + this.viperFile.name(), LogLevel.Debug);
         if (this.areSpecialCharsBeingModified("Don't add special chars,")) return;
         try {
-            this.addingSpecialChars = true;
-            this.viperFile.specialCharsShown = true;
             let editor = this.viperFile.editor;
-            if (StateVisualizer.showStates && editor) {
-                Log.log("addCharacterToDecorationOptionLocations", LogLevel.Debug);
+            if (StateVisualizer.showStates && editor && this.decorationOptions) {
+                this.addingSpecialChars = true;
+                this.viperFile.specialCharsShown = true;
+                Log.log("Adding Special characters", LogLevel.Debug);
                 let openDoc = editor.document;
                 let edit = new vscode.WorkspaceEdit();
                 this.decorationOptions.forEach((element, i) => {
@@ -325,13 +325,20 @@ export class StateVisualizer {
                     let pos = new vscode.Position(p.line, p.character);
                     edit.insert(openDoc.uri, pos, '\u200B');
                 });
-                vscode.workspace.applyEdit(edit).then(params => {
-                    openDoc.save().then(() => {
+                vscode.workspace.applyEdit(edit).then(resolve => {
+                    if (resolve) {
+                        openDoc.save().then(() => {
+                            this.addingSpecialChars = false;
+                            Log.log("Special chars added to file " + this.viperFile.name(), LogLevel.Debug);
+                            callback();
+                        });
+                    } else {
                         this.addingSpecialChars = false;
-                    });
+                    }
+                }, reason => {
+                    Log.error("Error adding special chars: apply was rejected: " + reason)
+                    this.addingSpecialChars = false;
                 });
-            } else {
-                this.addingSpecialChars = false;
             }
         } catch (e) {
             this.addingSpecialChars = false;
@@ -377,6 +384,9 @@ export class StateVisualizer {
                 } else {
                     this.removingSpecialChars = false;
                 }
+            }, reason => {
+                this.removingSpecialChars = false;
+                Log.error("Error removing special characters: edit was rejected: " + reason);
             });
         } catch (e) {
             this.removingSpecialChars = false;

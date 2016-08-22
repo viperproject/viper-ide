@@ -57,7 +57,7 @@ export class Model {
             return "_";
         } else {
             let match = /\$Ref!val!(\d+)/.exec(value);
-            if (match && match.length == 2) {
+            if (match && match[1]) {
                 return "Ref_" + match[1];
             } else {
                 return value;

@@ -73,11 +73,11 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
                 let isNew = compareToOther && otherHeapGraph.conditions.indexOf(element) < 0;
                 conditions += `     <tr><td>${isNew ? "<b>" : ""}${element}${isNew ? "</b>" : ""}</td></tr>\n`;
             });
-            conditions = `<h3>Path condition</h3>
+            conditions = `<h3>Path conditions</h3>
     <table border="solid">${conditions}
     </table>`
         } else {
-            conditions = `<h3>No path condition</h3>`;
+            conditions = `<h3>No path conditions</h3>`;
         }
 
         let content = `
@@ -97,7 +97,7 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
     }
 
     get onDidChange(): vscode.Event<vscode.Uri> {
-        Log.log("PreviewHTML: onDidChange", LogLevel.Debug)
+        //Log.log("PreviewHTML: onDidChange", LogLevel.Debug)
         return this._onDidChange.event;
     }
 

@@ -54,15 +54,15 @@ export class ViperFileState {
                 this.editor = editor;
             }
         });
-        if (this.editor) {
+        /*if (this.editor) {
             this.stateVisualizer.removeSpecialCharacters(() => { });
-        }
+        }*/
     }
 
     public setEditor(editor:vscode.TextEditor){
         if(!this.editor){
             this.editor = editor;
-            this.stateVisualizer.removeSpecialCharacters(() => { });
+            //this.stateVisualizer.removeSpecialCharacters(() => { });
         }else{
             this.editor = editor;
         }

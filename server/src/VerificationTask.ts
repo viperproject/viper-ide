@@ -13,6 +13,7 @@ import {HeapVisualizer} from './HeapVisualizer';
 import {TotalProgress} from './TotalProgress';
 import {Server} from './ServerClass';
 import {DebugServer} from './DebugServer';
+import * as fs from 'fs';
 
 interface SymbExLogEntry {
     isMethod: boolean;
@@ -21,6 +22,13 @@ interface SymbExLogEntry {
     pos?: Position;
     formula: string;
     depth: number;
+}
+
+interface RawSymbExLogEntry {
+    name: string,
+    open: boolean,
+    prestate: { store: string, heap: string, pcs: string },
+    children?: RawSymbExLogEntry[];
 }
 
 export class VerificationTask {
@@ -57,6 +65,8 @@ export class VerificationTask {
     methodBorders: MethodBorder[];
     methodBordersOrderedByStart = [];
     symbExLog: SymbExLogEntry[] = [];
+
+    completeSymbExLog: RawSymbExLogEntry[] = [];
 
     stateIndicesOrderedByPosition: { index: number, position: Position }[];
 
@@ -288,6 +298,8 @@ export class VerificationTask {
             //this can only be done at the end of the verification
             this.completeVerificationState();
 
+            this.loadSymbExLogFromFile();
+
             // Send the computed diagnostics to VSCode.
             VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
 
@@ -453,18 +465,16 @@ export class VerificationTask {
                             this.symbExLog.push({ depth: 0, isMethod: true, formula: method });
                         } else {
                             let regex = /^(\d+)\s*((pre|post|if|else|branch[12]|comment|param):)?\s*(Unreachable|((produce|evaluate|execute|consume)?\s*([^,]*,)?(\d+:\d+|<no position>)?\s*(.*)))?$/.exec(line);
-                            if (!regex) {
+                            if (!regex || !regex[1]) {
                                 Log.error("Error parsing symbExLoggerLine: " + line);
                                 break;
                             }
-                            if (regex.length == 10) {
-                                let indent: number = Number.parseInt(regex[1]);
-                                let type: string = regex[3] || "";
-                                let statementType = Statement.parseStatementType(regex[6]); //produce|evaluate|execute|consume
-                                let pos = Statement.parsePosition(regex[8]);
-                                let formula = regex[9] || "";
-                                this.symbExLog.push({ depth: indent, isMethod: false, type: type, statementType: statementType, pos: pos, formula: formula });
-                            }
+                            let indent: number = Number.parseInt(regex[1]);
+                            let type: string = regex[3] || "";
+                            let statementType = Statement.parseStatementType(regex[6]); //produce|evaluate|execute|consume
+                            let pos = Statement.parsePosition(regex[8]);
+                            let formula = regex[9] || "";
+                            this.symbExLog.push({ depth: indent, isMethod: false, type: type, statementType: statementType, pos: pos, formula: formula });
                         }
                     } catch (e) {
                         Log.error("Error handling SymbexLoggerLine: " + line + " Error: " + e);
@@ -597,10 +607,10 @@ export class VerificationTask {
 
     private extractNumber(s: string): number {
         let regex = /^.*?(\d+)([\.,](\d+))?.*$/.exec(s);
-        if (regex && regex.length == 2) {
-            return Number.parseInt(regex[1]);
-        } else if (regex && regex.length == 4) {
+        if (regex && regex[1] && regex[3]) {
             return Number.parseFloat(regex[1] + "." + regex[3]);
+        } else if (regex && regex[1]) {
+            return Number.parseInt(regex[1]);
         }
         Log.error("Error extracting number from \"" + s + "\"");
         return 0;
@@ -661,7 +671,7 @@ export class VerificationTask {
             // }
             // element.depth = depth + (lastElement && this.comparePosition(element.position, lastElement.position) == 0 ? 1 : 0);
 
-            //determine depth using symbExLog
+            //determine depth using symbExLoggers simple list
             let logEntryFound = false;
             while (symbExLogIndex < this.symbExLog.length && !logEntryFound) {
                 let logEntry = this.symbExLog[symbExLogIndex];
@@ -676,7 +686,7 @@ export class VerificationTask {
             if (!logEntryFound) {
                 element.depth = 0;
                 symbExLogIndex = lastMatchingLogIndex + 1;
-                Log.error("Could not find depth of step " + element.index + " in SymbExLog");
+                //Log.error("Could not find depth of step " + element.index + " in SymbExLog");
             }
 
             this.stateIndicesOrderedByPosition.push({ index: element.index, position: element.position });
@@ -764,6 +774,22 @@ export class VerificationTask {
             }
         })
         return result;
+    }
+
+    private loadSymbExLogFromFile() {
+        try {
+            let symbExLogPath = pathHelper.join(Server.workspaceRoot, ".vscode", "executionTreeData.js");
+            if(fs.existsSync(symbExLogPath)){
+            let content = fs.readFileSync(symbExLogPath).toString();
+            content = content.substring(content.indexOf("["), content.length).replace(/\n/g,' ');
+            this.completeSymbExLog = <RawSymbExLogEntry[]>JSON.parse(content);
+            Log.log("Execution tree successfully parsed: "+ this.completeSymbExLog.length + " toplevel construct"+(this.completeSymbExLog.length == 1?"":"s")+" found",LogLevel.Info);
+            }else{
+                Log.log("No executionTreeData.js found");
+            }
+        } catch (e) {
+            Log.error("Error loading SymbExLog from file: " + e);
+        }
     }
 
     //URI helper Methods
