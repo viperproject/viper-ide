@@ -11,7 +11,7 @@ export class ExtensionState {
     public client: LanguageClient;
     public context: vscode.ExtensionContext;
 
-    public state: VerificationState;
+    //public state: VerificationState;
 
     public static viperFiles:Map<string, ViperFileState>;
 

@@ -1,7 +1,7 @@
 'use strict';
 
 import {Log} from './Log';
-import {StepInfo, StateColors, MethodBorder, Position, HeapGraph, Commands, ViperSettings, LogLevel} from './ViperProtocol';
+import {ShowHeapParams, StepsAsDecorationOptionsResult, MyProtocolDecorationOptions, StepInfo, StateColors, MethodBorder, Position, HeapGraph, Commands, ViperSettings, LogLevel} from './ViperProtocol';
 import * as fs from 'fs';
 import child_process = require('child_process');
 import {HeapProvider} from './TextDocumentContentProvider';
@@ -12,16 +12,13 @@ import {ViperFormatter} from './ViperFormatter';
 import {ViperFileState} from './ViperFileState';
 import * as path from 'path';
 
-export interface StepsAsDecorationOptionsResult {
-    decorationOptions: MyDecorationOptions[],
-    methodBorders: MethodBorder[],
-    stepInfo: StepInfo[],
-    globalInfo: string
-    uri: string;
-}
-
 export interface MyDecorationOptions extends vscode.DecorationOptions {
-    states: number[];
+    numberToDisplay: number;
+    originalPosition: Position;
+    depth: number,
+    index: number,
+    methodIndex: number,
+    isErrorState: boolean
 }
 
 export class StateVisualizer {
@@ -36,20 +33,15 @@ export class StateVisualizer {
 
     decoration: vscode.TextEditorDecorationType;
     decorationOptions: MyDecorationOptions[];
-    //textEditorUnderVerification: vscode.TextEditor;
-    methodBorders: MethodBorder[];
-    stepInfo: StepInfo[];
+    decorationOptionsByPosition: Map<string, MyDecorationOptions>;
     globalInfo: string;
     uri: vscode.Uri;
 
     shownState: number;
-    selectedPosition: Position;
     previousState: number;
     currentDepth: number;
     debuggedMethodName: string;
     currentOffset: number;
-
-    decorationOptionsOrderedByState: MyDecorationOptions[];
 
     nextHeapIndex = 0;
 
@@ -71,7 +63,38 @@ export class StateVisualizer {
     public reset() {
         this.nextHeapIndex = 0;
         this.provider.resetState();
-        this.selectedPosition = null;
+        this.shownState = -1;
+    }
+
+    public completeReset() {
+        this.reset();
+        this.decorationOptions = [];
+        this.doHideDecorations();
+        this.decorationOptionsByPosition = new Map<string, MyDecorationOptions>();
+    }
+
+    //needed to cast the decorations 
+    private toDecorationOptions(decorations: MyProtocolDecorationOptions[]): MyDecorationOptions[] {
+        let result: MyDecorationOptions[] = [];
+        decorations.forEach(d => {
+            result.push({
+                numberToDisplay: d.numberToDisplay,
+                hoverMessage: d.hoverMessage,
+                range: new vscode.Range(new vscode.Position(d.range.start.line, d.range.start.character), new vscode.Position(d.range.end.line, d.range.end.character)),
+                renderOptions: {
+                    before: {
+                        contentText: d.renderOptions.before.contentText,
+                        color: d.renderOptions.before.color
+                    }
+                },
+                originalPosition: new vscode.Position(d.originalPosition.line, d.originalPosition.character),
+                depth: d.depth,
+                index: d.index,
+                methodIndex: d.methodIndex,
+                isErrorState: d.isErrorState
+            })
+        });
+        return result;
     }
 
     storeNewStates(decorations: StepsAsDecorationOptionsResult) {
@@ -83,16 +106,10 @@ export class StateVisualizer {
         }
 
         this.previousState = -1;
-        this.decorationOptions = decorations.decorationOptions;
-        this.stepInfo = decorations.stepInfo;
-        this.methodBorders = decorations.methodBorders;
+        this.decorationOptions = this.toDecorationOptions(decorations.decorationOptions);
         this.globalInfo = decorations.globalInfo;
-
-        //Log.deleteDotFiles();
-        this.decorationOptionsOrderedByState = [];
+        this.decorationOptionsByPosition = new Map<string, MyDecorationOptions>();
         this.completeDecorationOptions();
-        //this.addCharacterToDecorationOptionLocations();
-        //this.showDecorations();
     }
 
     public createAndShowHeap(heapGraph: HeapGraph, index: number) {
@@ -108,7 +125,7 @@ export class StateVisualizer {
             return;
         }
 
-        this.selectState(heapGraph.state, heapGraph.position);
+        this.selectState(heapGraph.methodName, heapGraph.state, heapGraph.position);
 
         this.generateSvg(Log.dotFilePath(index), Log.svgFilePath(index), () => {
             this.showHeapGraph(heapGraph, index);
@@ -116,31 +133,35 @@ export class StateVisualizer {
     }
 
     public generateSvg(dotFilePath: string, svgFilePath: string, callback) {
-        let dotExecutable: string = <string>Helper.getConfiguration("dotExecutable");
-        if (!dotExecutable || !fs.existsSync(dotExecutable)) {
-            Log.hint("Fix the path to the dotExecutable, no file found at: " + dotExecutable);
-            return;
-        }
-
-        if (!fs.existsSync(dotFilePath)) {
-            Log.error("Cannot generate svg, dot file not found at: " + dotFilePath);
-        }
-        //convert dot to svg
-        this.graphvizProcess = child_process.exec(`${dotExecutable} -Tsvg "${dotFilePath}" -o "${svgFilePath}"`);
-        this.graphvizProcess.on('exit', code => {
-            //show svg
-            if (code != 0) {
-                Log.error("Could not convert dot to svg, exit code: " + code, LogLevel.Debug);
+        try {
+            let dotExecutable: string = <string>Helper.getConfiguration("dotExecutable");
+            if (!dotExecutable || !fs.existsSync(dotExecutable)) {
+                Log.hint("Fix the path to the dotExecutable, no file found at: " + dotExecutable);
+                return;
             }
-            Log.log(`${path.basename(dotFilePath)} converted to ${path.basename(svgFilePath)}`, LogLevel.Debug);
-            callback();
-        });
-        this.graphvizProcess.stdout.on('data', data => {
-            Log.log("[Graphviz] " + data, LogLevel.Debug);
-        });
-        this.graphvizProcess.stderr.on('data', data => {
-            Log.log("[Graphviz stderr] " + data, LogLevel.Debug);
-        });
+
+            if (!fs.existsSync(dotFilePath)) {
+                Log.error("Cannot generate svg, dot file not found at: " + dotFilePath);
+            }
+            //convert dot to svg
+            this.graphvizProcess = child_process.exec(`${dotExecutable} -Tsvg "${dotFilePath}" -o "${svgFilePath}"`);
+            this.graphvizProcess.on('exit', code => {
+                //show svg
+                if (code != 0) {
+                    Log.error("Could not convert dot to svg, exit code: " + code, LogLevel.Debug);
+                }
+                Log.log(`${path.basename(dotFilePath)} converted to ${path.basename(svgFilePath)}`, LogLevel.Debug);
+                callback();
+            });
+            this.graphvizProcess.stdout.on('data', data => {
+                Log.log("[Graphviz] " + data, LogLevel.Debug);
+            });
+            this.graphvizProcess.stderr.on('data', data => {
+                Log.log("[Graphviz stderr] " + data, LogLevel.Debug);
+            });
+        } catch (e) {
+            Log.error("Error generating svg for: " + dotFilePath + ": " + e);
+        }
     }
 
     private showHeapGraph(heapGraph: HeapGraph, index: number) {
@@ -165,54 +186,61 @@ export class StateVisualizer {
     completeDecorationOptions() {
         for (var i = 0; i < this.decorationOptions.length; i++) {
             let option = this.decorationOptions[i];
-            //fill decorationOptionsOrderedByState
-            option.states.forEach(state => {
-                this.decorationOptionsOrderedByState[state] = option;
-            });
+            //fill in decorationOptionsOrderedByState
+            let key = this.vscodePosToKey(option.range.start);
+            if (this.decorationOptionsByPosition.has(key)) {
+                Log.error("multiple decoration options with the same position detected at: " + key);
+            }
+            this.decorationOptionsByPosition.set(key, option);
         }
     }
 
-    selectState(selectedState: number, pos: Position) {
+    vscodePosToKey(pos: vscode.Position): string {
+        return pos.line + ":" + pos.character;
+    }
+    posToKey(line: number, character: number): string {
+        return line + ":" + character;
+    }
+
+    selectState(debuggedMethodName: string, selectedState: number, pos: Position) {
         if (StateVisualizer.showStates && this.decorationOptions) {
             //state should be visualized
-            if (selectedState >= 0 && selectedState < this.stepInfo.length) {
+            if (selectedState >= 0 && selectedState < this.decorationOptions.length) {
+                let selectedOption = this.decorationOptions[selectedState];
                 //its in range
                 this.shownState = selectedState;
-                this.selectedPosition = this.decorationOptionsOrderedByState[selectedState].range.start;
-                this.currentDepth = this.stepInfo[selectedState].depth;
-                let currentMethodIdx = this.stepInfo[selectedState].methodIndex;
-                this.debuggedMethodName = this.methodBorders[currentMethodIdx].methodName.replace(/-/g, "").trim();
+                //this.selectedPosition = this.decorationOptionsOrderedByState[selectedState].range.start;
+                this.currentDepth = selectedOption.depth;
+                let currentMethodIdx = selectedOption.methodIndex;
+                this.debuggedMethodName = debuggedMethodName
 
+                let darkGraphs = <boolean>Helper.getConfiguration("darkGraphs");
                 //color labels
                 for (var i = 0; i < this.decorationOptions.length; i++) {
                     let option = this.decorationOptions[i];
                     let errorStateFound = false;
                     option.renderOptions.before.contentText = this.getLabel(option, currentMethodIdx);
 
-                    let darkGraphs = <boolean>Helper.getConfiguration("darkGraphs");
                     //default is grey
                     option.renderOptions.before.color = StateColors.uninterestingState(darkGraphs);
-                    for (var j = 0; j < option.states.length; j++) {
-                        var optionState = option.states[j];
-                        if (optionState == selectedState) {
-                            //if it's the current step -> red
-                            option.renderOptions.before.color = StateColors.currentState(darkGraphs);
-                            break;
-                        }
-                        if (optionState == this.previousState) {
-                            option.renderOptions.before.color = StateColors.previousState(darkGraphs);
-                            break;
-                        }
-                        else if (this.stepInfo[optionState].isErrorState && this.stepInfo[optionState].methodIndex === currentMethodIdx) {
-                            option.renderOptions.before.color = StateColors.errorState(darkGraphs);
-                            errorStateFound = true;
-                        }
-                        else if (!errorStateFound &&
-                            this.stepInfo[optionState].depth <= this.stepInfo[selectedState].depth
-                            && this.stepInfo[optionState].methodIndex === currentMethodIdx //&& optionState > selectedState
-                        ) {
-                            option.renderOptions.before.color = StateColors.interestingState(darkGraphs);
-                        }
+                    if (option.index == selectedState) {
+                        //if it's the current step -> red
+                        option.renderOptions.before.color = StateColors.currentState(darkGraphs);
+                        continue;
+                    }
+                    if (option.index == this.previousState) {
+                        option.renderOptions.before.color = StateColors.previousState(darkGraphs);
+                        continue;
+                    }
+                    else if (option.isErrorState && option.methodIndex === currentMethodIdx) {
+                        option.renderOptions.before.color = StateColors.errorState(darkGraphs);
+                        errorStateFound = true;
+                    }
+                    else if (!errorStateFound &&
+                        option.depth <= option.depth
+                        && option.methodIndex === currentMethodIdx //&& option.state > selectedState
+                    ) {
+                        option.renderOptions.before.color = StateColors.interestingState(darkGraphs);
                     }
                 }
                 if (StateVisualizer.showStates) {
@@ -225,39 +253,27 @@ export class StateVisualizer {
     }
 
     private getLabel(decoration: MyDecorationOptions, methodIndex: number) {
-        let label = "";
-        let methodBorder = this.methodBorders[methodIndex];
-        this.currentOffset = methodBorder.firstStateIndex - 1;
-        decoration.states.forEach(element => {
-            if (element >= methodBorder.firstStateIndex && element <= methodBorder.lastStateIndex) {
-                label += "," + (element - this.currentOffset);
-            }
-        });
-        if (label.length == 0) {
+        if (decoration.methodIndex == methodIndex)
+            return `(${decoration.numberToDisplay})`;
+        else
             return "⚫";
-        } else {
-            return `(${label.substring(1, label.length)})`
-        }
     }
 
     showStateSelection(pos: { line: number, character: number }) {
-        if (StateVisualizer.showStates && this.decorationOptions) {
-            //is counter example state?
-            for (let i = 0; i < this.decorationOptions.length; i++) {
-                let option = this.decorationOptions[i];
-                let a = option.range.start;
-                if (a.line == pos.line && a.character == pos.character) {
-                    if (!this.selectedPosition || this.selectedPosition.line != pos.line || this.selectedPosition.character != pos.character) {
-                        this.shownState = this.decorationOptions[i].states[0];
-                        this.selectedPosition = pos;
-                        Log.log("Request showing the heap of state " + this.shownState);
-                        ExtensionState.instance.client.sendRequest(Commands.ShowHeap, {
-                            uri: this.uri.toString(),
-                            index: this.shownState
-                        });
-                    } else {
-                        //Log.log("State already selected", LogLevel.Debug);
+        if (StateVisualizer.showStates && this.decorationOptionsByPosition) {
+            let key = this.posToKey(pos.line, pos.character);
+            if (this.decorationOptionsByPosition.has(key)) {
+                let selectedState = this.decorationOptionsByPosition.get(key).index;
+                if (this.shownState != selectedState) {
+                    this.shownState = selectedState
+                    Log.log("Request showing the heap of state " + this.shownState);
+                    let params: ShowHeapParams = {
+                        uri: this.uri.toString(),
+                        clientIndex: this.shownState
                     }
+                    ExtensionState.instance.client.sendRequest(Commands.ShowHeap, params);
+                } else {
+                    //Log.log("State already selected", LogLevel.Debug);
                 }
             }
         }
@@ -320,7 +336,7 @@ export class StateVisualizer {
                 let openDoc = editor.document;
                 let edit = new vscode.WorkspaceEdit();
                 this.decorationOptions.forEach((element, i) => {
-                    let p = this.stepInfo[i].originalPosition;
+                    let p = this.decorationOptions[i].originalPosition;
                     //need to create a propper vscode.Position object
                     let pos = new vscode.Position(p.line, p.character);
                     edit.insert(openDoc.uri, pos, '\u200B');

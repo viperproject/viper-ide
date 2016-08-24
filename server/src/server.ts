@@ -16,10 +16,10 @@ import {
 import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
 import {Settings} from './Settings'
-import {HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+import {StatementType, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
-import {Statement, StatementType} from './Statement';
+import {Statement} from './Statement';
 import {Model} from './Model';
 import {DebugServer} from './DebugServer';
 import {Server} from './ServerClass';
@@ -167,11 +167,11 @@ function registerHandlers() {
                 Log.hint("This system can only verify .sil and .vpr files");
             }
             if (!verificationstarted) {
-                Server.connection.sendNotification(Commands.VerificationNotStarted,data.uri);
+                Server.connection.sendNotification(Commands.VerificationNotStarted, data.uri);
             }
         } catch (e) {
-            Log.error("Error handling verify request: "+e);
-            Server.connection.sendNotification(Commands.VerificationNotStarted,data.uri);
+            Log.error("Error handling verify request: " + e);
+            Server.connection.sendNotification(Commands.VerificationNotStarted, data.uri);
         }
     });
 
@@ -194,8 +194,7 @@ function registerHandlers() {
                 Log.error("No verificationTask found for " + params.uri);
                 return;
             }
-            Server.showHeap(task, params.index);
-            //DebugServer.moveDebuggerToPos(task.steps[params.index].position);
+            Server.showHeap(task, task.clientStepIndexToServerStep[params.clientIndex].index);
         } catch (e) {
             Log.error("Error showing heap: " + e);
         }

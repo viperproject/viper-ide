@@ -79,10 +79,9 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         } else {
             conditions = `<h3>No path conditions</h3>`;
         }
-
         let content = `
     <h2>file: ${heapGraph.fileName}<br />${heapGraph.methodType}: ${heapGraph.methodName}</h2>
-    <h3>state ${heapGraph.state - heapGraph.methodOffset}<br />position: ${heapGraph.position.line + 1}:${heapGraph.position.character + 1}</h3>
+    <h3>state ${this.stateVisualizer.decorationOptions[heapGraph.state].numberToDisplay}<br />position: ${heapGraph.position.line + 1}:${heapGraph.position.character + 1}</h3>
     ${this.getSvgContent(Log.svgFilePath(index))}
     ${conditions}
     <p>${this.stringToHtml(heapGraph.stateInfos)}</p><br />`;

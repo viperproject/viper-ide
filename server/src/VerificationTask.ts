@@ -3,10 +3,10 @@
 import child_process = require('child_process');
 import {IConnection, Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
 import {Settings} from './Settings'
-import {StepInfo, StateColors, MethodBorder, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
+import {UpdateStatusBarParams, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StepInfo, StateColors, MethodBorder, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
-import {Statement, StatementType} from './Statement';
+import {Statement} from './Statement';
 import {Model} from './Model';
 import * as pathHelper from 'path';
 import {HeapVisualizer} from './HeapVisualizer';
@@ -14,20 +14,15 @@ import {TotalProgress} from './TotalProgress';
 import {Server} from './ServerClass';
 import {DebugServer} from './DebugServer';
 import * as fs from 'fs';
+import {Verifiable} from './Verifiable';
 
-interface SymbExLogEntry {
-    isMethod: boolean;
-    type?: string;
-    statementType?: StatementType;
-    pos?: Position;
-    formula: string;
-    depth: number;
-}
-
-interface RawSymbExLogEntry {
-    name: string,
+export interface RawSymbExLogEntry {
+    value: string,
+    type?: string,
+    kind?: string,
     open: boolean,
-    prestate: { store: string, heap: string, pcs: string },
+    pos?: string,
+    prestate?: { store: string[], heap: string[], oldHeap: string[], pcs: string[] },
     children?: RawSymbExLogEntry[];
 }
 
@@ -58,13 +53,15 @@ export class VerificationTask {
     time: number = 0;
     diagnostics: Diagnostic[];
     steps: Statement[];
+    verifiables: Verifiable[];
     model: Model = new Model();
     lastSuccess: Success = Success.None;
     parsingCompleted: boolean = false;
     typeCheckingCompleted: boolean = false;
-    methodBorders: MethodBorder[];
-    methodBordersOrderedByStart = [];
-    symbExLog: SymbExLogEntry[] = [];
+    //methodBorders: MethodBorder[];
+    //methodBordersOrderedByStart = [];
+    clientStepIndexToServerStep:Statement[];
+    //symbExLog: SymbExLogEntry[] = [];
 
     completeSymbExLog: RawSymbExLogEntry[] = [];
 
@@ -95,14 +92,14 @@ export class VerificationTask {
 
         return {
             heap: HeapVisualizer.heapToDot(step, step.isErrorState || this.nailgunService.settings.showSymbolicState, step.isErrorState, this.model),
-            state: index,
+            state: step.decorationOptions.index,
             fileName: this.filename,
             fileUri: this.fileUri,
             position: step.position,
             stateInfos: (this.steps[index].isErrorState ? "Error State -> use the Counter Example\n" : "") + step.pretty(),
-            methodName: this.methodBorders[step.methodIndex].methodName,
-            methodType: this.methodBorders[step.methodIndex].methodType,
-            methodOffset: this.methodBorders[step.methodIndex].firstStateIndex - 1,
+            methodName: step.verifiable.name,
+            methodType: step.verifiable.typeString(),
+            methodOffset: step.verifiable.startIndex - 1,
             conditions: step.prettyConditions()
         };
     }
@@ -118,19 +115,14 @@ export class VerificationTask {
 
             let currentMethod;
             this.steps.forEach((element, i) => {
-                while (!allBordersPrinted && i === this.methodBorders[this.methodBordersOrderedByStart[methodIndex + 1].index].firstStateIndex) {
-                    methodIndex++;
-                    if (methodIndex + 1 >= this.methodBorders.length)
-                        allBordersPrinted = true;
-                    currentMethod = this.methodBorders[this.methodBordersOrderedByStart[methodIndex].index];
-                    res += "\n" + currentMethod.methodType + " " + currentMethod.methodName;
-                    currentMethodOffset = i - 1;
-                }
-                let spacesToPut = 4 - Math.floor(Math.log10(i - currentMethodOffset <= 0 ? 1 : i - currentMethodOffset)) - Math.floor(Math.log10(i <= 0 ? 1 : i));
-                spacesToPut = spacesToPut < 0 ? 0 : spacesToPut;
 
-                res += `\n\t${i - currentMethodOffset} (${i}) ${"\t".repeat(spacesToPut)}|${"\t".repeat(element.depthLevel())} ${element.firstLine()}`;
+                let clientNumber = element.decorationOptions?""+element.decorationOptions.numberToDisplay:"";
+                let serverNumber = ""+i;
+                let spacesToPut = 8 - clientNumber.length - serverNumber.length;
+                spacesToPut = spacesToPut < 0 ? 0 : spacesToPut;
+                res += `\n\t${clientNumber} ${"\t".repeat(spacesToPut)}(${serverNumber})|${"\t".repeat(element.depthLevel())} ${element.firstLine()}`;
             });
+            //Log.log("Steps:\n" + res, LogLevel.LowLevelDebug);
             return res;
         } catch (e) {
             Log.error("Runtime Error in Pretty Steps: " + e)
@@ -176,44 +168,64 @@ export class VerificationTask {
         }
     }
 
-    public getDecorationOptions() {
+    public getDecorationOptions(): StepsAsDecorationOptionsResult {
         try {
-            let decorationOptions = [];
-            let line = 0;
+            let decorationOptions: MyProtocolDecorationOptions[] = [];
+            let count = 0;
+            this.steps.forEach((step) => {
+                //is it Top level Statement?
+                if (step.verifiable.root === step) {
+                    count = 1;
+                }
+                if (step.canBeShownAsDecoration) {
+                    let options: MyProtocolDecorationOptions = {
+                        hoverMessage: step.toToolTip(),
+                        range: {
+                            start: { line: step.position.line, character: 0 },
+                            end: { line: step.position.line, character: 0 }
+                        },
+                        renderOptions: {
+                            before: {
+                                contentText: "(" + (decorationOptions.length + 1) + ")",
+                                color: step.isErrorState ? StateColors.errorState(this.nailgunService.settings.darkGraphs) : StateColors.interestingState(this.nailgunService.settings.darkGraphs),
+                            }
+                        },
+                        index: decorationOptions.length,
+                        numberToDisplay: count++,
+                        originalPosition: step.position,
+                        depth: step.depthLevel(),
+                        methodIndex: step.verifiable.index,
+                        isErrorState: step.isErrorState,
+                    }
+                    decorationOptions.push(options);
+                    this.clientStepIndexToServerStep.push(step);
+                    //add decorationOptions to step
+                    step.decorationOptions = options;
+                }
+            });
+
             let optionsInLine = -1;
-            //working variables
+            let line = 0;
             let stepInfo: StepInfo[] = [];
             this.stateIndicesOrderedByPosition.forEach(idx => {
                 let step = this.steps[idx.index];
-                if (step.position.line === line) {
-                    optionsInLine++;
-                } else {
-                    line = step.position.line;
-                    optionsInLine = 0;
+                if (step.canBeShownAsDecoration) {
+                    //let step = this.steps[idx.index];
+                    if (step.position.line === line) {
+                        optionsInLine++;
+                    } else {
+                        line = step.position.line;
+                        optionsInLine = 0;
+                    }
+                    step.decorationOptions.range.start.character = step.position.character + optionsInLine + 1;
+                    step.decorationOptions.range.end.character = step.position.character + optionsInLine + 2;
                 }
-                decorationOptions.push({
-                    hoverMessage: step.toToolTip(),
-                    range: {
-                        start: { line: step.position.line, character: step.position.character + optionsInLine + 1 },
-                        end: { line: step.position.line, character: step.position.character + optionsInLine + 2 }
-                    },
-                    renderOptions: {
-                        before: {
-                            contentText: "(" + (step.index + 1) + ")",
-                            color: step.isErrorState ? StateColors.errorState(this.nailgunService.settings.darkGraphs) : StateColors.interestingState(this.nailgunService.settings.darkGraphs),
-                        }
-                    },
-                    states: [step.index],
-                });
-                stepInfo[step.index] = { originalPosition: step.position, depth: step.depthLevel(), methodIndex: step.methodIndex, index: decorationOptions.length, isErrorState: step.isErrorState }
             });
             return {
                 decorationOptions: decorationOptions,
-                stepInfo: stepInfo,
-                methodBorders: this.methodBorders,
                 globalInfo: this.prettySteps() + "\n" + this.model.pretty(),
                 uri: this.fileUri
-            };
+            }
         } catch (e) {
             Log.error("Error getting decoration options: " + e)
         }
@@ -233,8 +245,7 @@ export class VerificationTask {
         this.wrongFormat = false;
         this.steps = [];
         this.lines = [];
-        this.methodBorders = [];
-        this.symbExLog = [];
+        this.clientStepIndexToServerStep = [];
         this.model = new Model();
         this.parsingCompleted = true;
         this.typeCheckingCompleted = true;
@@ -279,7 +290,10 @@ export class VerificationTask {
     private verificationCompletionHandler(code) {
         try {
             Log.log(`Child process exited with code ${code}`, LogLevel.Debug);
-            if (this.aborting) return;
+            if (this.aborting) {
+                this.running = false;
+                return;
+            }
 
             if (code != 0 && code != 1 && code != 899) {
                 Log.log("Verification Backend Terminated Abnormaly: with code " + code, LogLevel.Default);
@@ -294,58 +308,52 @@ export class VerificationTask {
                 this.partialData = "";
             }
 
+            // Send the computed diagnostics to VSCode.
+            VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
+
+            let success = this.determineSuccess(code);
+
+            //inform client about postProcessing
+            VerificationTask.connection.sendNotification(Commands.StateChange, {
+                newState: VerificationState.PostProcessing,
+                filename: this.filename,
+            });
+
+            //load the Execution trace from the SymbExLogFile
+            this.loadSymbExLogFromFile();
+
             //complete the information about the method borders.
             //this can only be done at the end of the verification
             this.completeVerificationState();
 
-            this.loadSymbExLogFromFile();
-
-            // Send the computed diagnostics to VSCode.
-            VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
-
-            let success: Success = Success.None;
-
-            if (this.diagnostics.length == 0 && code == 0) {
-                success = Success.Success;
-            } else if (this.diagnostics.length > 0) {
-                //use tag and backend trace as indicators for completed parsing
-                if (!this.parsingCompleted && this.steps.length == 0) {
-                    success = Success.ParsingFailed;
-                } else if (this.parsingCompleted && !this.typeCheckingCompleted) {
-                    success = Success.TypecheckingFailed;
-                } else {
-                    success = Success.VerificationFailed;
-                }
-            } else {
-                success = this.aborting ? Success.Aborted : Success.Error;
-            }
-
-            this.lastSuccess = success;
-
-            VerificationTask.connection.sendNotification(Commands.StateChange,
-                {
-                    newState: VerificationState.Ready,
-                    success: success,
-                    manuallyTriggered: this.manuallyTriggered,
-                    filename: this.filename,
-                    nofErrors: this.diagnostics.length,
-                    time: this.time,
-                    verificationCompleted: true,
-                    uri: this.fileUri
-                });
-            this.time = 0;
-            this.running = false;
-
             Log.log("Number of Steps: " + this.steps.length, LogLevel.Info);
-
             //pass decorations to language client
-            let decorations = this.getDecorationOptions();
+            let decorations: StepsAsDecorationOptionsResult = this.getDecorationOptions();
+
             if (decorations.decorationOptions.length > 0) {
                 //Log.log(JSON.stringify(params),LogLevel.Debug);
                 Log.log("Update the decoration options (" + decorations.decorationOptions.length + ")", LogLevel.Debug);
-                VerificationTask.connection.sendNotification(Commands.StepsAsDecorationOptions, { uri: this.fileUri, decorations: decorations });
+                VerificationTask.connection.sendNotification(Commands.StepsAsDecorationOptions, decorations);
                 //Log.log("decoration options update done", LogLevel.Debug);
             }
+
+            let stateChangeParams: UpdateStatusBarParams = {
+                newState: VerificationState.Ready,
+                success: success,
+                manuallyTriggered: this.manuallyTriggered,
+                filename: this.filename,
+                nofErrors: this.diagnostics.length,
+                time: this.time,
+                verificationCompleted: true,
+                uri: this.fileUri
+            };
+            VerificationTask.connection.sendNotification(Commands.StateChange, stateChangeParams);
+
+            //reset for next verification
+            this.lastSuccess = success;
+            this.time = 0;
+            this.running = false;
+
             /*
             Log.log("Print out low Level Debug info",LogLevel.Debug);
             this.steps.forEach((step) => {
@@ -354,9 +362,29 @@ export class VerificationTask {
             Log.toLogFile("Model: " + this.model.pretty(), LogLevel.LowLevelDebug);
             */
         } catch (e) {
+            this.running = false;
             VerificationTask.connection.sendNotification(Commands.VerificationNotStarted, this.fileUri);
             Log.error("Error handling verification completion: " + e);
         }
+    }
+
+    private determineSuccess(code: number): Success {
+        let result: Success = Success.None;
+        if (this.diagnostics.length == 0 && code == 0) {
+            result = Success.Success;
+        } else if (this.diagnostics.length > 0) {
+            //use tag and backend trace as indicators for completed parsing
+            if (!this.parsingCompleted && this.steps.length == 0) {
+                result = Success.ParsingFailed;
+            } else if (this.parsingCompleted && !this.typeCheckingCompleted) {
+                result = Success.TypecheckingFailed;
+            } else {
+                result = Success.VerificationFailed;
+            }
+        } else {
+            result = this.aborting ? Success.Aborted : Success.Error;
+        }
+        return result;
     }
 
     private stdErrHadler(data) {
@@ -454,32 +482,33 @@ export class VerificationTask {
                     } catch (e) {
                         Log.error("Error reading progress: " + e);
                     }
-                } else if (line.startsWith("SymbExLoggerHierarchyStart")) {
-                    this.inSymbExLoggerHierarchy = true;
-                } else if (line.startsWith("SymbExLoggerHierarchyEnd")) {
-                    this.inSymbExLoggerHierarchy = false;
-                } else if (this.inSymbExLoggerHierarchy) {
-                    try {
-                        if (line.startsWith("predicate") || line.startsWith("function") || line.startsWith("method")) {
-                            let method = line;
-                            this.symbExLog.push({ depth: 0, isMethod: true, formula: method });
-                        } else {
-                            let regex = /^(\d+)\s*((pre|post|if|else|branch[12]|comment|param):)?\s*(Unreachable|((produce|evaluate|execute|consume)?\s*([^,]*,)?(\d+:\d+|<no position>)?\s*(.*)))?$/.exec(line);
-                            if (!regex || !regex[1]) {
-                                Log.error("Error parsing symbExLoggerLine: " + line);
-                                break;
-                            }
-                            let indent: number = Number.parseInt(regex[1]);
-                            let type: string = regex[3] || "";
-                            let statementType = Statement.parseStatementType(regex[6]); //produce|evaluate|execute|consume
-                            let pos = Statement.parsePosition(regex[8]);
-                            let formula = regex[9] || "";
-                            this.symbExLog.push({ depth: indent, isMethod: false, type: type, statementType: statementType, pos: pos, formula: formula });
-                        }
-                    } catch (e) {
-                        Log.error("Error handling SymbexLoggerLine: " + line + " Error: " + e);
-                    }
                 }
+                // else if (line.startsWith("SymbExLoggerHierarchyStart")) {
+                //     this.inSymbExLoggerHierarchy = true;
+                // } else if (line.startsWith("SymbExLoggerHierarchyEnd")) {
+                //     this.inSymbExLoggerHierarchy = false;
+                // } else if (this.inSymbExLoggerHierarchy) {
+                //     try {
+                //         if (line.startsWith("predicate") || line.startsWith("function") || line.startsWith("method")) {
+                //             let method = line;
+                //             this.symbExLog.push({ depth: 0, isMethod: true, formula: method });
+                //         } else {
+                //             let regex = /^(\d+)\s*((pre|post|if|else|branch[12]|comment|param):)?\s*(Unreachable|((produce|evaluate|execute|consume)?\s*([^,]*,)?(\d+:\d+|<no position>)?\s*(.*)))?$/.exec(line);
+                //             if (!regex || !regex[1]) {
+                //                 Log.error("Error parsing symbExLoggerLine: " + line);
+                //                 break;
+                //             }
+                //             let indent: number = Number.parseInt(regex[1]);
+                //             let type: string = regex[3] || "";
+                //             let statementType = Statement.parseStatementType(regex[6]); //produce|evaluate|execute|consume
+                //             let pos = Statement.parsePosition(regex[8]);
+                //             let formula = regex[9] || "";
+                //             this.symbExLog.push({ depth: indent, isMethod: false, type: type, statementType: statementType, pos: pos, formula: formula });
+                //         }
+                //     } catch (e) {
+                //         Log.error("Error handling SymbexLoggerLine: " + line + " Error: " + e);
+                //     }
+                // }
                 else if (line.startsWith('Silicon finished in') || line.startsWith('carbon finished in')) {
                     Log.log("WARNING: analyze the reason for this code to be executed", LogLevel.Debug);
                     this.state = VerificationState.VerificationReporting;
@@ -499,14 +528,14 @@ export class VerificationTask {
                     // }
                     //Log.toLogFile("Model: " + line);
                 } else if (line.startsWith("---------- FUNCTION") || line.startsWith("---------- PREDICATE") || line.startsWith("---------- METHOD")) {
-                    if (this.methodBorders.length > 0) {
+                    /*if (this.methodBorders.length > 0) {
                         this.methodBorders[this.methodBorders.length - 1].lastStateIndex = this.steps.length - 1;
                     }
 
                     let nameParts = line.replace(/-/g, "").trim().split(" ");
 
                     this.methodBorders.push({ name: line, methodName: nameParts[1], methodType: nameParts[0].toLowerCase(), firstStateIndex: this.steps.length, lastStateIndex: -1, start: -1, end: -1 });
-
+                    */
                     // if (line.startsWith("---------- METHOD ")) {
                     //     //this.isFromMethod = true;
                     // } else {
@@ -549,7 +578,7 @@ export class VerificationTask {
                             Log.error(msg);
                             this.lines = [];
                         } else {
-                            this.steps.push(new Statement(this.lines[0], this.lines[2], this.lines[3], this.lines[4], this.lines[5], this.model, this.steps.length, this.methodBorders.length - 1));
+                            //this.steps.push(Statement.CreateFromTrace(this.lines[0], this.lines[2], this.lines[3], this.lines[4], this.lines[5], this.model, this.steps.length, this.methodBorders.length - 1));
                             this.lines = [];
                         }
                     }
@@ -618,7 +647,7 @@ export class VerificationTask {
 
     //TODO: might be source of bugs, if methods don't contain a state
     private completeVerificationState() {
-        //complete methodBorders
+        /*//complete methodBorders
         this.methodBordersOrderedByStart = [];
         this.methodBorders.forEach((element, i) => {
             //firstStateInfo can point to non existing state, e.g. if there is no state in a method
@@ -639,58 +668,22 @@ export class VerificationTask {
             let border = this.methodBorders[element.index];
             border.end = element.index < this.methodBorders.length - 1 ? this.methodBorders[element.index + 1].start - 1 : Number.MAX_VALUE;
         });
+        */
 
         this.stateIndicesOrderedByPosition = [];
-        // //for reconstructing depth
-        //let depth = -1;
-        //let methodStack = [];
-        //let lastElement;
         let symbExLogIndex: number = 0;
         let lastMatchingLogIndex = -1;
         let methodIndex = -1;
         this.steps.forEach((element, i) => {
-            while (methodIndex + 1 < this.methodBorders.length && i === this.methodBorders[this.methodBordersOrderedByStart[methodIndex + 1].index].firstStateIndex) {
+            /*while (methodIndex + 1 < this.methodBorders.length && i === this.methodBorders[this.methodBordersOrderedByStart[methodIndex + 1].index].firstStateIndex) {
                 methodIndex++;
-            }
-
-            element.methodIndex = this.methodBordersOrderedByStart[methodIndex].index;
-            // //for reconstructing depth
-            // let methodContainingCurrentStep: number = this.getMethodContainingCurrentStep(element);
-            // if (depth === -1 || element.index === this.methodBorders[element.methodIndex].firstStateIndex) {
-            //     // the depth of the first state in a method is 0
-            //     depth = 0;
-            //     methodStack[depth] = methodContainingCurrentStep;
-            // } else {
-            //     if (methodStack[depth] === methodContainingCurrentStep) {
-            //         //stay on same depth
-            //     } else if (depth > 0 && methodStack[depth - 1] === methodContainingCurrentStep) {
-            //         depth--;
-            //     } else {
-            //         methodStack[++depth] = methodContainingCurrentStep;
-            //     }
-            // }
-            // element.depth = depth + (lastElement && this.comparePosition(element.position, lastElement.position) == 0 ? 1 : 0);
-
-            //determine depth using symbExLoggers simple list
-            let logEntryFound = false;
-            while (symbExLogIndex < this.symbExLog.length && !logEntryFound) {
-                let logEntry = this.symbExLog[symbExLogIndex];
-                if (this.matches(element, logEntry)) {
-                    element.depth = logEntry.depth;
-                    element.logEntryIndex = symbExLogIndex;
-                    lastMatchingLogIndex = symbExLogIndex;
-                    logEntryFound = true;
-                }
-                symbExLogIndex++;
-            }
-            if (!logEntryFound) {
-                element.depth = 0;
-                symbExLogIndex = lastMatchingLogIndex + 1;
-                //Log.error("Could not find depth of step " + element.index + " in SymbExLog");
-            }
-
+            }*/
+            if(element.canBeShownAsDecoration){
             this.stateIndicesOrderedByPosition.push({ index: element.index, position: element.position });
             //determine if the state is an error state
+            }
+
+            //TODO: is the detection right?
             for (let j = 0; j < this.diagnostics.length; j++) {
                 let diagnostic = this.diagnostics[j];
                 if (this.comparePosition(diagnostic.range.start, element.position) == 0) {
@@ -699,40 +692,38 @@ export class VerificationTask {
                     break;
                 }
             }
-            // //for reconstructing depth
-            //lastElement = element;
         });
         this.stateIndicesOrderedByPosition.sort(this.comparePositionAndIndex);
     }
 
-    private matches(stmt: Statement, logEntry: SymbExLogEntry): boolean {
-        if (this.comparePosition(stmt.position, logEntry.pos) != 0) {
-            return false;
-        }
-        if (stmt.type != logEntry.statementType) {
-            return false;
-        }
-        if (stmt.formula != logEntry.formula) {
-            return false;
-        }
-        return true;
-    }
+    // private matches(stmt: Statement): boolean {
+    //     if (this.comparePosition(stmt.position, logEntry.pos) != 0) {
+    //         return false;
+    //     }
+    //     if (stmt.type != logEntry.statementType) {
+    //         return false;
+    //     }
+    //     if (stmt.formula != logEntry.formula) {
+    //         return false;
+    //     }
+    //     return true;
+    // }
 
-    //-1 means in no method
-    private getMethodContainingCurrentStep(step: Statement): number {
-        //TODO: is this a good idea? assuming that the 
-        if (step.position.line == 0 && step.position.character == 0) {
-            return step.methodIndex;
-        }
-        for (let i = 0; i < this.methodBordersOrderedByStart.length; i++) {
-            let border = this.methodBorders[this.methodBordersOrderedByStart[i].index];
-            if (step.position.line >= border.start && step.position.line <= border.end) {
-                return this.methodBordersOrderedByStart[i].index;
-            }
-        }
-        Log.log("step " + step.index + " is in no method (using define can cause this)", LogLevel.Debug);
-        return -1;
-    }
+    // //-1 means in no method
+    // private getMethodContainingCurrentStep(step: Statement): number {
+    //     //TODO: is this a good idea? assuming that the 
+    //     if (step.position.line == 0 && step.position.character == 0) {
+    //         return step.methodIndex;
+    //     }
+    //     for (let i = 0; i < this.methodBordersOrderedByStart.length; i++) {
+    //         let border = this.methodBorders[this.methodBordersOrderedByStart[i].index];
+    //         if (step.position.line >= border.start && step.position.line <= border.end) {
+    //             return this.methodBordersOrderedByStart[i].index;
+    //         }
+    //     }
+    //     Log.log("step " + step.index + " is in no method (using define can cause this)", LogLevel.Debug);
+    //     return -1;
+    // }
 
     public getPositionOfState(index): Position {
         if (index >= 0 && index < this.steps.length) {
@@ -779,12 +770,20 @@ export class VerificationTask {
     private loadSymbExLogFromFile() {
         try {
             let symbExLogPath = pathHelper.join(Server.workspaceRoot, ".vscode", "executionTreeData.js");
-            if(fs.existsSync(symbExLogPath)){
-            let content = fs.readFileSync(symbExLogPath).toString();
-            content = content.substring(content.indexOf("["), content.length).replace(/\n/g,' ');
-            this.completeSymbExLog = <RawSymbExLogEntry[]>JSON.parse(content);
-            Log.log("Execution tree successfully parsed: "+ this.completeSymbExLog.length + " toplevel construct"+(this.completeSymbExLog.length == 1?"":"s")+" found",LogLevel.Info);
-            }else{
+            if (fs.existsSync(symbExLogPath)) {
+                let content = fs.readFileSync(symbExLogPath).toString();
+                content = content.substring(content.indexOf("["), content.length).replace(/\n/g, ' ');
+                this.completeSymbExLog = <RawSymbExLogEntry[]>JSON.parse(content);
+                Log.log("Execution tree successfully loaded: " + this.completeSymbExLog.length + " toplevel construct" + (this.completeSymbExLog.length == 1 ? "" : "s") + " found", LogLevel.Info);
+                //parse SymbexLog
+                this.steps = [];
+                this.verifiables = [];
+                this.completeSymbExLog.forEach(data => {
+                    let index = this.verifiables.length;
+                    this.verifiables.push(new Verifiable(index, data, this))
+                });
+
+            } else {
                 Log.log("No executionTreeData.js found");
             }
         } catch (e) {

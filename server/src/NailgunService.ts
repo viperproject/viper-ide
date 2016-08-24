@@ -12,6 +12,7 @@ export class NailgunService {
     ready: boolean = false;
     settings: ViperSettings;
     maxNumberOfRetries = 20;
+    activeBackend: Backend;
 
     static startingOrRestarting = false;
 
@@ -31,6 +32,7 @@ export class NailgunService {
                 return;
             }
             connection.sendNotification(Commands.BackendChange, backend.name);
+            this.activeBackend = backend;
             if (!this.nailgunStarted()) {
                 Log.log("close nailgun server on port: " + this.settings.nailgunPort, LogLevel.Info)
                 let killOldNailgunProcess = child_process.exec(this.settings.nailgunClient + ' --nailgun-port ' + this.settings.nailgunPort + ' ng-stop');
@@ -78,7 +80,8 @@ export class NailgunService {
                 //the nailgun server is confirmed to be running
                 this.ready = true;
                 Log.log("Nailgun started", LogLevel.Info);
-                connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, verificationCompleted: false, verificationNeeded: true });
+                //connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, verificationCompleted: false, verificationNeeded: true });
+                connection.sendNotification(Commands.BackendStarted, this.activeBackend.name)
             }
         });
     }
@@ -143,7 +146,14 @@ export class NailgunService {
     }
 
     public startVerificationProcess(fileToVerify: string, ideMode: boolean, onlyTypeCheck: boolean, backend: Backend): child_process.ChildProcess {
-        let command = this.settings.nailgunClient + ' --nailgun-port ' + this.settings.nailgunPort + ' ' + backend.mainMethod + ' --ideMode' + ' --z3Exe "' + this.settings.z3Executable + '" ' + (backend.getTrace ? '--logLevel trace ' : '') + (backend.customArguments ? backend.customArguments : "") + ' "' + fileToVerify + '"';
+        let command = this.settings.nailgunClient +
+            ' --nailgun-port ' + this.settings.nailgunPort + ' ' +
+            backend.mainMethod +
+            ' --ideMode' +
+            ' --z3Exe "' + this.settings.z3Executable + '" ' +
+            /*(backend.getTrace ? '--logLevel trace ' : '') +*/
+            (backend.customArguments ? backend.customArguments : "") +
+            ' "' + fileToVerify + '"';
         Log.log(command, LogLevel.Debug);
         return child_process.exec(command, { cwd: Settings.workspace }); // to set current working directory use, { cwd: verifierHome } as an additional parameter
     }

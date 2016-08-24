@@ -4,6 +4,7 @@ export enum VerificationState {
     VerificationRunning = 2,
     VerificationPrintingHelp = 3,
     VerificationReporting = 4,
+    PostProcessing = 5,
     Ready = 6,
     Stopping = 7
 }
@@ -29,6 +30,8 @@ export enum Success {
     Error = 6
 }
 
+export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE, UNKONWN };
+
 export class Commands {
     static InvalidSettings = { method: "InvalidSettings" };
     static Hint = { method: "Hint" };
@@ -53,6 +56,7 @@ export class Commands {
     static FileClosed = { method: "FileClosed" };
     static VerificationNotStarted = { method: "VerificationNotStarted" };
     static StopDebugging = { method: "StopDebugging" };
+    static BackendStarted = {method: "BackendStarted"};
 }
 
 export interface UpdateStatusBarParams {
@@ -101,7 +105,7 @@ export interface Backend {
 
 export interface ShowHeapParams {
     uri: string,
-    index: number
+    clientIndex: number
 }
 
 export interface HeapGraph {
@@ -166,4 +170,32 @@ export interface ViperFileState {
     changed: boolean;
     needsVerification: boolean;
     decorationsShown: boolean;
+}
+
+export interface StepsAsDecorationOptionsResult {
+    decorationOptions: MyProtocolDecorationOptions[],
+    globalInfo: string
+    uri: string;
+}
+
+export interface MyProtocolDecorationOptions {
+    hoverMessage: string;
+    range: Range;
+    renderOptions: {
+        before: {
+            contentText: string,
+            color: string
+        }
+    }
+    numberToDisplay: number;
+    originalPosition:Position;
+    depth:number,
+    methodIndex:number,
+    index:number,
+    isErrorState:boolean
+}
+
+export interface Range {
+    start: Position,
+    end: Position
 }

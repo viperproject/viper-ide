@@ -15,10 +15,10 @@ import {Server} from './ServerClass';
 // import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
 // import {Settings} from './Settings'
-import {Position, StepType, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+import {StatementType, Position, StepType, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
 // import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
-import {Statement, StatementType} from './Statement';
+import {Statement} from './Statement';
 // import {Model} from './Model';
 
 let ipc = require('node-ipc');
@@ -126,16 +126,22 @@ export class DebugServer {
                                     break;
                                 case StepType.In:
                                     newState = data.state + 1;
+                                    while (newState < steps.length && !steps[newState].canBeShownAsDecoration) {
+                                        newState++;
+                                    }
                                     break;
                                 case StepType.Back:
                                     newState = data.state - 1;
+                                    while (newState >= 0 && !steps[newState].canBeShownAsDecoration) {
+                                        newState--;
+                                    }
                                     break;
                                 case StepType.Continue:
                                     Log.error("continue is not supported right now, do step next instead");
                                 case StepType.Next:
                                     for (let i = data.state + 1; i < steps.length; i++) {
                                         let step = steps[i];
-                                        if (step.depthLevel() <= currentDepth) {
+                                        if (step.depthLevel() <= currentDepth && step.canBeShownAsDecoration) {
                                             //the step is on the same level or less deap
                                             newState = i;
                                             break;
@@ -145,7 +151,7 @@ export class DebugServer {
                                 case StepType.Out:
                                     for (let i = data.state + 1; i < steps.length; i++) {
                                         let step = steps[i];
-                                        if (step.depthLevel() < currentDepth) {
+                                        if (step.depthLevel() < currentDepth && step.canBeShownAsDecoration) {
                                             //the step is less deap
                                             newState = i;
                                             break;
@@ -166,7 +172,7 @@ export class DebugServer {
 
                         }
                         catch (e) {
-                            Log.log("Error handling move request: " + e);
+                            Log.error("Error handling move request: " + e);
                         }
                     }
                 );

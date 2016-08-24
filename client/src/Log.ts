@@ -15,6 +15,7 @@ export class Log {
     static _svgBasePath: string;
     private static _nofFiles: number = 0;
     static rootPath: string;
+    static symbExLogFilePath:string;
 
     static MAX_DOT_FILES: number = 2;
 
@@ -32,6 +33,7 @@ export class Log {
 
         Log._dotBasePath = path.join(Log.rootPath, '.vscode', 'heap');
         Log._svgBasePath = path.join(Log.rootPath, '.vscode', 'heap');
+        Log.symbExLogFilePath = path.join(Log.rootPath, '.vscode', 'executionTreeData.js');
 
         Log.log("LogFilePath is: " + Log.logFilePath, LogLevel.LowLevelDebug)
         try {
@@ -90,19 +92,18 @@ export class Log {
     public static deleteDotFiles() {
         //delete all dotFiles
         for (let i = 0; i < this.MAX_DOT_FILES; i++) {
-            this.deleteDotFile(i);
+            this.deleteFile(this.dotFilePath(i));
         }
         this._nofFiles = 0;
     }
 
-    public static deleteDotFile(index: number) {
+    public static deleteFile(fileName:string){
         try {
-            let dotFile = this.dotFilePath(index);
-            if (fs.existsSync(dotFile)) {
-                fs.unlinkSync(dotFile);
+            if (fs.existsSync(fileName)) {
+                fs.unlinkSync(fileName);
             };
         } catch (e) {
-            Log.error("error deleting file " + index);
+            Log.error("Error deleting file " + fileName);
         }
     }
 

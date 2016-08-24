@@ -27,11 +27,21 @@ export class HeapVisualizer {
             let g = graphviz.digraph("G");
             g.setNodeAttribut("shape", "record");
             g.set("rankdir", "LR");
+
+            //light theme
+            let bgColor = "white";
+            let color = "black";
             if (Settings.settings.darkGraphs) {
-                this.setGraphColors(g, "#272822", "white");
+                //dark theme
+                bgColor = "#272822";
+                color = "white";
             }
-            let store = this.addCluster(g,"Store","dotted");
-            let heap = this.addCluster(g,"Heap","dotted");
+            this.setGraphColors(g, bgColor, color);
+
+            let store = this.addCluster(g, "Store", "dotted");
+            let heap = this.addCluster(g, "Heap", "dotted");
+
+            let heapEmpty = true;
 
             //read all heap Chunks to find out all existing nodes in the heap,
             //gather information about fields
@@ -51,6 +61,7 @@ export class HeapVisualizer {
 
             //add all nodes with the appropriate fields to the heap
             heapChunkFields.forEach((fields: HeapChunk[], receiver: string) => {
+                heapEmpty = false;
                 let label = "<name>|";
                 fields.forEach(chunk => {
                     label += this.getHeapChunkLabel(chunk, showSymbolicValues, showConcreteValues, model, state) + "\\l";
@@ -62,17 +73,23 @@ export class HeapVisualizer {
 
             //populate the store and add pointers from store to heap
             let vars: Map<string, any> = new Map<string, any>();
-            state.store.forEach(variable => {
-                //add variable node
-                let variableNode = store.addNode(variable.name);
-                vars.set(variable.name, variableNode);
-                let variableLabel = this.getVariableLabel(variable, showSymbolicValues, showConcreteValues, model, state);
-                variableNode.set("label", variableLabel);
-                //add pointer from local vars to heap if the heap chunk exists
-                if (heapChunkFields.has(variable.value)) {
-                    g.addEdge(variable.name, variable.value)
-                }
-            });
+            if (state.store.length == 0) {
+                let dummyNode = store.addNode("store_dummy");
+                dummyNode.set("color", bgColor);
+                dummyNode.set("fontcolor", bgColor);
+            } else {
+                state.store.forEach(variable => {
+                    //add variable node
+                    let variableNode = store.addNode(variable.name);
+                    vars.set(variable.name, variableNode);
+                    let variableLabel = this.getVariableLabel(variable, showSymbolicValues, showConcreteValues, model, state);
+                    variableNode.set("label", variableLabel);
+                    //add pointer from local vars to heap if the heap chunk exists
+                    if (heapChunkFields.has(variable.value)) {
+                        g.addEdge(variable.name, variable.value)
+                    }
+                });
+            }
 
             //add pointers inside heap
             //also build Predicate nodes
@@ -85,6 +102,7 @@ export class HeapVisualizer {
                     }
                 }
                 else if (heapChunk.name.type == NameType.PredicateName) {
+                    heapEmpty = false;
                     //add predicate subgraph
                     let predicateCluster = heap.addCluster("cluster_" + heapChunk.name.receiver + "_" + (++count));
                     predicateCluster.set("style", "bold");
@@ -125,6 +143,13 @@ export class HeapVisualizer {
                     }
                 }
             })
+
+            //make the empty heap is shown
+            if (heapEmpty) {
+                let dummyNode = heap.addNode("heap_dummy");
+                dummyNode.set("color", bgColor);
+                dummyNode.set("fontcolor", bgColor);
+            }
 
             return g.to_dot();
         } catch (e) {
@@ -175,8 +200,8 @@ export class HeapVisualizer {
     //TODO: could be optimized if needed using a hash map storing all variables with value null
     private static isKnownToBeNull(symbolicValue: string, state: Statement, showConcreteValues: boolean, model: Model): boolean {
         if (symbolicValue === NULL) return true;
-        for (let i = 0; i < state.conditions.length; i++) {
-            let cond = state.conditions[i];
+        for (let i = 0; i < state.pcs.length; i++) {
+            let cond = state.pcs[i];
             if (cond.type == ConditionType.NullityCondition && cond.value && cond.lhs === symbolicValue) {
                 return true;
             }

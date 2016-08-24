@@ -111,7 +111,7 @@ class ViperDebugSession extends DebugSession {
 							ViperDebugSession.self._currentState = obj.step;
 							ViperDebugSession.self.sendEvent(new StoppedEvent("step", ViperDebugSession.THREAD_ID));
 						} catch (e) {
-							ViperDebugSession.log("Error handling MoveDebuggerToPos request: "+e);
+							ViperDebugSession.log("Error handling MoveDebuggerToPos \""+data+"\" request: "+e);
 						}
 					}
 				);

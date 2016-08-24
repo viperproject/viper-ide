@@ -6,16 +6,16 @@ import * as debug from './debug';
 import * as fs from 'fs';
 var ps = require('ps-node');
 import * as path from 'path';
-import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind, NotificationType } from 'vscode-languageclient';
+import {LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind, NotificationType } from 'vscode-languageclient';
 import {Timer} from './Timer';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
-import {HeapGraph, Backend, ViperSettings, VerificationState, Commands, UpdateStatusBarParams, LogLevel, Success} from './ViperProtocol';
+import {StepsAsDecorationOptionsResult, HeapGraph, Backend, ViperSettings, VerificationState, Commands, UpdateStatusBarParams, LogLevel, Success} from './ViperProtocol';
 import Uri from '../node_modules/vscode-uri/lib/index';
 import {Log} from './Log';
 import {StateVisualizer} from './StateVisualizer';
 import {Helper} from './Helper';
-import {StepsAsDecorationOptionsResult, MyDecorationOptions} from './StateVisualizer';
+import {MyDecorationOptions} from './StateVisualizer';
 import {ViperFormatter} from './ViperFormatter';
 import {ViperFileState} from './ViperFileState';
 
@@ -51,8 +51,6 @@ enum TaskType {
     Save, Verify, NoOp//Open,Close, VerificationCompleted
 }
 
-
-
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -80,6 +78,7 @@ function resetViperFiles() {
         element.verified = false;
         element.verifying = false;
         element.decorationsShown = false;
+        element.stateVisualizer.completeReset();
     });
 }
 
@@ -227,7 +226,7 @@ function registerFormatter() {
 }
 
 function initializeStatusBar() {
-    state.state = VerificationState.Stopped;
+    //state.state = VerificationState.Stopped;
 
     statusBarProgress = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 11);
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
@@ -300,23 +299,18 @@ function handleStateChange(params: UpdateStatusBarParams) {
                 }
                 abortButton.show();
                 break;
+            case VerificationState.PostProcessing:
+                updateStatusBarItem(statusBarItem, `postprocessing ${params.filename}: `, 'white');
+                break;
             case VerificationState.Ready:
-                backendReady = true;
-                //no file is verifying
                 ExtensionState.viperFiles.forEach(file => {
                     file.verifying = false;
-                })
+                });
+
                 if (!params.verificationCompleted) {
                     updateStatusBarItem(statusBarItem, "ready", 'white');
-                    //automatically trigger the first verification
-                    if (params.verificationNeeded && Helper.getConfiguration('autoVerifyAfterBackendChange') === true) {
-                        if (vscode.window.activeTextEditor.document.languageId === 'viper') {
-                            Log.log("autoVerify after backend change");
-                            resetViperFiles()
-                            workList.push({ type: TaskType.Verify, uri: vscode.window.activeTextEditor.document.uri, manuallyTriggered: false });
-                        }
-                    }
-                } else {
+                }
+                else {
                     let uri = vscode.Uri.parse(params.uri);
 
                     ExtensionState.viperFiles.get(params.uri).success = params.success;
@@ -488,20 +482,39 @@ function registerHandlers() {
         Log.updateSettings();
     }));
 
+    state.client.onNotification(Commands.BackendStarted, name => {
+        Log.log("Backend started: " + name, LogLevel.Info);
+        backendReady = true;
+        //no file is verifying
+        resetViperFiles()
+        updateStatusBarItem(statusBarItem, "ready", 'white');
+        //automatically trigger the first verification
+        if (Helper.getConfiguration('autoVerifyAfterBackendChange') === true) {
+            if (vscode.window.activeTextEditor.document.languageId === 'viper') {
+                Log.log("autoVerify after backend change");
+                workList.push({ type: TaskType.Verify, uri: vscode.window.activeTextEditor.document.uri, manuallyTriggered: false });
+            }
+        }
+    });
+
     //Heap visualization
     state.client.onNotification(Commands.StepsAsDecorationOptions, params => {
-        let castParams = <{ uri: string, decorations: StepsAsDecorationOptionsResult }>params;
+        let castParams = <StepsAsDecorationOptionsResult>params;
         if (!castParams) {
             Log.error("Invalid Params for StepsAdDecorationOptions");
         }
         let visualizer = ExtensionState.viperFiles.get(castParams.uri).stateVisualizer;
-        visualizer.storeNewStates(castParams.decorations);
+        visualizer.storeNewStates(castParams);
     });
     state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
-        //Log.log("HeapGraph",LogLevel.Debug);
-        let visualizer = ExtensionState.viperFiles.get(heapGraph.fileUri).stateVisualizer;
-        visualizer.createAndShowHeap(heapGraph, visualizer.nextHeapIndex);
-        visualizer.nextHeapIndex = 1 - visualizer.nextHeapIndex;
+        try {
+            //Log.log("HeapGraph",LogLevel.Debug);
+            let visualizer = ExtensionState.viperFiles.get(heapGraph.fileUri).stateVisualizer;
+            visualizer.createAndShowHeap(heapGraph, visualizer.nextHeapIndex);
+            visualizer.nextHeapIndex = 1 - visualizer.nextHeapIndex;
+        } catch (e) {
+            Log.error("Error displaying HeapGraph: " + e);
+        }
     });
     vscode.window.onDidChangeTextEditorSelection((change) => {
         //Log.log("OnDidChangeTextEditorSelection",LogLevel.Debug);
@@ -555,16 +568,21 @@ function registerHandlers() {
     }));
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.startDebugging', () => {
         if (!vscode.window.activeTextEditor) {
-            Log.log("don't debug, active file is not editable.", LogLevel.Debug);
+            Log.log("Don't debug, active file is not editable.", LogLevel.Debug);
             return;
         }
         let uri = vscode.window.activeTextEditor.document.uri;
         if (!Helper.isViperSourceFile(uri.toString())) {
-            Log.log("don't debug, active file is no viper file.", LogLevel.Debug);
+            Log.log("Don't debug, active file is no viper file.", LogLevel.Debug);
             return;
         }
         if (!backendReady) {
-            Log.log("don't debug, backend is not ready.", LogLevel.Debug);
+            Log.log("Don't debug, backend is not ready.", LogLevel.Debug);
+            return;
+        }
+        let fileState = ExtensionState.viperFiles.get(uri.toString());
+        if (!fileState || !fileState.verified) {
+            Log.log("Don't debug, file is not verified", LogLevel.Debug);
             return;
         }
 
@@ -587,7 +605,7 @@ function registerHandlers() {
                     Log.error("Error starting debugger: " + err.message);
                 });
             });
-        }catch(e){
+        } catch (e) {
             Log.error("Error starting debug session: " + e);
         }
     }));
@@ -662,6 +680,9 @@ function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
         } else {
             let visualizer = ExtensionState.viperFiles.get(uri).stateVisualizer;
             hideStates(() => {
+                //delete old SymbExLog:
+                Log.deleteFile(Log.symbExLogFilePath);
+
                 Log.log("verify " + path.basename(uri));
                 //change fileState
                 fileState.changed = false;

@@ -3,7 +3,9 @@
 //import {Position} from 'vscode';
 import {Log} from './Log';
 import {Model} from './Model';
-import {Position, LogLevel} from './ViperProtocol';
+import {MyProtocolDecorationOptions, StatementType, Position, LogLevel} from './ViperProtocol';
+import {Verifiable} from './Verifiable';
+import {RawSymbExLogEntry, VerificationTask} from './VerificationTask';
 
 export interface Variable { name: string; value: string; variablesReference: number; concreteValue?: string; }
 interface Name { raw: string; receiver?: string; field?: string; arguments?: string[]; type: NameType; }
@@ -12,7 +14,6 @@ interface Permission { raw: string; type: PermissionType; }
 interface Condition { raw: string, type: ConditionType; value?: boolean; lhs?: string, rhs?: string }
 interface SplitResult { prefix: string; rest: string; }
 
-export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE, UNKONWN };
 export enum PermissionType { UnknownPermission, ScalarPermission }
 export enum ValueType { UnknownValue, NoValue, ObjectReferenceOrScalarValue }
 export enum NameType { UnknownName, QuantifiedName, FunctionApplicationName, PredicateName, FieldReferenceName }
@@ -20,38 +21,102 @@ export enum ConditionType { UnknownCondition, EqualityCondition, NullityConditio
 
 export class Statement {
     type: StatementType;
+    kind: string;
     public position: Position;
     formula: string;
     public store: Variable[];
     heap: HeapChunk[];
     oldHeap: HeapChunk[];
-    conditions: Condition[];
-    //isInMethod: boolean;
+    pcs: Condition[];
     depth: number;
     index: number;
-    methodIndex: number;
     isErrorState: boolean = false;
-    logEntryIndex: number = -1;
+    verifiable: Verifiable;
+    parent: Statement;
+    children: Statement[];
+    canBeShownAsDecoration: boolean;
+    decorationOptions: MyProtocolDecorationOptions;
 
-    constructor(firstLine: string, store: string, heap: string, oldHeap: string, conditions: string, model: Model, index: number, methodIndex: number) {
-        this.index = index;
-        this.methodIndex = methodIndex;
-        this.parseFirstLine(firstLine);
-        this.store = this.parseVariables(this.unpack(store, model));
-        this.heap = this.unpackHeap(this.unpack(heap, model));
-        this.oldHeap = this.unpackHeap(this.unpack(oldHeap, model));
-        //TODO: implement unpackConditions
-        this.conditions = this.unpackPathConditions(this.unpack(conditions, model));
+    /*
+        static CreateFromTrace(firstLine: string, store: string, heap: string, oldHeap: string, conditions: string, model: Model, index: number, methodIndex: number): Statement {
+            Log.log("WARNING: creating from trace is deprecated", LogLevel.Debug);
+            let parts = Statement.parseFirstLine(firstLine);
+            if (!parts || !parts[1] || !parts[2] || !parts[3]) {
+                Log.error('could not parse first Line of the silicon trace message : "' + firstLine + '"');
+                return;
+            }
+            let type = Statement.parseStatementType(parts[1]);
+            let position = Statement.parsePosition(parts[2]);
+            let formula = parts[3].trim();
+            let unpackedStore = this.unpack(store, model);
+            let unpackedHeap = this.unpack(heap, model);
+            let unpackedOldHeap = this.unpack(oldHeap, model);
+            let unpackedConditions = this.unpack(conditions, model);
+            return new Statement(index, type, "", position, unpackedStore, unpackedHeap, unpackedOldHeap, unpackedConditions, null);
+        }
+        */
+    static numberOfStatementsCreatedFromSymbExLog: number = 0;
+
+    static CreateFromSymbExLog(depth: number, parent: Statement, symbExLog: RawSymbExLogEntry, verifiable: Verifiable, task: VerificationTask) {
+        let index = task.steps.length
+        let type = Statement.parseStatementType(symbExLog.type);
+        let kind = symbExLog.kind;
+        let position = Statement.parsePosition(symbExLog.pos);
+        let formula = symbExLog.value;
+        let statement: Statement;
+        if (symbExLog.prestate) {
+            let unpackedStore = symbExLog.prestate ? symbExLog.prestate.store : [];
+            let unpackedHeap = symbExLog.prestate.heap;
+            let unpackedOldHeap = symbExLog.prestate.oldHeap;
+            let unpackedConditions = symbExLog.prestate.pcs;
+            statement = new Statement(index, formula, type, kind, position, unpackedStore, unpackedHeap, unpackedOldHeap, unpackedConditions, verifiable);
+        } else {
+            statement = new Statement(index, formula, type, kind, position, [], [], [], [], verifiable);
+        }
+
+        //put the created Statement into the task's steps
+        task.steps.push(statement);
+
+        statement.canBeShownAsDecoration = !!position;
+
+        //add depth info
+        statement.depth = depth;
+
+        //create the statements children
+        statement.children = [];
+        if (symbExLog.children) {
+            symbExLog.children.forEach(child => {
+                statement.children.push(Statement.CreateFromSymbExLog(depth + 1, statement, child, verifiable, task));
+            });
+        }
+
+        //add the parent information to complete the tree
+        statement.parent = parent;
+
+        return statement;
     }
 
+    constructor(index: number, formula: string, type: StatementType, kind: string, position: Position, store: string[], heap: string[], oldHeap: string[], pcs: string[], verifiable: Verifiable) {
+        this.index = index;
+        this.formula = formula;
+        this.type = type;
+        this.kind = kind;
+        this.position = position;
+        this.store = Statement.parseVariables(store);
+        this.heap = Statement.parseHeap(heap);
+        this.oldHeap = Statement.parseHeap(oldHeap);
+        this.pcs = Statement.parsePathConditions(pcs);
+        this.verifiable = verifiable;
+    }
     public depthLevel(): number {
-        return this.depth;//this.isInMethod ? 0 : 1;
+        return this.depth;
     }
 
     //PARSING
-    private parseVariables(vars: string[]): Variable[] {
+    private static parseVariables(store: string[]): Variable[] {
+        if (!store) return [];
         let result = [];
-        vars.forEach((variable) => {
+        store.forEach((variable) => {
             let parts: string[] = variable.split('->');
             if (parts.length == 2) {
                 result.push({ name: parts[0].trim(), value: parts[1].trim(), variablesReference: 0 });
@@ -64,7 +129,7 @@ export class Statement {
         return result;
     }
 
-    private unpack(line: string, model: Model): string[] {
+    private static unpack(line: string, model: Model): string[] {
         line = line.trim();
         if (line == "{},") {
             return [];
@@ -76,10 +141,11 @@ export class Statement {
         }
     }
 
-    private unpackPathConditions(parts: string[]): Condition[] {
+    private static parsePathConditions(pcs: string[]): Condition[] {
+        if (!pcs) return [];
         let result = [];
         let indentation = 0;
-        parts.forEach(part => {
+        pcs.forEach(part => {
             part = part.trim();
             let qaFound = false;
             let qaAtIndentation = -1;
@@ -113,7 +179,7 @@ export class Statement {
         return result;
     }
 
-    private createCondition(condition: string): Condition {
+    private static createCondition(condition: string): Condition {
         let unicodeCondition = this.unicodify(condition);
         let regex = condition.match(/^([\w$]+@\d+)\s+(==|!=)\s+([\w$]+@\d+|\d+|_|Null)$/);
         if (regex && regex[1] && regex[2] && regex[3]) {
@@ -134,7 +200,7 @@ export class Statement {
         return { raw: unicodeCondition, type: ConditionType.UnknownCondition, value: true };
     }
 
-    private unicodify(condition: string): string {
+    private static unicodify(condition: string): string {
 
         let done: boolean = false;
         while (!done) {
@@ -163,10 +229,8 @@ export class Statement {
 
     }
 
-    private unpackHeap(parts: string[]): HeapChunk[] {
-        if (!parts) {
-            return [];
-        }
+    private static parseHeap(parts: string[]): HeapChunk[] {
+        if (!parts) return [];
         let res = [];
         try {
             parts.forEach((part) => {
@@ -188,7 +252,7 @@ export class Statement {
         return res;
     }
 
-    private splitAtComma(line: string): string[] {
+    private static splitAtComma(line: string): string[] {
         let parts = [];
         let i = 0;
         let bracketCount = 0;
@@ -214,15 +278,8 @@ export class Statement {
         return parts;
     }
 
-    private parseFirstLine(line: string): Position {
-        let parts = /^(PRODUCE|EVAL|EXECUTE|CONSUME).*?(\d+:\d+|<no position>):\s*(.*)$/.exec(line);
-        if (!parts || !parts[1] || !parts[2] || !parts[3]) {
-            Log.error('could not parse first Line of the silicon trace message : "' + line + '"');
-            return;
-        }
-        this.type = Statement.parseStatementType(parts[1]);
-        this.position = Statement.parsePosition(parts[2]);
-        this.formula = parts[3].trim();
+    private static parseFirstLine(line: string): RegExpExecArray {
+        return /^(PRODUCE|EVAL|EXECUTE|CONSUME).*?(\d+:\d+|<no position>):\s*(.*)$/.exec(line);
     }
 
     public static parseStatementType(s: string): StatementType {
@@ -247,18 +304,19 @@ export class Statement {
             let regex = /^((\d+):(\d+)|<no position>):?$/.exec(s);
             if (regex && regex[2] && regex[3]) {
                 //subtract 1 to confirm with VS Codes 0-based numbering
-                let lineNr = +regex[2] - 1;
-                let charNr = +regex[3] - 1;
+                let lineNr = Math.max(0, +regex[2] - 1);
+                let charNr = Math.max(0, +regex[3] - 1);
                 return { line: lineNr, character: charNr };
             }
+            return { line: 0, character: 0 };
         }
-        return { line: 0, character: 0 };
+        return null;
     }
 
     //PRINTING:
     public firstLine(): string {
         let positionString = (this.position ? (this.position.line + 1) + ":" + (this.position.character + 1) : "<no position>");
-        let res: string = StatementType[this.type] + " " + positionString + " " + this.formula;
+        let res: string = (this.kind ? this.kind + ": " : "") + StatementType[this.type] + " " + positionString + " " + this.formula;
         return res;
     }
 
@@ -290,9 +348,9 @@ export class Statement {
                 res += "\t\t" + element.pretty() + "\n";
             });
         }
-        if (this.conditions.length > 0) {
+        if (this.pcs.length > 0) {
             res += "\tCondition: \n";
-            this.conditions.forEach(element => {
+            this.pcs.forEach(element => {
                 res += "\t\t" + element.raw + " (" + ConditionType[element.type] + ")\n"
             });
         }
@@ -301,7 +359,7 @@ export class Statement {
 
     public prettyConditions(): string[] {
         let result = [];
-        this.conditions.forEach(cond => {
+        this.pcs.forEach(cond => {
             switch (cond.type) {
                 case ConditionType.NullityCondition:
                     result.push(cond.lhs + " " + (cond.value ? "==" : "!=") + " Null")
