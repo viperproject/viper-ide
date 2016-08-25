@@ -161,7 +161,7 @@ function registerHandlers() {
                 }
                 if (!alreadyRunning) {
                     Settings.workspace = data.workspace;
-                    verificationstarted = startOrRestartVerification(data.uri, false, data.manuallyTriggered);
+                    verificationstarted = startOrRestartVerification(data.uri, data.manuallyTriggered);
                 }
             } else if (data.manuallyTriggered) {
                 Log.hint("This system can only verify .sil and .vpr files");
@@ -224,7 +224,7 @@ function restartBackendIfNeeded() {
     }
 }
 
-function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuallyTriggered: boolean): boolean {
+function startOrRestartVerification(uri: string, manuallyTriggered: boolean): boolean {
     //only verify if the settings are right
     if (!Settings.settings.valid) {
         Server.connection.sendNotification(Commands.InvalidSettings, "Cannot verify, fix the settings first.");
@@ -260,5 +260,6 @@ function startOrRestartVerification(uri: string, onlyTypeCheck: boolean, manuall
     //stop all other verifications because the backend crashes if multiple verifications are run in parallel
     Server.verificationTasks.forEach(task => { task.abortVerification(); });
     //start verification
-    return task.verify(onlyTypeCheck, manuallyTriggered);
+    Server.executedStages = [];
+    return task.verify(manuallyTriggered);
 }

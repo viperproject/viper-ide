@@ -136,11 +136,14 @@
                         "paths": [
                             "%SILICON_JAR%"
                         ],
-                        "mainMethod": "viper.silicon.SiliconRunner",
-                        "getTrace": true,
-                        "customArguments": ""
+                        "stages": [{
+                            "type": "verify",
+                            "mainMethod": "viper.silicon.SiliconRunner",
+                            "customArguments": "",
+                            "onError": ""
+                        }]
                     }],
-                    "description": "You can add your backend here.\n    // The first backend in the array will be used for verification.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
+                    "description": "You can add your backends here.\n    // The first backend in the array will be used for verification.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
                 },
                 "viperSettings.nailgunServerJar": {
                     "type": "string",

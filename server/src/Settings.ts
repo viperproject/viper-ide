@@ -4,7 +4,7 @@ import fs = require('fs');
 import * as pathHelper from 'path';
 var commandExists = require('command-exists');
 import {Log} from './Log';
-import {ViperSettings, Backend, LogLevel} from './ViperProtocol';
+import {ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
 
 // These are the example settings we defined in the client's package.json
 // file
@@ -21,21 +21,43 @@ export class Settings {
 
     public static workspace;
 
+    public static VERIFY = "verify";
+
     public static selectedBackend: string;
+
+    public static getVerifyStage(backend: Backend) {
+        return this.getStage(backend, this.VERIFY);
+    }
+
+    public static getStage(backend: Backend, type: string): Stage {
+        for (let i = 0; i < backend.stages.length; i++) {
+            let stage = backend.stages[i];
+            if (stage.type === type) return stage;
+        }
+        return null;
+    }
 
     public static backendEquals(a: Backend, b: Backend) {
         if (!a || !b) {
             return false;
         }
-        let same = a.customArguments === b.customArguments;
-        same = same && a.getTrace === b.getTrace;
-        same = same && a.mainMethod === b.mainMethod;
+        let same = a.stages.length === b.stages.length;
         same = same && a.name === b.name;
+        a.stages.forEach((element, i) => {
+            same = same && this.stageEquals(element, b.stages[i]);
+        });
         same = same && a.paths.length === b.paths.length;
-        if (!same) return false;
         for (let i = 0; i < a.paths.length; i++) {
             same = same && a.paths[i] === b.paths[i];
         }
+        return same;
+    }
+
+    public static stageEquals(a: Stage, b: Stage): boolean {
+        let same = a.customArguments == b.customArguments;
+        same = same && a.mainMethod == b.mainMethod;
+        same = same && a.type == b.type;
+        same = same && a.onError == b.onError;
         return same;
     }
 
@@ -128,28 +150,42 @@ export class Settings {
 
         for (let i = 0; i < backends.length; i++) {
             let backend = backends[i];
-            if (backendNames.has(backend.name)) {
-                return "Dublicated backend name: " + backend.name
-            } else {
-                backendNames.add(backend.name);
-            }
-            if (!backend) {
-                return "Empty backend detected";
-            }
+            if (!backend) return "Empty backend detected";
             //name there?
-            if (!backend.name || backend.name.length == 0) {
-                return "Every backend setting needs a name.";
+            if (!backend.name || backend.name.length == 0) return "Every backend setting needs a name.";
+
+            //check for dublicate backends
+            if (backendNames.has(backend.name)) return "Dublicated backend name: " + backend.name
+            backendNames.add(backend.name);
+
+            //check stages
+            if (!backend.stages || backend.stages.length == 0) return backend.name + ": The backend setting needs at least one stage";
+            let stages: Set<string> = new Set<string>();
+            let verifyStageFound = false;
+            for (let i = 0; i < backend.stages.length; i++) {
+                let stage: Stage = backend.stages[i];
+                if (!stage) return "Empty stage detected";
+                if (!stage.type || stage.type.length == 0) return "Every stage needs a type.";
+                if (stages.has(stage.type)) return "Dublicated stage type: " + backend.name + ":" + stage.type
+                stages.add(stage.type);
+                if (stage.type && stage.type == "verify") {
+                    if (verifyStageFound) return "You can only have one stage with type verify";
+                    verifyStageFound = true;
+                }
+                if (!stage.mainMethod || stage.mainMethod.length == 0) return "Stage: " + stage.type + "is missing a mainMethod";
+                //TODO: check mainMethods:
             }
-            //path there?
-            if (!backend.paths || backend.paths.length == 0) {
-                return backend.name + ": The backend setting needs at least one path";
-            }
-            //mainMethod there?
-            if (!backend.mainMethod || backend.mainMethod.length == 0) {
-                return backend.name + ": The backend setting is missing a mainMethod";
+            if (!verifyStageFound) return "You must have exactly one stage with type verify";
+
+            for (let i = 0; i < backend.stages.length; i++) {
+                let stage: Stage = backend.stages[i];
+                if (stage.onError && stage.onError.length > 0 && !stages.has(stage.onError)) return "Cannot find stage " + stage.type + "'s onError stage";
             }
 
             //check paths
+            if (!backend.paths || backend.paths.length == 0) {
+                return backend.name + ": The backend setting needs at least one path";
+            }
             for (let i = 0; i < backend.paths.length; i++) {
                 let path = backend.paths[i];
 
@@ -164,9 +200,6 @@ export class Settings {
             }
             //-> the settings seem right
         }
-
-        //check mainMethod:
-        //TODO: 
         return null;
     }
 

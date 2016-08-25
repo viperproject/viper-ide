@@ -4,7 +4,7 @@ import child_process = require('child_process');
 
 import {Log} from './Log'
 import {Settings} from './Settings'
-import {Backend, ViperSettings, Commands, VerificationState, LogLevel} from './ViperProtocol'
+import {Stage, Backend, ViperSettings, Commands, VerificationState, LogLevel} from './ViperProtocol'
 import {Server} from './ServerClass';
 
 export class NailgunService {
@@ -145,19 +145,21 @@ export class NailgunService {
         process.kill(this.nailgunProcess.pid);
     }
 
-    public startVerificationProcess(fileToVerify: string, ideMode: boolean, onlyTypeCheck: boolean, backend: Backend): child_process.ChildProcess {
+    public startStageProcess(fileToVerify: string, stage:Stage, onData, onError, onClose): child_process.ChildProcess {
         let command = this.settings.nailgunClient +
             ' --nailgun-port ' + this.settings.nailgunPort + ' ' +
-            backend.mainMethod +
-            ' --ideMode' +
-            ' --z3Exe "' + this.settings.z3Executable + '" ' +
-            /*(backend.getTrace ? '--logLevel trace ' : '') +*/
-            (backend.customArguments ? backend.customArguments : "") +
+            stage.mainMethod + 
+            (stage.type === Settings.VERIFY ? ' --ideMode' + ' --z3Exe "' + this.settings.z3Executable + '"' : '') +
+            (stage.customArguments ? " " + stage.customArguments : "") +
             ' "' + fileToVerify + '"';
         Log.log(command, LogLevel.Debug);
-        return child_process.exec(command, { cwd: Settings.workspace }); // to set current working directory use, { cwd: verifierHome } as an additional parameter
+        let verifyProcess = child_process.exec(command, { cwd: Settings.workspace });
+        verifyProcess.stdout.on('data', onData);
+        verifyProcess.stderr.on('data', onError);
+        verifyProcess.on('close', onClose);
+        return verifyProcess;
     }
-
+    
     public startNailgunIfNotRunning(connection, backend: Backend) {
         if (NailgunService.startingOrRestarting) {
             Log.log("Server is already starting or restarting, don't start", LogLevel.Debug);

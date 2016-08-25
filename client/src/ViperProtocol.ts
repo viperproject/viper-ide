@@ -56,7 +56,7 @@ export class Commands {
     static FileClosed = { method: "FileClosed" };
     static VerificationNotStarted = { method: "VerificationNotStarted" };
     static StopDebugging = { method: "StopDebugging" };
-    static BackendStarted = {method: "BackendStarted"};
+    static BackendStarted = { method: "BackendStarted" };
 }
 
 export interface UpdateStatusBarParams {
@@ -97,10 +97,15 @@ export interface ViperSettings {
 
 export interface Backend {
     name: string;
+    stages: Stage[];
     paths: string[];
+}
+
+export interface Stage {
+    type: string;
     mainMethod: string;
-    getTrace: boolean;
     customArguments: string;
+    onError: string;
 }
 
 export interface ShowHeapParams {
@@ -188,11 +193,11 @@ export interface MyProtocolDecorationOptions {
         }
     }
     numberToDisplay: number;
-    originalPosition:Position;
-    depth:number,
-    methodIndex:number,
-    index:number,
-    isErrorState:boolean
+    originalPosition: Position;
+    depth: number,
+    methodIndex: number,
+    index: number,
+    isErrorState: boolean
 }
 
 
