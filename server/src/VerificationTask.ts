@@ -3,7 +3,7 @@
 import child_process = require('child_process');
 import {IConnection, Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
 import {Settings} from './Settings'
-import {UpdateStatusBarParams, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StepInfo, StateColors, MethodBorder, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
+import {Stage, UpdateStatusBarParams, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StepInfo, StateColors, MethodBorder, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement} from './Statement';
@@ -294,7 +294,7 @@ export class VerificationTask {
             }
             let success;
 
-            let verifyingStage = Server.stage().type === Settings.VERIFY;
+            let verifyingStage = Settings.isVerify(Server.stage());
 
             if (verifyingStage) {
                 if (code != 0 && code != 1 && code != 899) {
@@ -313,16 +313,26 @@ export class VerificationTask {
             }
 
             //do we need to start onError tasks?
-            if (!this.aborting && (!verifyingStage || success == Success.VerificationFailed)) {
-                let lastStage = Server.stage();
-                if (lastStage.onError && lastStage.onError.length > 0) {
-                    if (!Server.executedStages.some(stage => stage.type === lastStage.type)) {
-                        let newStage = Settings.getStage(Server.backend, lastStage.onError);
-                        if (newStage.type == Settings.VERIFY) {
-                            Log.log("Restart verifiacation after stage "+ lastStage.type,LogLevel.Info)
+            if (!this.aborting) {
+                let lastStage: Stage = Server.stage();
+                let newStage: Stage;
+                if (!verifyingStage) {
+                    newStage = Settings.getStage(Server.backend, lastStage.onSuccess);
+                } else {
+                    newStage = Settings.getStageFromSuccess(Server.backend, lastStage, success)
+                }
+                if (newStage) {
+                    //only continue if no cycle
+                    //only verify is allowed to be repeatedly executed
+                    if ((Settings.isVerify(newStage) && !Settings.isVerify(lastStage)) ||
+                        !Server.executedStages.some(stage => stage.type === newStage.type)) {
+                        VerificationTask.connection.sendNotification(Commands.StateChange, { filename: this.filename, stage: newStage.type });
+                        if (Settings.isVerify(newStage)) {
+                            Log.log("Restart verifiacation after stage " + lastStage.type, LogLevel.Info)
                             this.verify(this.manuallyTriggered);
                         } else {
-                            Log.log("Start stage "+ lastStage.type +" after failed verification",LogLevel.Info);
+                            Log.log("Start stage " + newStage.type + " after failed stage " + lastStage.type, LogLevel.Info);
+                            Server.executedStages.push(newStage);
                             Server.nailgunService.startStageProcess(this.filename, newStage, this.stdOutHandler.bind(this), this.stdErrHadler.bind(this), this.completionHandler.bind(this));
                         }
                         return;
@@ -418,7 +428,7 @@ export class VerificationTask {
         }
 
         let stage = Server.stage();
-        if (stage.type === Settings.VERIFY) {
+        if (Settings.isVerify(stage)) {
             if (data.startsWith("connect: No error")) {
                 Log.hint("No Nailgun server is running on port " + this.nailgunService.settings.nailgunPort);
             }
@@ -450,7 +460,7 @@ export class VerificationTask {
         }
         let stage = Server.stage();
         if (this.aborting) return;
-        if (stage.type === Settings.VERIFY) {
+        if (Settings.isVerify(stage)) {
             Log.toLogFile(`[${Server.backend.name}:${stage.type}: stdout raw]: ${data}`, LogLevel.LowLevelDebug);
             let parts = data.split(/\r?\n/g);
             parts[0] = this.partialData + parts[0];

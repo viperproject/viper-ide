@@ -4,7 +4,7 @@ import fs = require('fs');
 import * as pathHelper from 'path';
 var commandExists = require('command-exists');
 import {Log} from './Log';
-import {ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
+import {Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
 
 // These are the example settings we defined in the client's package.json
 // file
@@ -29,10 +29,29 @@ export class Settings {
         return this.getStage(backend, this.VERIFY);
     }
 
+    public static isVerify(stage: Stage) {
+        return stage.type === this.VERIFY;
+    }
+
     public static getStage(backend: Backend, type: string): Stage {
+        if (!type) return null;
         for (let i = 0; i < backend.stages.length; i++) {
             let stage = backend.stages[i];
             if (stage.type === type) return stage;
+        }
+        return null;
+    }
+
+    public static getStageFromSuccess(backend: Backend, stage: Stage, success: Success) {
+        switch (success) {
+            case Success.ParsingFailed:
+                return this.getStage(backend, stage.onParsingError);
+            case Success.VerificationFailed:
+                return this.getStage(backend, stage.onVerificationError);
+            case Success.TypecheckingFailed:
+                return this.getStage(backend, stage.onTypeCheckingError);
+            case Success.Success:
+                return this.getStage(backend, stage.onSuccess);
         }
         return null;
     }
@@ -57,7 +76,10 @@ export class Settings {
         let same = a.customArguments == b.customArguments;
         same = same && a.mainMethod == b.mainMethod;
         same = same && a.type == b.type;
-        same = same && a.onError == b.onError;
+        same = same && a.onParsingError == b.onParsingError;
+        same = same && a.onTypeCheckingError == b.onTypeCheckingError;
+        same = same && a.onVerificationError == b.onVerificationError;
+        same = same && a.onSuccess == b.onSuccess;
         return same;
     }
 
@@ -179,7 +201,10 @@ export class Settings {
 
             for (let i = 0; i < backend.stages.length; i++) {
                 let stage: Stage = backend.stages[i];
-                if (stage.onError && stage.onError.length > 0 && !stages.has(stage.onError)) return "Cannot find stage " + stage.type + "'s onError stage";
+                if (stage.onParsingError && stage.onParsingError.length > 0 && !stages.has(stage.onParsingError)) return "Cannot find stage " + stage.type + "'s onParsingError stage";
+                if (stage.onTypeCheckingError && stage.onTypeCheckingError.length > 0 && !stages.has(stage.onTypeCheckingError)) return "Cannot find stage " + stage.type + "'s onTypeCheckingError stage";
+                if (stage.onVerificationError && stage.onVerificationError.length > 0 && !stages.has(stage.onVerificationError)) return "Cannot find stage " + stage.type + "'s onVerificationError stage";
+                if (stage.onSuccess && stage.onSuccess.length > 0 && !stages.has(stage.onSuccess)) return "Cannot find stage " + stage.type + "'s onSuccess stage";
             }
 
             //check paths

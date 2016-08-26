@@ -149,7 +149,7 @@ export class NailgunService {
         let command = this.settings.nailgunClient +
             ' --nailgun-port ' + this.settings.nailgunPort + ' ' +
             stage.mainMethod + 
-            (stage.type === Settings.VERIFY ? ' --ideMode' + ' --z3Exe "' + this.settings.z3Executable + '"' : '') +
+            (Settings.isVerify(stage) ? ' --ideMode' + ' --z3Exe "' + this.settings.z3Executable + '"' : '') +
             (stage.customArguments ? " " + stage.customArguments : "") +
             ' "' + fileToVerify + '"';
         Log.log(command, LogLevel.Debug);

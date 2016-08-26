@@ -140,7 +140,10 @@
                             "type": "verify",
                             "mainMethod": "viper.silicon.SiliconRunner",
                             "customArguments": "",
-                            "onError": ""
+                            "onParsingError": "",
+                            "onTypeCheckingError": "",
+                            "onVerificationError": "",
+                            "onSuccess": ""
                         }]
                     }],
                     "description": "You can add your backends here.\n    // The first backend in the array will be used for verification.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
@@ -216,9 +219,9 @@
                             "description": "Path to a viper source file.",
                             "default": "${workspaceRoot}/sum.sil"
                         },
-                        "stopOnEntry": {
-                            "type": "boolean",
-                            "description": "Automatically stop after launch.",
+                        "startInState": {
+                            "type": "int",
+                            "description": "",
                             "default": true
                         }
                     }

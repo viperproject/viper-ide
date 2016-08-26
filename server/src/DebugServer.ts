@@ -15,7 +15,7 @@ import {Server} from './ServerClass';
 // import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
 // import {Settings} from './Settings'
-import {StatementType, Position, StepType, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+import {LaunchRequestArguments, StatementType, Position, StepType, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
 // import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Statement} from './Statement';
@@ -66,11 +66,11 @@ export class DebugServer {
                 );
                 ipc.server.on(
                     'launchRequest',
-                    function (data, socket) {
+                    function (data:LaunchRequestArguments, socket) {
                         try {
                             DebugServer.debuggerRunning = true;
                             Log.log('Debugging was requested for file: ' + data, LogLevel.Debug);
-                            VerificationTask.pathToUri(data).then((uri) => {
+                            VerificationTask.pathToUri(data.program).then((uri) => {
                                 Server.debuggedVerificationTask = Server.verificationTasks.get(uri);
                                 let response = "true";
                                 if (!Server.debuggedVerificationTask) {
@@ -118,20 +118,23 @@ export class DebugServer {
                             let data = JSON.parse(dataString);
                             let newState: number = -1;
 
+                            //translate from client state to server state
+                            let currentState = Server.debuggedVerificationTask.clientStepIndexToServerStep[data.state].index;
+
                             let steps = Server.debuggedVerificationTask.steps;
-                            let currentDepth = steps[data.state].depthLevel();
+                            let currentDepth = steps[currentState].depthLevel();
                             switch (data.type) {
                                 case StepType.Stay:
-                                    newState = data.state;
+                                    newState = currentState;
                                     break;
                                 case StepType.In:
-                                    newState = data.state + 1;
+                                    newState = currentState + 1;
                                     while (newState < steps.length && !steps[newState].canBeShownAsDecoration) {
                                         newState++;
                                     }
                                     break;
                                 case StepType.Back:
-                                    newState = data.state - 1;
+                                    newState = currentState - 1;
                                     while (newState >= 0 && !steps[newState].canBeShownAsDecoration) {
                                         newState--;
                                     }
@@ -139,7 +142,7 @@ export class DebugServer {
                                 case StepType.Continue:
                                     Log.error("continue is not supported right now, do step next instead");
                                 case StepType.Next:
-                                    for (let i = data.state + 1; i < steps.length; i++) {
+                                    for (let i = currentState + 1; i < steps.length; i++) {
                                         let step = steps[i];
                                         if (step.depthLevel() <= currentDepth && step.canBeShownAsDecoration) {
                                             //the step is on the same level or less deap
@@ -149,7 +152,7 @@ export class DebugServer {
                                     }
                                     break;
                                 case StepType.Out:
-                                    for (let i = data.state + 1; i < steps.length; i++) {
+                                    for (let i = currentState + 1; i < steps.length; i++) {
                                         let step = steps[i];
                                         if (step.depthLevel() < currentDepth && step.canBeShownAsDecoration) {
                                             //the step is less deap
@@ -164,12 +167,13 @@ export class DebugServer {
                             if (position.line >= 0) {
                                 Server.showHeap(Server.debuggedVerificationTask, newState);
                             }
+                            //translate from server state to client state
+                            newState = steps[newState].decorationOptions.index;
                             ipc.server.emit(
                                 socket,
                                 'MoveResponse',
                                 JSON.stringify({ position: position, state: newState })
                             );
-
                         }
                         catch (e) {
                             Log.error("Error handling move request: " + e);

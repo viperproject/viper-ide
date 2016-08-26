@@ -302,6 +302,8 @@ function handleStateChange(params: UpdateStatusBarParams) {
             case VerificationState.PostProcessing:
                 updateStatusBarItem(statusBarItem, `postprocessing ${params.filename}: `, 'white');
                 break;
+            case VerificationState.Stage:
+                updateStatusBarItem(statusBarItem, `Stage: ${params.stage}: ${params.filename}: `, 'white');
             case VerificationState.Ready:
                 ExtensionState.viperFiles.forEach(file => {
                     file.verifying = false;
@@ -596,7 +598,7 @@ function registerHandlers() {
                 type: "viper",
                 request: "launch",
                 program: openDoc,
-                stopOnEntry: true
+                startInState: 0
             }
             showStates(() => {
                 vscode.commands.executeCommand('vscode.startDebug', launchConfig).then(() => {
@@ -657,16 +659,12 @@ function hideStates(callback, visualizer: StateVisualizer) {
             Log.error("Error changing the focus to the first editorGroup");
         });
         Log.log("Hide states for " + visualizer.viperFile.name(), LogLevel.Info);
-        //if (StateVisualizer.showStates) {
         StateVisualizer.showStates = false;
-        //ExtensionState.viperFiles.forEach(file => {
         visualizer.removeSpecialCharacters(() => {
             visualizer.hideDecorations();
             visualizer.reset();
             callback();
         });
-        //});
-        //}
     } catch (e) {
         Log.error("Error hiding States: " + e);
     }

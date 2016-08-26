@@ -6,7 +6,8 @@ export enum VerificationState {
     VerificationReporting = 4,
     PostProcessing = 5,
     Ready = 6,
-    Stopping = 7
+    Stopping = 7,
+    Stage = 8
 }
 
 export enum LogLevel {
@@ -71,6 +72,7 @@ export interface UpdateStatusBarParams {
     nofErrors?: number;
     verificationNeeded?: boolean;
     uri?: string;
+    stage?: string;
 }
 
 export interface VerifyRequest {
@@ -105,7 +107,10 @@ export interface Stage {
     type: string;
     mainMethod: string;
     customArguments: string;
-    onError: string;
+    onParsingError: string;
+    onTypeCheckingError: string;
+    onVerificationError: string;
+    onSuccess: string;
 }
 
 export interface ShowHeapParams {
@@ -200,8 +205,12 @@ export interface MyProtocolDecorationOptions {
     isErrorState: boolean
 }
 
-
 export interface Range {
     start: Position,
     end: Position
+}
+
+export interface LaunchRequestArguments {
+    program: string;
+    startInState: number;
 }

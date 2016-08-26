@@ -15,19 +15,13 @@ import {basename} from 'path';
 import {LanguageClient, RequestType} from 'vscode-languageclient';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
-import {StepType} from './ViperProtocol'
+import {LaunchRequestArguments, StepType} from './ViperProtocol'
 
 const ipc = require('node-ipc');
 
 /**
  * This interface should always match the schema found in the mock-debug extension manifest.
  */
-export interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
-	/** An absolute path to the program to debug. */
-	program: string;
-	/** Automatically stop target after launch. If not specified, target does not stop. */
-	stopOnEntry?: boolean;
-}
 
 class ViperDebugSession extends DebugSession {
 
@@ -59,9 +53,9 @@ class ViperDebugSession extends DebugSession {
 	private _variableHandles = new Handles<string>();
 	private _timer;
 
-	private _stopOnEntry: boolean = true;
+	//private _stopOnEntry: boolean = true;
 
-	private static self:ViperDebugSession;
+	private static self: ViperDebugSession;
 
 	/**
 	 * Creates a new debug adapter that is used for one debug session.
@@ -111,7 +105,7 @@ class ViperDebugSession extends DebugSession {
 							ViperDebugSession.self._currentState = obj.step;
 							ViperDebugSession.self.sendEvent(new StoppedEvent("step", ViperDebugSession.THREAD_ID));
 						} catch (e) {
-							ViperDebugSession.log("Error handling MoveDebuggerToPos \""+data+"\" request: "+e);
+							ViperDebugSession.log("Error handling MoveDebuggerToPos \"" + data + "\" request: " + e);
 						}
 					}
 				);
@@ -121,7 +115,7 @@ class ViperDebugSession extends DebugSession {
 						try {
 							ViperDebugSession.self.sendEvent(new TerminatedEvent(false));
 						} catch (e) {
-							ViperDebugSession.log("Error handling StopDebugging request: "+e);
+							ViperDebugSession.log("Error handling StopDebugging request: " + e);
 						}
 					}
 				);
@@ -136,14 +130,7 @@ class ViperDebugSession extends DebugSession {
 				this.sendEvent(new TerminatedEvent(false));
 				return;
 			} else {
-				//if (this._stopOnEntry) {
-				//stop at the first State
-				this._currentState = 0;
 				this.requestFromLanguageServer("Move", JSON.stringify({ type: StepType.Stay, state: this._currentState }));
-				//} else {
-				// we just start to run until we hit a breakpoint or an exception
-				//this.continueRequest(response, { threadId: ViperDebugSession.THREAD_ID });
-				//}
 			}
 		});
 		this.registerIpcHandler("Move", true, res => {
@@ -212,7 +199,6 @@ class ViperDebugSession extends DebugSession {
 		);
 	}
 
-	//TODO: make sure to send ContinueRequest instead of LaunchRequest
 	protected launchRequest(response: DebugProtocol.ContinueResponse, args: LaunchRequestArguments): void {
 		//start IPC connection
 		this.connectToLanguageServer();
@@ -220,11 +206,14 @@ class ViperDebugSession extends DebugSession {
 		//ViperDebugSession.log("launchRequest");
 
 		this._sourceFile = args.program;
-		this._stopOnEntry = args.stopOnEntry;
+		this._currentState = args.startInState;
+
+		ViperDebugSession.log("LaunchRequestArguments: "+ JSON.stringify(args));
+		//this._stopOnEntry = args.stopOnEntry;
 		this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
 		//notify Language server about started debugging session
 		this.sendResponse(response);
-		this.requestFromLanguageServer("launch", this._sourceFile);
+		this.requestFromLanguageServer("launch", args);
 	}
 
 	protected disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments): void {

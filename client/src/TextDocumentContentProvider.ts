@@ -26,11 +26,11 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         if (this.heapGraphs.length > 1) {
             table = ` <table>
   <tr><td>
-   <h1 style="color:${StateColors.currentState(darkGraphs)}">Current State</h1>
-   ${this.heapGraphToContent(1 - this.stateVisualizer.nextHeapIndex, this.stateVisualizer.nextHeapIndex)}
-  </td><td>
    <h1 style="color:${StateColors.previousState(darkGraphs)}">Previous State</h1>
    ${this.heapGraphToContent(this.stateVisualizer.nextHeapIndex, 1 - this.stateVisualizer.nextHeapIndex)}
+  </td><td>
+   <h1 style="color:${StateColors.currentState(darkGraphs)}">Current State</h1>
+   ${this.heapGraphToContent(1 - this.stateVisualizer.nextHeapIndex, this.stateVisualizer.nextHeapIndex)}
   </td></tr>
  </table>`;
         } else if (this.heapGraphs.length == 1) {
