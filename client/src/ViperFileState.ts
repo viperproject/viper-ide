@@ -15,6 +15,7 @@ export class ViperFileState {
         this.verifying = false;
         this.open = true;
         this.changed = true;
+        this.onlySpecialCharsChanged = false;
         this.needsVerification = false;
         this.decorationsShown = false;
         this.specialCharsShown = false; //TODO: is it really false
@@ -30,6 +31,7 @@ export class ViperFileState {
     verifying: boolean;
     open: boolean;
     changed: boolean;
+    onlySpecialCharsChanged: boolean;
     needsVerification: boolean;
     decorationsShown: boolean;
     specialCharsShown: boolean;
@@ -59,11 +61,11 @@ export class ViperFileState {
         }*/
     }
 
-    public setEditor(editor:vscode.TextEditor){
-        if(!this.editor){
+    public setEditor(editor: vscode.TextEditor) {
+        if (!this.editor) {
             this.editor = editor;
             //this.stateVisualizer.removeSpecialCharacters(() => { });
-        }else{
+        } else {
             this.editor = editor;
         }
     }

@@ -73,22 +73,25 @@ export class VerificationTask {
         VerificationTask.connection = connection;
     }
 
-    public getHeapGraphDescription(index: number): HeapGraph {
+    public getHeapGraphDescription(clientIndex: number): HeapGraph {
+        //convert client index to server index
+        let serverIndex = this.clientStepIndexToServerStep[clientIndex].index;
+
         if (!this.steps) {
             Log.error("Cannot show heap: no steps avaliable, a reverification is needed.");
         }
-        if (index < 0 || index >= this.steps.length) {
-            Log.error("Cannot show heap at step " + index + " only states 0 - " + (this.steps.length - 1) + " are valid");
+        if (serverIndex < 0 || serverIndex >= this.steps.length) {
+            Log.error("Cannot show heap at step " + clientIndex + " only states 0 - " + (this.clientStepIndexToServerStep.length - 1) + " are valid");
             return;
         }
-        let step = this.steps[index];
+        let step = this.steps[serverIndex];
         if (!step) {
-            Log.error("Cannot show heap at step " + index + " step is null");
+            Log.error("Cannot show heap at step " + clientIndex + " step is null");
             return;
         }
 
         //inform debug server about selected State
-        DebugServer.moveDebuggerToPos(step.position, step.index);
+        DebugServer.moveDebuggerToPos(step.position, clientIndex);
 
         return {
             heap: HeapVisualizer.heapToDot(step, step.isErrorState || this.nailgunService.settings.showSymbolicState, step.isErrorState, this.model),
@@ -96,7 +99,7 @@ export class VerificationTask {
             fileName: this.filename,
             fileUri: this.fileUri,
             position: step.position,
-            stateInfos: (this.steps[index].isErrorState ? "Error State -> use the Counter Example\n" : "") + step.pretty(),
+            stateInfos: (this.steps[serverIndex].isErrorState ? "Error State -> use the Counter Example\n" : "") + step.pretty(),
             methodName: step.verifiable.name,
             methodType: step.verifiable.typeString(),
             methodOffset: step.verifiable.startIndex - 1,
@@ -285,6 +288,10 @@ export class VerificationTask {
         VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
     }
 
+    reset() {
+        this.lastSuccess = Success.None;
+    }
+
     private completionHandler(code) {
         try {
             Log.log(`Child process exited with code ${code}`, LogLevel.Debug);
@@ -294,9 +301,9 @@ export class VerificationTask {
             }
             let success;
 
-            let verifyingStage = Settings.isVerify(Server.stage());
+            let isVerifyingStage = Server.stage().isVerification;
 
-            if (verifyingStage) {
+            if (isVerifyingStage) {
                 if (code != 0 && code != 1 && code != 899) {
                     Log.log("Verification Backend Terminated Abnormaly: with code " + code, LogLevel.Default);
                     if (Settings.isWin && code == null) {
@@ -316,31 +323,35 @@ export class VerificationTask {
             if (!this.aborting) {
                 let lastStage: Stage = Server.stage();
                 let newStage: Stage;
-                if (!verifyingStage) {
-                    newStage = Settings.getStage(Server.backend, lastStage.onSuccess);
-                } else {
+                if (isVerifyingStage) {
                     newStage = Settings.getStageFromSuccess(Server.backend, lastStage, success)
+                } else {
+                    newStage = Settings.getStage(Server.backend, lastStage.onSuccess);
                 }
                 if (newStage) {
                     //only continue if no cycle
-                    //only verify is allowed to be repeatedly executed
-                    if ((Settings.isVerify(newStage) && !Settings.isVerify(lastStage)) ||
-                        !Server.executedStages.some(stage => stage.type === newStage.type)) {
-                        VerificationTask.connection.sendNotification(Commands.StateChange, { filename: this.filename, stage: newStage.type });
-                        if (Settings.isVerify(newStage)) {
-                            Log.log("Restart verifiacation after stage " + lastStage.type, LogLevel.Info)
+                    //only verifications are allowed to be repeated twice if the preceeding operation was no verification
+                    let newStageExecutions = Server.executedStages.filter(stage => stage.name === newStage.name).length;
+                    if (newStageExecutions <= 0 ||
+                        (newStage.isVerification && !lastStage.isVerification && newStageExecutions <= 1)) {
+                        VerificationTask.connection.sendNotification(Commands.StateChange, { filename: this.filename, stage: newStage.name });
+                        if (newStage.isVerification) {
+                            Log.log("Restart verifiacation after stage " + lastStage.name, LogLevel.Info)
                             this.verify(this.manuallyTriggered);
                         } else {
-                            Log.log("Start stage " + newStage.type + " after failed stage " + lastStage.type, LogLevel.Info);
+                            let successMessage = Success[isVerifyingStage ? success : Success.Success];
+                            Log.log("Start stage " + newStage.name + " after stage " + lastStage.name + " success was: " + successMessage, LogLevel.Info);
                             Server.executedStages.push(newStage);
-                            Server.nailgunService.startStageProcess(this.filename, newStage, this.stdOutHandler.bind(this), this.stdErrHadler.bind(this), this.completionHandler.bind(this));
+                            VerificationTask.uriToPath(this.fileUri).then((path) => {
+                                Server.nailgunService.startStageProcess(path, newStage, this.stdOutHandler.bind(this), this.stdErrHadler.bind(this), this.completionHandler.bind(this));
+                            });
                         }
                         return;
                     }
                 }
             }
 
-            if (verifyingStage) {
+            if (isVerifyingStage) {
                 // Send the computed diagnostics to VSCode.
                 VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
 
@@ -379,14 +390,20 @@ export class VerificationTask {
                     uri: this.fileUri
                 };
                 VerificationTask.connection.sendNotification(Commands.StateChange, stateChangeParams);
-                /*
-                Log.log("Print out low Level Debug info",LogLevel.Debug);
-                this.steps.forEach((step) => {
-                    Log.toLogFile(step.pretty(), LogLevel.LowLevelDebug);
-                });
-                Log.toLogFile("Model: " + this.model.pretty(), LogLevel.LowLevelDebug);
-                */
                 this.lastSuccess = success;
+            } else {
+                success = Success.Success;
+                let stateChangeParams: UpdateStatusBarParams = {
+                    newState: VerificationState.Ready,
+                    success: success,
+                    manuallyTriggered: this.manuallyTriggered,
+                    filename: this.filename,
+                    nofErrors: 0,
+                    time: this.time,
+                    verificationCompleted: false,
+                    uri: this.fileUri
+                };
+                VerificationTask.connection.sendNotification(Commands.StateChange, stateChangeParams);
             }
             //reset for next verification
             this.time = 0;
@@ -428,7 +445,7 @@ export class VerificationTask {
         }
 
         let stage = Server.stage();
-        if (Settings.isVerify(stage)) {
+        if (stage.isVerification) {
             if (data.startsWith("connect: No error")) {
                 Log.hint("No Nailgun server is running on port " + this.nailgunService.settings.nailgunPort);
             }
@@ -450,7 +467,7 @@ export class VerificationTask {
                 Log.error("Unknown backend error message: " + data, LogLevel.Debug);
             }
         } else {
-            Log.error("Backend error message: " + stage.type + " " + data, LogLevel.Debug);
+            Log.error("Backend error message: " + stage.name + " " + data, LogLevel.Debug);
         }
     }
 
@@ -460,8 +477,8 @@ export class VerificationTask {
         }
         let stage = Server.stage();
         if (this.aborting) return;
-        if (Settings.isVerify(stage)) {
-            Log.toLogFile(`[${Server.backend.name}:${stage.type}: stdout raw]: ${data}`, LogLevel.LowLevelDebug);
+        if (stage.isVerification) {
+            Log.toLogFile(`[${Server.backend.name}:${stage.name}: stdout raw]: ${data}`, LogLevel.LowLevelDebug);
             let parts = data.split(/\r?\n/g);
             parts[0] = this.partialData + parts[0];
             for (var i = 0; i < parts.length; i++) {
@@ -497,7 +514,7 @@ export class VerificationTask {
                 this.partialData = parts[parts.length - 1];
             }
         } else {
-            Log.log(`${Server.backend.name}:${stage.type}: ${data}`, LogLevel.Debug);
+            Log.log(`${Server.backend.name}:${stage.name}: ${data}`, LogLevel.Debug);
         }
     }
 

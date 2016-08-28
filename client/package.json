@@ -137,7 +137,8 @@
                             "%SILICON_JAR%"
                         ],
                         "stages": [{
-                            "type": "verify",
+                            "name": "verify",
+                            "isVerification": true,
                             "mainMethod": "viper.silicon.SiliconRunner",
                             "customArguments": "",
                             "onParsingError": "",

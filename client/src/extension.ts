@@ -148,11 +148,19 @@ function startVerificationController() {
                         task.type = TaskType.NoOp;
                         break;
                     case TaskType.Save:
-                        //Log.log("Save " + path.basename(task.uri.toString()) + " is handled", LogLevel.Info);
-                        fileState.changed = true;
-                        //TODO: ignore saves due to special characters
-                        fileState.verified = false;
-                        workList.push({ type: TaskType.Verify, uri: task.uri, manuallyTriggered: false });
+                        if (fileState.onlySpecialCharsChanged) {
+                            fileState.onlySpecialCharsChanged = false;
+                        } else {
+                            //Log.log("Save " + path.basename(task.uri.toString()) + " is handled", LogLevel.Info);
+                            fileState.changed = true;
+                            //TODO: ignore saves due to special characters
+                            fileState.verified = false;
+
+                            if (ExtensionState.isDebugging) {
+                                stopDebugging();
+                            }
+                            workList.push({ type: TaskType.Verify, uri: task.uri, manuallyTriggered: false });
+                        }
                         task.type = TaskType.NoOp;
                         break;
                     // case TaskType.VerificationCompleted:
@@ -191,6 +199,9 @@ function startVerificationController() {
                         let oldFileState = ExtensionState.viperFiles.get(lastActiveTextEditor.toString());
                         oldFileState.decorationsShown = false;
                         oldFileState.stateVisualizer.removeSpecialCharsFromClosedDocument(() => { });
+                        if (ExtensionState.isDebugging) {
+                            stopDebugging();
+                        }
                     }
                     let fileState = ExtensionState.viperFiles.get(uri.toString());
                     fileState.setEditor(editor);
@@ -303,7 +314,7 @@ function handleStateChange(params: UpdateStatusBarParams) {
                 updateStatusBarItem(statusBarItem, `postprocessing ${params.filename}: `, 'white');
                 break;
             case VerificationState.Stage:
-                updateStatusBarItem(statusBarItem, `Stage: ${params.stage}: ${params.filename}: `, 'white');
+                updateStatusBarItem(statusBarItem, `File ${params.filename}: Stage ${params.stage}`, 'white');
             case VerificationState.Ready:
                 ExtensionState.viperFiles.forEach(file => {
                     file.verifying = false;
@@ -603,6 +614,7 @@ function registerHandlers() {
             showStates(() => {
                 vscode.commands.executeCommand('vscode.startDebug', launchConfig).then(() => {
                     Log.log('Debug session started successfully', LogLevel.Info);
+                    ExtensionState.isDebugging = true;
                 }, err => {
                     Log.error("Error starting debugger: " + err.message);
                 });
@@ -636,6 +648,11 @@ function registerHandlers() {
     }));
 }
 
+function stopDebugging() {
+    Log.log("Tell language server to stop debugging");
+    state.client.sendNotification(Commands.StopDebugging);
+}
+
 function showStates(callback) {
     try {
         if (!StateVisualizer.showStates) {
@@ -647,6 +664,8 @@ function showStates(callback) {
                     callback();
                 });
             });
+        } else {
+            Log.log("don't show states, they are already shown");
         }
     } catch (e) {
         Log.error("Error showing States: " + e);
@@ -658,6 +677,7 @@ function hideStates(callback, visualizer: StateVisualizer) {
         vscode.commands.executeCommand('workbench.action.focusFirstEditorGroup').then(success => { }, error => {
             Log.error("Error changing the focus to the first editorGroup");
         });
+        ExtensionState.isDebugging = false;
         Log.log("Hide states for " + visualizer.viperFile.name(), LogLevel.Info);
         StateVisualizer.showStates = false;
         visualizer.removeSpecialCharacters(() => {
@@ -677,6 +697,7 @@ function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
             Log.hint("Extension not ready yet.");
         } else {
             let visualizer = ExtensionState.viperFiles.get(uri).stateVisualizer;
+            visualizer.completeReset();
             hideStates(() => {
                 //delete old SymbExLog:
                 Log.deleteFile(Log.symbExLogFilePath);

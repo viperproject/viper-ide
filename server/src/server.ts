@@ -187,6 +187,10 @@ function registerHandlers() {
         Server.connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, verificationCompleted: false, verificationNeeded: false, uri: uri });
     });
 
+    Server.connection.onNotification(Commands.StopDebugging, () => {
+        DebugServer.stopDebugging();
+    })
+
     Server.connection.onRequest(Commands.ShowHeap, (params: ShowHeapParams) => {
         try {
             let task = Server.verificationTasks.get(params.uri);
@@ -194,7 +198,7 @@ function registerHandlers() {
                 Log.error("No verificationTask found for " + params.uri);
                 return;
             }
-            Server.showHeap(task, task.clientStepIndexToServerStep[params.clientIndex].index);
+            Server.showHeap(task, params.clientIndex);
         } catch (e) {
             Log.error("Error showing heap: " + e);
         }
@@ -216,10 +220,10 @@ function restartBackendIfNeeded() {
     if (!Settings.backendEquals(Server.backend, newBackend)) {
         Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`)
         Server.backend = newBackend;
-        //stop all running verifications
+        Server.verificationTasks.forEach(task => task.reset());
         Server.nailgunService.restartNailgunServer(Server.connection, Server.backend);
     } else {
-        Log.log("No need to restart backend. The setting changes did not affect it.")
+        Log.log("No need to restart backend. It's still the same")
         Server.backend = newBackend;
     }
 }

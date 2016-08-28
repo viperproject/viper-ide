@@ -145,11 +145,11 @@ export class NailgunService {
         process.kill(this.nailgunProcess.pid);
     }
 
-    public startStageProcess(fileToVerify: string, stage:Stage, onData, onError, onClose): child_process.ChildProcess {
+    public startStageProcess(fileToVerify: string, stage: Stage, onData, onError, onClose): child_process.ChildProcess {
         let command = this.settings.nailgunClient +
             ' --nailgun-port ' + this.settings.nailgunPort + ' ' +
-            stage.mainMethod + 
-            (Settings.isVerify(stage) ? ' --ideMode' + ' --z3Exe "' + this.settings.z3Executable + '"' : '') +
+            stage.mainMethod +
+            (stage.isVerification ? (' --ideMode' + ' --z3Exe "' + this.settings.z3Executable + '"') : '') +
             (stage.customArguments ? " " + stage.customArguments : "") +
             ' "' + fileToVerify + '"';
         Log.log(command, LogLevel.Debug);
@@ -159,7 +159,7 @@ export class NailgunService {
         verifyProcess.on('close', onClose);
         return verifyProcess;
     }
-    
+
     public startNailgunIfNotRunning(connection, backend: Backend) {
         if (NailgunService.startingOrRestarting) {
             Log.log("Server is already starting or restarting, don't start", LogLevel.Debug);

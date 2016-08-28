@@ -66,7 +66,7 @@ export class DebugServer {
                 );
                 ipc.server.on(
                     'launchRequest',
-                    function (data:LaunchRequestArguments, socket) {
+                    function (data: LaunchRequestArguments, socket) {
                         try {
                             DebugServer.debuggerRunning = true;
                             Log.log('Debugging was requested for file: ' + data, LogLevel.Debug);
@@ -162,13 +162,16 @@ export class DebugServer {
                                     }
                                     break;
                             }
-                            Log.log(`Step${StepType[data.type]}: state ${data.state} -> state ${newState}`, LogLevel.LowLevelDebug);
                             let position = Server.debuggedVerificationTask ? Server.debuggedVerificationTask.getPositionOfState(newState) : { line: 0, character: 0 };
+
+                            //translate from server state to client state
+                            if (newState >= 0)
+                                newState = steps[newState].decorationOptions.index;
+
                             if (position.line >= 0) {
                                 Server.showHeap(Server.debuggedVerificationTask, newState);
                             }
-                            //translate from server state to client state
-                            newState = steps[newState].decorationOptions.index;
+                            Log.log(`Step${StepType[data.type]}: state ${data.state} -> state ${newState}`, LogLevel.LowLevelDebug);
                             ipc.server.emit(
                                 socket,
                                 'MoveResponse',
@@ -258,11 +261,11 @@ export class DebugServer {
         ipc.server.start();
     }
 
-    static moveDebuggerToPos(position: Position, step) {
+    static moveDebuggerToPos(position: Position, clientStep) {
         if (DebugServer.debuggerRunning) {
             try {
-                ipc.of.viperDebugger.emit("MoveDebuggerToPos", JSON.stringify({ position: position, step: step }));
-                Log.log("LanguageServer is telling Debugger to Move to Position of State " + step)
+                ipc.of.viperDebugger.emit("MoveDebuggerToPos", JSON.stringify({ position: position, step: clientStep }));
+                Log.log("LanguageServer is telling Debugger to Move to Position of State " + clientStep)
             } catch (e) {
                 Log.error("Error sending MoveDebuggerToPos request: " + e);
             }

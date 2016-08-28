@@ -327,6 +327,7 @@ export class StateVisualizer {
     addCharacterToDecorationOptionLocations(callback) {
         Log.log("Try to add special chars to " + this.viperFile.name(), LogLevel.Debug);
         if (this.areSpecialCharsBeingModified("Don't add special chars,")) return;
+        if (!this.decorationOptions || this.decorationOptions.length == 0) return;
         try {
             let editor = this.viperFile.editor;
             if (StateVisualizer.showStates && editor && this.decorationOptions) {
@@ -341,6 +342,7 @@ export class StateVisualizer {
                     let pos = new vscode.Position(p.line, p.character);
                     edit.insert(openDoc.uri, pos, '\u200B');
                 });
+                this.viperFile.onlySpecialCharsChanged = true;
                 vscode.workspace.applyEdit(edit).then(resolve => {
                     if (resolve) {
                         openDoc.save().then(() => {
@@ -389,21 +391,28 @@ export class StateVisualizer {
                 }
 
             }
-            vscode.workspace.applyEdit(edit).then(resolve => {
-                if (resolve) {
-                    this.viperFile.editor.document.save().then(saved => {
-                        Log.log("Special Chars removed from file " + this.viperFile.name(), LogLevel.Info)
+            if (edit.size >0) {
+                this.viperFile.onlySpecialCharsChanged = true;
+                vscode.workspace.applyEdit(edit).then(resolve => {
+                    if (resolve) {
+                        this.viperFile.editor.document.save().then(saved => {
+                            Log.log("Special Chars removed from file " + this.viperFile.name(), LogLevel.Info)
+                            this.removingSpecialChars = false;
+                            this.viperFile.specialCharsShown = false;
+                            callback();
+                        });
+                    } else {
                         this.removingSpecialChars = false;
-                        this.viperFile.specialCharsShown = false;
-                        callback();
-                    });
-                } else {
+                    }
+                }, reason => {
                     this.removingSpecialChars = false;
-                }
-            }, reason => {
+                    Log.error("Error removing special characters: edit was rejected: " + reason);
+                });
+            } else {
                 this.removingSpecialChars = false;
-                Log.error("Error removing special characters: edit was rejected: " + reason);
-            });
+                Log.log("No special chars to remove")
+                callback();
+            }
         } catch (e) {
             this.removingSpecialChars = false;
             Log.error("Error removing special characters: " + e);
@@ -419,6 +428,7 @@ export class StateVisualizer {
                     let newData = data.toString();
                     if (newData.indexOf("⦿") >= 0 || newData.indexOf("\u200B") >= 0) {
                         newData = newData.replace(/[⦿\u200B]/g, "");
+                        this.viperFile.onlySpecialCharsChanged = true;
                         fs.writeFileSync(this.uri.fsPath, newData);
                     }
                     Log.log("Special Chars removed from closed file " + this.viperFile.name(), LogLevel.Info)

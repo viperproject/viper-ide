@@ -29,15 +29,11 @@ export class Settings {
         return this.getStage(backend, this.VERIFY);
     }
 
-    public static isVerify(stage: Stage) {
-        return stage.type === this.VERIFY;
-    }
-
-    public static getStage(backend: Backend, type: string): Stage {
-        if (!type) return null;
+    public static getStage(backend: Backend, name: string): Stage {
+        if (!name) return null;
         for (let i = 0; i < backend.stages.length; i++) {
             let stage = backend.stages[i];
-            if (stage.type === type) return stage;
+            if (stage.name === name) return stage;
         }
         return null;
     }
@@ -75,7 +71,8 @@ export class Settings {
     public static stageEquals(a: Stage, b: Stage): boolean {
         let same = a.customArguments == b.customArguments;
         same = same && a.mainMethod == b.mainMethod;
-        same = same && a.type == b.type;
+        same = same && a.name == b.name;
+        same = same && a.isVerification == b.isVerification;
         same = same && a.onParsingError == b.onParsingError;
         same = same && a.onTypeCheckingError == b.onTypeCheckingError;
         same = same && a.onVerificationError == b.onVerificationError;
@@ -187,24 +184,18 @@ export class Settings {
             for (let i = 0; i < backend.stages.length; i++) {
                 let stage: Stage = backend.stages[i];
                 if (!stage) return "Empty stage detected";
-                if (!stage.type || stage.type.length == 0) return "Every stage needs a type.";
-                if (stages.has(stage.type)) return "Dublicated stage type: " + backend.name + ":" + stage.type
-                stages.add(stage.type);
-                if (stage.type && stage.type == "verify") {
-                    if (verifyStageFound) return "You can only have one stage with type verify";
-                    verifyStageFound = true;
-                }
-                if (!stage.mainMethod || stage.mainMethod.length == 0) return "Stage: " + stage.type + "is missing a mainMethod";
+                if (!stage.name || stage.name.length == 0) return "Every stage needs a name.";
+                if (stages.has(stage.name)) return "Dublicated stage name: " + backend.name + ":" + stage.name
+                stages.add(stage.name);
+                if (!stage.mainMethod || stage.mainMethod.length == 0) return "Stage: " + stage.name + "is missing a mainMethod";
                 //TODO: check mainMethods:
             }
-            if (!verifyStageFound) return "You must have exactly one stage with type verify";
-
             for (let i = 0; i < backend.stages.length; i++) {
                 let stage: Stage = backend.stages[i];
-                if (stage.onParsingError && stage.onParsingError.length > 0 && !stages.has(stage.onParsingError)) return "Cannot find stage " + stage.type + "'s onParsingError stage";
-                if (stage.onTypeCheckingError && stage.onTypeCheckingError.length > 0 && !stages.has(stage.onTypeCheckingError)) return "Cannot find stage " + stage.type + "'s onTypeCheckingError stage";
-                if (stage.onVerificationError && stage.onVerificationError.length > 0 && !stages.has(stage.onVerificationError)) return "Cannot find stage " + stage.type + "'s onVerificationError stage";
-                if (stage.onSuccess && stage.onSuccess.length > 0 && !stages.has(stage.onSuccess)) return "Cannot find stage " + stage.type + "'s onSuccess stage";
+                if (stage.onParsingError && stage.onParsingError.length > 0 && !stages.has(stage.onParsingError)) return "Cannot find stage " + stage.name + "'s onParsingError stage";
+                if (stage.onTypeCheckingError && stage.onTypeCheckingError.length > 0 && !stages.has(stage.onTypeCheckingError)) return "Cannot find stage " + stage.name + "'s onTypeCheckingError stage";
+                if (stage.onVerificationError && stage.onVerificationError.length > 0 && !stages.has(stage.onVerificationError)) return "Cannot find stage " + stage.name + "'s onVerificationError stage";
+                if (stage.onSuccess && stage.onSuccess.length > 0 && !stages.has(stage.onSuccess)) return "Cannot find stage " + stage.name + "'s onSuccess stage";
             }
 
             //check paths

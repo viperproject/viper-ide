@@ -104,7 +104,8 @@ export interface Backend {
 }
 
 export interface Stage {
-    type: string;
+    name: string;
+    isVerification: boolean;
     mainMethod: string;
     customArguments: string;
     onParsingError: string;
@@ -170,16 +171,6 @@ export interface StepInfo {
     methodIndex: number,
     index: number,
     isErrorState: boolean
-}
-
-export interface ViperFileState {
-    verified: boolean;
-    success: Success;
-    verifying: boolean;
-    open: boolean;
-    changed: boolean;
-    needsVerification: boolean;
-    decorationsShown: boolean;
 }
 
 export interface StepsAsDecorationOptionsResult {
