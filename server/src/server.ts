@@ -34,8 +34,6 @@ registerHandlers();
 // Listen on the connection
 Server.connection.listen();
 
-//let count =0;
-
 function registerHandlers() {
     //starting point (executed once)
     Server.connection.onInitialize((params): InitializeResult => {
@@ -44,20 +42,9 @@ function registerHandlers() {
         Server.workspaceRoot = params.rootPath;
         Server.nailgunService = new NailgunService();
         return {
-            capabilities: {
-                // Tell the client that the server works in FULL text document sync mode
-                //textDocumentSync: Server.documents.syncKind,
-                // Tell the client that the server support code complete
-                // completionProvider: {
-                //     resolveProvider: true
-                // }
-            }
+            capabilities: {}
         }
     });
-
-    Server.connection.onExit(() => {
-        Log.log("On Exit", LogLevel.Debug);
-    })
 
     Server.connection.onShutdown(() => {
         Log.log("On Shutdown", LogLevel.Debug);
@@ -70,36 +57,24 @@ function registerHandlers() {
             Log.logLevel = Settings.settings.logLevel;
             //after this line, Logging works
 
-            //Log.log("New configuration: "+JSON.stringify(change));
+            Log.log('Configuration changed', LogLevel.Info);
+            Settings.checkSettings(Settings.settings);
+            if (Settings.valid()) {
+                //pass the new settings to the verificationService
+                Server.nailgunService.changeSettings(Settings.settings);
 
-            Log.log('configuration changed' + (++Server.count), LogLevel.Info);
-            //check settings
-            let error = Settings.checkSettings(Settings.settings);
-            if (error) {
-                Server.connection.sendNotification(Commands.InvalidSettings, error);
-                return;
+                restartBackendIfNeeded();
             }
-
-            Log.log("The settings are ok", LogLevel.Info);
-
-            //pass the new settings to the verificationService and the Log
-            Server.nailgunService.changeSettings(Settings.settings);
-
-            restartBackendIfNeeded();
         } catch (e) {
             Log.error("Error handling configuration change: " + e);
         }
     });
 
     Server.connection.onRequest(Commands.SelectBackend, (selectedBackend: string) => {
-        if (!Settings.settings.valid) {
-            Server.connection.sendNotification(Commands.InvalidSettings, "Cannot start backend, fix settings first.");
-            return;
-        }
-        if (selectedBackend) {
+        if (Settings.valid() && selectedBackend) {
             Settings.selectedBackend = selectedBackend;
+            restartBackendIfNeeded();
         }
-        restartBackendIfNeeded();
     });
 
     Server.connection.onRequest(Commands.RequestBackendNames, args => {
@@ -111,60 +86,56 @@ function registerHandlers() {
         }
     });
 
-    Server.connection.onDidChangeWatchedFiles((change) => {
-        Log.log("We recevied a file change event", LogLevel.Debug)
-    });
+    // Server.connection.onDidChangeWatchedFiles((change) => {
+    //     Log.log("We recevied a file change event", LogLevel.Debug)
+    // });
 
     Server.connection.onDidOpenTextDocument((params) => {
-        if (Server.isViperSourceFile(params.textDocument.uri)) {
-            let uri = params.textDocument.uri;
-            //notify client;
-            Server.connection.sendNotification(Commands.FileOpened, params.textDocument.uri);
-            if (!Server.verificationTasks.has(uri)) {
-                //create new task for opened file
-                let task = new VerificationTask(uri, Server.nailgunService, Server.connection);
-                Server.verificationTasks.set(uri, task);
-                //Log.log(`${uri} opened, task created`, LogLevel.Debug);
-                if (Server.nailgunService.ready) {
-                    // Log.log("Opened Text Document", LogLevel.Debug);
-                    // startOrRestartVerification(uri, false, false);
+        try {
+            if (Server.isViperSourceFile(params.textDocument.uri)) {
+                let uri = params.textDocument.uri;
+                //notify client;
+                Server.connection.sendNotification(Commands.FileOpened, params.textDocument.uri);
+                if (!Server.verificationTasks.has(uri)) {
+                    //create new task for opened file
+                    let task = new VerificationTask(uri, Server.nailgunService, Server.connection);
+                    Server.verificationTasks.set(uri, task);
                 }
             }
+        } catch (e) {
+            Log.error("Error handling TextDocument closed");
         }
     });
 
     Server.connection.onDidCloseTextDocument((params) => {
-        if (Server.isViperSourceFile(params.textDocument.uri)) {
-            let uri = params.textDocument.uri;
-            //notify client;
-            Server.connection.sendNotification(Commands.FileClosed, uri);
-            if (Server.verificationTasks.has(uri)) {
-                //remove no longer needed task
-                Server.verificationTasks.delete(uri);
-                //Log.log(`${params.textDocument.uri} closed, task deleted`, LogLevel.Debug);
+        try {
+            if (Server.isViperSourceFile(params.textDocument.uri)) {
+                let uri = params.textDocument.uri;
+                //notify client;
+                Server.connection.sendNotification(Commands.FileClosed, uri);
+                if (Server.verificationTasks.has(uri)) {
+                    //remove no longer needed task
+                    Server.verificationTasks.delete(uri);
+                }
             }
+        } catch (e) {
+            Log.error("Error handling TextDocument closed");
         }
     });
 
     Server.connection.onRequest(Commands.Verify, (data: VerifyRequest) => {
         try {
             let verificationstarted = false;
-            if (Server.isViperSourceFile(data.uri)) {
-                let alreadyRunning = false;
-                if (data.manuallyTriggered) {
-                    //it does not make sense to reverify if no changes were made and the verification is already running
-                    Server.verificationTasks.forEach(task => {
-                        if (task.running && task.fileUri === data.uri) {
-                            alreadyRunning = true;
-                        }
-                    });
+            let alreadyRunning = false;
+            //it does not make sense to reverify if no changes were made and the verification is already running
+            Server.verificationTasks.forEach(task => {
+                if (task.running && task.fileUri === data.uri) {
+                    alreadyRunning = true;
                 }
-                if (!alreadyRunning) {
-                    Settings.workspace = data.workspace;
-                    verificationstarted = startOrRestartVerification(data.uri, data.manuallyTriggered);
-                }
-            } else if (data.manuallyTriggered) {
-                Log.hint("This system can only verify .sil and .vpr files");
+            });
+            if (!alreadyRunning) {
+                Settings.workspace = data.workspace;
+                verificationstarted = startOrRestartVerification(data.uri, data.manuallyTriggered);
             }
             if (!verificationstarted) {
                 Server.connection.sendNotification(Commands.VerificationNotStarted, data.uri);
@@ -220,7 +191,7 @@ function restartBackendIfNeeded() {
     if (!Settings.backendEquals(Server.backend, newBackend)) {
         Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`)
         Server.backend = newBackend;
-        Server.verificationTasks.forEach(task => task.reset());
+        Server.verificationTasks.forEach(task => task.resetLastSuccess());
         Server.nailgunService.restartNailgunServer(Server.connection, Server.backend);
     } else {
         Log.log("No need to restart backend. It's still the same")
@@ -229,12 +200,7 @@ function restartBackendIfNeeded() {
 }
 
 function startOrRestartVerification(uri: string, manuallyTriggered: boolean): boolean {
-    //only verify if the settings are right
-    if (!Settings.settings.valid) {
-        Server.connection.sendNotification(Commands.InvalidSettings, "Cannot verify, fix the settings first.");
-        return false;
-    }
-
+    
     //only verify viper source code files
     if (!Server.isViperSourceFile(uri)) {
         Log.hint("Only viper source files can be verified.");

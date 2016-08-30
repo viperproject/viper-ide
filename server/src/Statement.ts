@@ -3,9 +3,9 @@
 //import {Position} from 'vscode';
 import {Log} from './Log';
 import {Model} from './Model';
-import {MyProtocolDecorationOptions, StatementType, Position, LogLevel} from './ViperProtocol';
+import {SymbExLogEntry, MyProtocolDecorationOptions, StatementType, Position, LogLevel} from './ViperProtocol';
 import {Verifiable} from './Verifiable';
-import {RawSymbExLogEntry, VerificationTask} from './VerificationTask';
+import {VerificationTask} from './VerificationTask';
 
 export interface Variable { name: string; value: string; variablesReference: number; concreteValue?: string; }
 interface Name { raw: string; receiver?: string; field?: string; arguments?: string[]; type: NameType; }
@@ -57,7 +57,7 @@ export class Statement {
         */
     static numberOfStatementsCreatedFromSymbExLog: number = 0;
 
-    static CreateFromSymbExLog(depth: number, parent: Statement, symbExLog: RawSymbExLogEntry, verifiable: Verifiable, task: VerificationTask) {
+    static CreateFromSymbExLog(depth: number, parent: Statement, symbExLog: SymbExLogEntry, verifiable: Verifiable, task: VerificationTask) {
         let index = task.steps.length
         let type = Statement.parseStatementType(symbExLog.type);
         let kind = symbExLog.kind;

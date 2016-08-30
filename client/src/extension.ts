@@ -10,7 +10,7 @@ import {LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, Tr
 import {Timer} from './Timer';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
-import {StepsAsDecorationOptionsResult, HeapGraph, Backend, ViperSettings, VerificationState, Commands, UpdateStatusBarParams, LogLevel, Success} from './ViperProtocol';
+import {StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, UpdateStatusBarParams, LogLevel, Success} from './ViperProtocol';
 import Uri from '../node_modules/vscode-uri/lib/index';
 import {Log} from './Log';
 import {StateVisualizer} from './StateVisualizer';
@@ -73,6 +73,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 function resetViperFiles() {
+    Log.log("Reset all viper files");
     ExtensionState.viperFiles.forEach(element => {
         element.changed = true;
         element.verified = false;
@@ -326,6 +327,8 @@ function handleStateChange(params: UpdateStatusBarParams) {
                 else {
                     let uri = vscode.Uri.parse(params.uri);
 
+                    //since at most one file can be verified at a time, set all to non-verified before potentially setting one to verified 
+                    ExtensionState.viperFiles.forEach(state => state.verified = false);
                     ExtensionState.viperFiles.get(params.uri).success = params.success;
                     if (params.success != Success.Aborted && params.success != Success.Error) {
                         ExtensionState.viperFiles.get(params.uri).verified = true;
@@ -463,9 +466,13 @@ function registerHandlers() {
     });
     state.client.onNotification(Commands.FileClosed, (uri: string) => {
         let uriObject: vscode.Uri = vscode.Uri.parse(uri);
-        Log.log("File closed: " + uriObject.path, LogLevel.Info);
+        Log.log("File closed: " + path.basename(uriObject.path), LogLevel.Info);
         let fileState = ExtensionState.viperFiles.get(uri);
         fileState.open = false;
+        fileState.verified = false;
+        if (lastActiveTextEditor.toString() == uriObject.toString()) {
+            lastActiveTextEditor = null;
+        }
         fileState.stateVisualizer.removeSpecialCharsFromClosedDocument(() => { });
     });
     state.client.onRequest(Commands.UriToPath, (uri: string) => {
@@ -521,10 +528,11 @@ function registerHandlers() {
     });
     state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
         try {
-            //Log.log("HeapGraph",LogLevel.Debug);
             let visualizer = ExtensionState.viperFiles.get(heapGraph.fileUri).stateVisualizer;
-            visualizer.createAndShowHeap(heapGraph, visualizer.nextHeapIndex);
-            visualizer.nextHeapIndex = 1 - visualizer.nextHeapIndex;
+            if (heapGraph.state != visualizer.previousState) {
+                visualizer.createAndShowHeap(heapGraph, visualizer.nextHeapIndex);
+                visualizer.nextHeapIndex = 1 - visualizer.nextHeapIndex;
+            }
         } catch (e) {
             Log.error("Error displaying HeapGraph: " + e);
         }
@@ -580,15 +588,16 @@ function registerHandlers() {
         }
     }));
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.startDebugging', () => {
-        if (!vscode.window.activeTextEditor) {
-            Log.log("Don't debug, active file is not editable.", LogLevel.Debug);
+        if (!lastActiveTextEditor) {
+            Log.log("Don't debug, no viper file open.", LogLevel.Debug);
             return;
         }
-        let uri = vscode.window.activeTextEditor.document.uri;
-        if (!Helper.isViperSourceFile(uri.toString())) {
-            Log.log("Don't debug, active file is no viper file.", LogLevel.Debug);
-            return;
-        }
+        let uri = lastActiveTextEditor;
+        //The lastActiveTextEditor is always a viper file
+        // if (!Helper.isViperSourceFile(uri.toString())) {
+        //     Log.log("Don't debug, active file is no viper file.", LogLevel.Debug);
+        //     return;
+        // }
         if (!backendReady) {
             Log.log("Don't debug, backend is not ready.", LogLevel.Debug);
             return;
@@ -596,6 +605,7 @@ function registerHandlers() {
         let fileState = ExtensionState.viperFiles.get(uri.toString());
         if (!fileState || !fileState.verified) {
             Log.log("Don't debug, file is not verified", LogLevel.Debug);
+            workList.push({ type: TaskType.Verify, uri: uri, manuallyTriggered: false });
             return;
         }
 
@@ -630,7 +640,7 @@ function registerHandlers() {
             statusBarItem.color = 'orange';
             statusBarItem.text = "aborting";
             statusBarProgress.hide();
-            state.client.sendRequest(Commands.StopVerification, vscode.window.activeTextEditor.document.uri.toString());
+            state.client.sendRequest(Commands.StopVerification, lastActiveTextEditor.toString());
         } else {
             Log.hint("Extension not ready yet.");
         }

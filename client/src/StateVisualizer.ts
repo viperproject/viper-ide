@@ -1,7 +1,7 @@
 'use strict';
 
 import {Log} from './Log';
-import {ShowHeapParams, StepsAsDecorationOptionsResult, MyProtocolDecorationOptions, StepInfo, StateColors, MethodBorder, Position, HeapGraph, Commands, ViperSettings, LogLevel} from './ViperProtocol';
+import {ShowHeapParams, StepsAsDecorationOptionsResult, MyProtocolDecorationOptions, StateColors, Position, HeapGraph, Commands, LogLevel} from './ViperProtocol';
 import * as fs from 'fs';
 import child_process = require('child_process');
 import {HeapProvider} from './TextDocumentContentProvider';
@@ -37,7 +37,7 @@ export class StateVisualizer {
     globalInfo: string;
     uri: vscode.Uri;
 
-    shownState: number;
+    currentState: number;
     previousState: number;
     currentDepth: number;
     debuggedMethodName: string;
@@ -63,7 +63,7 @@ export class StateVisualizer {
     public reset() {
         this.nextHeapIndex = 0;
         this.provider.resetState();
-        this.shownState = -1;
+        this.currentState = -1;
     }
 
     public completeReset() {
@@ -166,16 +166,6 @@ export class StateVisualizer {
 
     private showHeapGraph(heapGraph: HeapGraph, index: number) {
         this.provider.setState(heapGraph, index);
-        // let dotFileShown = false;
-        // vscode.workspace.textDocuments.forEach(element => {
-        //     if (element.fileName === Log.dotFilePath(index)) {
-        //         dotFileShown = true;
-        //     }
-        // });
-        // if (!dotFileShown) {
-        //     //Log.log("Show dotFile", LogLevel.Debug);
-        //     //Helper.showFile(Log.dotFilePath(index), vscode.ViewColumn.Two);
-        // }
         this.provider.update(this.previewUri);
         //Log.log("Show heap graph", LogLevel.Debug);
         vscode.commands.executeCommand('vscode.previewHtml', this.previewUri, vscode.ViewColumn.Two).then((success) => { }, (reason) => {
@@ -208,7 +198,7 @@ export class StateVisualizer {
             if (selectedState >= 0 && selectedState < this.decorationOptions.length) {
                 let selectedOption = this.decorationOptions[selectedState];
                 //its in range
-                this.shownState = selectedState;
+                this.currentState = selectedState;
                 //this.selectedPosition = this.decorationOptionsOrderedByState[selectedState].range.start;
                 this.currentDepth = selectedOption.depth;
                 let currentMethodIdx = selectedOption.methodIndex;
@@ -264,12 +254,12 @@ export class StateVisualizer {
             let key = this.posToKey(pos.line, pos.character);
             if (this.decorationOptionsByPosition.has(key)) {
                 let selectedState = this.decorationOptionsByPosition.get(key).index;
-                if (this.shownState != selectedState) {
-                    this.shownState = selectedState
-                    Log.log("Request showing the heap of state " + this.shownState);
+                if (this.currentState != selectedState) {
+                    this.currentState = selectedState
+                    Log.log("Request showing the heap of state " + this.currentState);
                     let params: ShowHeapParams = {
                         uri: this.uri.toString(),
-                        clientIndex: this.shownState
+                        clientIndex: this.currentState
                     }
                     ExtensionState.instance.client.sendRequest(Commands.ShowHeap, params);
                 } else {

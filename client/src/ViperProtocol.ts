@@ -1,37 +1,4 @@
-export enum VerificationState {
-    Stopped = 0,
-    Starting = 1,
-    VerificationRunning = 2,
-    VerificationPrintingHelp = 3,
-    VerificationReporting = 4,
-    PostProcessing = 5,
-    Ready = 6,
-    Stopping = 7,
-    Stage = 8
-}
-
-export enum LogLevel {
-    None = 0,
-    Default = 1,
-    Info = 2,
-    Verbose = 3,
-    Debug = 4,
-    LowLevelDebug = 5
-}
-
-export enum StepType { Stay, Next, Back, In, Out, Continue }
-
-export enum Success {
-    None = 0,
-    Success = 1,
-    ParsingFailed = 2,
-    TypecheckingFailed = 3,
-    VerificationFailed = 4,
-    Aborted = 5,
-    Error = 6
-}
-
-export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE, UNKONWN };
+//Global interfaces:
 
 export class Commands {
     static InvalidSettings = { method: "InvalidSettings" };
@@ -60,6 +27,46 @@ export class Commands {
     static BackendStarted = { method: "BackendStarted" };
 }
 
+//Communication between Language Client and Language Server:
+
+export enum VerificationState {
+    Stopped = 0,
+    Starting = 1,
+    VerificationRunning = 2,
+    VerificationPrintingHelp = 3,
+    VerificationReporting = 4,
+    PostProcessing = 5,
+    Ready = 6,
+    Stopping = 7,
+    Stage = 8
+}
+
+export enum LogLevel {
+    //No output
+    None = 0,
+    //Only verification specific output
+    Default = 1,
+    //Some info about internal state, critical errors
+    Info = 2,
+    //More info about internal state
+    Verbose = 3,
+    //Detailed information about internal state, non critical errors
+    Debug = 4,
+    //all output of used tools is written to logFile,
+    //some of it also to the console
+    LowLevelDebug = 5
+}
+
+export enum Success {
+    None = 0,
+    Success = 1,
+    ParsingFailed = 2,
+    TypecheckingFailed = 3,
+    VerificationFailed = 4,
+    Aborted = 5,
+    Error = 6
+}
+
 export interface UpdateStatusBarParams {
     newState: VerificationState;
     progress?;
@@ -79,39 +86,6 @@ export interface VerifyRequest {
     uri: string,
     manuallyTriggered: boolean,
     workspace: string
-}
-
-export interface ViperSettings {
-    verificationBackends: Backend[];
-    nailgunServerJar: string;
-    nailgunClient: string;
-    z3Executable: string;
-    valid: boolean;
-    autoSave: boolean;
-    nailgunPort: string;
-    logLevel: number;
-    autoVerifyAfterBackendChange: boolean;
-    showProgress: boolean;
-    dotExecutable: string;
-    showSymbolicState: boolean;
-    darkGraphs: boolean;
-}
-
-export interface Backend {
-    name: string;
-    stages: Stage[];
-    paths: string[];
-}
-
-export interface Stage {
-    name: string;
-    isVerification: boolean;
-    mainMethod: string;
-    customArguments: string;
-    onParsingError: string;
-    onTypeCheckingError: string;
-    onVerificationError: string;
-    onSuccess: string;
 }
 
 export interface ShowHeapParams {
@@ -137,16 +111,6 @@ export interface Position {
     character: number;
 }
 
-export interface MethodBorder {
-    name: string,
-    methodType: string,
-    methodName: string,
-    firstStateIndex: number,
-    lastStateIndex: number,
-    start: number,
-    end: number
-}
-
 export class StateColors {
     static currentState(dark: boolean): string {
         return dark ? "red" : "red";
@@ -161,16 +125,8 @@ export class StateColors {
         return dark ? "yellow" : "orange";
     };
     static uninterestingState(dark: boolean): string {
-        return dark ? "grey" : "lightgrey";
+        return dark ? "grey" : "grey";
     };
-}
-
-export interface StepInfo {
-    originalPosition: Position,
-    depth: number,
-    methodIndex: number,
-    index: number,
-    isErrorState: boolean
 }
 
 export interface StepsAsDecorationOptionsResult {
@@ -201,7 +157,60 @@ export interface Range {
     end: Position
 }
 
+//Communication between Language Server and Debugger:
+
+export enum StepType { Stay, Next, Back, In, Out, Continue }
+
 export interface LaunchRequestArguments {
     program: string;
     startInState: number;
 }
+
+//Language Server Internal:
+
+export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE, UNKONWN };
+
+export interface Backend {
+    name: string;
+    stages: Stage[];
+    paths: string[];
+}
+
+export interface Stage {
+    name: string;
+    isVerification: boolean;
+    mainMethod: string;
+    customArguments: string;
+    onParsingError: string;
+    onTypeCheckingError: string;
+    onVerificationError: string;
+    onSuccess: string;
+}
+
+export interface ViperSettings {
+    verificationBackends: Backend[];
+    nailgunServerJar: string;
+    nailgunClient: string;
+    z3Executable: string;
+    autoSave: boolean;
+    nailgunPort: string;
+    logLevel: number;
+    autoVerifyAfterBackendChange: boolean;
+    showProgress: boolean;
+    dotExecutable: string;
+    showSymbolicState: boolean;
+    darkGraphs: boolean;
+}
+
+//Format expected from other tools:
+//Silicon should provide the verification states in this format
+export interface SymbExLogEntry {
+    value: string,
+    type?: string,
+    kind?: string,
+    open: boolean,
+    pos?: string,
+    prestate?: { store: string[], heap: string[], oldHeap: string[], pcs: string[] },
+    children?: SymbExLogEntry[];
+}
+

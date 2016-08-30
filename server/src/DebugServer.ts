@@ -69,7 +69,7 @@ export class DebugServer {
                     function (data: LaunchRequestArguments, socket) {
                         try {
                             DebugServer.debuggerRunning = true;
-                            Log.log('Debugging was requested for file: ' + data, LogLevel.Debug);
+                            Log.log('Debugging was requested for file: ' + data.program, LogLevel.Debug);
                             VerificationTask.pathToUri(data.program).then((uri) => {
                                 Server.debuggedVerificationTask = Server.verificationTasks.get(uri);
                                 let response = "true";
@@ -116,66 +116,84 @@ export class DebugServer {
                     function (dataString, socket) {
                         try {
                             let data = JSON.parse(dataString);
-                            let newState: number = -1;
+                            let newServerState: number = -1;
 
                             //translate from client state to server state
-                            let currentState = Server.debuggedVerificationTask.clientStepIndexToServerStep[data.state].index;
+                            let currentServerState = Server.debuggedVerificationTask.clientStepIndexToServerStep[data.state].index;
 
                             let steps = Server.debuggedVerificationTask.steps;
-                            let currentDepth = steps[currentState].depthLevel();
+                            let currentDepth = steps[currentServerState].depthLevel();
                             switch (data.type) {
                                 case StepType.Stay:
-                                    newState = currentState;
+                                    newServerState = currentServerState;
                                     break;
                                 case StepType.In:
-                                    newState = currentState + 1;
-                                    while (newState < steps.length && !steps[newState].canBeShownAsDecoration) {
-                                        newState++;
+                                    newServerState = currentServerState + 1;
+                                    while (newServerState < steps.length && !steps[newServerState].canBeShownAsDecoration) {
+                                        newServerState++;
                                     }
                                     break;
                                 case StepType.Back:
-                                    newState = currentState - 1;
-                                    while (newState >= 0 && !steps[newState].canBeShownAsDecoration) {
-                                        newState--;
+                                    newServerState = currentServerState - 1;
+                                    while (newServerState >= 0 && !steps[newServerState].canBeShownAsDecoration) {
+                                        newServerState--;
                                     }
                                     break;
                                 case StepType.Continue:
-                                    Log.error("continue is not supported right now, do step next instead");
+                                    //go to next error state
+                                    for (let i = currentServerState + 1; i < steps.length; i++) {
+                                        let step = steps[i];
+                                        if (step.isErrorState && step.canBeShownAsDecoration) {
+                                            //the step is on the same level or less deap
+                                            newServerState = i;
+                                            break;
+                                        }
+                                    }
+                                    if (newServerState < 0) {
+                                        for (let i = 0; i <= currentServerState; i++) {
+                                            let step = steps[i];
+                                            if (step.isErrorState && step.canBeShownAsDecoration) {
+                                                //the step is on the same level or less deap
+                                                newServerState = i;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    break;
                                 case StepType.Next:
-                                    for (let i = currentState + 1; i < steps.length; i++) {
+                                    for (let i = currentServerState + 1; i < steps.length; i++) {
                                         let step = steps[i];
                                         if (step.depthLevel() <= currentDepth && step.canBeShownAsDecoration) {
                                             //the step is on the same level or less deap
-                                            newState = i;
+                                            newServerState = i;
                                             break;
                                         }
                                     }
                                     break;
                                 case StepType.Out:
-                                    for (let i = currentState + 1; i < steps.length; i++) {
+                                    for (let i = currentServerState + 1; i < steps.length; i++) {
                                         let step = steps[i];
                                         if (step.depthLevel() < currentDepth && step.canBeShownAsDecoration) {
                                             //the step is less deap
-                                            newState = i;
+                                            newServerState = i;
                                             break;
                                         }
                                     }
                                     break;
                             }
-                            let position = Server.debuggedVerificationTask ? Server.debuggedVerificationTask.getPositionOfState(newState) : { line: 0, character: 0 };
+                            let position = Server.debuggedVerificationTask ? Server.debuggedVerificationTask.getPositionOfState(newServerState) : { line: 0, character: 0 };
 
                             //translate from server state to client state
-                            if (newState >= 0)
-                                newState = steps[newState].decorationOptions.index;
+                            let newClientState = (newServerState >= 0) ? steps[newServerState].decorationOptions.index : -1;
 
                             if (position.line >= 0) {
-                                Server.showHeap(Server.debuggedVerificationTask, newState);
+                                Server.showHeap(Server.debuggedVerificationTask, newClientState);
                             }
-                            Log.log(`Step${StepType[data.type]}: state ${data.state} -> state ${newState}`, LogLevel.LowLevelDebug);
+                            Log.log(`Step${StepType[data.type]}: state ${data.state} -> state ${newClientState}`, LogLevel.LowLevelDebug);
                             ipc.server.emit(
                                 socket,
                                 'MoveResponse',
-                                JSON.stringify({ position: position, state: newState })
+                                JSON.stringify({ position: position, state: newClientState })
                             );
                         }
                         catch (e) {

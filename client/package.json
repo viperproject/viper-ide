@@ -140,7 +140,7 @@
                             "name": "verify",
                             "isVerification": true,
                             "mainMethod": "viper.silicon.SiliconRunner",
-                            "customArguments": "",
+                            "customArguments": "--nailgun-port $nailgunPort$ $mainMethod$ --ideMode --z3Exe $z3Exe$ $fileToVerify$",
                             "onParsingError": "",
                             "onTypeCheckingError": "",
                             "onVerificationError": "",

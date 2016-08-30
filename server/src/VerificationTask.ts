@@ -3,7 +3,7 @@
 import child_process = require('child_process');
 import {IConnection, Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
 import {Settings} from './Settings'
-import {Stage, UpdateStatusBarParams, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StepInfo, StateColors, MethodBorder, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
+import {SymbExLogEntry, Stage, UpdateStatusBarParams, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement} from './Statement';
@@ -16,55 +16,36 @@ import {DebugServer} from './DebugServer';
 import * as fs from 'fs';
 import {Verifiable} from './Verifiable';
 
-export interface RawSymbExLogEntry {
-    value: string,
-    type?: string,
-    kind?: string,
-    open: boolean,
-    pos?: string,
-    prestate?: { store: string[], heap: string[], oldHeap: string[], pcs: string[] },
-    children?: RawSymbExLogEntry[];
-}
-
 export class VerificationTask {
-    //state
-    running: boolean = false;
-    aborting: boolean = false;
-    manuallyTriggered: boolean;
-    state: VerificationState = VerificationState.Stopped;
-    verifierProcess: child_process.ChildProcess;
-    nailgunService: NailgunService;
+    //state that is valid across verifications
     static connection: IConnection;
-
-    //file under verification
+    nailgunService: NailgunService;
+    // file under verification
     fileUri: string;
     filename: string;
     path: string;
+    lastSuccess: Success = Success.None;
 
+    //state specific to one verification
+    running: boolean = false;
+    aborting: boolean = false;
+    state: VerificationState = VerificationState.Stopped;
+    manuallyTriggered: boolean;
+    verifierProcess: child_process.ChildProcess;
     //working variables
     private lines: string[] = [];
     private wrongFormat: boolean = false;
     private partialData: string = "";
-    private linesToSkip: number = 0;
-    private inSymbExLoggerHierarchy: boolean = false;
-    //isFromMethod: boolean = false;
-
     //verification results
     time: number = 0;
     diagnostics: Diagnostic[];
     steps: Statement[];
     verifiables: Verifiable[];
     model: Model = new Model();
-    lastSuccess: Success = Success.None;
     parsingCompleted: boolean = false;
     typeCheckingCompleted: boolean = false;
-    //methodBorders: MethodBorder[];
-    //methodBordersOrderedByStart = [];
     clientStepIndexToServerStep: Statement[];
-    //symbExLog: SymbExLogEntry[] = [];
-
-    completeSymbExLog: RawSymbExLogEntry[] = [];
-
+    symbExLog: SymbExLogEntry[] = [];
     stateIndicesOrderedByPosition: { index: number, position: Position }[];
 
     constructor(fileUri: string, nailgunService: NailgunService, connection: IConnection) {
@@ -209,7 +190,6 @@ export class VerificationTask {
 
             let optionsInLine = -1;
             let line = 0;
-            let stepInfo: StepInfo[] = [];
             this.stateIndicesOrderedByPosition.forEach(idx => {
                 let step = this.steps[idx.index];
                 if (step.canBeShownAsDecoration) {
@@ -234,34 +214,42 @@ export class VerificationTask {
         }
     }
 
+    prepareVerification() {
+        this.running = true;
+        this.aborting = false;
+        this.state = VerificationState.Stopped;
+        this.lines = [];
+        this.wrongFormat = false;
+        if (this.partialData.length > 0) {
+            Log.error("Some unparsed output was detected:\n" + this.partialData);
+            this.partialData = "";
+        }
+        this.time = 0;
+        this.resetDiagnostics();
+        this.steps = [];
+        this.verifiables = [];
+        this.model = new Model();
+        this.parsingCompleted = true;
+        this.typeCheckingCompleted = true;
+        this.clientStepIndexToServerStep = [];
+        this.symbExLog = [];
+        this.stateIndicesOrderedByPosition = [];
+    }
+
     verify(manuallyTriggered: boolean): boolean {
         if (!manuallyTriggered && this.lastSuccess == Success.Error) {
             Log.log("After an internal error, reverification has to be triggered manually.", LogLevel.Info);
             return false;
         }
         //Initialization
+        this.prepareVerification();
         this.manuallyTriggered = manuallyTriggered;
-        this.running = true;
-        Server.executedStages.push(Settings.getVerifyStage(Server.backend));
-        this.aborting = false;
-        this.state = VerificationState.Stopped;
-        this.resetDiagnostics();
-        this.wrongFormat = false;
-        this.steps = [];
-        this.lines = [];
-        this.clientStepIndexToServerStep = [];
-        this.model = new Model();
-        this.parsingCompleted = true;
-        this.typeCheckingCompleted = true;
-        this.inSymbExLoggerHierarchy = false;
-        if (this.partialData.length > 0) {
-            Log.error("Some unparsed output was detected:\n" + this.partialData);
-            this.partialData = "";
+        let stage = Server.backend.stages[0];
+        if (!stage) {
+            Log.error("backend " + Server.backend.name + " has no " + Settings.VERIFY + " stage, even though the settigns were checked.");
+            return false;
         }
-        if (this.linesToSkip != 0) {
-            Log.error("missed lines to skip: " + this.linesToSkip);
-            this.linesToSkip = 0;
-        }
+        Server.executedStages.push(stage);
 
         Log.log(Server.backend.name + ' verification started', LogLevel.Info);
 
@@ -273,11 +261,6 @@ export class VerificationTask {
             //start verification of current file
             this.path = path
             this.filename = pathHelper.basename(path);
-            let stage = Settings.getVerifyStage(Server.backend);
-            if (!stage) {
-                Log.error("backend " + Server.backend.name + " has no " + Settings.VERIFY + " stage, even though the settigns were checked.");
-                return false;
-            }
             this.verifierProcess = this.nailgunService.startStageProcess(path, stage, this.stdOutHandler.bind(this), this.stdErrHadler.bind(this), this.completionHandler.bind(this));
         });
         return true;
@@ -288,7 +271,7 @@ export class VerificationTask {
         VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
     }
 
-    reset() {
+    resetLastSuccess() {
         this.lastSuccess = Success.None;
     }
 
@@ -435,39 +418,43 @@ export class VerificationTask {
     }
 
     private stdErrHadler(data) {
-        data = data.trim();
-        if (data.length == 0) return;
+        try {
+            data = data.trim();
+            if (data.length == 0) return;
 
-        //hide stacktraces
-        if (data.startsWith("at ")) {
-            Log.toLogFile(data, LogLevel.LowLevelDebug);
-            return;
-        }
+            //hide stacktraces
+            if (data.startsWith("at ")) {
+                Log.toLogFile(data, LogLevel.LowLevelDebug);
+                return;
+            }
 
-        let stage = Server.stage();
-        if (stage.isVerification) {
-            if (data.startsWith("connect: No error")) {
-                Log.hint("No Nailgun server is running on port " + this.nailgunService.settings.nailgunPort);
-            }
-            else if (data.startsWith("java.lang.NullPointerException")) {
-                Log.error("A nullpointer exception happened in the verification backend.", LogLevel.Default);
-            }
-            else if (data.startsWith("java.lang.ClassNotFoundException:")) {
-                Log.error("Class " + Server.stage().mainMethod + " is unknown to Nailgun\nFix the backend settings for " + Server.backend.name, LogLevel.Default);
-            }
-            else if (data.startsWith("java.io.IOException: Stream closed")) {
-                Log.error("A concurrency error occured, try again.", LogLevel.Default);
-            }
-            else if (data.startsWith("java.lang.StackOverflowError")) {
-                Log.error("StackOverflowError in verification backend", LogLevel.Default);
-            }
-            else if (data.startsWith("SLF4J: Class path contains multiple SLF4J bindings")) {
-                Log.error(Server.backend.name + " is referencing two versions of the backend, fix its paths in the settings", LogLevel.Default);
+            let stage = Server.stage();
+            if (stage.isVerification) {
+                if (data.startsWith("connect: No error")) {
+                    Log.hint("No Nailgun server is running on port " + this.nailgunService.settings.nailgunPort);
+                }
+                else if (data.startsWith("java.lang.NullPointerException")) {
+                    Log.error("A nullpointer exception happened in the verification backend.", LogLevel.Default);
+                }
+                else if (data.startsWith("java.lang.ClassNotFoundException:")) {
+                    Log.error("Class " + Server.stage().mainMethod + " is unknown to Nailgun\nFix the backend settings for " + Server.backend.name, LogLevel.Default);
+                }
+                else if (data.startsWith("java.io.IOException: Stream closed")) {
+                    Log.error("A concurrency error occured, try again.", LogLevel.Default);
+                }
+                else if (data.startsWith("java.lang.StackOverflowError")) {
+                    Log.error("StackOverflowError in verification backend", LogLevel.Default);
+                }
+                else if (data.startsWith("SLF4J: Class path contains multiple SLF4J bindings")) {
+                    Log.error(Server.backend.name + "'s path is referencing the same class multiple times", LogLevel.Default);
+                } else {
+                    Log.error(Server.backend.name + " error: " + data, LogLevel.Debug);
+                }
             } else {
-                Log.error("Unknown backend error message: " + data, LogLevel.Debug);
+                Log.error("Backend error message: " + stage.name + " " + data, LogLevel.Debug);
             }
-        } else {
-            Log.error("Backend error message: " + stage.name + " " + data, LogLevel.Debug);
+        } catch (e) {
+            Log.error("Error handling stderr: " + e);
         }
     }
 
@@ -501,11 +488,6 @@ export class VerificationTask {
                         //therefore, the partialData construct is only enabled during the verification;
                         //Log.toLogFile(`[${Server.backend.name}: stdout]: ${line}`, LogLevel.LowLevelDebug);
                         let linesToSkip = this.handleBackendOutputLine(line); {
-                            if (linesToSkip < 0) {
-                                return;
-                            } else if (linesToSkip > 0) {
-                                this.linesToSkip = linesToSkip;
-                            }
                         }
                     }
                 }
@@ -518,11 +500,7 @@ export class VerificationTask {
         }
     }
 
-    private handleBackendOutputLine(line: string): number {
-        if (this.linesToSkip - 1 > 0) {
-            this.linesToSkip--;
-            return;
-        }
+    private handleBackendOutputLine(line: string) {
         switch (this.state) {
             case VerificationState.Stopped:
                 if (line.startsWith("Command-line interface:")) {
@@ -532,6 +510,7 @@ export class VerificationTask {
                 break;
             case VerificationState.VerificationRunning:
                 line = line.trim();
+                //progress message
                 if (line.startsWith("{\"") && line.endsWith("}")) {
                     try {
                         let progress = new TotalProgress(JSON.parse(line));
@@ -541,82 +520,14 @@ export class VerificationTask {
                         Log.error("Error reading progress: " + e);
                     }
                 }
+                //detect vetification end, get time
                 else if (line.startsWith('Silicon finished in') || line.startsWith('carbon finished in')) {
                     Log.log("WARNING: analyze the reason for this code to be executed", LogLevel.Debug);
                     this.state = VerificationState.VerificationReporting;
                     this.time = this.extractNumber(line);
+                    //model for counterexample
                 } else if (line.startsWith("\"")) {
-                    // let moreThanOne = false;
-                    // while (line.startsWith("\"") && line.indexOf("\"", 1) > 0 && line.indexOf("\"", 1) != line.lastIndexOf("\"")) {
-                    //     //we have multiple objects in this line -> split them
-                    //     moreThanOne = true;
-                    //     this.handleBackendOutputLine(line.substring(0, line.indexOf("\"", 1) + 1));
-                    //     line = line.substring(line.indexOf("\"", 1) + 1, line.length);
-                    // }
-                    // if (moreThanOne) {
-                    //     this.handleBackendOutputLine(line);
-                    // } else {
                     this.model.extendModel(line);
-                    // }
-                    //Log.toLogFile("Model: " + line);
-                } else if (line.startsWith("---------- FUNCTION") || line.startsWith("---------- PREDICATE") || line.startsWith("---------- METHOD")) {
-                    /*if (this.methodBorders.length > 0) {
-                        this.methodBorders[this.methodBorders.length - 1].lastStateIndex = this.steps.length - 1;
-                    }
-
-                    let nameParts = line.replace(/-/g, "").trim().split(" ");
-
-                    this.methodBorders.push({ name: line, methodName: nameParts[1], methodType: nameParts[0].toLowerCase(), firstStateIndex: this.steps.length, lastStateIndex: -1, start: -1, end: -1 });
-                    */
-                    // if (line.startsWith("---------- METHOD ")) {
-                    //     //this.isFromMethod = true;
-                    // } else {
-                    //     //this.isFromMethod = false;
-                    //     //TODO: handle method predicate or function mention if needed
-                    // }
-                    return 0;
-                } else if (line.startsWith("-----")) {
-
-                }
-                else if (line.startsWith("h = ") || line.startsWith("hLHS = ")) {
-                    //TODO: handle if needed
-                    return 0;
-                }
-                else if (line.startsWith("hR = ")) {
-                    Log.log("skip the next 3 lines", LogLevel.Info);
-                    return 3;
-                    //i = i + 3;
-                }
-                else if (line.startsWith('PRODUCE') || line.startsWith('CONSUME') || line.startsWith('EVAL') || line.startsWith('EXECUTE')) {
-                    if (this.lines.length > 0) {
-                        let msg = "Warning: Ignore " + this.lines.length + " line(s):";
-                        this.lines.forEach((line) => {
-                            msg = msg + "\n\t" + line;
-                        });
-                        Log.error(msg);
-                        Log.log("Next line: " + line, LogLevel.Debug);
-                    }
-                    this.lines = [];
-                    this.lines.push(line);
-                }
-                else {
-                    if (line.trim() == ')') {
-                        if (this.lines.length != 6) {
-                            Log.error("error reading verification trace. Unexpected format.");
-                            let msg = "Warning: Ignore " + this.lines.length + " line(s):";
-                            this.lines.forEach((line) => {
-                                msg = msg + "\n\t" + line;
-                            });
-                            Log.error(msg);
-                            this.lines = [];
-                        } else {
-                            //this.steps.push(Statement.CreateFromTrace(this.lines[0], this.lines[2], this.lines[3], this.lines[4], this.lines[5], this.model, this.steps.length, this.methodBorders.length - 1));
-                            this.lines = [];
-                        }
-                    }
-                    else {
-                        this.lines.push(line);
-                    }
                 }
                 break;
             case VerificationState.VerificationReporting:
@@ -749,12 +660,12 @@ export class VerificationTask {
             if (fs.existsSync(symbExLogPath)) {
                 let content = fs.readFileSync(symbExLogPath).toString();
                 content = content.substring(content.indexOf("["), content.length).replace(/\n/g, ' ');
-                this.completeSymbExLog = <RawSymbExLogEntry[]>JSON.parse(content);
-                Log.log("Execution tree successfully loaded: " + this.completeSymbExLog.length + " toplevel construct" + (this.completeSymbExLog.length == 1 ? "" : "s") + " found", LogLevel.Info);
+                this.symbExLog = <SymbExLogEntry[]>JSON.parse(content);
+                Log.log("Execution tree successfully loaded: " + this.symbExLog.length + " toplevel construct" + (this.symbExLog.length == 1 ? "" : "s") + " found", LogLevel.Info);
                 //parse SymbexLog
                 this.steps = [];
                 this.verifiables = [];
-                this.completeSymbExLog.forEach(data => {
+                this.symbExLog.forEach(data => {
                     let index = this.verifiables.length;
                     this.verifiables.push(new Verifiable(index, data, this))
                 });

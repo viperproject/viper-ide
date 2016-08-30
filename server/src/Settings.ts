@@ -4,10 +4,8 @@ import fs = require('fs');
 import * as pathHelper from 'path';
 var commandExists = require('command-exists');
 import {Log} from './Log';
-import {Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
-
-// These are the example settings we defined in the client's package.json
-// file
+import {Commands, Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
+import {Server} from './ServerClass';
 
 export interface ResolvedPath {
     path: string,
@@ -16,18 +14,13 @@ export interface ResolvedPath {
 
 export class Settings {
     public static settings: ViperSettings;
-
     public static isWin = /^win/.test(process.platform);
-
     public static workspace;
-
     public static VERIFY = "verify";
-
     public static selectedBackend: string;
 
-    public static getVerifyStage(backend: Backend) {
-        return this.getStage(backend, this.VERIFY);
-    }
+    private static _valid: boolean = false;
+    private static _error: string;
 
     public static getStage(backend: Backend, name: string): Stage {
         if (!name) return null;
@@ -68,7 +61,7 @@ export class Settings {
         return same;
     }
 
-    public static stageEquals(a: Stage, b: Stage): boolean {
+    private static stageEquals(a: Stage, b: Stage): boolean {
         let same = a.customArguments == b.customArguments;
         same = same && a.mainMethod == b.mainMethod;
         same = same && a.name == b.name;
@@ -105,56 +98,64 @@ export class Settings {
         return backendNames;
     }
 
-    public static checkSettings(settings: ViperSettings): string {
+    public static valid(): boolean {
+        if (!this.valid)
+            Server.connection.sendNotification(Commands.InvalidSettings, this._error);
+        return this._valid;
+    }
+
+    public static checkSettings(settings: ViperSettings) {
         try {
-            settings.valid = false;
+            this._valid = false;
             Log.log("Checking Backends...", LogLevel.Debug);
-            let error = Settings.areBackendsValid(settings.verificationBackends);
-            if (!error) {
+            this._error = Settings.areBackendsValid(settings.verificationBackends);
+            if (!this._error) {
 
                 if (!settings.nailgunPort) {
-                    error = "NailgunPort is missing";
+                    this._error = "NailgunPort is missing";
                 } else if (!/\d+/.test(settings.nailgunPort)) {
-                    error = "Invalid NailgunPort: " + settings.nailgunPort;
+                    this._error = "Invalid NailgunPort: " + settings.nailgunPort;
                 }
 
                 Log.log("Checking Other Settings...", LogLevel.Debug);
                 if (!settings.nailgunServerJar || settings.nailgunServerJar.length == 0) {
-                    error = "Path to nailgun server jar is missing"
+                    this._error = "Path to nailgun server jar is missing"
                 } else {
                     let resolvedPath = Settings.resolvePath(settings.nailgunServerJar)
                     if (!resolvedPath.exists) {
-                        error = "No nailgun server jar file found at path: " + resolvedPath.path;
+                        this._error = "No nailgun server jar file found at path: " + resolvedPath.path;
                     }
                     settings.nailgunServerJar = resolvedPath.path;
                 }
             }
-            if (!error) {
+            if (!this._error) {
                 if (!settings.nailgunClient || settings.nailgunClient.length == 0) {
-                    error = "Path to nailgun client executable is missing"
+                    this._error = "Path to nailgun client executable is missing"
                 } else {
                     let resolvedPath = Settings.resolvePath(settings.nailgunClient)
                     if (!resolvedPath.exists) {
-                        error = "No nailgun client executable file found at path: " + resolvedPath.path;
+                        this._error = "No nailgun client executable file found at path: " + resolvedPath.path;
                     } else {
                         settings.nailgunClient = resolvedPath.path;
                     }
                 }
             }
-            if (!error) {
+            if (!this._error) {
                 if (!settings.z3Executable || settings.z3Executable.length == 0) {
-                    error = "Path to z3 executable is missing"
+                    this._error = "Path to z3 executable is missing"
                 } else {
                     let resolvedPath = Settings.resolvePath(settings.z3Executable)
                     if (!resolvedPath.exists) {
-                        error = "No z3 executable file found at path: " + resolvedPath.path;
+                        this._error = "No z3 executable file found at path: " + resolvedPath.path;
                     } else {
                         settings.z3Executable = resolvedPath.path;
                     }
                 }
             }
-            settings.valid = !error;
-            return error;
+            this._valid = !this._error;
+            if (this._valid) {
+                Log.log("The settings are ok", LogLevel.Info);
+            }
         } catch (e) {
             Log.error("Error checking settings: " + e);
         }
@@ -269,7 +270,7 @@ export class Settings {
         return path;
     }
 
-    public static resolvePath(path: string): ResolvedPath {
+    private static resolvePath(path: string): ResolvedPath {
         if (!path) {
             return { path: path, exists: false };
         }

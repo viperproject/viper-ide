@@ -344,8 +344,12 @@ class ViperDebugSession extends DebugSession {
 	}
 
 	protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): void {
-		ViperDebugSession.log("continueRequest does the same as next");
-		this.nextRequest(response, args);
+		ViperDebugSession.log("nextRequest");
+		this.requestFromLanguageServer("Move", JSON.stringify({ type: StepType.Continue, state: this._currentState }));
+		this.sendResponse(response);
+		
+		//ViperDebugSession.log("continueRequest does the same as next");
+		//this.nextRequest(response, args);
 		// // find the breakpoints for the current source file
 		// const breakpoints = this._breakPoints.get(this._sourceFile);
 
