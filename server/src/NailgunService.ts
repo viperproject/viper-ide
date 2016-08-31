@@ -6,13 +6,17 @@ import {Log} from './Log'
 import {Settings} from './Settings'
 import {Stage, Backend, ViperSettings, Commands, VerificationState, LogLevel} from './ViperProtocol'
 import {Server} from './ServerClass';
+import {VerificationTask} from './VerificationTask'
 
 export class NailgunService {
     nailgunProcess: child_process.ChildProcess;
-    ready: boolean = false;
+
+    private _ready: boolean = false;
     settings: ViperSettings;
-    maxNumberOfRetries = 20;
     activeBackend: Backend;
+
+    maxNumberOfRetries = 20;
+    static REQUIRED_JAVA_VERSION = 8;
 
     static startingOrRestarting = false;
 
@@ -24,11 +28,26 @@ export class NailgunService {
         return (this.nailgunProcess != null);
     }
 
+    public isReady(): boolean {
+        return this._ready;
+    }
+
+    public setReady(connection,backend: Backend) {
+        this._ready = true;
+        Log.log("Nailgun started", LogLevel.Info);
+    }
+
+    public setStopping(connection) {
+        this._ready = false;
+        connection.sendNotification(Commands.StateChange, { newState: VerificationState.Stopping });
+    }
+
     //NailgunService.startingOrRestarting must be set to true before calling this method
     private startNailgunServer(connection, backend: Backend) {
-        this.isJreInstalled().then((jreInstalled) => {
+        this.isJreInstalled().then(jreInstalled => {
             if (!jreInstalled) {
-                Log.hint("Java 8 (64bit) Runtime Environment is not installed. Please install it.");
+                Log.hint("No compatible Java 8 (64bit) Runtime Environment is installed. Please install it.");
+                connection.sendNotification(Commands.StateChange, { newState: VerificationState.Stopped });
                 return;
             }
             connection.sendNotification(Commands.BackendChange, backend.name);
@@ -48,26 +67,24 @@ export class NailgunService {
                     Log.log(command, LogLevel.Debug)
 
                     this.nailgunProcess = child_process.exec(command);
-                    this.nailgunProcess.stdout.on('data', (data) => {
+                    this.nailgunProcess.stdout.on('data', (data: string) => {
                         Log.logWithOrigin('NS', data, LogLevel.LowLevelDebug);
-
-                        let dataS: string = data;
-                        if (dataS.indexOf("started") > 0) {
+                        if (data.indexOf("started") > 0) {
                             this.waitForNailgunToStart(this.maxNumberOfRetries, connection);
                         }
                     });
                     Log.logOutput(killOldNailgunProcess, "NS stopper");
                 });
             } else {
-                Log.log('nailgun server already running', LogLevel.Info);
+                Log.log('nailgun server is already starting or running', LogLevel.Info);
             };
         });
-        NailgunService.startingOrRestarting = false;
     }
 
     private waitForNailgunToStart(retriesLeft: number, connection) {
         if (retriesLeft <= 0) {
             Log.log("A problem with nailgun was detected, Nailgun cannot be started.", LogLevel.Default)
+            NailgunService.startingOrRestarting = false;
             return;
         }
         this.isNailgunServerReallyRunning().then(running => {
@@ -78,16 +95,15 @@ export class NailgunService {
                 }, 100);
             } else {
                 //the nailgun server is confirmed to be running
-                this.ready = true;
-                Log.log("Nailgun started", LogLevel.Info);
-                //connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, verificationCompleted: false, verificationNeeded: true });
+                NailgunService.startingOrRestarting = false;
+                this.setReady(this.activeBackend,connection);
                 connection.sendNotification(Commands.BackendStarted, this.activeBackend.name)
             }
         });
     }
 
     public stopNailgunServer() {
-        this.ready = false;
+        this.setStopping(VerificationTask.connection);
         if (this.nailgunProcess) {
             Log.log('gracefully shutting down nailgun server', LogLevel.Info);
             let shutDownNailgunProcess = child_process.exec(this.settings.nailgunClient + ' --nailgun-port ' + this.settings.nailgunPort + ' ng-stop');
@@ -100,7 +116,7 @@ export class NailgunService {
     }
 
     public killNgDeamon() {
-        this.ready = false;
+        this.setStopping(VerificationTask.connection);
         Log.log("Killing ng deamon", LogLevel.Info);
         let ngKiller = child_process.exec("taskkill /F /im ng.exe")
         ngKiller.on("exit", (data) => {
@@ -121,7 +137,7 @@ export class NailgunService {
         Log.log("Stop all running verificationTasks before restarting backend", LogLevel.Debug)
         Server.verificationTasks.forEach(task => { task.abortVerification(); });
 
-        this.ready = false;
+        this.setStopping(connection);
         connection.sendNotification(Commands.StateChange, { newState: VerificationState.Starting, backendName: backend.name });
         if (this.nailgunProcess) {
             Log.log('gracefully shutting down nailgun server', LogLevel.Info);
@@ -177,7 +193,7 @@ export class NailgunService {
         }
     }
 
-    public isNailgunServerReallyRunning(): Thenable<boolean> {
+    private isNailgunServerReallyRunning(): Thenable<boolean> {
         return new Promise((resolve, reject) => {
             if (!this.nailgunProcess) {
                 return resolve(false);
@@ -186,10 +202,10 @@ export class NailgunService {
             Log.log(command, LogLevel.Debug);
             let nailgunServerTester = child_process.exec(command);
             nailgunServerTester.stderr.on('data', data => {
-                if (data.startsWith("connect: ")) {
-                    return resolve(false);
-                } else if (data.startsWith("java.lang.ClassNotFoundException:")) {
+                if (data.startsWith("java.lang.ClassNotFoundException:")) {
                     return resolve(true);
+                } else {
+                    return resolve(false);
                 }
             });
         });
@@ -201,24 +217,23 @@ export class NailgunService {
             let jreTester = child_process.exec("java -version");
             jreTester.stdout.on('data', (data: string) => {
                 Log.toLogFile("[Java checker]: " + data, LogLevel.LowLevelDebug);
-                if (data.startsWith('java version')) {
-                    return resolve(true);
-                } else {
-                    return resolve(false);
-                }
+                if (this.findAppropriateVersion(data)) return resolve(true);
             });
             jreTester.stderr.on('data', (data: string) => {
                 Log.toLogFile("[Java checker stderr]: " + data, LogLevel.LowLevelDebug);
-                if (data.startsWith('java version')) {
-                    return resolve(true);
-                } else {
-                    return resolve(false);
-                }
+                if (this.findAppropriateVersion(data)) return resolve(true);
             });
             jreTester.on('exit', () => {
                 Log.toLogFile("[Java checker done]", LogLevel.LowLevelDebug);
                 return resolve(false);
             });
         });
+    }
+
+    private findAppropriateVersion(s: string): boolean {
+        let match = /([1-9]\d*)\.(\d+)\.(\d+)/.exec(s);
+        if (match && match[1] && match[2] && match[3]) {
+            return +match[1] > 1 || (+match[1] === 1 && +match[2] >= NailgunService.REQUIRED_JAVA_VERSION);
+        }
     }
 }

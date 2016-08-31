@@ -36,7 +36,7 @@ let formatter: ViperFormatter;
 let workList: Task[];
 
 let verifiedFile: string;
-let backendReady: boolean = false;
+let _backendReady: boolean = false;
 
 let lastActiveTextEditor: vscode.Uri;
 
@@ -68,7 +68,8 @@ export function activate(context: vscode.ExtensionContext) {
     initializeStatusBar();
     Log.deleteDotFiles();
     registerFormatter();
-    lastActiveTextEditor = Helper.isViperSourceFile(vscode.window.activeTextEditor.document.uri.toString()) ? vscode.window.activeTextEditor.document.uri : null;
+    let uri = vscode.window.activeTextEditor.document.uri;
+    lastActiveTextEditor = Helper.isViperSourceFile(uri.toString()) ? uri : null;
     startVerificationController();
 }
 
@@ -81,6 +82,13 @@ function resetViperFiles() {
         element.decorationsShown = false;
         element.stateVisualizer.completeReset();
     });
+}
+
+function isBackendReady(prefix: string) {
+    if (!_backendReady) {
+        Log.log(prefix + "Backend is not ready.", LogLevel.Debug);
+    }
+    return _backendReady;
 }
 
 function startVerificationController() {
@@ -99,7 +107,7 @@ function startVerificationController() {
                 let task = workList[i++];
                 if (!Helper.isViperSourceFile(task.uri.toString())) {
                     task.type = TaskType.NoOp;
-                    Log.log("Warning: Only handle viper files, not file: " + task.uri.toString());
+                    Log.log("Warning: Only handle viper files, not file: " + path.basename(task.uri.toString()));
                     continue;
                 }
                 let fileState = ExtensionState.viperFiles.get(task.uri.toString());
@@ -109,7 +117,8 @@ function startVerificationController() {
                 }
                 switch (task.type) {
                     case TaskType.Verify:
-                        if (backendReady) {
+                        let dontVerify = `Don't verify ${path.basename(task.uri.toString())}: `;
+                        if (isBackendReady(dontVerify)) {
                             //Log.log("Verify " + path.basename(task.uri.toString()) + " is handled", LogLevel.Info);
 
                             let activeFile;
@@ -118,33 +127,27 @@ function startVerificationController() {
                             }
 
                             if (!fileState.open) {
-                                Log.log(`Don't verify ${path.basename(task.uri.toString())}: file is closed`, LogLevel.Debug);
+                                Log.log(dontVerify + "file is closed", LogLevel.Debug);
                             } else if (fileState.verifying) {
-                                Log.log(`Don't verify ${path.basename(task.uri.toString())}: file is verifying`, LogLevel.Debug);
+                                Log.log(dontVerify + `file is verifying`, LogLevel.Debug);
                                 //} else if (!task.manuallyTriggered && !fileState.changed) {
-                                //    Log.log(`Don't verify ${path.basename(task.uri.toString())}: !manuallyTriggered and file is not changed`, LogLevel.Debug);
+                                //    Log.log(dontVerify+`!manuallyTriggered and file is not changed`, LogLevel.Debug);
                             } else if (!task.manuallyTriggered && fileState.verified) {
-                                Log.log(`Don't verify ${path.basename(task.uri.toString())}: !manuallyTriggered and file is verified`, LogLevel.Debug);
+                                Log.log(dontVerify + `not manuallyTriggered and file is verified`, LogLevel.Debug);
                             } else if (!task.manuallyTriggered && fileState.success === Success.Aborted) {
-                                Log.log(`Don't verify ${path.basename(task.uri.toString())}: !manuallyTriggered and file was aborted when last verified`, LogLevel.Debug);
+                                Log.log(dontVerify + `not manuallyTriggered and file was aborted when last verified`, LogLevel.Debug);
                             } else if (!task.manuallyTriggered && fileState.success === Success.Error) {
-                                Log.log(`Don't verify ${path.basename(task.uri.toString())}: !manuallyTriggered and file caused error when last verified`, LogLevel.Debug);
+                                Log.log(dontVerify + `not manuallyTriggered and file caused error when last verified`, LogLevel.Debug);
                             }
                             else if (!activeFile) {
-                                fileState.needsVerification = true;
-                                Log.log(`Verify ${path.basename(task.uri.toString())} later: no file is active`, LogLevel.Debug);
+                                Log.log(dontVerify + `no file is active`, LogLevel.Debug);
                             } else if (activeFile !== task.uri.toString()) {
-                                fileState.needsVerification = true;
-                                Log.log(`Verify ${path.basename(task.uri.toString())} later: !another file is active`, LogLevel.Debug);
-                            } else if (fileState.decorationsShown && !task.manuallyTriggered) {
-                                fileState.needsVerification = true;
-                                Log.log(`Verify ${path.basename(task.uri.toString())} later: !manuallyTriggered and the decorations are shown`, LogLevel.Debug);
+                                Log.log(dontVerify + `another file is active`, LogLevel.Debug);
+                                // } else if (fileState.decorationsShown && !task.manuallyTriggered) {
+                                //     Log.log(dontVerify+`not manuallyTriggered and the decorations are shown`, LogLevel.Debug);
                             } else {
                                 verify(fileState, task.manuallyTriggered);
                             }
-                        } else {
-                            fileState.needsVerification = true;
-                            Log.log(`Verify ${path.basename(task.uri.toString())} later: !backend is not ready`, LogLevel.Debug);
                         }
                         task.type = TaskType.NoOp;
                         break;
@@ -296,7 +299,7 @@ function handleStateChange(params: UpdateStatusBarParams) {
         let window = vscode.window;
         switch (params.newState) {
             case VerificationState.Starting:
-                backendReady = false;
+                _backendReady = false;
                 updateStatusBarItem(statusBarItem, 'starting', 'orange'/*,"Starting " + params.backendName*/);
                 break;
             case VerificationState.VerificationRunning:
@@ -384,6 +387,9 @@ function handleStateChange(params: UpdateStatusBarParams) {
             case VerificationState.Stopping:
                 updateStatusBarItem(statusBarItem, 'preparing', 'orange');
                 break;
+            case VerificationState.Stopped:
+                updateStatusBarItem(statusBarItem, 'stopped', 'white');
+                break;
             default:
                 break;
         }
@@ -453,27 +459,35 @@ function registerHandlers() {
         updateStatusBarItem(backendStatusBar, newBackend, "white");
     });
     state.client.onNotification(Commands.FileOpened, (uri: string) => {
-        let uriObject: vscode.Uri = vscode.Uri.parse(uri);
-        Log.log("File openend: " + path.basename(uriObject.path), LogLevel.Info);
-        if (!ExtensionState.viperFiles.has(uri)) {
-            ExtensionState.viperFiles.set(uri, new ViperFileState(uriObject));
-        } else {
-            let fileState = ExtensionState.viperFiles.get(uri);
-            fileState.open = true;
-            fileState.verifying = false;
+        try {
+            let uriObject: vscode.Uri = vscode.Uri.parse(uri);
+            Log.log("File openend: " + path.basename(uriObject.path), LogLevel.Info);
+            if (!ExtensionState.viperFiles.has(uri)) {
+                ExtensionState.viperFiles.set(uri, new ViperFileState(uriObject));
+            } else {
+                let fileState = ExtensionState.viperFiles.get(uri);
+                fileState.open = true;
+                fileState.verifying = false;
+            }
+            workList.push({ type: TaskType.Verify, uri: uriObject, manuallyTriggered: false });
+        } catch (e) {
+            Log.error("Error handling file opened notification: " + e);
         }
-        workList.push({ type: TaskType.Verify, uri: uriObject, manuallyTriggered: false });
     });
     state.client.onNotification(Commands.FileClosed, (uri: string) => {
-        let uriObject: vscode.Uri = vscode.Uri.parse(uri);
-        Log.log("File closed: " + path.basename(uriObject.path), LogLevel.Info);
-        let fileState = ExtensionState.viperFiles.get(uri);
-        fileState.open = false;
-        fileState.verified = false;
-        if (lastActiveTextEditor.toString() == uriObject.toString()) {
-            lastActiveTextEditor = null;
+        try {
+            let uriObject: vscode.Uri = vscode.Uri.parse(uri);
+            Log.log("File closed: " + path.basename(uriObject.path), LogLevel.Info);
+            let fileState = ExtensionState.viperFiles.get(uri);
+            fileState.open = false;
+            fileState.verified = false;
+            if (lastActiveTextEditor.toString() == uriObject.toString()) {
+                lastActiveTextEditor = null;
+            }
+            fileState.stateVisualizer.removeSpecialCharsFromClosedDocument(() => { });
+        } catch (e) {
+            Log.error("Error handling file closed notification: " + e);
         }
-        fileState.stateVisualizer.removeSpecialCharsFromClosedDocument(() => { });
     });
     state.client.onRequest(Commands.UriToPath, (uri: string) => {
         let uriObject: vscode.Uri = vscode.Uri.parse(uri);
@@ -486,45 +500,65 @@ function registerHandlers() {
         return platformIndependentUri;
     });
     state.client.onRequest(Commands.AskUserToSelectBackend, (backendNames: string[]) => {
-        //only ask the user if there is a choice
-        if (backendNames.length > 1) {
-            vscode.window.showQuickPick(backendNames).then(selectedBackend => {
-                state.client.sendRequest(Commands.SelectBackend, selectedBackend);
-            });
-        } else {
-            state.client.sendRequest(Commands.SelectBackend, backendNames[0]);
+        try {
+            //only ask the user if there is a choice
+            if (backendNames.length > 1) {
+                vscode.window.showQuickPick(backendNames).then(selectedBackend => {
+                    state.client.sendRequest(Commands.SelectBackend, selectedBackend);
+                });
+            } else {
+                state.client.sendRequest(Commands.SelectBackend, backendNames[0]);
+            }
+        } catch (e) {
+            Log.error("Error handling backend selection request: " + e);
         }
     });
     state.context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
-        workList.push({ type: TaskType.Save, uri: params.uri });
+        try {
+            workList.push({ type: TaskType.Save, uri: params.uri });
+        } catch (e) {
+            Log.error("Error handling saved document: " + e);
+        }
     }));
     state.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
-        Log.updateSettings();
+        try {
+            Log.updateSettings();
+        } catch (e) {
+            Log.error("Error handling configuration change: " + e);
+        }
     }));
 
     state.client.onNotification(Commands.BackendStarted, name => {
-        Log.log("Backend started: " + name, LogLevel.Info);
-        backendReady = true;
-        //no file is verifying
-        resetViperFiles()
-        updateStatusBarItem(statusBarItem, "ready", 'white');
-        //automatically trigger the first verification
-        if (Helper.getConfiguration('autoVerifyAfterBackendChange') === true) {
-            if (vscode.window.activeTextEditor.document.languageId === 'viper') {
-                Log.log("autoVerify after backend change");
-                workList.push({ type: TaskType.Verify, uri: vscode.window.activeTextEditor.document.uri, manuallyTriggered: false });
+        try {
+            Log.log("Backend started: " + name, LogLevel.Info);
+            _backendReady = true;
+            //no file is verifying
+            resetViperFiles()
+            updateStatusBarItem(statusBarItem, "ready", 'white');
+            //automatically trigger the first verification
+            if (Helper.getConfiguration('autoVerifyAfterBackendChange') === true) {
+                if (lastActiveTextEditor) {
+                    Log.log("autoVerify after backend change");
+                    workList.push({ type: TaskType.Verify, uri: lastActiveTextEditor, manuallyTriggered: false });
+                }
             }
+        } catch (e) {
+            Log.error("Error handling backend started notification: " + e);
         }
     });
 
     //Heap visualization
     state.client.onNotification(Commands.StepsAsDecorationOptions, params => {
-        let castParams = <StepsAsDecorationOptionsResult>params;
-        if (!castParams) {
-            Log.error("Invalid Params for StepsAdDecorationOptions");
+        try {
+            let castParams = <StepsAsDecorationOptionsResult>params;
+            if (!castParams) {
+                Log.error("Invalid Params for StepsAdDecorationOptions");
+            }
+            let visualizer = ExtensionState.viperFiles.get(castParams.uri).stateVisualizer;
+            visualizer.storeNewStates(castParams);
+        } catch (e) {
+            Log.error("Error handling steps as decoration options notification: " + e);
         }
-        let visualizer = ExtensionState.viperFiles.get(castParams.uri).stateVisualizer;
-        visualizer.storeNewStates(castParams);
     });
     state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
         try {
@@ -538,24 +572,30 @@ function registerHandlers() {
         }
     });
     vscode.window.onDidChangeTextEditorSelection((change) => {
-        //Log.log("OnDidChangeTextEditorSelection",LogLevel.Debug);
-        if (!change.textEditor.document) {
-            Log.error("document is undefined in onDidChangeTextEditorSelection");
-            return;
+        try {
+            if (!change.textEditor.document) {
+                Log.error("document is undefined in onDidChangeTextEditorSelection");
+                return;
+            }
+            let uri = change.textEditor.document.uri.toString();
+            let start = change.textEditor.selection.start;
+            let fileState = ExtensionState.viperFiles.get(uri);
+            fileState.stateVisualizer.showStateSelection(start);
+        } catch (e) {
+            Log.error("Error handling text editor selection change: " + e);
         }
-        let uri = change.textEditor.document.uri.toString();
-        let start = change.textEditor.selection.start;
-        let fileState = ExtensionState.viperFiles.get(uri);
-        fileState.stateVisualizer.showStateSelection(start);
     });
     state.client.onRequest(Commands.StateSelected, change => {
-        //Log.log("stateSelected",LogLevel.Debug);
-        let castChange = <{ uri: string, line: number, character: number }>change;
-        if (!castChange) {
-            Log.error("error casting stateSelected Request data");
+        try {
+            let castChange = <{ uri: string, line: number, character: number }>change;
+            if (!castChange) {
+                Log.error("error casting stateSelected Request data");
+            }
+            let visualizer = ExtensionState.viperFiles.get(castChange.uri).stateVisualizer;
+            visualizer.showStateSelection({ line: castChange.line, character: castChange.character });
+        } catch (e) {
+            Log.error("Error handling state selected request: " + e);
         }
-        let visualizer = ExtensionState.viperFiles.get(castChange.uri).stateVisualizer;
-        visualizer.showStateSelection({ line: castChange.line, character: castChange.character });
     });
 
     state.client.onNotification(Commands.VerificationNotStarted, uri => {
@@ -569,9 +609,13 @@ function registerHandlers() {
     });
 
     state.client.onNotification(Commands.StopDebugging, () => {
-        Log.log("Stop Debugging", LogLevel.Info);
-        let visualizer = ExtensionState.viperFiles.get(lastActiveTextEditor.toString()).stateVisualizer;
-        hideStates(() => { }, visualizer);
+        try {
+            Log.log("Stop Debugging", LogLevel.Info);
+            let visualizer = ExtensionState.viperFiles.get(lastActiveTextEditor.toString()).stateVisualizer;
+            hideStates(() => { }, visualizer);
+        } catch (e) {
+            Log.error("Error handling stop debugging request: " + e);
+        }
     })
 
     //Command Handlers
@@ -583,33 +627,31 @@ function registerHandlers() {
         if (!state.client) {
             Log.hint("Extension not ready yet.");
         } else {
-            backendReady = false;
+            _backendReady = false;
             state.client.sendRequest(Commands.RequestBackendNames, null);
         }
     }));
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.startDebugging', () => {
-        if (!lastActiveTextEditor) {
-            Log.log("Don't debug, no viper file open.", LogLevel.Debug);
-            return;
-        }
-        let uri = lastActiveTextEditor;
-        //The lastActiveTextEditor is always a viper file
-        // if (!Helper.isViperSourceFile(uri.toString())) {
-        //     Log.log("Don't debug, active file is no viper file.", LogLevel.Debug);
-        //     return;
-        // }
-        if (!backendReady) {
-            Log.log("Don't debug, backend is not ready.", LogLevel.Debug);
-            return;
-        }
-        let fileState = ExtensionState.viperFiles.get(uri.toString());
-        if (!fileState || !fileState.verified) {
-            Log.log("Don't debug, file is not verified", LogLevel.Debug);
-            workList.push({ type: TaskType.Verify, uri: uri, manuallyTriggered: false });
-            return;
-        }
-
         try {
+            if (!lastActiveTextEditor) {
+                Log.log("Don't debug, no viper file open.", LogLevel.Debug);
+                return;
+            }
+            let uri = lastActiveTextEditor;
+            let filename = path.basename(uri.toString());
+            if (!isBackendReady("Don't debug " + filename + ", ")) return;
+
+            let fileState = ExtensionState.viperFiles.get(uri.toString());
+            if (!fileState || !fileState.verified) {
+                Log.log("Don't debug " + filename + ", file is not verified", LogLevel.Debug);
+                workList.push({ type: TaskType.Verify, uri: uri, manuallyTriggered: false });
+                return;
+            }
+            if (!fileState.stateVisualizer.readyToDebug) {
+                Log.hint("Don't debug " + filename + ", the verification provided no states");
+                return;
+            }
+
             let openDoc = uri.path;
             if (state.isWin) {
                 openDoc = openDoc.substring(1, openDoc.length);
@@ -620,6 +662,10 @@ function registerHandlers() {
                 request: "launch",
                 program: openDoc,
                 startInState: 0
+            }
+            if (ExtensionState.isDebugging) {
+                Log.hint("Don't debug " + filename + ", the file is already being debugged");
+                return;
             }
             showStates(() => {
                 vscode.commands.executeCommand('vscode.startDebug', launchConfig).then(() => {
@@ -645,16 +691,12 @@ function registerHandlers() {
             Log.hint("Extension not ready yet.");
         }
     }));
-
-    state.context.subscriptions.push(vscode.commands.registerCommand('extension.showStates', () => {
-        showStates(() => { });
-    }));
-    state.context.subscriptions.push(vscode.commands.registerCommand('extension.hideStates', () => {
-        let visualizer = ExtensionState.viperFiles.get(lastActiveTextEditor.toString()).stateVisualizer;
-        hideStates(() => { }, visualizer);
-    }));
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.format', () => {
-        formatter.formatOpenDoc();
+        try {
+            formatter.formatOpenDoc();
+        } catch (e) {
+            Log.error("Error handling formating request: " + e);
+        }
     }));
 }
 

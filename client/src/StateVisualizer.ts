@@ -33,6 +33,7 @@ export class StateVisualizer {
 
     decoration: vscode.TextEditorDecorationType;
     decorationOptions: MyDecorationOptions[];
+    readyToDebug:boolean = false;
     decorationOptionsByPosition: Map<string, MyDecorationOptions>;
     globalInfo: string;
     uri: vscode.Uri;
@@ -69,6 +70,7 @@ export class StateVisualizer {
     public completeReset() {
         this.reset();
         this.decorationOptions = [];
+        this.readyToDebug = false;
         this.doHideDecorations();
         this.decorationOptionsByPosition = new Map<string, MyDecorationOptions>();
     }
@@ -110,6 +112,7 @@ export class StateVisualizer {
         this.globalInfo = decorations.globalInfo;
         this.decorationOptionsByPosition = new Map<string, MyDecorationOptions>();
         this.completeDecorationOptions();
+        this.readyToDebug = this.decorationOptions.length > 0;
     }
 
     public createAndShowHeap(heapGraph: HeapGraph, index: number) {

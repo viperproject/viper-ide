@@ -37,18 +37,26 @@ Server.connection.listen();
 function registerHandlers() {
     //starting point (executed once)
     Server.connection.onInitialize((params): InitializeResult => {
-        DebugServer.initialize();
+        try {
+            DebugServer.initialize();
 
-        Server.workspaceRoot = params.rootPath;
-        Server.nailgunService = new NailgunService();
-        return {
-            capabilities: {}
+            Server.workspaceRoot = params.rootPath;
+            Server.nailgunService = new NailgunService();
+            return {
+                capabilities: {}
+            }
+        } catch (e) {
+            Log.error("Error handling initialize request: " + e);
         }
     });
 
     Server.connection.onShutdown(() => {
-        Log.log("On Shutdown", LogLevel.Debug);
-        Server.nailgunService.stopNailgunServer();
+        try {
+            Log.log("On Shutdown", LogLevel.Debug);
+            Server.nailgunService.stopNailgunServer();
+        } catch (e) {
+            Log.error("Error handling shutdown: " + e);
+        }
     })
 
     Server.connection.onDidChangeConfiguration((change) => {
@@ -71,24 +79,28 @@ function registerHandlers() {
     });
 
     Server.connection.onRequest(Commands.SelectBackend, (selectedBackend: string) => {
-        if (Settings.valid() && selectedBackend) {
-            Settings.selectedBackend = selectedBackend;
-            restartBackendIfNeeded();
+        try {
+            if (Settings.valid() && selectedBackend) {
+                Settings.selectedBackend = selectedBackend;
+                restartBackendIfNeeded();
+            }
+        } catch (e) {
+            Log.error("Error handling select backend request: " + e);
         }
     });
 
     Server.connection.onRequest(Commands.RequestBackendNames, args => {
-        let backendNames: string[] = Settings.getBackendNames(Settings.settings);
-        if (backendNames.length > 1) {
-            Server.connection.sendRequest(Commands.AskUserToSelectBackend, backendNames);
-        } else {
-            Log.hint("There are less than two backends, selecting does not make sense.");
+        try {
+            let backendNames: string[] = Settings.getBackendNames(Settings.settings);
+            if (backendNames.length > 1) {
+                Server.connection.sendRequest(Commands.AskUserToSelectBackend, backendNames);
+            } else {
+                Log.hint("There are less than two backends, selecting does not make sense.");
+            }
+        } catch (e) {
+            Log.error("Error handling backend names request: " + e);
         }
     });
-
-    // Server.connection.onDidChangeWatchedFiles((change) => {
-    //     Log.log("We recevied a file change event", LogLevel.Debug)
-    // });
 
     Server.connection.onDidOpenTextDocument((params) => {
         try {
@@ -103,7 +115,7 @@ function registerHandlers() {
                 }
             }
         } catch (e) {
-            Log.error("Error handling TextDocument closed");
+            Log.error("Error handling TextDocument openend");
         }
     });
 
@@ -126,13 +138,8 @@ function registerHandlers() {
     Server.connection.onRequest(Commands.Verify, (data: VerifyRequest) => {
         try {
             let verificationstarted = false;
-            let alreadyRunning = false;
             //it does not make sense to reverify if no changes were made and the verification is already running
-            Server.verificationTasks.forEach(task => {
-                if (task.running && task.fileUri === data.uri) {
-                    alreadyRunning = true;
-                }
-            });
+            let alreadyRunning = Server.verificationTasks.get(data.uri).running;
             if (!alreadyRunning) {
                 Settings.workspace = data.workspace;
                 verificationstarted = startOrRestartVerification(data.uri, data.manuallyTriggered);
@@ -147,19 +154,31 @@ function registerHandlers() {
     });
 
     Server.connection.onRequest(Commands.Dispose, (lineNumber) => {
-        Server.nailgunService.stopNailgunServer();
-        Server.nailgunService.killNgDeamon();
-        return null;
+        try {
+            Server.nailgunService.stopNailgunServer();
+            Server.nailgunService.killNgDeamon();
+            return null;
+        } catch (e) {
+            Log.error("Error handling dispose request: " + e);
+        }
     });
 
     Server.connection.onRequest(Commands.StopVerification, (uri: string) => {
-        let task = Server.verificationTasks.get(uri);
-        task.abortVerification();
-        Server.connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, verificationCompleted: false, verificationNeeded: false, uri: uri });
+        try {
+            let task = Server.verificationTasks.get(uri);
+            task.abortVerification();
+            Server.connection.sendNotification(Commands.StateChange, { newState: VerificationState.Ready, verificationCompleted: false, verificationNeeded: false, uri: uri });
+        } catch (e) {
+            Log.error("Error handling stop verification request: " + e);
+        }
     });
 
     Server.connection.onNotification(Commands.StopDebugging, () => {
-        DebugServer.stopDebugging();
+        try {
+            DebugServer.stopDebugging();
+        } catch (e) {
+            Log.error("Error handling stop debugging request: " + e);
+        }
     })
 
     Server.connection.onRequest(Commands.ShowHeap, (params: ShowHeapParams) => {
@@ -200,23 +219,22 @@ function restartBackendIfNeeded() {
 }
 
 function startOrRestartVerification(uri: string, manuallyTriggered: boolean): boolean {
-    
+
     //only verify viper source code files
     if (!Server.isViperSourceFile(uri)) {
         Log.hint("Only viper source files can be verified.");
         return false;
     }
 
-    //only verify if the settings are right
+    if (!Server.nailgunService.isReady()) {
+        if (manuallyTriggered)
+            Log.hint("The verification backend is not ready yet");
+        return false;
+    }
     if (!Server.backend) {
         Log.log("no backend has been selected, the first was picked by default.", LogLevel.Debug);
         Server.backend = Settings.settings.verificationBackends[0];
         Server.nailgunService.startNailgunIfNotRunning(Server.connection, Server.backend);
-    }
-    if (!Server.nailgunService.ready) {
-        if (manuallyTriggered)
-            Log.hint("The verification backend is not ready yet");
-        return false;
     }
 
     //check if there is already a verification task for that file

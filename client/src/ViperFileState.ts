@@ -16,7 +16,7 @@ export class ViperFileState {
         this.open = true;
         this.changed = true;
         this.onlySpecialCharsChanged = false;
-        this.needsVerification = false;
+        //this.needsVerification = false;
         this.decorationsShown = false;
         this.specialCharsShown = false; //TODO: is it really false
         this.uri = uri;
@@ -32,7 +32,7 @@ export class ViperFileState {
     open: boolean;
     changed: boolean;
     onlySpecialCharsChanged: boolean;
-    needsVerification: boolean;
+    //needsVerification: boolean;
     decorationsShown: boolean;
     specialCharsShown: boolean;
 

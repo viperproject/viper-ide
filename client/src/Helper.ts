@@ -23,13 +23,13 @@ export class Helper {
                 Log.log("file shown (already open): " + path.basename(msg.document.uri.toString()))
             });
         } else {
-            if(!resource){
+            if (!resource) {
                 Log.error("resource is undefined");
                 return;
             }
             //open it
             vscode.workspace.openTextDocument(resource).then((doc) => {
-                if(!doc){
+                if (!doc) {
                     Log.error("doc is undefined");
                     return;
                 }
@@ -58,6 +58,7 @@ export class Helper {
             Log.error("Cannot create file: " + e);
         }
     }
+
     public static isViperSourceFile(uri: string): boolean {
         return uri.endsWith(".sil") || uri.endsWith(".vpr");
     }

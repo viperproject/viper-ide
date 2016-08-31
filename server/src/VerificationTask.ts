@@ -430,7 +430,9 @@ export class VerificationTask {
 
             let stage = Server.stage();
             if (stage.isVerification) {
-                if (data.startsWith("connect: No error")) {
+                if (data.startsWith("NailGun v")) {
+                    Log.hint("Fix the customArguments in the settings of backend: " + Server.backend.name + " stage: " + Server.stage().name);
+                } else if (data.startsWith("connect: No error")) {
                     Log.hint("No Nailgun server is running on port " + this.nailgunService.settings.nailgunPort);
                 }
                 else if (data.startsWith("java.lang.NullPointerException")) {
