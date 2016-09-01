@@ -48,7 +48,7 @@ export class HeapVisualizer {
             let heapChunkFields = new Map<string, HeapChunk[]>();
             state.heap.forEach(heapChunk => {
                 if (!heapChunk.parsed) {
-                    Log.log("Warning, I don't know how to visualize the heap chunk " + JSON.stringify(heapChunk.name));
+                    Log.log("Warning, I don't know how to visualize the heap chunk " + JSON.stringify(heapChunk.name), LogLevel.Debug);
                 }
                 else if (heapChunk.name.type == NameType.FieldReferenceName && heapChunk.value.type == ValueType.ObjectReferenceOrScalarValue) {
                     let receiver = heapChunk.name.receiver;

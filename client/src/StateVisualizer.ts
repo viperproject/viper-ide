@@ -33,7 +33,7 @@ export class StateVisualizer {
 
     decoration: vscode.TextEditorDecorationType;
     decorationOptions: MyDecorationOptions[];
-    readyToDebug:boolean = false;
+    readyToDebug: boolean = false;
     decorationOptionsByPosition: Map<string, MyDecorationOptions>;
     globalInfo: string;
     uri: vscode.Uri;
@@ -259,7 +259,7 @@ export class StateVisualizer {
                 let selectedState = this.decorationOptionsByPosition.get(key).index;
                 if (this.currentState != selectedState) {
                     this.currentState = selectedState
-                    Log.log("Request showing the heap of state " + this.currentState);
+                    Log.log("Request showing the heap of state " + this.currentState, LogLevel.Debug);
                     let params: ShowHeapParams = {
                         uri: this.uri.toString(),
                         clientIndex: this.currentState
@@ -384,7 +384,7 @@ export class StateVisualizer {
                 }
 
             }
-            if (edit.size >0) {
+            if (edit.size > 0) {
                 this.viperFile.onlySpecialCharsChanged = true;
                 vscode.workspace.applyEdit(edit).then(resolve => {
                     if (resolve) {
@@ -403,7 +403,7 @@ export class StateVisualizer {
                 });
             } else {
                 this.removingSpecialChars = false;
-                Log.log("No special chars to remove")
+                Log.log("No special chars to remove", LogLevel.Debug)
                 callback();
             }
         } catch (e) {

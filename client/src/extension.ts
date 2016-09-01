@@ -74,7 +74,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 function resetViperFiles() {
-    Log.log("Reset all viper files");
+    Log.log("Reset all viper files", LogLevel.Info);
     ExtensionState.viperFiles.forEach(element => {
         element.changed = true;
         element.verified = false;
@@ -107,12 +107,12 @@ function startVerificationController() {
                 let task = workList[i++];
                 if (!Helper.isViperSourceFile(task.uri.toString())) {
                     task.type = TaskType.NoOp;
-                    Log.log("Warning: Only handle viper files, not file: " + path.basename(task.uri.toString()));
+                    Log.log("Warning: Only handle viper files, not file: " + path.basename(task.uri.toString()), LogLevel.Info);
                     continue;
                 }
                 let fileState = ExtensionState.viperFiles.get(task.uri.toString());
                 if (!fileState) {
-                    Log.error("The file is unknown to the verification controller: " + path.basename(task.uri.toString()));
+                    Log.error("The file is unknown to the verification controller: " + path.basename(task.uri.toString()), LogLevel.Debug);
                     continue;
                 }
                 switch (task.type) {
@@ -197,7 +197,7 @@ function startVerificationController() {
                 if (Helper.isViperSourceFile(uri.toString())) {
                     if (lastActiveTextEditor) {
                         if (lastActiveTextEditor.toString() === uri.toString()) {
-                            Log.log("No change in active viper file");
+                            Log.log("No change in active viper file", LogLevel.Debug);
                             return;
                         }
                         let oldFileState = ExtensionState.viperFiles.get(lastActiveTextEditor.toString());
@@ -213,7 +213,7 @@ function startVerificationController() {
                     if (fileState.verified) {
                         //showStates(()=>{});
                     } else {
-                        Log.log("reverify because the active text editor changed");
+                        Log.log("reverify because the active text editor changed", LogLevel.Debug);
                         workList.push({ type: TaskType.Verify, uri: uri, manuallyTriggered: false })
                     }
                     Log.log("Active viper file changed to " + path.basename(uri.toString()), LogLevel.Info);
@@ -221,7 +221,7 @@ function startVerificationController() {
                 }
             }
         } catch (e) {
-            Log.log("Error handling active text editor change: " + e);
+            Log.error("Error handling active text editor change: " + e);
         }
     }));
 }
@@ -318,6 +318,7 @@ function handleStateChange(params: UpdateStatusBarParams) {
                 updateStatusBarItem(statusBarItem, `postprocessing ${params.filename}: `, 'white');
                 break;
             case VerificationState.Stage:
+                Log.log("Run " + params.stage + " for " + params.filename);
                 updateStatusBarItem(statusBarItem, `File ${params.filename}: Stage ${params.stage}`, 'white');
             case VerificationState.Ready:
                 ExtensionState.viperFiles.forEach(file => {
@@ -538,7 +539,7 @@ function registerHandlers() {
             //automatically trigger the first verification
             if (Helper.getConfiguration('autoVerifyAfterBackendChange') === true) {
                 if (lastActiveTextEditor) {
-                    Log.log("autoVerify after backend change");
+                    Log.log("autoVerify after backend change", LogLevel.Info);
                     workList.push({ type: TaskType.Verify, uri: lastActiveTextEditor, manuallyTriggered: false });
                 }
             }
@@ -580,7 +581,9 @@ function registerHandlers() {
             let uri = change.textEditor.document.uri.toString();
             let start = change.textEditor.selection.start;
             let fileState = ExtensionState.viperFiles.get(uri);
-            fileState.stateVisualizer.showStateSelection(start);
+            if (fileState) {
+                fileState.stateVisualizer.showStateSelection(start);
+            }
         } catch (e) {
             Log.error("Error handling text editor selection change: " + e);
         }
@@ -600,7 +603,7 @@ function registerHandlers() {
 
     state.client.onNotification(Commands.VerificationNotStarted, uri => {
         try {
-            Log.log("Verification not started for " + path.basename(<string>uri));
+            Log.log("Verification not started for " + path.basename(<string>uri), LogLevel.Debug);
             //reset the verifying flag if it is not beeing verified
             let fileState = ExtensionState.viperFiles.get(<string>uri).verifying = false;
         } catch (e) {
@@ -633,48 +636,50 @@ function registerHandlers() {
     }));
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.startDebugging', () => {
         try {
-            if (!lastActiveTextEditor) {
-                Log.log("Don't debug, no viper file open.", LogLevel.Debug);
-                return;
-            }
-            let uri = lastActiveTextEditor;
-            let filename = path.basename(uri.toString());
-            if (!isBackendReady("Don't debug " + filename + ", ")) return;
+            if (Helper.getConfiguration("advancedFeatures") === true) {
+                if (!lastActiveTextEditor) {
+                    Log.log("Don't debug, no viper file open.", LogLevel.Debug);
+                    return;
+                }
+                let uri = lastActiveTextEditor;
+                let filename = path.basename(uri.toString());
+                if (!isBackendReady("Don't debug " + filename + ", ")) return;
 
-            let fileState = ExtensionState.viperFiles.get(uri.toString());
-            if (!fileState || !fileState.verified) {
-                Log.log("Don't debug " + filename + ", file is not verified", LogLevel.Debug);
-                workList.push({ type: TaskType.Verify, uri: uri, manuallyTriggered: false });
-                return;
-            }
-            if (!fileState.stateVisualizer.readyToDebug) {
-                Log.hint("Don't debug " + filename + ", the verification provided no states");
-                return;
-            }
+                let fileState = ExtensionState.viperFiles.get(uri.toString());
+                if (!fileState || !fileState.verified) {
+                    Log.log("Don't debug " + filename + ", file is not verified", LogLevel.Debug);
+                    workList.push({ type: TaskType.Verify, uri: uri, manuallyTriggered: false });
+                    return;
+                }
+                if (!fileState.stateVisualizer.readyToDebug) {
+                    Log.hint("Don't debug " + filename + ", the verification provided no states");
+                    return;
+                }
 
-            let openDoc = uri.path;
-            if (state.isWin) {
-                openDoc = openDoc.substring(1, openDoc.length);
-            }
-            let launchConfig = {
-                name: "Viper Debug",
-                type: "viper",
-                request: "launch",
-                program: openDoc,
-                startInState: 0
-            }
-            if (ExtensionState.isDebugging) {
-                Log.hint("Don't debug " + filename + ", the file is already being debugged");
-                return;
-            }
-            showStates(() => {
-                vscode.commands.executeCommand('vscode.startDebug', launchConfig).then(() => {
-                    Log.log('Debug session started successfully', LogLevel.Info);
-                    ExtensionState.isDebugging = true;
-                }, err => {
-                    Log.error("Error starting debugger: " + err.message);
+                let openDoc = uri.path;
+                if (state.isWin) {
+                    openDoc = openDoc.substring(1, openDoc.length);
+                }
+                let launchConfig = {
+                    name: "Viper Debug",
+                    type: "viper",
+                    request: "launch",
+                    program: openDoc,
+                    startInState: 0
+                }
+                if (ExtensionState.isDebugging) {
+                    Log.hint("Don't debug " + filename + ", the file is already being debugged");
+                    return;
+                }
+                showStates(() => {
+                    vscode.commands.executeCommand('vscode.startDebug', launchConfig).then(() => {
+                        Log.log('Debug session started successfully', LogLevel.Info);
+                        ExtensionState.isDebugging = true;
+                    }, err => {
+                        Log.error("Error starting debugger: " + err.message);
+                    });
                 });
-            });
+            }
         } catch (e) {
             Log.error("Error starting debug session: " + e);
         }
@@ -701,7 +706,7 @@ function registerHandlers() {
 }
 
 function stopDebugging() {
-    Log.log("Tell language server to stop debugging");
+    Log.log("Tell language server to stop debugging", LogLevel.Debug);
     state.client.sendNotification(Commands.StopDebugging);
 }
 
@@ -717,7 +722,7 @@ function showStates(callback) {
                 });
             });
         } else {
-            Log.log("don't show states, they are already shown");
+            Log.log("don't show states, they are already shown", LogLevel.Debug);
         }
     } catch (e) {
         Log.error("Error showing States: " + e);

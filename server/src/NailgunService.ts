@@ -32,7 +32,7 @@ export class NailgunService {
         return this._ready;
     }
 
-    public setReady(connection,backend: Backend) {
+    public setReady(connection, backend: Backend) {
         this._ready = true;
         Log.log("Nailgun started", LogLevel.Info);
     }
@@ -96,7 +96,7 @@ export class NailgunService {
             } else {
                 //the nailgun server is confirmed to be running
                 NailgunService.startingOrRestarting = false;
-                this.setReady(this.activeBackend,connection);
+                this.setReady(this.activeBackend, connection);
                 connection.sendNotification(Commands.BackendStarted, this.activeBackend.name)
             }
         });
@@ -115,15 +115,17 @@ export class NailgunService {
         this.nailgunProcess = null;
     }
 
-    public killNgDeamon() {
-        this.setStopping(VerificationTask.connection);
-        Log.log("Killing ng deamon", LogLevel.Info);
-        let ngKiller = child_process.exec("taskkill /F /im ng.exe")
-        ngKiller.on("exit", (data) => {
-            Log.log("kill ng.exe: " + data, LogLevel.Debug);
-        })
-        Log.logOutput(ngKiller, "kill ng.exe");
-        //TODO: set nailgun to stopped in state
+    public killNgDeamon(): Thenable<boolean> {
+        return new Promise((resolve, reject) => {
+            this.setStopping(VerificationTask.connection);
+            Log.log("Killing ng deamon", LogLevel.Info);
+            let ngKiller = child_process.exec("taskkill /F /im ng.exe")
+            ngKiller.on("exit", (data) => {
+                Log.log("kill ng.exe: " + data, LogLevel.Debug);
+                return resolve(false);
+            })
+            Log.logOutput(ngKiller, "kill ng.exe");
+        });
     }
 
     public restartNailgunServer(connection, backend: Backend) {
@@ -155,24 +157,16 @@ export class NailgunService {
         }
     }
 
-    private killNailgunServer() {
-        Log.log('killing nailgun server, this may leave its sub processes running', LogLevel.Debug);
-        //this.nailgunProcess.kill('SIGINT');
-        process.kill(this.nailgunProcess.pid);
-    }
-
-    private completeArguments(stage: Stage, fileToVerify: string): string {
-        let args = stage.customArguments;
-        if (!args || args.length == 0) return "";
-        args = args.replace(/\$z3Exe\$/g, '"' + this.settings.z3Executable + '"');
-        args = args.replace(/\$mainMethod\$/g, stage.mainMethod);
-        args = args.replace(/\$nailgunPort\$/g, this.settings.nailgunPort);
-        args = args.replace(/\$fileToVerify\$/g, '"' + fileToVerify + '"');
-        return args;
-    }
+    //unused
+    // private killNailgunServer() {
+    //     Log.log('killing nailgun server, this may leave its sub processes running', LogLevel.Debug);
+    //     //this.nailgunProcess.kill('SIGINT');
+    //     process.kill(this.nailgunProcess.pid);
+    //     this.nailgunProcess = null;
+    // }
 
     public startStageProcess(fileToVerify: string, stage: Stage, onData, onError, onClose): child_process.ChildProcess {
-        let command = this.settings.nailgunClient + ' ' + this.completeArguments(stage, fileToVerify);
+        let command = this.settings.nailgunClient + ' ' + Settings.completeNGArguments(stage, fileToVerify);
         Log.log(command, LogLevel.Debug);
         let verifyProcess = child_process.exec(command, { cwd: Settings.workspace });
         verifyProcess.stdout.on('data', onData);
@@ -181,17 +175,17 @@ export class NailgunService {
         return verifyProcess;
     }
 
-    public startNailgunIfNotRunning(connection, backend: Backend) {
-        if (NailgunService.startingOrRestarting) {
-            Log.log("Server is already starting or restarting, don't start", LogLevel.Debug);
-            return;
-        }
-        NailgunService.startingOrRestarting = true;
-        //startNailgun if it is not already running:
-        if (!this.nailgunStarted()) {
-            this.startNailgunServer(connection, backend);
-        }
-    }
+    // public startNailgunIfNotRunning(connection, backend: Backend) {
+    //     if (NailgunService.startingOrRestarting) {
+    //         Log.log("Server is already starting or restarting, don't start", LogLevel.Debug);
+    //         return;
+    //     }
+    //     NailgunService.startingOrRestarting = true;
+    //     //startNailgun if it is not already running:
+    //     if (!this.nailgunStarted()) {
+    //         this.startNailgunServer(connection, backend);
+    //     }
+    // }
 
     private isNailgunServerReallyRunning(): Thenable<boolean> {
         return new Promise((resolve, reject) => {

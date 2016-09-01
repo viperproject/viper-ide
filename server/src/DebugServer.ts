@@ -283,7 +283,7 @@ export class DebugServer {
         if (DebugServer.debuggerRunning) {
             try {
                 ipc.of.viperDebugger.emit("MoveDebuggerToPos", JSON.stringify({ position: position, step: clientStep }));
-                Log.log("LanguageServer is telling Debugger to Move to Position of State " + clientStep)
+                Log.log("LanguageServer is telling Debugger to Move to Position of State " + clientStep, LogLevel.Debug)
             } catch (e) {
                 Log.error("Error sending MoveDebuggerToPos request: " + e);
             }
@@ -294,7 +294,7 @@ export class DebugServer {
         if (DebugServer.debuggerRunning) {
             try {
                 ipc.of.viperDebugger.emit("StopDebugging");
-                Log.log("LanguageServer is telling Debugger to stop debugging")
+                Log.log("LanguageServer is telling Debugger to stop debugging", LogLevel.Debug)
             } catch (e) {
                 Log.error("Error sending StopDebugging request: " + e);
             }

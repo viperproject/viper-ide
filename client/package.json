@@ -1,7 +1,7 @@
 {
     "name": "viper-advanced",
     "displayName": "Viper Advanced",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "license": "MIT",
@@ -69,6 +69,10 @@
             "language": "viper",
             "scopeName": "source.silver",
             "path": "./syntaxes/Viper.tmLanguage"
+        }, {
+            "language": "log",
+            "scopeName": "bmcode.log",
+            "path": "./syntaxes/log.tmLanguage"
         }],
         "languages": [{
             "id": "viper",
@@ -78,6 +82,15 @@
             ],
             "aliases": [
                 "Viper"
+            ]
+        }, {
+            "id": "log",
+            "extensions": [
+                ".log"
+            ],
+            "configuration": "./log.configuration.json",
+            "mimetypes": [
+                "text/x-code-output"
             ]
         }],
         "themes": [{
@@ -188,6 +201,10 @@
                     "default": false
                 },
                 "viperSettings.darkGraphs": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "viperSettings.advancedFeatures": {
                     "type": "boolean",
                     "default": true
                 }

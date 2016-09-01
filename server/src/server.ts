@@ -208,12 +208,12 @@ function restartBackendIfNeeded() {
     let newBackend = Settings.autoselectBackend(Settings.settings);
     //only restart the backend after settings changed if the active backend was affected
     if (!Settings.backendEquals(Server.backend, newBackend)) {
-        Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`)
+        Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info)
         Server.backend = newBackend;
         Server.verificationTasks.forEach(task => task.resetLastSuccess());
         Server.nailgunService.restartNailgunServer(Server.connection, Server.backend);
     } else {
-        Log.log("No need to restart backend. It's still the same")
+        Log.log("No need to restart backend. It's still the same", LogLevel.Debug)
         Server.backend = newBackend;
     }
 }
@@ -231,11 +231,12 @@ function startOrRestartVerification(uri: string, manuallyTriggered: boolean): bo
             Log.hint("The verification backend is not ready yet");
         return false;
     }
-    if (!Server.backend) {
-        Log.log("no backend has been selected, the first was picked by default.", LogLevel.Debug);
-        Server.backend = Settings.settings.verificationBackends[0];
-        Server.nailgunService.startNailgunIfNotRunning(Server.connection, Server.backend);
-    }
+
+    // if (!Server.backend) {
+    //     Log.log("no backend has been selected, the first was picked by default.", LogLevel.Debug);
+    //     Server.backend = Settings.settings.verificationBackends[0];
+    //     Server.nailgunService.startNailgunIfNotRunning(Server.connection, Server.backend);
+    // }
 
     //check if there is already a verification task for that file
     let task = Server.verificationTasks.get(uri);

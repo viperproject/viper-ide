@@ -2,12 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>scopeName</key>
+	<string>source.silver</string>
 	<key>fileTypes</key>
 	<array>
-		<string>sil</string>
+		<string>viper</string>
 	</array>
 	<key>name</key>
-	<string>Silver</string>
+	<string>Viper</string>
 	<key>patterns</key>
 	<array>
 		<dict>
@@ -357,8 +359,6 @@
 			</array>
 		</dict>
 	</dict>
-	<key>scopeName</key>
-	<string>source.silver</string>
 	<key>uuid</key>
 	<string>510359d3-78b1-4310-b440-63c3b5ab821c</string>
 </dict>

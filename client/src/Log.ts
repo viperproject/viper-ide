@@ -7,7 +7,7 @@ import {LogLevel} from './ViperProtocol';
 
 export class Log {
 
-    static logFilePath = "viper_log";
+    static logFilePath = "viper.log";
     static logFile: fs.WriteStream;
     static outputChannel = vscode.window.createOutputChannel('Viper');
     static logLevel: LogLevel;

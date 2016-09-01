@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import {Log} from './Log';
 import * as path from 'path';
+import {LogLevel} from './ViperProtocol';
 
 export class Helper {
 
@@ -20,7 +21,7 @@ export class Helper {
         if (doc) {
             //just show it if its open already
             vscode.window.showTextDocument(doc, column, true).then(msg => {
-                Log.log("file shown (already open): " + path.basename(msg.document.uri.toString()))
+                Log.log("file shown (already open): " + path.basename(msg.document.uri.toString()),LogLevel.Debug)
             });
         } else {
             if (!resource) {

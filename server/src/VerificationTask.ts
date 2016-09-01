@@ -290,8 +290,9 @@ export class VerificationTask {
                 if (code != 0 && code != 1 && code != 899) {
                     Log.log("Verification Backend Terminated Abnormaly: with code " + code, LogLevel.Default);
                     if (Settings.isWin && code == null) {
-                        this.nailgunService.killNgDeamon();
-                        this.nailgunService.restartNailgunServer(VerificationTask.connection, Server.backend);
+                        this.nailgunService.killNgDeamon().then(resolve => {
+                            this.nailgunService.restartNailgunServer(VerificationTask.connection, Server.backend);
+                        });
                     }
                 }
 
@@ -317,7 +318,7 @@ export class VerificationTask {
                     let newStageExecutions = Server.executedStages.filter(stage => stage.name === newStage.name).length;
                     if (newStageExecutions <= 0 ||
                         (newStage.isVerification && !lastStage.isVerification && newStageExecutions <= 1)) {
-                        VerificationTask.connection.sendNotification(Commands.StateChange, { filename: this.filename, stage: newStage.name });
+                        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.Stage, stage: newStage.name, filename: this.filename })
                         if (newStage.isVerification) {
                             Log.log("Restart verifiacation after stage " + lastStage.name, LogLevel.Info)
                             this.verify(this.manuallyTriggered);
@@ -448,7 +449,7 @@ export class VerificationTask {
                     Log.error("StackOverflowError in verification backend", LogLevel.Default);
                 }
                 else if (data.startsWith("SLF4J: Class path contains multiple SLF4J bindings")) {
-                    Log.error(Server.backend.name + "'s path is referencing the same class multiple times", LogLevel.Default);
+                    Log.error(Server.backend.name + "'s path is referencing the same class multiple times", LogLevel.Info);
                 } else {
                     Log.error(Server.backend.name + " error: " + data, LogLevel.Debug);
                 }
@@ -479,7 +480,7 @@ export class VerificationTask {
                     this.state = VerificationState.VerificationRunning;
                 }
                 else if (line.startsWith('Silicon finished in') || line.startsWith('carbon finished in')) {
-                    Log.log("State -> Error Reporting", LogLevel.Info);
+                    Log.log("State -> Error_Reporting", LogLevel.Info);
                     this.state = VerificationState.VerificationReporting;
                     this.time = this.extractNumber(line);
                 }
@@ -673,7 +674,7 @@ export class VerificationTask {
                 });
 
             } else {
-                Log.log("No executionTreeData.js found");
+                Log.log("No executionTreeData.js found", LogLevel.Debug);
             }
         } catch (e) {
             Log.error("Error loading SymbExLog from file: " + e);

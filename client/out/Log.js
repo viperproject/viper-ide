@@ -138,7 +138,7 @@ class Log {
         vscode.window.showInformationMessage("Viper: " + message);
     }
 }
-Log.logFilePath = "viper_log";
+Log.logFilePath = "viper.log";
 Log.outputChannel = vscode.window.createOutputChannel('Viper');
 Log._nofFiles = 0;
 Log.MAX_DOT_FILES = 2;

@@ -73,6 +73,16 @@ export class Settings {
         return same;
     }
 
+    static completeNGArguments(stage: Stage, fileToVerify: string): string {
+        let args = stage.customArguments;
+        if (!args || args.length == 0) return "";
+        args = args.replace(/\$z3Exe\$/g, '"' + this.settings.z3Executable + '"');
+        args = args.replace(/\$mainMethod\$/g, stage.mainMethod);
+        args = args.replace(/\$nailgunPort\$/g, this.settings.nailgunPort);
+        args = args.replace(/\$fileToVerify\$/g, '"' + fileToVerify + '"');
+        return args;
+    }
+
     public static autoselectBackend(settings: ViperSettings) {
         if (!settings || !settings.verificationBackends || settings.verificationBackends.length == 0) {
             Log.error("No backend, even though the setting check succeeded.");
