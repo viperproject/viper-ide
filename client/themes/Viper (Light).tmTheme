@@ -431,6 +431,33 @@
 				<string>#F2975F</string>
 			</dict>
 		</dict>
+		<dict>
+			<key>scope</key>
+			<string>info-token</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#0000A0</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>scope</key>
+			<string>error-token</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#FF0000</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>scope</key>
+			<string>warn-token</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#FF8000</string>
+			</dict>
+		</dict>
 	</array>
 	<key>uuid</key>
 	<string>2630ae54-203b-11e5-b5f7-727283247c7f</string>

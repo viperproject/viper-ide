@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+from https://github.com/IBM-Bluemix/vscode-log-output-colorizer
+
+The MIT License (MIT)
+Copyright (c) 2016 International Business Machines
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<plist version="1.0">
+    <dict>
+        <key>scopeName</key>
+        <string>bmcode.log</string>
+        <key>fileTypes</key>
+        <array>
+            <string>log</string>
+        </array>
+        <key>name</key>
+        <string>Log file</string>
+        <key>patterns</key>
+        <array>
+            <dict>
+                <!-- Quoted strings with " -->
+                <key>match</key>
+                <string>"(.*?)"</string>
+                <key>name</key>
+                <string>token.string</string>
+            </dict>
+            <dict>
+                <!-- Quoted strings with ' -->
+                <key>match</key>
+                <string>'(.*?)'</string>
+                <key>name</key>
+                <string>token.string</string>
+            </dict>
+            <dict>
+                <!-- viper related file -->
+                <key>match</key>
+                <string>\w+\.(vpr|sil|dot|svg)\b</string>
+                <key>name</key>
+                <string>info-token</string>
+            </dict>
+            <dict>
+                <!-- Numeric (decimal) -->
+                <key>match</key>
+                <string>\b\d+\.?\d*?\b</string>
+                <key>name</key>
+                <string>constant.numeric</string>
+            </dict>
+            <dict>
+                <!-- Numeric (hex) -->
+                <key>match</key>
+                <string>\b(?i:(0?x)?[0-9a-f][0-9a-f]+)\b</string>
+                <key>name</key>
+                <string>constant.numeric</string>
+            </dict>
+            <dict>
+                <!-- boolean -->
+                <key>match</key>
+                <string>\b(?i:(True|False))\b</string>
+                <key>name</key>
+                <string>constant.numeric</string>
+            </dict>
+            <dict>
+                <!-- Error token -->
+                <key>match</key>
+                <string>\b(?i:(Down|Error\:|Failure|Fail|Fatal))(\:|\b|\s)</string>
+                <key>name</key>
+                <string>error-token</string>
+            </dict>
+            <dict>
+                <!-- Info token -->
+                <key>match</key>
+                <string>\b(?i:(hint|info|information))(\:|\b)</string>
+                <key>name</key>
+                <string>info-token</string>
+            </dict>
+            <dict>
+                <!-- Warn token -->
+                <key>match</key>
+                <string>\b(?i:(warning|warn|test|debug|null|undefined))(\:|\b)</string>
+                <key>name</key>
+                <string>warn-token</string>
+            </dict>
+            <dict>
+                <!-- Generic URI/URL -->
+                <key>match</key>
+                <string>\b(?i:([a-z]|[0-9])+\:((\/\/)|((\/\/)?[^\s;]))+)</string>
+                <key>name</key>
+                <string>info-token</string>
+            </dict>
+        </array>
+        <key>uuid</key>
+        <string>ab259404-3072-4cd4-a943-7cbbd32e373f</string>
+    </dict>
+</plist>

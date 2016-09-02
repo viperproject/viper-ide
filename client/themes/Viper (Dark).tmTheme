@@ -75,7 +75,7 @@
 			<key>settings</key>
 			<dict>
 				<key>foreground</key>
-				<string>#F8F8F2</string>
+				<string>#D0FFD0</string>
 			</dict>
 		</dict>
 		<dict>
@@ -446,6 +446,33 @@
 			<dict>
 				<key>background</key>
 				<string>#C15410</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>scope</key>
+			<string>info-token</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#4070FF</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>scope</key>
+			<string>error-token</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#FF0000</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>scope</key>
+			<string>warn-token</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#FF8000</string>
 			</dict>
 		</dict>
 	</array>

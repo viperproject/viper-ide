@@ -35,7 +35,7 @@ export class Log {
         Log._svgBasePath = path.join(Log.rootPath, '.vscode', 'heap');
         Log.symbExLogFilePath = path.join(Log.rootPath, '.vscode', 'executionTreeData.js');
 
-        Log.log("LogFilePath is: " + Log.logFilePath, LogLevel.LowLevelDebug)
+        Log.log('LogFilePath is: "' + Log.logFilePath+'"', LogLevel.LowLevelDebug)
         try {
             Log.createFile(Log.logFilePath);
             Log.logFile = fs.createWriteStream(Log.logFilePath);
