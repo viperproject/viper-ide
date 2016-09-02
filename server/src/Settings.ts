@@ -109,7 +109,7 @@ export class Settings {
     }
 
     public static valid(): boolean {
-        if (!this.valid)
+        if (!this._valid)
             Server.connection.sendNotification(Commands.InvalidSettings, this._error);
         return this._valid;
     }
@@ -281,45 +281,50 @@ export class Settings {
     }
 
     private static resolvePath(path: string): ResolvedPath {
-        if (!path) {
-            return { path: path, exists: false };
-        }
-        path = path.trim();
-        //handle env Vars
-        let envVar = this.extractEnvVars(path);
-        if (!envVar) {
-            return { path: path, exists: false };
-        }
-        path = envVar;
-        let resolvedPath: string;
-        //handle files in Path env var
-        if (path.indexOf("/") < 0 && path.indexOf("\\") < 0) {
-            //its only a filename, try to find it in the path
-            let pathEnvVar: string = process.env.PATH;
-            if (pathEnvVar) {
-                let pathList: string[] = pathEnvVar.split(Settings.isWin ? ";" : ":");
-                for (let i = 0; i < pathList.length; i++) {
-                    let pathElement = pathList[i];
-                    if (Settings.isWin && path.indexOf(".") < 0) {
-                        resolvedPath = this.toAbsolute(pathHelper.join(pathElement, path + ".exe"));
+        try {
+            if (!path) {
+                return { path: path, exists: false };
+            }
+            path = path.trim();
+            //handle env Vars
+            let envVar = this.extractEnvVars(path);
+            if (!envVar) {
+                return { path: path, exists: false };
+            }
+            path = envVar;
+            let resolvedPath: string;
+            //handle files in Path env var
+            if (path.indexOf("/") < 0 && path.indexOf("\\") < 0) {
+                //its only a filename, try to find it in the path
+                let pathEnvVar: string = process.env.PATH;
+                if (pathEnvVar) {
+                    let pathList: string[] = pathEnvVar.split(Settings.isWin ? ";" : ":");
+                    for (let i = 0; i < pathList.length; i++) {
+                        let pathElement = pathList[i];
+                        if (Settings.isWin && path.indexOf(".") < 0) {
+                            resolvedPath = this.toAbsolute(pathHelper.join(pathElement, path + ".exe"));
+                            if (fs.existsSync(resolvedPath)) {
+                                return { path: resolvedPath, exists: true };
+                            }
+                        }
+                        resolvedPath = this.toAbsolute(pathHelper.join(pathElement, path));
                         if (fs.existsSync(resolvedPath)) {
                             return { path: resolvedPath, exists: true };
                         }
                     }
-                    resolvedPath = this.toAbsolute(pathHelper.join(pathElement, path));
-                    if (fs.existsSync(resolvedPath)) {
-                        return { path: resolvedPath, exists: true };
-                    }
                 }
+            } else {
+                //handle absolute and relative paths
+                resolvedPath = this.toAbsolute(path);
+                try {
+                    fs.accessSync(resolvedPath);
+                    return { path: resolvedPath, exists: true };
+                } catch (e) { }
             }
-        } else {
-            //handle absolute and relative paths
-            resolvedPath = this.toAbsolute(path);
-            if (fs.existsSync(resolvedPath)) {
-                return { path: resolvedPath, exists: true };
-            }
+            return { path: resolvedPath, exists: false };
+        } catch (e) {
+            Log.error("Error resolving path: " + e);
         }
-        return { path: resolvedPath, exists: false };
     }
 
     private static toAbsolute(path: string): string {

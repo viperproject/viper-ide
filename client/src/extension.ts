@@ -148,6 +148,8 @@ function startVerificationController() {
                             } else {
                                 verify(fileState, task.manuallyTriggered);
                             }
+                        } else {
+                            Log.log("Backend is not ready, wait for backend to start.", LogLevel.Info);
                         }
                         task.type = TaskType.NoOp;
                         break;
@@ -208,16 +210,20 @@ function startVerificationController() {
                         }
                     }
                     let fileState = ExtensionState.viperFiles.get(uri.toString());
-                    fileState.setEditor(editor);
+                    if (fileState) {
+                        fileState.setEditor(editor);
 
-                    if (fileState.verified) {
-                        //showStates(()=>{});
+                        if (fileState.verified) {
+                            //showStates(()=>{});
+                        } else {
+                            Log.log("reverify because the active text editor changed", LogLevel.Debug);
+                            workList.push({ type: TaskType.Verify, uri: uri, manuallyTriggered: false })
+                        }
+                        Log.log("Active viper file changed to " + path.basename(uri.toString()), LogLevel.Info);
+                        lastActiveTextEditor = uri;
                     } else {
-                        Log.log("reverify because the active text editor changed", LogLevel.Debug);
-                        workList.push({ type: TaskType.Verify, uri: uri, manuallyTriggered: false })
+                        Log.log("No fileState for selected editor, It is not a viper file",LogLevel.Debug);
                     }
-                    Log.log("Active viper file changed to " + path.basename(uri.toString()), LogLevel.Info);
-                    lastActiveTextEditor = uri;
                 }
             }
         } catch (e) {
