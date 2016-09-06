@@ -1,7 +1,7 @@
 'use strict'
 
 import {IConnection, TextDocuments, PublishDiagnosticsParams} from 'vscode-languageserver';
-import {StepsAsDecorationOptionsResult, StateChangeParams, BackendStartedParams, Stage, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+import {StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Log} from './Log';
@@ -34,8 +34,8 @@ export class Server {
     static sendStateChangeNotification(params: StateChangeParams) {
         this.connection.sendNotification(Commands.StateChange, params);
     }
-    static sendBackendStartedNotification(params: BackendStartedParams) {
-        this.connection.sendNotification(Commands.BackendStarted, params);
+    static sendBackendReadyNotification(params: BackendReadyParams) {
+        this.connection.sendNotification(Commands.BackendReady, params);
     }
     static sendStopDebuggingNotification() {
         this.connection.sendNotification(Commands.StopDebugging);
@@ -61,9 +61,6 @@ export class Server {
     }
     static pathToUri(path: string): Thenable<string> {
         return this.connection.sendRequest(Commands.PathToUri, path)
-    }
-    static askUserToSelectBackend(backendNames: string[]): Thenable<string> {
-        return this.connection.sendRequest(Commands.AskUserToSelectBackend, backendNames)
     }
     static sendFileOpenedNotification(uri: string) {
         this.connection.sendNotification(Commands.FileOpened, uri);

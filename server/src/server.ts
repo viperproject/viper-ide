@@ -16,7 +16,7 @@ import {
 import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
 import {Settings} from './Settings'
-import {BackendStartedParams, StatementType, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+import {BackendReadyParams, StatementType, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Statement} from './Statement';
@@ -78,30 +78,34 @@ function registerHandlers() {
         }
     });
 
-    Server.connection.onNotification(Commands.RequestBackendNames, () => {
+    Server.connection.onNotification(Commands.StartBackend, (selectedBackend: string) => {
         try {
-            let backendNames: string[] = Settings.getBackendNames(Settings.settings);
-            if (backendNames.length > 1) {
-                Server.askUserToSelectBackend(backendNames).then((selectedBackend: string) => {
-                    try {
-                        if (!selectedBackend || selectedBackend.length == 0) {
-                            Log.log("No backend was chosen, don't restart backend");
-                            return;
-                        }
-                        if (Settings.valid()) {
-                            Settings.selectedBackend = selectedBackend;
-                            restartBackendIfNeeded();
-                        }
-                    } catch (e) {
-                        Log.error("Error handling select backend request: " + e);
-                    }
-                });
-            } else {
-                Log.hint("There are less than two backends, selecting does not make sense.");
+            if (!selectedBackend || selectedBackend.length == 0) {
+                Log.log("No backend was chosen, don't restart backend", LogLevel.Debug);
+            } else if (Settings.valid()) {
+                Settings.selectedBackend = selectedBackend;
+                restartBackendIfNeeded();
             }
         } catch (e) {
-            Log.error("Error handling backend names request: " + e);
+            Log.error("Error handling select backend request: " + e);
         }
+    });
+
+    //returns the a list of all backend names
+    Server.connection.onRequest(Commands.RequestBackendNames, () => {
+        return new Promise((resolve, reject) => {
+            try {
+                let backendNames: string[] = Settings.getBackendNames(Settings.settings);
+                if (!backendNames) {
+                    reject("No backend found");
+                }
+                else {
+                    resolve(backendNames);
+                }
+            } catch (e) {
+                reject("Error handling backend names request: " + e);
+            }
+        });
     });
 
     Server.connection.onDidOpenTextDocument((params) => {
@@ -137,7 +141,7 @@ function registerHandlers() {
         }
     });
 
-    Server.connection.onRequest(Commands.Verify, (data: VerifyRequest) => {
+    Server.connection.onNotification(Commands.Verify, (data: VerifyRequest) => {
         try {
             let verificationstarted = false;
             //it does not make sense to reverify if no changes were made and the verification is already running
@@ -222,7 +226,7 @@ function restartBackendIfNeeded() {
     } else {
         Log.log("No need to restart backend. It's still the same", LogLevel.Debug)
         Server.backend = newBackend;
-        //Server.sendBackendStartedNotification({ name: Server.backend.name, reverify: false });
+        Server.sendBackendReadyNotification({ name: Server.backend.name, restarted: false });
     }
 }
 

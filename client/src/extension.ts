@@ -10,7 +10,7 @@ import {LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, Tr
 import {Timer} from './Timer';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
-import {BackendStartedParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success} from './ViperProtocol';
+import {BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success} from './ViperProtocol';
 import Uri from '../node_modules/vscode-uri/lib/index';
 import {Log} from './Log';
 import {StateVisualizer} from './StateVisualizer';
@@ -515,23 +515,6 @@ function registerHandlers() {
         let platformIndependentUri = uriObject.toString();
         return platformIndependentUri;
     });
-    state.client.onRequest(Commands.AskUserToSelectBackend, (backendNames: string[]) => {
-        return new Promise((resolve, reject) => {
-            try {
-                //only ask the user if there is a choice
-                if (backendNames.length > 1) {
-                    vscode.window.showQuickPick(backendNames).then(selectedBackend => {
-                        resolve(selectedBackend);
-                    });
-                } else {
-                    resolve(backendNames[0]);
-                }
-            } catch (e) {
-                Log.error("Error handling backend selection request: " + e);
-                reject();
-            }
-        });
-    });
     state.context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
         try {
             workList.push({ type: TaskType.Save, uri: params.uri });
@@ -547,23 +530,8 @@ function registerHandlers() {
         }
     }));
 
-    state.client.onNotification(Commands.BackendStarted, (params: BackendStartedParams) => {
-        try {
-            Log.log("Backend ready: " + params.name, LogLevel.Info);
-            _backendReady = true;
-            //no file is verifying
-            resetViperFiles()
-            updateStatusBarItem(statusBarItem, "ready", 'white');
-            //automatically trigger the first verification
-            if (params.reverify && Helper.getConfiguration('autoVerifyAfterBackendChange') === true) {
-                if (lastActiveTextEditor) {
-                    Log.log("autoVerify after backend change", LogLevel.Info);
-                    workList.push({ type: TaskType.Verify, uri: lastActiveTextEditor, manuallyTriggered: false });
-                }
-            }
-        } catch (e) {
-            Log.error("Error handling backend started notification: " + e);
-        }
+    state.client.onNotification(Commands.BackendReady, (params: BackendReadyParams) => {
+        handleBackendReadyNotification(params);
     });
 
     //Heap visualization
@@ -645,11 +613,30 @@ function registerHandlers() {
     }));
 
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.selectBackend', () => {
-        if (!state.client) {
-            Log.hint("Extension not ready yet.");
-        } else {
-            _backendReady = false;
-            state.client.sendNotification(Commands.RequestBackendNames);
+        try {
+            if (!state.client) {
+                Log.hint("Extension not ready yet.");
+            } else {
+                state.client.sendRequest(Commands.RequestBackendNames, null).then((backendNames: string[]) => {
+                    if (backendNames.length > 1) {
+                        vscode.window.showQuickPick(backendNames).then(selectedBackend => {
+                            if (selectedBackend && selectedBackend.length > 0) {
+                                startBackend(selectedBackend);
+                            } else {
+                                Log.log("No backend was selected, don't change the backend");
+
+                            }
+                        });
+                    } else {
+                        Log.log("No need to ask user, since there is only one backend.", LogLevel.Debug);
+                        startBackend(backendNames[0]);
+                    }
+                }, (reason) => {
+                    Log.error("Backend change request was rejected: reason: " + reason.toString());
+                });
+            }
+        } catch (e) {
+            Log.error("Error selecting backend: " + e);
         }
     }));
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.startDebugging', () => {
@@ -723,6 +710,34 @@ function registerHandlers() {
     }));
 }
 
+function startBackend(backendName: string) {
+    try {
+        _backendReady = false;
+        state.client.sendNotification(Commands.StartBackend, backendName);
+    } catch (e) {
+        Log.error("Error starting backend: " + e);
+    }
+}
+
+function handleBackendReadyNotification(params: BackendReadyParams) {
+    try {
+        _backendReady = true;
+        Log.log("Backend ready: " + params.name, LogLevel.Info);
+        updateStatusBarItem(statusBarItem, "ready", 'white');
+        //automatically trigger the first verification
+        if (params.restarted) {
+            //no file is verifying
+            resetViperFiles()
+            if (lastActiveTextEditor && Helper.getConfiguration('autoVerifyAfterBackendChange') === true) {
+                Log.log("autoVerify after backend change", LogLevel.Info);
+                workList.push({ type: TaskType.Verify, uri: lastActiveTextEditor, manuallyTriggered: false });
+            }
+        }
+    } catch (e) {
+        Log.error("Error handling backend started notification: " + e);
+    }
+}
+
 function stopDebugging() {
     Log.log("Tell language server to stop debugging", LogLevel.Debug);
     state.client.sendNotification(Commands.StopDebugging);
@@ -784,7 +799,7 @@ function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
                 fileState.verifying = true;
 
                 let workspace = vscode.workspace.rootPath ? vscode.workspace.rootPath : path.dirname(fileState.uri.fsPath);
-                state.client.sendRequest(Commands.Verify, { uri: uri, manuallyTriggered: manuallyTriggered, workspace: workspace });
+                state.client.sendNotification(Commands.Verify, { uri: uri, manuallyTriggered: manuallyTriggered, workspace: workspace });
             }, visualizer);
         }
     }

@@ -4,7 +4,7 @@ import child_process = require('child_process');
 
 import {Log} from './Log'
 import {Settings} from './Settings'
-import {BackendStartedParams, Stage, Backend, ViperSettings, Commands, VerificationState, LogLevel} from './ViperProtocol'
+import {Stage, Backend, ViperSettings, Commands, VerificationState, LogLevel} from './ViperProtocol'
 import {Server} from './ServerClass';
 import {VerificationTask} from './VerificationTask'
 
@@ -31,7 +31,7 @@ export class NailgunService {
     public setReady(backend: Backend) {
         this._ready = true;
         Log.log("Nailgun started", LogLevel.Info);
-        Server.sendBackendStartedNotification({ name: this.activeBackend.name, reverify: true });
+        Server.sendBackendReadyNotification({ name: this.activeBackend.name, restarted: true });
     }
 
     public setStopping() {

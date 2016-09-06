@@ -8,10 +8,8 @@ export class Commands {
     static UriToPath = { method: "UriToPath" };
     //Server asks client to transform a file path to a uri
     static PathToUri = { method: "PathToUri" };
-    
+
     static SelectBackend = { method: "SelectBackend" };
-    //Server asks client to promt the backend selection dialog
-    static AskUserToSelectBackend = { method: "AskUserToSelectBackend" };
     //Client asks server for the list of backend names
     static RequestBackendNames = { method: "RequestBackendNames" };
     //Server notifies client about a state change
@@ -44,7 +42,9 @@ export class Commands {
     //Either server or client request debugging to be stopped
     static StopDebugging = { method: "StopDebugging" };
     //Server informs client about started backend
-    static BackendStarted = { method: "BackendStarted" };
+    static BackendReady = { method: "BackendReady" };
+    //Client tells Server to start backends
+    static StartBackend = { method: "StartBackend" };
 }
 
 //Communication between Language Client and Language Server:
@@ -106,11 +106,11 @@ export interface StateChangeParams {
     stage?: string;
 }
 
-export interface BackendStartedParams {
+export interface BackendReadyParams {
     //name of the backend ready to use
     name: string;
     //should the open file be reverified
-    reverify: boolean;
+    restarted: boolean;
 }
 
 export interface VerifyRequest {

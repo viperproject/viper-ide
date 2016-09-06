@@ -203,7 +203,7 @@ export class Settings {
             }
             for (let i = 0; i < backend.stages.length; i++) {
                 let stage: Stage = backend.stages[i];
-                if (stage.onParsingError && stage.onParsingError.length > 0 && !stages.has(stage.onParsingError)) return backend.name + ": Cannot find stage " + stage.name + "'s onParsingError stage " + stage.onParsingErrors;
+                if (stage.onParsingError && stage.onParsingError.length > 0 && !stages.has(stage.onParsingError)) return backend.name + ": Cannot find stage " + stage.name + "'s onParsingError stage " + stage.onParsingError;
                 if (stage.onTypeCheckingError && stage.onTypeCheckingError.length > 0 && !stages.has(stage.onTypeCheckingError)) return backend.name + ": Cannot find stage " + stage.name + "'s onTypeCheckingError stage " + stage.onTypeCheckingError;
                 if (stage.onVerificationError && stage.onVerificationError.length > 0 && !stages.has(stage.onVerificationError)) return backend.name + ": Cannot find stage " + stage.name + "'s onVerificationError stage " + stage.onVerificationError;
                 if (stage.onSuccess && stage.onSuccess.length > 0 && !stages.has(stage.onSuccess)) return backend.name + ": Cannot find stage " + stage.name + "'s onSuccess stage " + stage.onSuccess;
