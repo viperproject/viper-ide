@@ -1,29 +1,49 @@
 //Global interfaces:
 
+//These commands are used to distinguish the different message types
 export class Commands {
+    //Server notifies client about invalid settings
     static InvalidSettings = { method: "InvalidSettings" };
-    static Hint = { method: "Hint" };
+    //Server asks client to transform a uri to a file path
     static UriToPath = { method: "UriToPath" };
+    //Server asks client to transform a file path to a uri
     static PathToUri = { method: "PathToUri" };
+    
     static SelectBackend = { method: "SelectBackend" };
+    //Server asks client to promt the backend selection dialog
     static AskUserToSelectBackend = { method: "AskUserToSelectBackend" };
+    //Client asks server for the list of backend names
     static RequestBackendNames = { method: "RequestBackendNames" };
+    //Server notifies client about a state change
     static StateChange = { method: "StateChange" };
+    //Client tells server to dispose itself
     static Dispose = { method: "Dispose" };
+    //Client requests verification for a file
     static Verify = { method: "Verify" };
+    //Used for logging
     static Log = { method: "Log" };
     static Error = { method: "Error" };
-    static StopVerification = { method: "StopVerification" };
     static ToLogFile = { method: "ToLogFile" };
+    //Server tells client to show an information message to the user
+    static Hint = { method: "Hint" };
+    //Client tells server to abort the running verification
+    static StopVerification = { method: "StopVerification" };
+    //Server informs client about ongoing backend change
     static BackendChange = { method: "BackendChange" };
+
     static StepsAsDecorationOptions = { method: "StepsAsDecorationOptions" };
     static ShowHeap = { method: "ShowHeap" };
     static HeapGraph = { method: "HeapGraph" };
     static StateSelected = { method: "StateSelected" };
+    //Server is informing client about opened file
     static FileOpened = { method: "FileOpened" };
+    //Server is informing client about closed file
     static FileClosed = { method: "FileClosed" };
+    //Server is notifying client that the verification could not be started
     static VerificationNotStarted = { method: "VerificationNotStarted" };
+    //Either server or client request debugging to be stopped
     static StopDebugging = { method: "StopDebugging" };
+    //Server informs client about started backend
     static BackendStarted = { method: "BackendStarted" };
 }
 
@@ -57,17 +77,21 @@ export enum LogLevel {
     LowLevelDebug = 5
 }
 
+//Verification Success
 export enum Success {
+    //Used for initialization
     None = 0,
     Success = 1,
     ParsingFailed = 2,
     TypecheckingFailed = 3,
     VerificationFailed = 4,
+    //Manually aborted verification
     Aborted = 5,
+    //Caused by internal error
     Error = 6
 }
 
-export interface UpdateStatusBarParams {
+export interface StateChangeParams {
     newState: VerificationState;
     progress?;
     success?: Success;
@@ -82,56 +106,89 @@ export interface UpdateStatusBarParams {
     stage?: string;
 }
 
+export interface BackendStartedParams {
+    //name of the backend ready to use
+    name: string;
+    //should the open file be reverified
+    reverify: boolean;
+}
+
 export interface VerifyRequest {
+    //file to verify
     uri: string,
+    //was the verification triggered manually
     manuallyTriggered: boolean,
+    //the path to the open workspace folder
     workspace: string
 }
 
 export interface ShowHeapParams {
+    //file to show heap params of
     uri: string,
+    //the index of the state to show
+    //the client index does only take the states with a position into account
     clientIndex: number
 }
 
 export interface HeapGraph {
+    //dot representation of heap
     heap: string,
+    //client index of represented state
     state: number,
+    //information about verified file
     fileName: string,
     fileUri: string,
     position: Position,
     stateInfos: string,
+    //name of method containing the represented state
     methodName: string,
+    //predicate, function or method
     methodType: string,
     methodOffset: number,
     conditions: string[]
 }
 
+//own Position interface, because vscode.Position is not available at Language Server
 export interface Position {
     line: number;
     character: number;
 }
+//own Range interface, because vscode.Range is not available at Language Server
+export interface Range {
+    start: Position,
+    end: Position
+}
 
+//colors of states shown in the source code during debugging for both viper light and viper dark theme
 export class StateColors {
+    //currently selected state
     static currentState(dark: boolean): string {
         return dark ? "red" : "red";
     };
+    //previously selected state
     static previousState(dark: boolean): string {
         return dark ? "green" : "green";
     };
+    //state in which an error was reported by the backend
     static errorState(dark: boolean): string {
         return dark ? "yellow" : "orange";
     };
+    //state in same method as current state
     static interestingState(dark: boolean): string {
         return dark ? "yellow" : "orange";
     };
+    //state in other method
     static uninterestingState(dark: boolean): string {
         return dark ? "grey" : "grey";
     };
 }
 
 export interface StepsAsDecorationOptionsResult {
+    //decoration options to be shown in the source code
     decorationOptions: MyProtocolDecorationOptions[],
+    //info that relates to all states
     globalInfo: string
+    //file under verification
     uri: string;
 }
 
@@ -144,17 +201,17 @@ export interface MyProtocolDecorationOptions {
             color: string
         }
     }
+    //state index relative to the method start
     numberToDisplay: number;
+    //position in the unmodified source file
     originalPosition: Position;
+    //depth in the symbExLog
     depth: number,
     methodIndex: number,
+    //client index of current state
     index: number,
+    //is the current state an error state?
     isErrorState: boolean
-}
-
-export interface Range {
-    start: Position,
-    end: Position
 }
 
 //Communication between Language Server and Debugger:
@@ -163,6 +220,7 @@ export enum StepType { Stay, Next, Back, In, Out, Continue }
 
 export interface LaunchRequestArguments {
     program: string;
+    //client state to start debugging in
     startInState: number;
 }
 
@@ -214,3 +272,36 @@ export interface SymbExLogEntry {
     children?: SymbExLogEntry[];
 }
 
+export class BackendOutputType {
+    static Start = "Start";
+    static End = "End";
+    static VerificationStart = "VerificationStart";
+    static MethodVerified = "MethodVerified";
+    static FunctionVerified = "FunctionVerified";
+    static PredicateVerified = "PredicateVerified";
+    static Error = "Error";
+}
+
+export interface BackendOutput {
+    type: string,
+    //for ...Verified:
+    name?: string,
+    //for Start:
+    backendType?: string,
+    //for VerificationStart:
+    nofMethods?: number,
+    nofPredicates?: number,
+    nofFunctions?: number,
+    //for End:
+    time?: string,
+    //for Error:
+    file?: string,
+    errors?: Error[]
+}
+
+export interface Error {
+    start: string,
+    end: string,
+    tag?: string,
+    message: string
+}

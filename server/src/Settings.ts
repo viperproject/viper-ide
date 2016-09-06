@@ -110,7 +110,7 @@ export class Settings {
 
     public static valid(): boolean {
         if (!this._valid)
-            Server.connection.sendNotification(Commands.InvalidSettings, this._error);
+            Server.sendInvalidSettingsNotification(this._error);
         return this._valid;
     }
 
@@ -194,19 +194,19 @@ export class Settings {
             let verifyStageFound = false;
             for (let i = 0; i < backend.stages.length; i++) {
                 let stage: Stage = backend.stages[i];
-                if (!stage) return "Empty stage detected";
-                if (!stage.name || stage.name.length == 0) return "Every stage needs a name.";
-                if (stages.has(stage.name)) return "Dublicated stage name: " + backend.name + ":" + stage.name
+                if (!stage) return backend.name + ": Empty stage detected";
+                if (!stage.name || stage.name.length == 0) return backend.name + ": Every stage needs a name.";
+                if (stages.has(stage.name)) return backend.name + ": Dublicated stage name: " + backend.name + ":" + stage.name
                 stages.add(stage.name);
-                if (!stage.mainMethod || stage.mainMethod.length == 0) return "Stage: " + stage.name + "is missing a mainMethod";
+                if (!stage.mainMethod || stage.mainMethod.length == 0) return backend.name + ": Stage: " + stage.name + "is missing a mainMethod";
                 //TODO: check mainMethods:
             }
             for (let i = 0; i < backend.stages.length; i++) {
                 let stage: Stage = backend.stages[i];
-                if (stage.onParsingError && stage.onParsingError.length > 0 && !stages.has(stage.onParsingError)) return "Cannot find stage " + stage.name + "'s onParsingError stage";
-                if (stage.onTypeCheckingError && stage.onTypeCheckingError.length > 0 && !stages.has(stage.onTypeCheckingError)) return "Cannot find stage " + stage.name + "'s onTypeCheckingError stage";
-                if (stage.onVerificationError && stage.onVerificationError.length > 0 && !stages.has(stage.onVerificationError)) return "Cannot find stage " + stage.name + "'s onVerificationError stage";
-                if (stage.onSuccess && stage.onSuccess.length > 0 && !stages.has(stage.onSuccess)) return "Cannot find stage " + stage.name + "'s onSuccess stage";
+                if (stage.onParsingError && stage.onParsingError.length > 0 && !stages.has(stage.onParsingError)) return backend.name + ": Cannot find stage " + stage.name + "'s onParsingError stage " + stage.onParsingErrors;
+                if (stage.onTypeCheckingError && stage.onTypeCheckingError.length > 0 && !stages.has(stage.onTypeCheckingError)) return backend.name + ": Cannot find stage " + stage.name + "'s onTypeCheckingError stage " + stage.onTypeCheckingError;
+                if (stage.onVerificationError && stage.onVerificationError.length > 0 && !stages.has(stage.onVerificationError)) return backend.name + ": Cannot find stage " + stage.name + "'s onVerificationError stage " + stage.onVerificationError;
+                if (stage.onSuccess && stage.onSuccess.length > 0 && !stages.has(stage.onSuccess)) return backend.name + ": Cannot find stage " + stage.name + "'s onSuccess stage " + stage.onSuccess;
             }
 
             //check paths

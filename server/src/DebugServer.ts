@@ -1,15 +1,6 @@
 'use strict';
 
 import fs = require('fs');
-
-import {
-    IPCMessageReader, IPCMessageWriter,
-    createConnection, IConnection, TextDocumentSyncKind,
-    TextDocuments, TextDocument, TextDocumentIdentifier, Diagnostic, DiagnosticSeverity,
-    InitializeParams, InitializeResult, TextDocumentPositionParams,
-    CompletionItem, CompletionItemKind, NotificationType,
-    RequestType, RequestHandler
-} from 'vscode-languageserver';
 import {Server} from './ServerClass';
 
 // import {LogEntry, LogType} from './LogEntry';
@@ -98,7 +89,7 @@ export class DebugServer {
                                                 if (DebugServer.debuggerRunning) {
                                                     Log.log('LanguageServer disconnected from Debugger', LogLevel.Debug);
                                                     DebugServer.debuggerRunning = false;
-                                                    VerificationTask.connection.sendNotification(Commands.StopDebugging);
+                                                    Server.sendStopDebuggingNotification();
                                                 }
                                             }
                                         );
