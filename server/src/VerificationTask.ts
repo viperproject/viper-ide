@@ -1,16 +1,16 @@
 'use strict';
 
 import child_process = require('child_process');
-import {IConnection, Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
+import {Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
 import {Settings} from './Settings'
-import {SymbExLogEntry, Stage, UpdateStatusBarParams, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
+import {BackendOutput, BackendOutputType, Error, SymbExLogEntry, Stage, StateChangeParams, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement} from './Statement';
 import {Model} from './Model';
 import * as pathHelper from 'path';
 import {HeapVisualizer} from './HeapVisualizer';
-import {TotalProgress} from './TotalProgress';
+import {Progress} from './TotalProgress';
 import {Server} from './ServerClass';
 import {DebugServer} from './DebugServer';
 import * as fs from 'fs';
@@ -18,7 +18,6 @@ import {Verifiable} from './Verifiable';
 
 export class VerificationTask {
     //state that is valid across verifications
-    static connection: IConnection;
     nailgunService: NailgunService;
     // file under verification
     fileUri: string;
@@ -48,10 +47,13 @@ export class VerificationTask {
     symbExLog: SymbExLogEntry[] = [];
     stateIndicesOrderedByPosition: { index: number, position: Position }[];
 
-    constructor(fileUri: string, nailgunService: NailgunService, connection: IConnection) {
+    backendType: string;
+
+    progress: Progress;
+
+    constructor(fileUri: string, nailgunService: NailgunService) {
         this.fileUri = fileUri;
         this.nailgunService = nailgunService;
-        VerificationTask.connection = connection;
     }
 
     public getHeapGraphDescription(clientIndex: number): HeapGraph {
@@ -204,9 +206,11 @@ export class VerificationTask {
                     step.decorationOptions.range.end.character = step.position.character + optionsInLine + 2;
                 }
             });
+
+            let model = this.model.pretty();
             return {
                 decorationOptions: decorationOptions,
-                globalInfo: this.prettySteps() + "\n" + this.model.pretty(),
+                globalInfo: this.prettySteps() + "\n" + (model ? model : "no model"),
                 uri: this.fileUri
             }
         } catch (e) {
@@ -253,7 +257,7 @@ export class VerificationTask {
 
         Log.log(Server.backend.name + ' verification started', LogLevel.Info);
 
-        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning });
+        Server.sendStateChangeNotification({ newState: VerificationState.VerificationRunning });
 
         VerificationTask.uriToPath(this.fileUri).then((path) => {
             //Request the debugger to terminate it's session
@@ -268,7 +272,7 @@ export class VerificationTask {
 
     resetDiagnostics() {
         this.diagnostics = [];
-        VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
+        Server.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
     }
 
     resetLastSuccess() {
@@ -291,7 +295,7 @@ export class VerificationTask {
                     Log.log("Verification Backend Terminated Abnormaly: with code " + code, LogLevel.Default);
                     if (Settings.isWin && code == null) {
                         this.nailgunService.killNgDeamon().then(resolve => {
-                            this.nailgunService.restartNailgunServer(VerificationTask.connection, Server.backend);
+                            this.nailgunService.startOrRestartNailgunServer(Server.backend);
                         });
                     }
                 }
@@ -318,7 +322,7 @@ export class VerificationTask {
                     let newStageExecutions = Server.executedStages.filter(stage => stage.name === newStage.name).length;
                     if (newStageExecutions <= 0 ||
                         (newStage.isVerification && !lastStage.isVerification && newStageExecutions <= 1)) {
-                        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.Stage, stage: newStage.name, filename: this.filename })
+                        Server.sendStateChangeNotification({ newState: VerificationState.Stage, stage: newStage.name, filename: this.filename })
                         if (newStage.isVerification) {
                             Log.log("Restart verifiacation after stage " + lastStage.name, LogLevel.Info)
                             this.verify(this.manuallyTriggered);
@@ -337,10 +341,10 @@ export class VerificationTask {
 
             if (isVerifyingStage) {
                 // Send the computed diagnostics to VSCode.
-                VerificationTask.connection.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
+                Server.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
 
                 //inform client about postProcessing
-                VerificationTask.connection.sendNotification(Commands.StateChange, {
+                Server.sendStateChangeNotification({
                     newState: VerificationState.PostProcessing,
                     filename: this.filename,
                 });
@@ -357,13 +361,11 @@ export class VerificationTask {
                 let decorations: StepsAsDecorationOptionsResult = this.getDecorationOptions();
 
                 if (decorations.decorationOptions.length > 0) {
-                    //Log.log(JSON.stringify(params),LogLevel.Debug);
-                    Log.log("Update the decoration options (" + decorations.decorationOptions.length + ")", LogLevel.Debug);
-                    VerificationTask.connection.sendNotification(Commands.StepsAsDecorationOptions, decorations);
+                    Server.sendStepsAsDecorationOptions(decorations);
                     //Log.log("decoration options update done", LogLevel.Debug);
                 }
 
-                let stateChangeParams: UpdateStatusBarParams = {
+                Server.sendStateChangeNotification({
                     newState: VerificationState.Ready,
                     success: success,
                     manuallyTriggered: this.manuallyTriggered,
@@ -372,12 +374,11 @@ export class VerificationTask {
                     time: this.time,
                     verificationCompleted: true,
                     uri: this.fileUri
-                };
-                VerificationTask.connection.sendNotification(Commands.StateChange, stateChangeParams);
+                });
                 this.lastSuccess = success;
             } else {
                 success = Success.Success;
-                let stateChangeParams: UpdateStatusBarParams = {
+                Server.sendStateChangeNotification({
                     newState: VerificationState.Ready,
                     success: success,
                     manuallyTriggered: this.manuallyTriggered,
@@ -386,15 +387,14 @@ export class VerificationTask {
                     time: this.time,
                     verificationCompleted: false,
                     uri: this.fileUri
-                };
-                VerificationTask.connection.sendNotification(Commands.StateChange, stateChangeParams);
+                });
             }
             //reset for next verification
             this.time = 0;
             this.running = false;
         } catch (e) {
             this.running = false;
-            VerificationTask.connection.sendNotification(Commands.VerificationNotStarted, this.fileUri);
+            Server.sendVerificationNotStartedNotification(this.fileUri);
             Log.error("Error handling verification completion: " + e);
         }
     }
@@ -450,8 +450,9 @@ export class VerificationTask {
                 }
                 else if (data.startsWith("SLF4J: Class path contains multiple SLF4J bindings")) {
                     Log.error(Server.backend.name + "'s path is referencing the same class multiple times", LogLevel.Info);
+                } else if (data.startsWith("SLF4J:")) {
                 } else {
-                    Log.error(Server.backend.name + " error: " + data, LogLevel.Debug);
+                    Log.error(Server.backend.name + ": " + data, LogLevel.Debug);
                 }
             } else {
                 Log.error("Backend error message: " + stage.name + " " + data, LogLevel.Debug);
@@ -468,19 +469,86 @@ export class VerificationTask {
         let stage = Server.stage();
         if (this.aborting) return;
         if (stage.isVerification) {
-            Log.toLogFile(`[${Server.backend.name}:${stage.name}: stdout raw]: ${data}`, LogLevel.LowLevelDebug);
+            Log.toLogFile(`[${Server.backend.name}:${stage.name}: stdout]: ${data}`, LogLevel.LowLevelDebug);
             let parts = data.split(/\r?\n/g);
             parts[0] = this.partialData + parts[0];
             for (var i = 0; i < parts.length; i++) {
                 let line = parts[i];
 
-                //handle start and end of verification
-                if (line.startsWith('Silicon started') || line.startsWith('carbon started')) {
-                    Log.log("State -> Verification Running", LogLevel.Info);
-                    this.state = VerificationState.VerificationRunning;
+                if (line.length == 0) continue;
+
+                //progress message
+                if (line.startsWith("{\"") && line.endsWith("}")) {
+                    try {
+                        let json: BackendOutput = JSON.parse(line);
+                        switch (json.type) {
+                            case BackendOutputType.Start:
+                                this.backendType = json.backendType;
+                                break;
+                            case BackendOutputType.VerificationStart:
+                                this.progress = new Progress(json);
+                                Server.sendStateChangeNotification({
+                                    newState: VerificationState.VerificationRunning,
+                                    progress: 0,
+                                    filename: this.filename
+                                });
+                                break;
+                            case BackendOutputType.FunctionVerified: case BackendOutputType.MethodVerified: case BackendOutputType.PredicateVerified:
+                                this.progress.updateProgress(json);
+                                let progressInPercent = this.progress.toPercent();
+                                Log.log("Progress: " + progressInPercent, LogLevel.Info);
+                                Server.sendStateChangeNotification({
+                                    newState: VerificationState.VerificationRunning,
+                                    progress: progressInPercent,
+                                    filename: this.filename
+                                });
+                                break;
+                            case BackendOutputType.Error:
+                                json.errors.forEach(err => {
+                                    if (err.tag && err.tag == "typechecker.error") {
+                                        this.typeCheckingCompleted = false;
+                                    }
+                                    else if (err.tag && err.tag == "parser.error") {
+                                        this.parsingCompleted = false;
+                                        this.typeCheckingCompleted = false;
+                                    }
+                                    let start = Statement.parsePosition(err.start);
+                                    let end = Statement.parsePosition(err.end);
+                                    Log.log(`Error: [${Server.backend.name}] ${err.tag ? "[" + err.tag + "] " : ""}${start.line + 1}:${start.character + 1} ${err.message}`, LogLevel.Default);
+                                    this.diagnostics.push({
+                                        range: { start: start, end: end },
+                                        source: null, //Server.backend.name
+                                        severity: DiagnosticSeverity.Error,
+                                        message: err.message
+                                    });
+                                });
+                                break;
+                            case BackendOutputType.End:
+                                this.state = VerificationState.VerificationReporting;
+                                this.time = this.extractNumber(json.time);
+                                break;
+                        }
+                    } catch (e) {
+                        Log.error("Error reading progress: " + e);
+                    }
+                    //no need to handle old ouput, if it is in json format
+                    continue;
+                } else if (line.startsWith("\"")) {
+                    this.model.extendModel(line);
+                    //no need to handle old ouput
+                    continue;
                 }
-                else if (line.startsWith('Silicon finished in') || line.startsWith('carbon finished in')) {
-                    Log.log("State -> Error_Reporting", LogLevel.Info);
+
+                //non json output handling:
+                //handle start and end of verification
+                if ((line.startsWith('Silicon') && !line.startsWith('Silicon finished')) || line.startsWith('carbon started')) {
+                    if (this.state != VerificationState.VerificationRunning)
+                        Log.log("State -> Verification Running", LogLevel.Info);
+                    this.state = VerificationState.VerificationRunning;
+                    continue;
+                }
+                else if (line.startsWith('Silicon finished') || line.startsWith('carbon finished in')) {
+                    Log.log("State -> Error Reporting", LogLevel.Info);
                     this.state = VerificationState.VerificationReporting;
                     this.time = this.extractNumber(line);
                 }
@@ -495,7 +563,8 @@ export class VerificationTask {
                     }
                 }
             }
-            if (this.state == VerificationState.VerificationRunning) {
+            //needed because large counterexample models are split across multiple messages
+            if (this.state == VerificationState.VerificationRunning && parts[parts.length - 1].startsWith('"')) {
                 this.partialData = parts[parts.length - 1];
             }
         } else {
@@ -513,24 +582,12 @@ export class VerificationTask {
                 break;
             case VerificationState.VerificationRunning:
                 line = line.trim();
-                //progress message
-                if (line.startsWith("{\"") && line.endsWith("}")) {
-                    try {
-                        let progress = new TotalProgress(JSON.parse(line));
-                        Log.log("Progress: " + progress.toPercent(), LogLevel.Info);
-                        VerificationTask.connection.sendNotification(Commands.StateChange, { newState: VerificationState.VerificationRunning, progress: progress.toPercent(), filename: this.filename })
-                    } catch (e) {
-                        Log.error("Error reading progress: " + e);
-                    }
-                }
                 //detect vetification end, get time
-                else if (line.startsWith('Silicon finished in') || line.startsWith('carbon finished in')) {
+                if (line.startsWith('Silicon finished in') || line.startsWith('carbon finished in')) {
                     Log.log("WARNING: analyze the reason for this code to be executed", LogLevel.Debug);
                     this.state = VerificationState.VerificationReporting;
                     this.time = this.extractNumber(line);
                     //model for counterexample
-                } else if (line.startsWith("\"")) {
-                    this.model.extendModel(line);
                 }
                 break;
             case VerificationState.VerificationReporting:
@@ -643,6 +700,7 @@ export class VerificationTask {
         })
         this.verifierProcess.kill('SIGINT');
         let l = this.verifierProcess.listeners;
+        this.verifierProcess = null;
         this.running = false;
         this.lastSuccess = Success.Aborted;
     }
@@ -689,7 +747,7 @@ export class VerificationTask {
                 Log.error("cannot convert uri to filepath, uri: " + uri);
                 return resolve(uri);
             }
-            VerificationTask.connection.sendRequest(Commands.UriToPath, uri).then((path) => {
+            Server.uriToPath(uri).then((path) => {
                 return resolve(path);
             });
         });
@@ -702,7 +760,7 @@ export class VerificationTask {
                 Log.error("cannot convert path to uri, path: " + path);
                 return resolve(path);
             }
-            VerificationTask.connection.sendRequest(Commands.PathToUri, path).then((uri) => {
+            Server.pathToUri(path).then((uri) => {
                 return resolve(uri);
             });
         });

@@ -10,7 +10,7 @@ import {LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, Tr
 import {Timer} from './Timer';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
-import {StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, UpdateStatusBarParams, LogLevel, Success} from './ViperProtocol';
+import {BackendStartedParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success} from './ViperProtocol';
 import Uri from '../node_modules/vscode-uri/lib/index';
 import {Log} from './Log';
 import {StateVisualizer} from './StateVisualizer';
@@ -222,7 +222,7 @@ function startVerificationController() {
                         Log.log("Active viper file changed to " + path.basename(uri.toString()), LogLevel.Info);
                         lastActiveTextEditor = uri;
                     } else {
-                        Log.log("No fileState for selected editor, It is not a viper file",LogLevel.Debug);
+                        Log.log("No fileState for selected editor, It is not a viper file", LogLevel.Debug);
                     }
                 }
             }
@@ -299,9 +299,10 @@ function resetAutoSaver() {
     autoSaver.reset();
 }
 
-function handleStateChange(params: UpdateStatusBarParams) {
+function handleStateChange(params: StateChangeParams) {
     try {
-        Log.log("The new state is: " + VerificationState[params.newState], LogLevel.Debug);
+        if (!params.progress)
+            Log.log("The new state is: " + VerificationState[params.newState], LogLevel.Debug);
         let window = vscode.window;
         switch (params.newState) {
             case VerificationState.Starting:
@@ -327,6 +328,9 @@ function handleStateChange(params: UpdateStatusBarParams) {
                 Log.log("Run " + params.stage + " for " + params.filename);
                 updateStatusBarItem(statusBarItem, `File ${params.filename}: Stage ${params.stage}`, 'white');
             case VerificationState.Ready:
+                statusBarProgress.hide();
+                abortButton.hide();
+
                 ExtensionState.viperFiles.forEach(file => {
                     file.verifying = false;
                 });
@@ -388,8 +392,6 @@ function handleStateChange(params: UpdateStatusBarParams) {
                             break;
                     }
                 }
-                statusBarProgress.hide();
-                abortButton.hide();
                 break;
             case VerificationState.Stopping:
                 updateStatusBarItem(statusBarItem, 'preparing', 'orange');
@@ -447,7 +449,7 @@ function handleInvalidSettings(data) {
 
 function registerHandlers() {
 
-    state.client.onNotification(Commands.StateChange, (params: UpdateStatusBarParams) => handleStateChange(params));
+    state.client.onNotification(Commands.StateChange, (params: StateChangeParams) => handleStateChange(params));
     state.client.onNotification(Commands.InvalidSettings, (data) => handleInvalidSettings(data));
     state.client.onNotification(Commands.Hint, (data: string) => {
         Log.hint(data);
@@ -463,7 +465,14 @@ function registerHandlers() {
     });
 
     state.client.onNotification(Commands.BackendChange, (newBackend: string) => {
-        updateStatusBarItem(backendStatusBar, newBackend, "white");
+        try {
+            updateStatusBarItem(backendStatusBar, newBackend, "white");
+            if (ExtensionState.viperFiles) {
+                ExtensionState.viperFiles.forEach(file => file.success = Success.None);
+            }
+        } catch (e) {
+            Log.error("Error handling backend change: " + e);
+        }
     });
     state.client.onNotification(Commands.FileOpened, (uri: string) => {
         try {
@@ -507,18 +516,21 @@ function registerHandlers() {
         return platformIndependentUri;
     });
     state.client.onRequest(Commands.AskUserToSelectBackend, (backendNames: string[]) => {
-        try {
-            //only ask the user if there is a choice
-            if (backendNames.length > 1) {
-                vscode.window.showQuickPick(backendNames).then(selectedBackend => {
-                    state.client.sendRequest(Commands.SelectBackend, selectedBackend);
-                });
-            } else {
-                state.client.sendRequest(Commands.SelectBackend, backendNames[0]);
+        return new Promise((resolve, reject) => {
+            try {
+                //only ask the user if there is a choice
+                if (backendNames.length > 1) {
+                    vscode.window.showQuickPick(backendNames).then(selectedBackend => {
+                        resolve(selectedBackend);
+                    });
+                } else {
+                    resolve(backendNames[0]);
+                }
+            } catch (e) {
+                Log.error("Error handling backend selection request: " + e);
+                reject();
             }
-        } catch (e) {
-            Log.error("Error handling backend selection request: " + e);
-        }
+        });
     });
     state.context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
         try {
@@ -535,15 +547,15 @@ function registerHandlers() {
         }
     }));
 
-    state.client.onNotification(Commands.BackendStarted, name => {
+    state.client.onNotification(Commands.BackendStarted, (params: BackendStartedParams) => {
         try {
-            Log.log("Backend started: " + name, LogLevel.Info);
+            Log.log("Backend ready: " + params.name, LogLevel.Info);
             _backendReady = true;
             //no file is verifying
             resetViperFiles()
             updateStatusBarItem(statusBarItem, "ready", 'white');
             //automatically trigger the first verification
-            if (Helper.getConfiguration('autoVerifyAfterBackendChange') === true) {
+            if (params.reverify && Helper.getConfiguration('autoVerifyAfterBackendChange') === true) {
                 if (lastActiveTextEditor) {
                     Log.log("autoVerify after backend change", LogLevel.Info);
                     workList.push({ type: TaskType.Verify, uri: lastActiveTextEditor, manuallyTriggered: false });
@@ -637,7 +649,7 @@ function registerHandlers() {
             Log.hint("Extension not ready yet.");
         } else {
             _backendReady = false;
-            state.client.sendRequest(Commands.RequestBackendNames, null);
+            state.client.sendNotification(Commands.RequestBackendNames);
         }
     }));
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.startDebugging', () => {
@@ -697,7 +709,7 @@ function registerHandlers() {
             statusBarItem.color = 'orange';
             statusBarItem.text = "aborting";
             statusBarProgress.hide();
-            state.client.sendRequest(Commands.StopVerification, lastActiveTextEditor.toString());
+            state.client.sendNotification(Commands.StopVerification, lastActiveTextEditor.toString());
         } else {
             Log.hint("Extension not ready yet.");
         }

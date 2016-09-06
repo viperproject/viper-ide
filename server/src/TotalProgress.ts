@@ -1,22 +1,51 @@
-interface Progress {
-    current: number;
-    total: number;
-}
+'use strict';
 
-export class TotalProgress {
-    predicates: Progress;
-    functions: Progress;
-    methods: Progress;
+import {BackendOutput, BackendOutputType} from './ViperProtocol';
+import {Log} from './Log';
 
-    constructor(json: TotalProgress) {
-        this.predicates = json.predicates;
-        this.methods = json.methods;
-        this.functions = json.functions;
+export class Progress {
+    nofPredicates: number;
+    nofFunctions: number;
+    nofMethods: number;
+
+    currentPredicates: number;
+    currentFunctions: number;
+    currentMethods: number;
+
+    constructor(json: BackendOutput) {
+        try {
+            this.nofPredicates = json.nofPredicates;
+            this.nofMethods = json.nofMethods;
+            this.nofFunctions = json.nofFunctions;
+            this.currentFunctions = 0;
+            this.currentMethods = 0;
+            this.currentPredicates = 0;
+        } catch (e) {
+            Log.error("Error initializing progress: " + e);
+        }
+    }
+
+    updateProgress(json: BackendOutput) {
+        try {
+            switch (json.type) {
+                case BackendOutputType.FunctionVerified:
+                    this.currentFunctions++;
+                    break;
+                case BackendOutputType.MethodVerified:
+                    this.currentMethods++;
+                    break;
+                case BackendOutputType.PredicateVerified:
+                    this.currentPredicates++;
+                    break;
+            }
+        } catch (e) {
+            Log.error("Error updating progress: " + e);
+        }
     }
 
     public toPercent(): number {
-        let total = this.predicates.total + this.methods.total + this.functions.total;
-        let current = this.predicates.current + this.methods.current + this.functions.current;
+        let total = this.nofFunctions + this.nofMethods + this.nofPredicates;
+        let current = this.currentFunctions + this.currentMethods + this.currentPredicates;
         return 100 * current / total;
     }
 }
