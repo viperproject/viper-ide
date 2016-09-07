@@ -183,25 +183,44 @@ export class NailgunService {
         Log.log("Check if Jre is installed", LogLevel.Verbose);
         return new Promise((resolve, reject) => {
             let jreTester = child_process.exec("java -version");
+            let is64bit = false;
+            let resolved = false;
             jreTester.stdout.on('data', (data: string) => {
                 Log.toLogFile("[Java checker]: " + data, LogLevel.LowLevelDebug);
-                if (this.findAppropriateVersion(data)) return resolve(true);
+                is64bit = is64bit || data.indexOf("64") >= 0;
+                if (!resolved && this.findAppropriateVersion(data)) {
+                    resolved = true;
+                    resolve(true);
+                }
             });
             jreTester.stderr.on('data', (data: string) => {
                 Log.toLogFile("[Java checker stderr]: " + data, LogLevel.LowLevelDebug);
-                if (this.findAppropriateVersion(data)) return resolve(true);
+                is64bit = is64bit || data.indexOf("64") >= 0;
+                if (!resolved && this.findAppropriateVersion(data)) {
+                    resolved = true;
+                    resolve(true);
+                }
             });
             jreTester.on('exit', () => {
                 Log.toLogFile("[Java checker done]", LogLevel.LowLevelDebug);
-                return resolve(false);
+                if (!is64bit) {
+                    Log.error("Your java version is not 64-bit. The nailgun server will possibly not work")
+                }
+                if (!resolved) resolve(false);
             });
         });
     }
 
     private findAppropriateVersion(s: string): boolean {
-        let match = /([1-9]\d*)\.(\d+)\.(\d+)/.exec(s);
-        if (match && match[1] && match[2] && match[3]) {
-            return +match[1] > 1 || (+match[1] === 1 && +match[2] >= NailgunService.REQUIRED_JAVA_VERSION);
+        try {
+            let match = /([1-9]\d*)\.(\d+)\.(\d+)/.exec(s);
+            if (match && match[1] && match[2] && match[3]) {
+                let major = Number.parseInt(match[1]);
+                let minor = Number.parseInt(match[2]);
+                return major > 1 || (major === 1 && minor >= NailgunService.REQUIRED_JAVA_VERSION);
+            }
+        } catch (e) {
+            Log.error("Error checking for the right java version: " + e);
         }
     }
 }

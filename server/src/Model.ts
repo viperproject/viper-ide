@@ -11,41 +11,45 @@ export class Model {
     }
 
     public extendModel(model: string) {
-        if (!model) {
-            Log.error("cannot extend model with 'undefined'");
-            return;
-        }
-        model = model.trim();
-        if (!model.startsWith("\"") || !model.endsWith("\"")) {
-            Log.error("model is expected to be in quotes");
-            return;
-        }
-        //remove quotes
-        model = model.substring(1, model.length - 1);
-        model = model.replace(/\s+/g, " ");
-        //remove functions from model
-        model = model.replace(/ [^ ]*?\s-> \{.*?\}/g, "");
-
-        let parts: string[] = model.split(" ");
-
-        for (var i = 2; i < parts.length; i += 3) {
-            let name = parts[i - 2];
-            let value = parts[i];
-
-            //assemble values, needed for e.g. snap values
-            if (value.startsWith("(")) {
-                let bracketCount = this.countBrackets(value);
-                while (!(value.endsWith(")") && bracketCount == 0) && ++i < parts.length) {
-                    bracketCount += this.countBrackets(parts[i]);
-                    value += " " + parts[i];
-                }
+        try {
+            if (!model) {
+                Log.error("cannot extend model with 'undefined'");
+                return;
             }
-            // if (this.values.has(name)) {
-            //     if (this.values.get(name) != value) {
-            //         Log.error("model inconsistency: " + name + " has values " + this.values.get(name) + " and " + value);
-            //     }
-            // }
-            this.values.set(name, this.simplifyValue(value));
+            model = model.trim();
+            if (!model.startsWith("\"") || !model.endsWith("\"")) {
+                Log.error("model is expected to be in quotes");
+                return;
+            }
+            //remove quotes
+            model = model.substring(1, model.length - 1);
+            model = model.replace(/\s+/g, " ");
+            //remove functions from model
+            model = model.replace(/ [^ ]*?\s-> \{.*?\}/g, "");
+
+            let parts: string[] = model.split(" ");
+
+            for (var i = 2; i < parts.length; i += 3) {
+                let name = parts[i - 2];
+                let value = parts[i];
+
+                //assemble values, needed for e.g. snap values
+                if (value.startsWith("(")) {
+                    let bracketCount = this.countBrackets(value);
+                    while (!(value.endsWith(")") && bracketCount == 0) && ++i < parts.length) {
+                        bracketCount += this.countBrackets(parts[i]);
+                        value += " " + parts[i];
+                    }
+                }
+                // if (this.values.has(name)) {
+                //     if (this.values.get(name) != value) {
+                //         Log.error("model inconsistency: " + name + " has values " + this.values.get(name) + " and " + value);
+                //     }
+                // }
+                this.values.set(name, this.simplifyValue(value));
+            }
+        } catch (e) {
+            Log.error("Error extending model: " + e);
         }
     }
 

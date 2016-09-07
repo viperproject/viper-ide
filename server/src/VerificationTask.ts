@@ -463,112 +463,120 @@ export class VerificationTask {
     }
 
     private stdOutHandler(data: string) {
-        if (data.trim().length == 0) {
-            return;
-        }
-        let stage = Server.stage();
-        if (this.aborting) return;
-        if (stage.isVerification) {
-            Log.toLogFile(`[${Server.backend.name}:${stage.name}: stdout]: ${data}`, LogLevel.LowLevelDebug);
-            let parts = data.split(/\r?\n/g);
-            parts[0] = this.partialData + parts[0];
-            for (var i = 0; i < parts.length; i++) {
-                let line = parts[i];
+        try {
+            if (data.trim().length == 0) {
+                return;
+            }
+            let stage = Server.stage();
+            if (this.aborting) return;
+            if (stage.isVerification) {
+                Log.toLogFile(`[${Server.backend.name}: ${stage.name}: stdout]: ${data}`, LogLevel.LowLevelDebug);
+                let parts = data.split(/\r?\n/g);
+                parts[0] = this.partialData + parts[0];
+                for (var i = 0; i < parts.length; i++) {
+                    let line = parts[i];
 
-                if (line.length == 0) continue;
+                    if (line.length == 0) continue;
 
-                //progress message
-                if (line.startsWith("{\"") && line.endsWith("}")) {
-                    try {
-                        let json: BackendOutput = JSON.parse(line);
-                        switch (json.type) {
-                            case BackendOutputType.Start:
-                                this.backendType = json.backendType;
-                                break;
-                            case BackendOutputType.VerificationStart:
-                                this.progress = new Progress(json);
-                                Server.sendStateChangeNotification({
-                                    newState: VerificationState.VerificationRunning,
-                                    progress: 0,
-                                    filename: this.filename
-                                });
-                                break;
-                            case BackendOutputType.FunctionVerified: case BackendOutputType.MethodVerified: case BackendOutputType.PredicateVerified:
-                                this.progress.updateProgress(json);
-                                let progressInPercent = this.progress.toPercent();
-                                Log.log("Progress: " + progressInPercent, LogLevel.Info);
-                                Server.sendStateChangeNotification({
-                                    newState: VerificationState.VerificationRunning,
-                                    progress: progressInPercent,
-                                    filename: this.filename
-                                });
-                                break;
-                            case BackendOutputType.Error:
-                                json.errors.forEach(err => {
-                                    if (err.tag && err.tag == "typechecker.error") {
-                                        this.typeCheckingCompleted = false;
-                                    }
-                                    else if (err.tag && err.tag == "parser.error") {
-                                        this.parsingCompleted = false;
-                                        this.typeCheckingCompleted = false;
-                                    }
-                                    let start = Statement.parsePosition(err.start);
-                                    let end = Statement.parsePosition(err.end);
-                                    Log.log(`Error: [${Server.backend.name}] ${err.tag ? "[" + err.tag + "] " : ""}${start.line + 1}:${start.character + 1} ${err.message}`, LogLevel.Default);
-                                    this.diagnostics.push({
-                                        range: { start: start, end: end },
-                                        source: null, //Server.backend.name
-                                        severity: DiagnosticSeverity.Error,
-                                        message: err.message
+                    //json message
+                    if (line.startsWith("{\"") && line.endsWith("}")) {
+                        try {
+                            let json: BackendOutput = JSON.parse(line);
+                            switch (json.type) {
+                                case BackendOutputType.Start:
+                                    this.backendType = json.backendType;
+                                    break;
+                                case BackendOutputType.VerificationStart:
+                                    this.progress = new Progress(json);
+                                    Server.sendStateChangeNotification({
+                                        newState: VerificationState.VerificationRunning,
+                                        progress: 0,
+                                        filename: this.filename
                                     });
-                                });
-                                break;
-                            case BackendOutputType.End:
-                                this.state = VerificationState.VerificationReporting;
-                                this.time = this.extractNumber(json.time);
-                                break;
+                                    break;
+                                case BackendOutputType.FunctionVerified: case BackendOutputType.MethodVerified: case BackendOutputType.PredicateVerified:
+                                    this.progress.updateProgress(json);
+                                    let progressInPercent = this.progress.toPercent();
+                                    Log.log("Progress: " + progressInPercent, LogLevel.Info);
+                                    Server.sendStateChangeNotification({
+                                        newState: VerificationState.VerificationRunning,
+                                        progress: progressInPercent,
+                                        filename: this.filename
+                                    });
+                                    break;
+                                case BackendOutputType.Error:
+                                    json.errors.forEach(err => {
+                                        if (err.tag && err.tag == "typechecker.error") {
+                                            this.typeCheckingCompleted = false;
+                                        }
+                                        else if (err.tag && err.tag == "parser.error") {
+                                            this.parsingCompleted = false;
+                                            this.typeCheckingCompleted = false;
+                                        }
+                                        let start = Server.extractPosition(err.start).pos;
+                                        let end = Server.extractPosition(err.end).pos;
+                                        Log.log(`Error: [${Server.backend.name}] ${err.tag ? "[" + err.tag + "] " : ""}${start.line + 1}:${start.character + 1} ${err.message}`, LogLevel.Default);
+                                        this.diagnostics.push({
+                                            range: { start: start, end: end },
+                                            source: null, //Server.backend.name
+                                            severity: DiagnosticSeverity.Error,
+                                            message: err.message
+                                        });
+                                    });
+                                    break;
+                                case BackendOutputType.End:
+                                    this.state = VerificationState.VerificationReporting;
+                                    this.time = Server.extractNumber(json.time);
+                                    break;
+                            }
+                        } catch (e) {
+                            Log.error("Error handling json message: " + e + " raw: " + line);
                         }
-                    } catch (e) {
-                        Log.error("Error reading progress: " + e);
+                        //no need to handle old ouput, if it is in json format
+                        continue;
+                    } else if (line.startsWith('"')) {
+                        while (i + 1 < parts.length && !line.endsWith('"')) {
+                            line += parts[++i];
+                        }
+                        if (line.endsWith('"')) {
+                            this.model.extendModel(line);
+                            this.partialData = "";
+                        } else {
+                            this.partialData = line;
+                        }
+                        //no need to handle old ouput
+                        continue;
                     }
-                    //no need to handle old ouput, if it is in json format
-                    continue;
-                } else if (line.startsWith("\"")) {
-                    this.model.extendModel(line);
-                    //no need to handle old ouput
-                    continue;
-                }
 
-                //non json output handling:
-                //handle start and end of verification
-                if ((line.startsWith('Silicon') && !line.startsWith('Silicon finished')) || line.startsWith('carbon started')) {
-                    if (this.state != VerificationState.VerificationRunning)
-                        Log.log("State -> Verification Running", LogLevel.Info);
-                    this.state = VerificationState.VerificationRunning;
-                    continue;
-                }
-                else if (line.startsWith('Silicon finished') || line.startsWith('carbon finished in')) {
-                    Log.log("State -> Error Reporting", LogLevel.Info);
-                    this.state = VerificationState.VerificationReporting;
-                    this.time = this.extractNumber(line);
-                }
-                //handle other verification outputs and results
-                else if (line.trim().length > 0) {
-                    if (i < parts.length - 1 || (this.state != VerificationState.VerificationRunning)) {
-                        //only in VerificationRunning state, the lines are nicley split by newLine characters
-                        //therefore, the partialData construct is only enabled during the verification;
-                        //Log.toLogFile(`[${Server.backend.name}: stdout]: ${line}`, LogLevel.LowLevelDebug);
-                        let linesToSkip = this.handleBackendOutputLine(line); {
+                    //non json output handling:
+                    //handle start and end of verification
+                    if ((line.startsWith('Silicon') && !line.startsWith('Silicon finished')) || line.startsWith('carbon started')) {
+                        if (this.state != VerificationState.VerificationRunning)
+                            Log.log("State -> Verification Running", LogLevel.Info);
+                        this.state = VerificationState.VerificationRunning;
+                        continue;
+                    }
+                    else if (line.startsWith('Silicon finished') || line.startsWith('carbon finished in')) {
+                        Log.log("State -> Error Reporting", LogLevel.Info);
+                        this.state = VerificationState.VerificationReporting;
+                        this.time = Server.extractNumber(line);
+                    }
+                    //handle other verification outputs and results
+                    else if (line.trim().length > 0) {
+                        if (i < parts.length - 1 || (this.state != VerificationState.VerificationRunning)) {
+                            //only in VerificationRunning state, the lines are nicley split by newLine characters
+                            //therefore, the partialData construct is only enabled during the verification;
+                            //Log.toLogFile(`[${Server.backend.name}: stdout]: ${line}`, LogLevel.LowLevelDebug);
+                            let linesToSkip = this.handleBackendOutputLine(line); {
+                            }
                         }
                     }
                 }
+            } else {
+                Log.log(`${Server.backend.name}:${stage.name}: ${data}`, LogLevel.Debug);
             }
-            //needed because large counterexample models are split across multiple messages
-            if (this.state == VerificationState.VerificationRunning && parts[parts.length - 1].startsWith('"')) {
-                this.partialData = parts[parts.length - 1];
-            }
-        } else {
-            Log.log(`${Server.backend.name}:${stage.name}: ${data}`, LogLevel.Debug);
+        } catch (e) {
+            Log.error("Error handling the std output of the backend: " + e);
         }
     }
 
@@ -586,7 +594,7 @@ export class VerificationTask {
                 if (line.startsWith('Silicon finished in') || line.startsWith('carbon finished in')) {
                     Log.log("WARNING: analyze the reason for this code to be executed", LogLevel.Debug);
                     this.state = VerificationState.VerificationReporting;
-                    this.time = this.extractNumber(line);
+                    this.time = Server.extractNumber(line);
                     //model for counterexample
                 }
                 break;
@@ -596,19 +604,12 @@ export class VerificationTask {
                 else if (line.startsWith('The following errors were found')) {
                 }
                 else if (line.startsWith('  ')) {
-                    let pos = /\s*(\d+):(\d+):\s(.*)/.exec(line);
-                    if (!pos || pos.length != 4) {
-                        Log.error('could not parse error description: "' + line + '"');
-                        return 0;
-                    }
-                    let lineNr = +pos[1] - 1;
-                    let charNr = +pos[2] - 1;
-                    let message = pos[3].trim();
-
+                    let parsedPosition = Server.extractPosition(line);
+                    let message = parsedPosition.after.length > 0 ? parsedPosition.after : parsedPosition.before;
                     //for Marktoberdorf
                     let tag: string;
                     if (line.indexOf("[") >= 0 && line.indexOf("]") >= 0) {
-                        tag = line.substring(line.indexOf("[") + 1, line.indexOf("]"));
+                        tag = line.substring(line.indexOf("[") + 1, line.indexOf("]")).trim();
                         if (tag == "typechecker.error") {
                             this.typeCheckingCompleted = false;
                         }
@@ -617,12 +618,13 @@ export class VerificationTask {
                             this.typeCheckingCompleted = false;
                         }
                     }
+                    tag = tag ? "[" + tag + "] " : "";
 
-                    Log.log(`Error: [${Server.backend.name}] ${tag ? "[" + tag + "] " : ""}${lineNr + 1}:${charNr + 1} ${message}`, LogLevel.Default);
+                    Log.log(`Error: [${Server.backend.name}] ${tag}${parsedPosition.pos.line + 1}:${parsedPosition.pos.character + 1} ${message}`, LogLevel.Default);
                     this.diagnostics.push({
                         range: {
-                            start: { line: lineNr, character: charNr },
-                            end: { line: lineNr, character: 10000 }//Number.max does not work -> 10000 is an arbitrary large number that does the job
+                            start: parsedPosition.pos,
+                            end: { line: parsedPosition.pos.line, character: 10000 }//Number.max does not work -> 10000 is an arbitrary large number that does the job
                         },
                         source: null, //Server.backend.name
                         severity: DiagnosticSeverity.Error,
@@ -635,17 +637,6 @@ export class VerificationTask {
             case VerificationState.VerificationPrintingHelp:
                 return -1;
         }
-    }
-
-    private extractNumber(s: string): number {
-        let regex = /^.*?(\d+)([\.,](\d+))?.*$/.exec(s);
-        if (regex && regex[1] && regex[3]) {
-            return Number.parseFloat(regex[1] + "." + regex[3]);
-        } else if (regex && regex[1]) {
-            return Number.parseInt(regex[1]);
-        }
-        Log.error("Error extracting number from \"" + s + "\"");
-        return 0;
     }
 
     private completeVerificationState() {

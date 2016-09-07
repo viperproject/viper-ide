@@ -1,7 +1,7 @@
 'use strict'
 
 import {IConnection, TextDocuments, PublishDiagnosticsParams} from 'vscode-languageserver';
-import {StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+import {Position, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Log} from './Log';
@@ -67,5 +67,45 @@ export class Server {
     }
     static sendFileClosedNotification(uri: string) {
         this.connection.sendNotification(Commands.FileClosed, uri);
+    }
+
+    //regex helper methods
+    static extractNumber(s: string): number {
+        try {
+            let match = /^.*?(\d+)([\.,](\d+))?.*$/.exec(s);
+            if (match && match[1] && match[3]) {
+                return Number.parseFloat(match[1] + "." + match[3]);
+            } else if (match && match[1]) {
+                return Number.parseInt(match[1]);
+            }
+            Log.error(`Error extracting number from  "${s}"`);
+            return 0;
+        } catch (e) {
+            Log.error(`Error extracting number from  "${s}": ${e}`);
+        }
+    }
+
+    public static extractPosition(s: string): { before: string, pos: Position, after: string } {
+        let pos = null;
+        let before = "";
+        let after = "";
+        if (s) {
+            pos = { line: 0, character: 0 };
+            let regex = /^(.*?)((\d+):(\d+)|<no position>)?:?(.*)$/.exec(s);
+            if (regex && regex[3] && regex[4]) {
+                //subtract 1 to confirm with VS Codes 0-based numbering
+                let lineNr = Math.max(0, +regex[3] - 1);
+                let charNr = Math.max(0, +regex[4] - 1);
+                pos = { line: lineNr, character: charNr };
+            }
+            if (regex && regex[1]) {
+                before = regex[1].trim();
+            }
+            if (regex && regex[5]) {
+                before = regex[5].trim();
+            }
+
+        }
+        return { before: before, pos: pos, after: after };
     }
 }

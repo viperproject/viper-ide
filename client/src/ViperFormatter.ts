@@ -10,97 +10,130 @@ import {Helper} from './Helper'
 export class ViperFormatter {
 	public formatOpenDoc() {
 		try {
+			Log.log("Format the document");
 			let openDoc = vscode.window.activeTextEditor.document;
 			if (!Helper.isViperSourceFile(openDoc.uri.toString())) {
 				return;
 			}
-
 			let indent = "\t";
 			let content = openDoc.getText();
+			let replacement = this.format(this.tokenize(content));
+
 			let edit = new vscode.WorkspaceEdit();
-			let indentLevel = 0;
-			let start = 0;
-			let startIsInComment = false;
-			let newLineCount = 0;
-			let minNewLineCount = 0;
-			let isInLineComment = false;
-			let isInMultiLineComment = false;
-			for (let i = 0; i < content.length; i++) {
-				let curr = content[i];
-				if (!this.isWhiteSpace(curr)) {
-					let doReplace = true;
-
-					//detect comment end
-					if (i + 1 < content.length) {
-						if (curr == '*' && content[i + 1] == "/") {
-							isInMultiLineComment = false;
-						}
-					}
-
-					if (!isInLineComment && !isInMultiLineComment) {
-						if (content[start] === '{' && !startIsInComment) {
-							if (curr != '}') {
-								indentLevel++;
-								minNewLineCount = 1;
-							} else {
-								newLineCount = 0;
-								minNewLineCount = 0;
-							}
-						}
-						else if (curr === "}") {
-							indentLevel--;
-							minNewLineCount = 1;
-						}
-						else if (curr === '{' || (content[start] === '}' && !startIsInComment)) {
-							minNewLineCount = 1;
-						}
-						else if (newLineCount > 0 || (this.isWhiteSpace(content[start]) && !startIsInComment)) {
-							minNewLineCount = 0;
-						} else {
-							doReplace = false;
-						}
-					} else {
-						minNewLineCount = 0;
-						if (newLineCount <= 0) {
-							doReplace = false;
-						}
-					}
-
-					if (doReplace) {
-						newLineCount = Math.max(minNewLineCount, newLineCount);
-						let range = new vscode.Range(openDoc.positionAt(start + 1), openDoc.positionAt(i));
-						let replacement = ("\r\n".repeat(newLineCount)) + ("\t".repeat(indentLevel));
-						edit.replace(openDoc.uri, range, replacement);
-					}
-
-					//detect comment start
-					if (i + 1 < content.length && !isInLineComment && !isInMultiLineComment) {
-						if (curr == '/' && content[i + 1] == "/") {
-							isInLineComment = true;
-							i++;
-						}
-						if (curr == '/' && content[i + 1] == "*") {
-							isInMultiLineComment = true;
-							i++;
-						}
-					}
-					//add a new line?
-					start = i;
-					startIsInComment = isInLineComment || isInMultiLineComment;
-					newLineCount = 0;
-				} else {
-					if (curr == "\n") {
-						newLineCount++;
-						isInLineComment = false;
-					}
-				}
-			}
+			let range = new vscode.Range(openDoc.positionAt(0), openDoc.positionAt(content.length))
+			edit.replace(openDoc.uri, range, replacement);
 			vscode.workspace.applyEdit(edit).then(params => {
 				openDoc.save();
 			});
 		} catch (e) {
 			Log.error("Error formatting document: " + e)
 		}
+	}
+
+	private tokenize(content: string): string[] {
+		let res: string[] = [];
+		let token = "";
+		let lineComment = false;
+		let multiLineComment = false;
+		for (let i = 0; i <= content.length; i++) {
+			let curr = i - 1 >= 0 ? content[i - 1] : "";
+			let next = i < content.length ? content[i] : "";
+			let nextNext = i + 1 < content.length ? content[i + 1] : "";
+			let both = curr + next;
+			let nextThree = both + nextNext;
+			if (lineComment) {
+				if (curr == "\n") {
+					res.push(token); token = "";
+					res.push("\n");
+					lineComment = false;
+				} else {
+					token += curr;
+				}
+			}
+			else if (multiLineComment) {
+				if (both == "*/") {
+					res.push(token); token = "";
+					res.push("*/"); i++;
+					multiLineComment = false;
+				} else {
+					token += curr;
+				}
+			}
+			else {
+				if (both == "//") {
+					if (token.length > 0) {
+						res.push(token); token = "";
+					}
+					res.push("//"); i++;
+					lineComment = true;
+				} else if (both == "/*") {
+					if (token.length > 0) {
+						res.push(token); token = "";
+					}
+					res.push("/*"); i++;
+					multiLineComment = true;
+				} else if (nextThree == "==>") {
+					if (token.length > 0) {
+						res.push(token); token = "";
+					}
+					res.push(nextThree); i += 2;
+				} else if ("==:=>=<=!=".indexOf(both) >= 0) {
+					if (token.length > 0) {
+						res.push(token); token = "";
+					}
+					res.push(both); i++;
+				} else if (this.isWhiteSpace(curr) || "()[]{}:,+-\\*><!".indexOf(curr) >= 0) {
+					if (token.length > 0) {
+						res.push(token); token = "";
+					}
+					if (curr == "\n" || (curr.length > 0 && "()[]{}:,+-\\*>=<=!=".indexOf(curr) >= 0)) {
+						res.push(curr);
+					}
+				} else {
+					token += curr;
+				}
+			}
+		}
+		if (token.length > 0) { res.push(token) }
+		return res;
+	}
+
+	private format(token: string[]): string {
+		let res = "";
+		let indent = 0;
+		let tab = "\t";
+		for (let i = 0; i < token.length; i++) {
+			let curr = token[i];
+			let next = i + 1 < token.length ? token[i + 1] : "";
+			let space = " ";
+			if (curr == "//") {
+				res += curr + next;
+				i++
+				continue;
+			} else if (curr == "/*") {
+				let nextNext = i + 2 < token.length ? token[i + 2] : "";
+				res += curr + next + nextNext;
+				i += 2;
+				continue;
+			} else if ("([".indexOf(curr) >= 0 || "())]:,".indexOf(next) >= 0) {
+				space = "";
+			} else if (curr == "{") {
+				space = (next == "\n" ? "" : "\n") + this.getIndent(tab, indent, next);
+				indent++;
+			} else if (next == "}") {
+				indent--;
+				space = (curr == "\n" ? "" : "\n") + this.getIndent(tab, indent, next);
+			}
+			if (curr == "\n") {
+				space = this.getIndent(tab, indent, next);
+			}
+			res += curr + space;
+		}
+		return res;
+	}
+
+	private getIndent(tab: string, indent: number, next: string): string {
+		return tab.repeat(indent + (next == "requires" || next == "ensures" || next == "invariant" ? 1 : 0));
 	}
 
 	public static containsSpecialCharacters(s: string): boolean {

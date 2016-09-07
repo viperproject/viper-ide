@@ -285,6 +285,7 @@ export class DebugServer {
         if (DebugServer.debuggerRunning) {
             try {
                 ipc.of.viperDebugger.emit("StopDebugging");
+                ipc.disconnect();
                 Log.log("LanguageServer is telling Debugger to stop debugging", LogLevel.Debug)
             } catch (e) {
                 Log.error("Error sending StopDebugging request: " + e);

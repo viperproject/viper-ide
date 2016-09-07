@@ -6,6 +6,7 @@ import {Model} from './Model';
 import {SymbExLogEntry, MyProtocolDecorationOptions, StatementType, Position, LogLevel} from './ViperProtocol';
 import {Verifiable} from './Verifiable';
 import {VerificationTask} from './VerificationTask';
+import {Server} from './ServerClass';
 
 export interface Variable { name: string; value: string; variablesReference: number; concreteValue?: string; }
 interface Name { raw: string; receiver?: string; field?: string; arguments?: string[]; type: NameType; }
@@ -61,7 +62,7 @@ export class Statement {
         let index = task.steps.length
         let type = Statement.parseStatementType(symbExLog.type);
         let kind = symbExLog.kind;
-        let position = Statement.parsePosition(symbExLog.pos);
+        let position = Server.extractPosition(symbExLog.pos).pos;
         let formula = symbExLog.value;
         let statement: Statement;
         if (symbExLog.prestate) {
@@ -297,20 +298,6 @@ export class Statement {
         }
         //Log.error("Unknown StatementType: " + s);
         return StatementType.UNKONWN;
-    }
-
-    public static parsePosition(s: string): Position {
-        if (s) {
-            let regex = /^((\d+):(\d+)|<no position>):?$/.exec(s);
-            if (regex && regex[2] && regex[3]) {
-                //subtract 1 to confirm with VS Codes 0-based numbering
-                let lineNr = Math.max(0, +regex[2] - 1);
-                let charNr = Math.max(0, +regex[3] - 1);
-                return { line: lineNr, character: charNr };
-            }
-            return { line: 0, character: 0 };
-        }
-        return null;
     }
 
     //PRINTING:
