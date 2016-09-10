@@ -24,6 +24,7 @@ export class VerificationTask {
     filename: string;
     path: string;
     lastSuccess: Success = Success.None;
+    internalErrorMessage: string = "";
 
     //state specific to one verification
     running: boolean = false;
@@ -238,13 +239,15 @@ export class VerificationTask {
         this.clientStepIndexToServerStep = [];
         this.symbExLog = [];
         this.stateIndicesOrderedByPosition = [];
+        this.internalErrorMessage = "";
     }
 
     verify(manuallyTriggered: boolean): boolean {
-        if (!manuallyTriggered && this.lastSuccess == Success.Error) {
-            Log.log("After an internal error, reverification has to be triggered manually.", LogLevel.Info);
-            return false;
-        }
+        // if (!manuallyTriggered && this.lastSuccess == Success.Error) {
+        //     Log.log("After an internal error, reverification has to be triggered manually.", LogLevel.Info);
+        //     this.lastSuccess = Success.None;
+        //     return false;
+        // }
         //Initialization
         this.prepareVerification();
         this.manuallyTriggered = manuallyTriggered;
@@ -253,6 +256,9 @@ export class VerificationTask {
             Log.error("backend " + Server.backend.name + " has no " + Settings.VERIFY + " stage, even though the settigns were checked.");
             return false;
         }
+
+        Log.log("verify " + pathHelper.basename(this.fileUri));
+
         Server.executedStages.push(stage);
 
         Log.log(Server.backend.name + ' verification started', LogLevel.Info);
@@ -282,6 +288,9 @@ export class VerificationTask {
     private completionHandler(code) {
         try {
             Log.log(`Child process exited with code ${code}`, LogLevel.Debug);
+            if (code == null) {
+                this.internalErrorMessage = "Possibly the backend generated to much output."
+            }
             if (this.aborting) {
                 this.running = false;
                 return;
@@ -289,23 +298,6 @@ export class VerificationTask {
             let success;
 
             let isVerifyingStage = Server.stage().isVerification;
-
-            if (isVerifyingStage) {
-                if (code != 0 && code != 1 && code != 899) {
-                    Log.log("Verification Backend Terminated Abnormaly: with code " + code, LogLevel.Default);
-                    if (Settings.isWin && code == null) {
-                        this.nailgunService.killNgDeamon().then(resolve => {
-                            this.nailgunService.startOrRestartNailgunServer(Server.backend);
-                        });
-                    }
-                }
-
-                if (this.partialData.length > 0) {
-                    Log.error("Some unparsed output was detected:\n" + this.partialData);
-                    this.partialData = "";
-                }
-                success = this.determineSuccess(code);
-            }
 
             //do we need to start onError tasks?
             if (!this.aborting) {
@@ -340,6 +332,12 @@ export class VerificationTask {
             }
 
             if (isVerifyingStage) {
+                if (this.partialData.length > 0) {
+                    Log.error("Some unparsed output was detected:\n" + this.partialData);
+                    this.partialData = "";
+                }
+                success = this.determineSuccess(code);
+
                 // Send the computed diagnostics to VSCode.
                 Server.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
 
@@ -365,6 +363,7 @@ export class VerificationTask {
                     //Log.log("decoration options update done", LogLevel.Debug);
                 }
 
+                //notify client about outcome of verification
                 Server.sendStateChangeNotification({
                     newState: VerificationState.Ready,
                     success: success,
@@ -373,9 +372,9 @@ export class VerificationTask {
                     nofErrors: this.diagnostics.length,
                     time: this.time,
                     verificationCompleted: true,
-                    uri: this.fileUri
+                    uri: this.fileUri,
+                    error: this.internalErrorMessage
                 });
-                this.lastSuccess = success;
             } else {
                 success = Success.Success;
                 Server.sendStateChangeNotification({
@@ -386,10 +385,25 @@ export class VerificationTask {
                     nofErrors: 0,
                     time: this.time,
                     verificationCompleted: false,
-                    uri: this.fileUri
+                    uri: this.fileUri,
+                    error: this.internalErrorMessage
                 });
             }
+
+            //is there the need to restart nailgun?
+            if (isVerifyingStage) {
+                if (code != 0 && code != 1 && code != 899) {
+                    Log.log("Verification Backend Terminated Abnormaly: with code " + code + " Restart the backend.", LogLevel.Debug);
+                    if (Settings.isWin && code == null) {
+                        this.nailgunService.killNgDeamon().then(resolve => {
+                            this.nailgunService.startOrRestartNailgunServer(Server.backend,false);
+                        });
+                    }
+                }
+            }
+
             //reset for next verification
+            this.lastSuccess = success;
             this.time = 0;
             this.running = false;
         } catch (e) {
@@ -423,42 +437,54 @@ export class VerificationTask {
             data = data.trim();
             if (data.length == 0) return;
 
-            //hide stacktraces
+            //hide scala/java stacktraces
             if (data.startsWith("at ")) {
                 Log.toLogFile(data, LogLevel.LowLevelDebug);
                 return;
             }
+            Log.error(data, LogLevel.Debug);
+            this.internalErrorMessage = data;
 
             let stage = Server.stage();
-            if (stage.isVerification) {
-                if (data.startsWith("NailGun v")) {
-                    Log.hint("Fix the customArguments in the settings of backend: " + Server.backend.name + " stage: " + Server.stage().name);
-                } else if (data.startsWith("connect: No error")) {
-                    Log.hint("No Nailgun server is running on port " + this.nailgunService.settings.nailgunPort);
-                }
-                else if (data.startsWith("java.lang.NullPointerException")) {
-                    Log.error("A nullpointer exception happened in the verification backend.", LogLevel.Default);
-                }
-                else if (data.startsWith("java.lang.ClassNotFoundException:")) {
-                    Log.error("Class " + Server.stage().mainMethod + " is unknown to Nailgun\nFix the backend settings for " + Server.backend.name, LogLevel.Default);
-                }
-                else if (data.startsWith("java.io.IOException: Stream closed")) {
-                    Log.error("A concurrency error occured, try again.", LogLevel.Default);
-                }
-                else if (data.startsWith("java.lang.StackOverflowError")) {
-                    Log.error("StackOverflowError in verification backend", LogLevel.Default);
-                }
-                else if (data.startsWith("SLF4J: Class path contains multiple SLF4J bindings")) {
-                    Log.error(Server.backend.name + "'s path is referencing the same class multiple times", LogLevel.Info);
-                } else if (data.startsWith("SLF4J:")) {
-                } else {
-                    Log.error(Server.backend.name + ": " + data, LogLevel.Debug);
-                }
-            } else {
-                Log.error("Backend error message: " + stage.name + " " + data, LogLevel.Debug);
+            let message: string;
+            let backendAndStage = "backend: " + Server.backend.name + " stage: " + Server.stage().name;
+            if (data.startsWith("NailGun v")) {
+                let hintMessage = "Wrong arguments for nailgun: Fix the customArguments in the settings of " + backendAndStage;
+                Log.hint(hintMessage);
+            }
+            else if (data.startsWith("connect: No error")) {
+                let hintMessage = "No Nailgun server is running on port " + this.nailgunService.settings.nailgunPort + ": is your nailgun correctly linked in the settings?";
+                Log.hint(hintMessage);
+            }
+            if (data.startsWith("java.lang.NullPointerException")) {
+                message = "A nullpointer exception happened in " + backendAndStage;
+            }
+            else if (data.startsWith("java.lang.ClassNotFoundException:")) {
+                message = "Class " + Server.stage().mainMethod + " is unknown to Nailgun\nFix the backend settings for " + Server.backend.name;
+            }
+            else if (data.startsWith("java.io.IOException: Stream closed")) {
+                message = "A concurrency error occured, try again. Original Error message: " + data;
+            }
+            else if (data.startsWith("java.lang.StackOverflowError")) {
+                message = "StackOverflowError in verification backend";
+            }
+            else if (data.startsWith("SLF4J: Class path contains multiple SLF4J bindings")) {
+                Log.error(Server.backend.name + "'s path is referencing the same class multiple times", LogLevel.Info);
+            }
+            else if (data.startsWith("SLF4J:")) {
+                Log.error("Error in " + backendAndStage + ": " + data, LogLevel.LowLevelDebug);
+            }
+            else {
+                Log.error("Error in " + backendAndStage + ": " + data, LogLevel.Debug);
+            }
+            if (message) {
+                Log.error(message, LogLevel.Default);
+                this.internalErrorMessage = message;
             }
         } catch (e) {
-            Log.error("Error handling stderr: " + e);
+            let message = "Error handling stderr: " + e
+            Log.error(message);
+            this.internalErrorMessage = message;
         }
     }
 
@@ -513,11 +539,11 @@ export class VerificationTask {
                                             this.parsingCompleted = false;
                                             this.typeCheckingCompleted = false;
                                         }
-                                        let start = Server.extractPosition(err.start).pos;
-                                        let end = Server.extractPosition(err.end).pos;
-                                        Log.log(`Error: [${Server.backend.name}] ${err.tag ? "[" + err.tag + "] " : ""}${start.line + 1}:${start.character + 1} ${err.message}`, LogLevel.Default);
+                                        let range = Server.extractRange(err.start, err.end);
+
+                                        Log.log(`Error: [${Server.backend.name}] ${err.tag ? "[" + err.tag + "] " : ""}${range.start.line + 1}:${range.start.character + 1} ${err.message}`, LogLevel.Default);
                                         this.diagnostics.push({
-                                            range: { start: start, end: end },
+                                            range: range,
                                             source: null, //Server.backend.name
                                             severity: DiagnosticSeverity.Error,
                                             message: err.message

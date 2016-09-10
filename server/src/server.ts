@@ -222,7 +222,7 @@ function restartBackendIfNeeded() {
         Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info)
         Server.backend = newBackend;
         Server.verificationTasks.forEach(task => task.resetLastSuccess());
-        Server.nailgunService.startOrRestartNailgunServer(Server.backend);
+        Server.nailgunService.startOrRestartNailgunServer(Server.backend,true);
     } else {
         Log.log("No need to restart backend. It's still the same", LogLevel.Debug)
         Server.backend = newBackend;

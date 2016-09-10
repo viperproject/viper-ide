@@ -15,10 +15,12 @@ export class NailgunService {
     settings: ViperSettings;
     activeBackend: Backend;
 
+    reverifyWhenBackendReady: boolean = true;
+
     maxNumberOfRetries = 20;
     static REQUIRED_JAVA_VERSION = 8;
 
-    static startingOrRestarting = false;
+    static startingOrRestarting: boolean = false;
 
     public changeSettings(settings: ViperSettings) {
         this.settings = settings;
@@ -31,7 +33,7 @@ export class NailgunService {
     public setReady(backend: Backend) {
         this._ready = true;
         Log.log("Nailgun started", LogLevel.Info);
-        Server.sendBackendReadyNotification({ name: this.activeBackend.name, restarted: true });
+        Server.sendBackendReadyNotification({ name: this.activeBackend.name, restarted: this.reverifyWhenBackendReady });
     }
 
     public setStopping() {
@@ -39,45 +41,50 @@ export class NailgunService {
         Server.sendStateChangeNotification({ newState: VerificationState.Stopping });
     }
 
-    public startOrRestartNailgunServer(backend: Backend) {
-        if (NailgunService.startingOrRestarting) {
-            Log.log("Server is already starting or restarting, don't restart", LogLevel.Debug);
-            return;
-        }
-        NailgunService.startingOrRestarting = true;
-
-        //Stop all running verificationTasks before restarting backend
-        if (Server.verificationTasks && Server.verificationTasks.size > 0) {
-            Log.log("Stop all running verificationTasks before restarting backend", LogLevel.Debug)
-            Server.verificationTasks.forEach(task => { task.abortVerification(); });
-        }
-        //check java version
-        this.isJreInstalled().then(jreInstalled => {
-            if (!jreInstalled) {
-                Log.hint("No compatible Java 8 (64bit) Runtime Environment is installed. Please install it.");
-                Server.sendStateChangeNotification({ newState: VerificationState.Stopped });
+    public startOrRestartNailgunServer(backend: Backend, reverifyWhenBackendReady: boolean) {
+        try {
+            this.reverifyWhenBackendReady = reverifyWhenBackendReady;
+            if (NailgunService.startingOrRestarting) {
+                Log.log("Server is already starting or restarting, don't restart", LogLevel.Debug);
                 return;
             }
-            this.activeBackend = backend;
-            this.stopNailgunServer().then(resolve => {
-                Log.log('starting nailgun server', LogLevel.Info);
-                //notify client
-                Server.sendBackendChangeNotification(backend.name);
-                Server.sendStateChangeNotification({ newState: VerificationState.Starting, backendName: backend.name });
+            NailgunService.startingOrRestarting = true;
 
-                let backendJars = Settings.backendJars(backend);
-                let command = 'java -Xmx2048m -Xss16m -cp ' + this.settings.nailgunServerJar + backendJars + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + this.settings.nailgunPort;
-                Log.log(command, LogLevel.Debug)
+            //Stop all running verificationTasks before restarting backend
+            if (Server.verificationTasks && Server.verificationTasks.size > 0) {
+                Log.log("Stop all running verificationTasks before restarting backend", LogLevel.Debug)
+                Server.verificationTasks.forEach(task => { task.abortVerification(); });
+            }
+            //check java version
+            this.isJreInstalled().then(jreInstalled => {
+                if (!jreInstalled) {
+                    Log.hint("No compatible Java 8 (64bit) Runtime Environment is installed. Please install it.");
+                    Server.sendStateChangeNotification({ newState: VerificationState.Stopped });
+                    return;
+                }
+                this.activeBackend = backend;
+                this.stopNailgunServer().then(resolve => {
+                    Log.log('starting nailgun server', LogLevel.Info);
+                    //notify client
+                    Server.sendBackendChangeNotification(backend.name);
+                    Server.sendStateChangeNotification({ newState: VerificationState.Starting, backendName: backend.name });
 
-                this.nailgunProcess = child_process.exec(command);
-                this.nailgunProcess.stdout.on('data', (data: string) => {
-                    Log.logWithOrigin('NS', data, LogLevel.LowLevelDebug);
-                    if (data.indexOf("started") > 0) {
-                        this.waitForNailgunToStart(this.maxNumberOfRetries);
-                    }
+                    let backendJars = Settings.backendJars(backend);
+                    let command = 'java -Xmx2048m -Xss16m -cp ' + this.settings.nailgunServerJar + backendJars + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + this.settings.nailgunPort;
+                    Log.log(command, LogLevel.Debug)
+
+                    this.nailgunProcess = child_process.exec(command);
+                    this.nailgunProcess.stdout.on('data', (data: string) => {
+                        Log.logWithOrigin('NS', data, LogLevel.LowLevelDebug);
+                        if (data.indexOf("started") > 0) {
+                            this.waitForNailgunToStart(this.maxNumberOfRetries);
+                        }
+                    });
                 });
             });
-        });
+        } catch (e) {
+            Log.error("Error starting or restarting nailgun server");
+        }
     }
 
     private waitForNailgunToStart(retriesLeft: number) {
@@ -157,7 +164,7 @@ export class NailgunService {
         Settings.checkSettings(this.settings);
         if (Settings.valid()) {
             //since the nailgun server is not started, do that now
-            this.startOrRestartNailgunServer(backend);
+            this.startOrRestartNailgunServer(backend, true);
         }
     }
 

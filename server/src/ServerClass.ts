@@ -85,12 +85,12 @@ export class Server {
         }
     }
 
-    public static extractPosition(s: string): { before: string, pos: Position, after: string } {
-        let pos = null;
+    public static extractPosition(s: string, nonNull: boolean = true): { before: string, pos: Position, after: string } {
+        let pos: Position;
         let before = "";
         let after = "";
         if (s) {
-            pos = { line: 0, character: 0 };
+            pos = nonNull ? { line: 0, character: 0 } : null;
             let regex = /^(.*?)((\d+):(\d+)|<no position>)?:?(.*)$/.exec(s);
             if (regex && regex[3] && regex[4]) {
                 //subtract 1 to confirm with VS Codes 0-based numbering
@@ -102,10 +102,25 @@ export class Server {
                 before = regex[1].trim();
             }
             if (regex && regex[5]) {
-                before = regex[5].trim();
+                after = regex[5].trim();
             }
 
         }
         return { before: before, pos: pos, after: after };
+    }
+
+    public static extractRange(startString: string, endString: string) {
+        let start = Server.extractPosition(startString, false).pos;
+        let end = Server.extractPosition(endString, false).pos;
+        //handle uncomplete positions
+        if (!end && start) {
+            end = start;
+        } else if (!start && end) {
+            start = end;
+        } else if (!start && !end) {
+            start = { line: 0, character: 0 };
+            end = start
+        }
+        return { start: start, end: end };
     }
 }

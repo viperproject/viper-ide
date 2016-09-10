@@ -104,6 +104,7 @@ export interface StateChangeParams {
     verificationNeeded?: boolean;
     uri?: string;
     stage?: string;
+    error?: string;
 }
 
 export interface BackendReadyParams {

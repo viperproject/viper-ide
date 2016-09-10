@@ -8,23 +8,19 @@ export class Log {
     static logLevel: LogLevel = LogLevel.Default;
 
     static log(message: string, logLevel: LogLevel = LogLevel.Default) {
-        if (Log.logLevel >= logLevel)
-            Server.connection.sendNotification(Commands.Log, { data: message, logLevel: logLevel });
+        Server.connection.sendNotification(Commands.Log, { data: message, logLevel: logLevel });
     }
 
     static toLogFile(message: string, logLevel: LogLevel = LogLevel.Default) {
-        if (Log.logLevel >= logLevel)
-            Server.connection.sendNotification(Commands.ToLogFile, { data: message, logLevel: logLevel });
+        Server.connection.sendNotification(Commands.ToLogFile, { data: message, logLevel: logLevel });
     }
 
     static error(message: string, logLevel: LogLevel = LogLevel.Debug) {
-        if (Log.logLevel >= logLevel)
-            Server.connection.sendNotification(Commands.Error, { data: message, logLevel: logLevel });
+        Server.connection.sendNotification(Commands.Error, { data: message, logLevel: logLevel });
     }
 
     static logWithOrigin(origin: string, message: string, logLevel: LogLevel = LogLevel.Default) {
-        if (Log.logLevel >= logLevel)
-            Server.connection.sendNotification(Commands.Log, { data: (logLevel >= LogLevel.Debug ? "[" + origin + "]: " : "") + message, logLevel: logLevel });
+        Server.connection.sendNotification(Commands.Log, { data: (logLevel >= LogLevel.Debug ? "[" + origin + "]: " : "") + message, logLevel: logLevel });
     }
 
     static hint(message: string) {

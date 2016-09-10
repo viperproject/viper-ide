@@ -1,17 +1,9 @@
 'use strict';
 
-import fs = require('fs');
 import {Server} from './ServerClass';
-
-// import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
-// import {Settings} from './Settings'
 import {LaunchRequestArguments, StatementType, Position, StepType, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
-// import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
-import {Statement} from './Statement';
-// import {Model} from './Model';
-
 let ipc = require('node-ipc');
 
 export class DebugServer {
@@ -40,6 +32,26 @@ export class DebugServer {
                 });
             }
         });
+
+        //connect to Debugger as client to be able to send messages
+        ipc.connectTo(
+            'viperDebugger', () => {
+                ipc.of.viperDebugger.on(
+                    'connect', () => {
+                        Log.log("Language Server connected to Debugger, as client", LogLevel.Debug);
+                    }
+                );
+                ipc.of.viperDebugger.on(
+                    'disconnect', () => {
+                        ipc.disconnect()
+                        if (DebugServer.debuggerRunning) {
+                            Log.log('LanguageServer disconnected from Debugger', LogLevel.Debug);
+                            DebugServer.debuggerRunning = false;
+                            Server.sendStopDebuggingNotification();
+                        }
+                    }
+                );
+            });
     }
 
     //communication with debugger
@@ -74,27 +86,6 @@ export class DebugServer {
                                     'launchResponse',
                                     response
                                 );
-                                //TODO: is it right to connect each time debugging is started?
-                                //connect to Debugger as client to be able to send messages
-                                ipc.connectTo(
-                                    'viperDebugger', () => {
-                                        ipc.of.viperDebugger.on(
-                                            'connect', () => {
-                                                Log.log("Language Server connected to Debugger, as client", LogLevel.Debug);
-                                            }
-                                        );
-                                        ipc.of.viperDebugger.on(
-                                            'disconnect', () => {
-                                                ipc.disconnect()
-                                                if (DebugServer.debuggerRunning) {
-                                                    Log.log('LanguageServer disconnected from Debugger', LogLevel.Debug);
-                                                    DebugServer.debuggerRunning = false;
-                                                    Server.sendStopDebuggingNotification();
-                                                }
-                                            }
-                                        );
-                                    }
-                                )
                             });
                         } catch (e) {
                             Log.error("Error handling lanch request: " + e);

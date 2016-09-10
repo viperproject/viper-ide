@@ -134,11 +134,11 @@ function startVerificationController() {
                                 //    Log.log(dontVerify+`!manuallyTriggered and file is not changed`, LogLevel.Debug);
                             } else if (!task.manuallyTriggered && fileState.verified) {
                                 Log.log(dontVerify + `not manuallyTriggered and file is verified`, LogLevel.Debug);
-                            } else if (!task.manuallyTriggered && fileState.success === Success.Aborted) {
+                            }/* else if (!task.manuallyTriggered && fileState.success === Success.Aborted) {
                                 Log.log(dontVerify + `not manuallyTriggered and file was aborted when last verified`, LogLevel.Debug);
                             } else if (!task.manuallyTriggered && fileState.success === Success.Error) {
                                 Log.log(dontVerify + `not manuallyTriggered and file caused error when last verified`, LogLevel.Debug);
-                            }
+                            }*/
                             else if (!activeFile) {
                                 Log.log(dontVerify + `no file is active`, LogLevel.Debug);
                             } else if (activeFile !== task.uri.toString()) {
@@ -384,11 +384,11 @@ function handleStateChange(params: StateChangeParams) {
                             Log.log(`Verifying ${params.filename} was aborted`, LogLevel.Info);
                             break;
                         case Success.Error:
-                            let msg2 = " - see View->Output->Viper for more info"
-                            updateStatusBarItem(statusBarItem, `$(x) Internal error` + msg2, 'red');
+                            let moreInfo = " - see View->Output->Viper for more info"
+                            updateStatusBarItem(statusBarItem, `$(x) Internal error` + moreInfo, 'red');
                             msg = `Verifying ${params.filename} failed due to an internal error`;
-                            Log.log(msg);
-                            Log.hint(msg + msg2);
+                            Log.log(`Internal Error: failed to verify ${params.filename}: Reason: ` + (params.error && params.error.length > 0 ? params.error : "Unknown Reason: Set loglevel to 5 and see the viper.log file for more details"));
+                            Log.hint(msg + moreInfo);
                             break;
                     }
                 }
@@ -792,7 +792,6 @@ function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
                 //delete old SymbExLog:
                 Log.deleteFile(Log.symbExLogFilePath);
 
-                Log.log("verify " + path.basename(uri));
                 //change fileState
                 fileState.changed = false;
                 fileState.verified = false;
