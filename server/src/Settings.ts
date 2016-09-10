@@ -6,6 +6,7 @@ var commandExists = require('command-exists');
 import {Log} from './Log';
 import {Commands, Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
 import {Server} from './ServerClass';
+const os = require('os');
 
 export interface ResolvedPath {
     path: string,
@@ -21,6 +22,8 @@ export class Settings {
 
     private static _valid: boolean = false;
     private static _error: string;
+
+    private static home = os.homedir();
 
     public static getStage(backend: Backend, name: string): Stage {
         if (!name) return null;
@@ -315,6 +318,9 @@ export class Settings {
                 }
             } else {
                 //handle absolute and relative paths
+                if (this.home) {
+                    path = path.replace(/^~($|\/|\\)/, `${this.home}$1`);
+                }
                 resolvedPath = this.toAbsolute(path);
                 try {
                     fs.accessSync(resolvedPath);
