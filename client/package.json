@@ -154,7 +154,7 @@
                             "onSuccess": ""
                         }]
                     }],
-                    "description": "You can add your backends here.\n    // The first backend in the array will be used for verification.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
+                    "description": "You can add your backends here.\n    // The first stage of the first backend in the array will be used for verification by default.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
                 },
                 "viperSettings.nailgunServerJar": {
                     "type": "string",
@@ -164,20 +164,22 @@
                 "viperSettings.nailgunClient": {
                     "type": "string",
                     "default": "ng",
-                    "description": "The path to the nailgun client executable.\n    // Use %ENV_VAR% for environment variables, C:\\\\path\\\\to\\\\file.jar for paths, or ng if its folder is in the PATH environment variable."
+                    "description": "The path to the nailgun client executable.\n    // Use %ENV_VAR% for environment variables, C:\\\\path\\\\to\\\\ng.exe for paths, or ng if its folder is in the PATH environment variable."
                 },
                 "viperSettings.z3Executable": {
                     "type": "string",
                     "default": "z3",
-                    "description": "The path to the z3 executable.\n    // Use %ENV_VAR% for environment variables, C:\\\\path\\\\to\\\\file.jar for paths, or z3 if its folder is in the PATH environment variable."
+                    "description": "The path to the z3 executable.\n    // Use %ENV_VAR% for environment variables, C:\\\\path\\\\to\\\\z3.exe for paths, or z3 if its folder is in the PATH environment variable."
                 },
                 "viperSettings.autoSave": {
                     "type": "boolean",
-                    "default": true
+                    "default": true,
+                    "description": "Enable automatically saving modified viper files"
                 },
                 "viperSettings.nailgunPort": {
                     "type": "string",
-                    "default": "7654"
+                    "default": "7654",
+                    "description": "The port on which the nailgun server communicates with the nailgun client."
                 },
                 "viperSettings.logLevel": {
                     "type": "number",
@@ -186,27 +188,33 @@
                 },
                 "viperSettings.autoVerifyAfterBackendChange": {
                     "type": "boolean",
-                    "default": true
+                    "default": true,
+                    "description": "Reverify the open viper file upon backend change."
                 },
                 "viperSettings.showProgress": {
                     "type": "boolean",
-                    "default": false
-                },
-                "viperSettings.dotExecutable": {
-                    "type": "string",
-                    "default": "dot"
-                },
-                "viperSettings.showSymbolicState": {
-                    "type": "boolean",
-                    "default": false
-                },
-                "viperSettings.darkGraphs": {
-                    "type": "boolean",
-                    "default": true
+                    "default": false,
+                    "description": "Display the verification progress in the status bar. Only useful if the backend supports progress reporting."
                 },
                 "viperSettings.advancedFeatures": {
                     "type": "boolean",
-                    "default": true
+                    "default": true,
+                    "description": "Enable heap visualization, stepwise debugging and execution path visualization"
+                },
+                "viperSettings.dotExecutable": {
+                    "type": "string",
+                    "default": "dot",
+                    "description": "The path to the dot executable.\n    // Use %ENV_VAR% for environment variables, C:\\\\path\\\\to\\\\dot.exe for paths, or z3 if its folder is in the PATH environment variable."
+                },
+                "viperSettings.showSymbolicState": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Show the symbolic values in the heap visualization. If disabled, the symbolic values are only shown in the error states."
+                },
+                "viperSettings.darkGraphs": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "To get the best visual heap representation, this setting should match with the active theme."
                 }
             }
         },

@@ -359,7 +359,7 @@ function handleStateChange(params: StateChangeParams) {
                             //for SymbexLogger
                             let symbexDotFile = path.resolve(path.join(vscode.workspace.rootPath, ".vscode", "dot_input.dot"));
                             let symbexSvgFile = path.resolve(path.join(vscode.workspace.rootPath, ".vscode", "symbExLoggerOutput.svg"))
-                            if (fs.existsSync(symbexDotFile)) {
+                            if (Helper.getConfiguration("advancedFeatures") === true && fs.existsSync(symbexDotFile)) {
                                 let fileState = ExtensionState.viperFiles.get(params.uri);
                                 fileState.stateVisualizer.generateSvg(symbexDotFile, symbexSvgFile, () => { });
                             }
@@ -549,10 +549,14 @@ function registerHandlers() {
     });
     state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
         try {
-            let visualizer = ExtensionState.viperFiles.get(heapGraph.fileUri).stateVisualizer;
-            if (heapGraph.state != visualizer.previousState) {
-                visualizer.createAndShowHeap(heapGraph, visualizer.nextHeapIndex);
-                visualizer.nextHeapIndex = 1 - visualizer.nextHeapIndex;
+            if (Helper.getConfiguration("advancedFeatures") === true) {
+                let visualizer = ExtensionState.viperFiles.get(heapGraph.fileUri).stateVisualizer;
+                if (heapGraph.state != visualizer.previousState) {
+                    visualizer.createAndShowHeap(heapGraph, visualizer.nextHeapIndex);
+                    visualizer.nextHeapIndex = 1 - visualizer.nextHeapIndex;
+                }
+            } else {
+                Log.log("WARNING: Heap Graph is generated, even though the advancedFeatures are disabled.", LogLevel.Debug);
             }
         } catch (e) {
             Log.error("Error displaying HeapGraph: " + e);
@@ -684,6 +688,8 @@ function registerHandlers() {
                         Log.error("Error starting debugger: " + err.message);
                     });
                 });
+            } else {
+                Log.hint("Enable the advanced features in the settings to use debugging.")
             }
         } catch (e) {
             Log.error("Error starting debug session: " + e);

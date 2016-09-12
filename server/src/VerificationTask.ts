@@ -442,7 +442,7 @@ export class VerificationTask {
                 Log.toLogFile(data, LogLevel.LowLevelDebug);
                 return;
             }
-            Log.error(data, LogLevel.Debug);
+            //Log.error(data, LogLevel.Debug);
             this.internalErrorMessage = data;
 
             let stage = Server.stage();

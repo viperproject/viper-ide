@@ -4,7 +4,7 @@ import {Log} from './Log';
 import {ShowHeapParams, StepsAsDecorationOptionsResult, MyProtocolDecorationOptions, StateColors, Position, HeapGraph, Commands, LogLevel} from './ViperProtocol';
 import * as fs from 'fs';
 import child_process = require('child_process');
-import {HeapProvider} from './TextDocumentContentProvider';
+import {HeapProvider} from './HeapProvider';
 import * as vscode from 'vscode';
 import {Helper} from './Helper';
 import {ExtensionState} from './ExtensionState';
