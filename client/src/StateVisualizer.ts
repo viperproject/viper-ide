@@ -431,7 +431,7 @@ export class StateVisualizer {
                 }
                 else {
                     this.removingSpecialChars = false;
-                    Log.error("cannot remove special chars from closed file: " + err.message);
+                    Log.log("WARNING: cannot remove special chars from closed file: does it still exist?" + err.message, LogLevel.Debug);
                 }
             });
         } catch (e) {

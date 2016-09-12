@@ -203,10 +203,12 @@ function startVerificationController() {
                             return;
                         }
                         let oldFileState = ExtensionState.viperFiles.get(lastActiveTextEditor.toString());
-                        oldFileState.decorationsShown = false;
-                        oldFileState.stateVisualizer.removeSpecialCharsFromClosedDocument(() => { });
-                        if (ExtensionState.isDebugging) {
-                            stopDebugging();
+                        if (oldFileState) {
+                            oldFileState.decorationsShown = false;
+                            oldFileState.stateVisualizer.removeSpecialCharsFromClosedDocument(() => { });
+                            if (ExtensionState.isDebugging) {
+                                stopDebugging();
+                            }
                         }
                     }
                     let fileState = ExtensionState.viperFiles.get(uri.toString());

@@ -1,7 +1,7 @@
 {
     "name": "viper-advanced",
     "displayName": "Viper Advanced",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "license": "MIT",
@@ -53,85 +53,100 @@
     ],
     "contributes": {
         "commands": [{
-            "command": "extension.verify",
-            "title": "Viper: verify the open document"
-        }, {
-            "command": "extension.selectBackend",
-            "title": "Viper: select verification backend"
-        }, {
-            "command": "extension.stopVerification",
-            "title": "Viper: stop the running verification"
-        }, {
-            "command": "extension.startDebugging",
-            "title": "Viper: debug the open document"
-        }],
+                "command": "extension.verify",
+                "title": "Viper: verify the open document"
+            },
+            {
+                "command": "extension.selectBackend",
+                "title": "Viper: select verification backend"
+            },
+            {
+                "command": "extension.stopVerification",
+                "title": "Viper: stop the running verification"
+            },
+            {
+                "command": "extension.startDebugging",
+                "title": "Viper: debug the open document"
+            }
+        ],
         "grammars": [{
-            "language": "viper",
-            "scopeName": "source.silver",
-            "path": "./syntaxes/Viper.tmLanguage"
-        }, {
-            "language": "log",
-            "scopeName": "bmcode.log",
-            "path": "./syntaxes/log.tmLanguage"
-        }],
+                "language": "viper",
+                "scopeName": "source.silver",
+                "path": "./syntaxes/Viper.tmLanguage"
+            },
+            {
+                "language": "log",
+                "scopeName": "bmcode.log",
+                "path": "./syntaxes/log.tmLanguage"
+            }
+        ],
         "languages": [{
-            "id": "viper",
-            "extensions": [
-                ".sil",
-                ".vpr"
-            ],
-            "aliases": [
-                "Viper"
-            ]
-        }, {
-            "id": "log",
-            "extensions": [
-                ".log"
-            ],
-            "configuration": "./log.configuration.json",
-            "mimetypes": [
-                "text/x-code-output"
-            ]
-        }],
+                "id": "viper",
+                "extensions": [
+                    ".sil",
+                    ".vpr"
+                ],
+                "aliases": [
+                    "Viper"
+                ]
+            },
+            {
+                "id": "log",
+                "extensions": [
+                    ".log"
+                ],
+                "configuration": "./log.configuration.json",
+                "mimetypes": [
+                    "text/x-code-output"
+                ]
+            }
+        ],
         "themes": [{
-            "label": "Viper-Dark",
-            "uiTheme": "vs-dark",
-            "path": "./themes/Viper (Dark).tmTheme"
-        }, {
-            "label": "Viper-Light",
-            "uiTheme": "vs",
-            "path": "./themes/Viper (Light).tmTheme"
-        }],
+                "label": "Viper-Dark",
+                "uiTheme": "vs-dark",
+                "path": "./themes/Viper (Dark).tmTheme"
+            },
+            {
+                "label": "Viper-Light",
+                "uiTheme": "vs",
+                "path": "./themes/Viper (Light).tmTheme"
+            }
+        ],
         "snippets": [{
             "language": "viper",
             "path": "./snippets/viper.json"
         }],
         "keybindings": [{
-            "command": "extension.selectBackend",
-            "key": "ctrl+l",
-            "mac": "cmd+l",
-            "when": "editorTextFocus"
-        }, {
-            "command": "extension.verify",
-            "key": "f5",
-            "mac": "f5",
-            "when": "editorTextFocus"
-        }, {
-            "command": "extension.stopVerification",
-            "key": "ctrl+h",
-            "mac": "cmd+h",
-            "when": "editorTextFocus"
-        }, {
-            "command": "extension.startDebugging",
-            "key": "ctrl+d",
-            "mac": "cmd+d",
-            "when": "editorTextFocus"
-        }, {
-            "command": "extension.format",
-            "key": "alt+shift+f",
-            "mac": "alt+shift+f",
-            "when": "editorTextFocus"
-        }],
+                "command": "extension.selectBackend",
+                "key": "ctrl+l",
+                "mac": "cmd+l",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "extension.verify",
+                "key": "f5",
+                "mac": "f5",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "extension.stopVerification",
+                "key": "ctrl+h",
+                "mac": "cmd+h",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "extension.startDebugging",
+                "key": "ctrl+d",
+                "mac": "cmd+d",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "extension.format",
+                "key": "alt+shift+f",
+                "mac": "alt+shift+f",
+                "when": "editorTextFocus"
+            }
+        ],
         "configuration": {
             "type": "object",
             "title": "Viper Configuration",
@@ -215,6 +230,16 @@
                     "type": "boolean",
                     "default": true,
                     "description": "To get the best visual heap representation, this setting should match with the active theme."
+                },
+                "viperSettings.nailgunTimeout": {
+                    "type": "number",
+                    "default": 3000,
+                    "description": "The time in ms after which the nailgun server start is considered to have failed."
+                },
+                "viperSettings.verificationTimeout": {
+                    "type": "number",
+                    "default": 20000,
+                    "description": "The time in ms after which a verification is considered to have failed."
                 }
             }
         },

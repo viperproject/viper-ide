@@ -26,31 +26,33 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         if (this.heapGraphs.length > 1) {
             table = ` <table>
   <tr><td>
-   <h1 style="color:${StateColors.previousState(darkGraphs)}">Previous State</h1>
+   <h1 id="Hprev" style="color:${StateColors.previousState(darkGraphs)}">Previous State</h1>
    ${this.heapGraphToContent(this.stateVisualizer.nextHeapIndex, 1 - this.stateVisualizer.nextHeapIndex)}
   </td><td>
-   <h1 style="color:${StateColors.currentState(darkGraphs)}">Current State</h1>
+   <h1 id="Hcurr" style="color:${StateColors.currentState(darkGraphs)}">Current State</h1>
    ${this.heapGraphToContent(1 - this.stateVisualizer.nextHeapIndex, this.stateVisualizer.nextHeapIndex)}
   </td></tr>
  </table>`;
         } else if (this.heapGraphs.length == 1) {
-            table = ` <h1 style="color:${StateColors.currentState(darkGraphs)}">Current</h1>${this.heapGraphToContent(0)}`;
+            table = ` <h1 id="Hcurr" style="color:${StateColors.currentState(darkGraphs)}">Current State</h1>${this.heapGraphToContent(0)}`;
         } else {
             table = " <p>No graph to show</p>";
         }
 
-        return `<head>
+        return `<!DOCTYPE html>
+<html lang="en"><head>
 <style>
  table td, table td * {
   vertical-align: top;
  }
-</style>        
+</style>
 </head>
 <body>
  ${table}
  <p><font face="courier">${this.stringToHtml(this.stateVisualizer.globalInfo)}</font></p>
  <a href='${uri}'>view source</a>
-</body>`;
+</body>
+</html>`;
     }
 
     private heapGraphToContent(index: number, otherIndex?: number): string {

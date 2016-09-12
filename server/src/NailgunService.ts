@@ -10,6 +10,7 @@ import {VerificationTask} from './VerificationTask'
 
 export class NailgunService {
     nailgunProcess: child_process.ChildProcess;
+    instanceCount = 0;
 
     private _ready: boolean = false;
     settings: ViperSettings;
@@ -39,10 +40,12 @@ export class NailgunService {
 
     public setStopping() {
         this._ready = false;
+        NailgunService.startingOrRestarting = false;
         Server.sendStateChangeNotification({ newState: VerificationState.Stopping });
     }
 
     public setStopped() {
+        Log.log("Set Stopped ", LogLevel.Debug);
         this._ready = false;
         NailgunService.startingOrRestarting = false;
         Server.sendStateChangeNotification({ newState: VerificationState.Stopped });
@@ -67,7 +70,6 @@ export class NailgunService {
                 Log.log("Server is already starting or restarting, don't restart", LogLevel.Debug);
                 return;
             }
-            NailgunService.startingOrRestarting = true;
 
             //Stop all running verificationTasks before restarting backend
             NailgunService.stopAllRunningVerifications().then(done => {
@@ -79,6 +81,7 @@ export class NailgunService {
                     }
                     this.activeBackend = backend;
                     this.stopNailgunServer().then(success => {
+                        NailgunService.startingOrRestarting = true;
                         Log.log('starting nailgun server', LogLevel.Info);
                         //notify client
                         Server.sendBackendChangeNotification(backend.name);
@@ -88,6 +91,8 @@ export class NailgunService {
                         let command = 'java -Xmx2048m -Xss16m -cp ' + this.settings.nailgunServerJar + backendJars + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + this.settings.nailgunPort;
                         Log.log(command, LogLevel.Debug)
 
+                        this.instanceCount++;
+                        this.startNailgunTimeout(this.instanceCount);
                         this.nailgunProcess = child_process.exec(command);
                         this.nailgunProcess.stdout.on('data', (data: string) => {
                             Log.logWithOrigin('NS', data, LogLevel.LowLevelDebug);
@@ -105,8 +110,6 @@ export class NailgunService {
                                 });
                             }
                         });
-                        //TODO: how to distinguish slow nailgun server from broken one?
-                        //implement timeout
                     }, reject => {
                         Log.error("stopNailgunServer was rejected");
                         this.setStopped();
@@ -122,13 +125,27 @@ export class NailgunService {
         }
     }
 
+    private startNailgunTimeout(instanceCount: number) {
+        setTimeout(() => {
+            //Log.log("check for nailgun timeout", LogLevel.Debug);
+            if (!this.isReady() && this.instanceCount == instanceCount) {
+                Log.error("The nailgun server startup timed out after " + Settings.settings.nailgunTimeout + "ms", LogLevel.Default);
+                this.stopNailgunServer();
+            }
+        }, Settings.settings.nailgunTimeout);
+    }
+
     private waitForNailgunToStart(retriesLeft: number): Thenable<boolean> {
         return new Promise((resolve, reject) => {
             try {
+                if (!NailgunService.startingOrRestarting) {
+                    //this can happen due to a timeout
+                    Log.log("WARNING: while waiting for nailgun server to start, the start is aborted, possibly due to a timeout.", LogLevel.Debug);
+                    resolve(false); return;
+                }
                 if (retriesLeft <= 0) {
                     Log.log("A problem with nailgun was detected, Nailgun cannot be started.", LogLevel.Default)
-                    resolve(false);
-                    return;
+                    resolve(false); return;
                 }
                 this.isNailgunServerReallyRunning().then(running => {
                     if (running) {
@@ -159,6 +176,7 @@ export class NailgunService {
                 let shutDownNailgunProcess = child_process.exec(this.settings.nailgunClient + ' --nailgun-port ' + this.settings.nailgunPort + ' ng-stop');
                 shutDownNailgunProcess.on('exit', (code, signal) => {
                     Log.log("nailgun server is stopped", LogLevel.Info);
+                    this.setStopped();
                     return resolve(true);
                 });
                 this.nailgunProcess = null;

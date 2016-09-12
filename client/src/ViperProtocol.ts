@@ -259,6 +259,8 @@ export interface ViperSettings {
     dotExecutable: string;
     showSymbolicState: boolean;
     darkGraphs: boolean;
+    nailgunTimeout: number;
+    verificationTimeout: number;
 }
 
 //Format expected from other tools:

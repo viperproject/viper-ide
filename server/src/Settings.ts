@@ -128,6 +128,11 @@ export class Settings {
                     this._error = "NailgunPort is missing";
                 } else if (!/\d+/.test(settings.nailgunPort)) {
                     this._error = "Invalid NailgunPort: " + settings.nailgunPort;
+                } else {
+                    let port = Number.parseInt(settings.nailgunPort);
+                    if (port < 1024 || port > 65535) {
+                        this._error = "Invalid NailgunPort: please use a port in the range of 1024 - 65535";
+                    }
                 }
 
                 Log.log("Checking Other Settings...", LogLevel.Debug);

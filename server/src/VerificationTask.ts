@@ -19,6 +19,7 @@ import {Verifiable} from './Verifiable';
 export class VerificationTask {
     //state that is valid across verifications
     nailgunService: NailgunService;
+    verificationCount: number = 0;
     // file under verification
     fileUri: string;
     filename: string;
@@ -271,6 +272,8 @@ export class VerificationTask {
             //start verification of current file
             this.path = path
             this.filename = pathHelper.basename(path);
+            this.verificationCount++;
+            this.startVerificationTimeout(this.verificationCount);
             this.verifierProcess = this.nailgunService.startStageProcess(path, stage, this.stdOutHandler.bind(this), this.stdErrHadler.bind(this), this.completionHandler.bind(this));
         });
         return true;
@@ -283,6 +286,22 @@ export class VerificationTask {
 
     resetLastSuccess() {
         this.lastSuccess = Success.None;
+    }
+
+    private startVerificationTimeout(verificationCount: number) {
+        setTimeout(() => {
+            //Log.log("check for verification timeout", LogLevel.Debug);
+            if (this.running && this.verificationCount == verificationCount) {
+                Log.error("The verification timed out after " + Settings.settings.verificationTimeout + "ms", LogLevel.Default);
+                this.abortVerification();
+                Server.sendStateChangeNotification({
+                    newState: VerificationState.Ready,
+                    verificationCompleted: false,
+                    verificationNeeded: false,
+                    uri: this.fileUri
+                });
+            }
+        }, Settings.settings.verificationTimeout);
     }
 
     private completionHandler(code) {
@@ -396,7 +415,7 @@ export class VerificationTask {
                     Log.log("Verification Backend Terminated Abnormaly: with code " + code + " Restart the backend.", LogLevel.Debug);
                     if (Settings.isWin && code == null) {
                         this.nailgunService.killNgDeamon().then(resolve => {
-                            this.nailgunService.startOrRestartNailgunServer(Server.backend,false);
+                            this.nailgunService.startOrRestartNailgunServer(Server.backend, false);
                         });
                     }
                 }
