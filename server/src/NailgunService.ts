@@ -34,7 +34,7 @@ export class NailgunService {
     public setReady(backend: Backend) {
         this._ready = true;
         NailgunService.startingOrRestarting = false;
-        Log.log("Nailgun started", LogLevel.Info);
+        Log.log("The backend is ready for verification", LogLevel.Info);
         Server.sendBackendReadyNotification({ name: this.activeBackend.name, restarted: this.reverifyWhenBackendReady });
     }
 
@@ -80,6 +80,11 @@ export class NailgunService {
                         this.setStopped(); return;
                     }
                     this.activeBackend = backend;
+                    if (!Settings.settings.useNailgun) {
+                        //In nailgun is disabled, don't start it
+                        this.setReady(this.activeBackend);
+                        return;
+                    }
                     this.stopNailgunServer().then(success => {
                         NailgunService.startingOrRestarting = true;
                         Log.log('starting nailgun server', LogLevel.Info);
@@ -210,7 +215,8 @@ export class NailgunService {
     // }
 
     public startStageProcess(fileToVerify: string, stage: Stage, onData, onError, onClose): child_process.ChildProcess {
-        let command = this.settings.nailgunClient + ' ' + Settings.completeNGArguments(stage, fileToVerify);
+        let program = Settings.settings.useNailgun ? this.settings.nailgunClient : "java"
+        let command = program + ' ' + Settings.completeNGArguments(stage, fileToVerify, this.activeBackend);
         Log.log(command, LogLevel.Debug);
         let verifyProcess = child_process.exec(command, { cwd: Settings.workspace });
         verifyProcess.stdout.on('data', onData);

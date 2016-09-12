@@ -76,13 +76,14 @@ export class Settings {
         return same;
     }
 
-    static completeNGArguments(stage: Stage, fileToVerify: string): string {
+    static completeNGArguments(stage: Stage, fileToVerify: string, backend:Backend): string {
         let args = stage.customArguments;
         if (!args || args.length == 0) return "";
         args = args.replace(/\$z3Exe\$/g, '"' + this.settings.z3Executable + '"');
         args = args.replace(/\$mainMethod\$/g, stage.mainMethod);
         args = args.replace(/\$nailgunPort\$/g, this.settings.nailgunPort);
         args = args.replace(/\$fileToVerify\$/g, '"' + fileToVerify + '"');
+        args = args.replace(/\$backendPaths\$/g, Settings.backendJars(backend))
         return args;
     }
 
@@ -122,8 +123,9 @@ export class Settings {
             this._valid = false;
             Log.log("Checking Backends...", LogLevel.Debug);
             this._error = Settings.areBackendsValid(settings.verificationBackends);
-            if (!this._error) {
-
+            let useNailgun = settings.useNailgun;
+            if (useNailgun && !this._error) {
+                //check nailgun port
                 if (!settings.nailgunPort) {
                     this._error = "NailgunPort is missing";
                 } else if (!/\d+/.test(settings.nailgunPort)) {
@@ -136,6 +138,7 @@ export class Settings {
                 }
 
                 Log.log("Checking Other Settings...", LogLevel.Debug);
+                //check nailgun jar
                 if (!settings.nailgunServerJar || settings.nailgunServerJar.length == 0) {
                     this._error = "Path to nailgun server jar is missing"
                 } else {
@@ -146,7 +149,8 @@ export class Settings {
                     settings.nailgunServerJar = resolvedPath.path;
                 }
             }
-            if (!this._error) {
+            if (useNailgun && !this._error) {
+                //check nailgun client
                 if (!settings.nailgunClient || settings.nailgunClient.length == 0) {
                     this._error = "Path to nailgun client executable is missing"
                 } else {
@@ -159,6 +163,7 @@ export class Settings {
                 }
             }
             if (!this._error) {
+                //check z3 executable
                 if (!settings.z3Executable || settings.z3Executable.length == 0) {
                     this._error = "Path to z3 executable is missing"
                 } else {
@@ -245,13 +250,13 @@ export class Settings {
         backend.paths.forEach(path => {
             if (this.isJar(path)) {
                 //its a jar file
-                backendJars = backendJars + concatenationSymbol + path;
+                backendJars = backendJars + concatenationSymbol + '"'+path+'"';
             } else {
                 //its a folder
                 let files = fs.readdirSync(path);
                 files.forEach(file => {
                     if (this.isJar(file)) {
-                        backendJars = backendJars + concatenationSymbol + pathHelper.join(path, file);
+                        backendJars = backendJars + concatenationSymbol + '"'+pathHelper.join(path, file)+'"';
                     }
                 });
             }

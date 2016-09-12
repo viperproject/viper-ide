@@ -252,6 +252,7 @@ export interface ViperSettings {
     nailgunClient: string;
     z3Executable: string;
     autoSave: boolean;
+    useNailgun: boolean;
     nailgunPort: string;
     logLevel: number;
     autoVerifyAfterBackendChange: boolean;
