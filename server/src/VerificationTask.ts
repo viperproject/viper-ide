@@ -105,6 +105,12 @@ export class VerificationTask {
             this.steps.forEach((element, i) => {
 
                 let clientNumber = element.decorationOptions ? "" + element.decorationOptions.numberToDisplay : "";
+
+                let parent = element.getClientParent();
+                if (parent && element.decorationOptions) {
+                    clientNumber += " " + parent.decorationOptions.numberToDisplay;
+                }
+
                 let serverNumber = "" + i;
                 let spacesToPut = 8 - clientNumber.length - serverNumber.length;
                 spacesToPut = spacesToPut < 0 ? 0 : spacesToPut;
@@ -166,6 +172,8 @@ export class VerificationTask {
                     count = 1;
                 }
                 if (step.canBeShownAsDecoration) {
+
+                    let parent = step.getClientParent();
                     let options: MyProtocolDecorationOptions = {
                         hoverMessage: step.toToolTip(),
                         range: {
@@ -179,6 +187,7 @@ export class VerificationTask {
                             }
                         },
                         index: decorationOptions.length,
+                        parent: parent ? parent.decorationOptions.index : -1,
                         numberToDisplay: count++,
                         originalPosition: step.position,
                         depth: step.depthLevel(),
@@ -289,19 +298,21 @@ export class VerificationTask {
     }
 
     private startVerificationTimeout(verificationCount: number) {
-        setTimeout(() => {
-            //Log.log("check for verification timeout", LogLevel.Debug);
-            if (this.running && this.verificationCount == verificationCount) {
-                Log.error("The verification timed out after " + Settings.settings.verificationTimeout + "ms", LogLevel.Default);
-                this.abortVerification();
-                Server.sendStateChangeNotification({
-                    newState: VerificationState.Ready,
-                    verificationCompleted: false,
-                    verificationNeeded: false,
-                    uri: this.fileUri
-                });
-            }
-        }, Settings.settings.verificationTimeout);
+        if (this.nailgunService.activeBackend.timeout) {
+            setTimeout(() => {
+                //Log.log("check for verification timeout", LogLevel.Debug);
+                if (this.running && this.verificationCount == verificationCount) {
+                    Log.hint("The verification timed out after " + this.nailgunService.activeBackend.timeout + "ms");
+                    this.abortVerification();
+                    Server.sendStateChangeNotification({
+                        newState: VerificationState.Ready,
+                        verificationCompleted: false,
+                        verificationNeeded: false,
+                        uri: this.fileUri
+                    });
+                }
+            }, this.nailgunService.activeBackend.timeout);
+        }
     }
 
     private completionHandler(code) {
@@ -323,6 +334,7 @@ export class VerificationTask {
                 let lastStage: Stage = Server.stage();
                 let newStage: Stage;
                 if (isVerifyingStage) {
+                    success = this.determineSuccess(code);
                     newStage = Settings.getStageFromSuccess(Server.backend, lastStage, success)
                 } else {
                     newStage = Settings.getStage(Server.backend, lastStage.onSuccess);
@@ -355,7 +367,6 @@ export class VerificationTask {
                     Log.error("Some unparsed output was detected:\n" + this.partialData);
                     this.partialData = "";
                 }
-                success = this.determineSuccess(code);
 
                 // Send the computed diagnostics to VSCode.
                 Server.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
@@ -472,7 +483,7 @@ export class VerificationTask {
                 Log.hint(hintMessage);
             }
             else if (data.startsWith("connect: No error")) {
-                let hintMessage = "No Nailgun server is running on port " + this.nailgunService.settings.nailgunPort + ": is your nailgun correctly linked in the settings?";
+                let hintMessage = "No Nailgun server is running on port " + Settings.settings.nailgunSettings.port + ": is your nailgun correctly linked in the settings?";
                 Log.hint(hintMessage);
             }
             if (data.startsWith("java.lang.NullPointerException")) {

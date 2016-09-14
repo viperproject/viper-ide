@@ -61,6 +61,7 @@ function registerHandlers() {
 
     Server.connection.onDidChangeConfiguration((change) => {
         try {
+            let oldSettings = Settings.settings;
             Settings.settings = <ViperSettings>change.settings.viperSettings;
             Log.logLevel = Settings.settings.logLevel;
             //after this line, Logging works
@@ -71,7 +72,7 @@ function registerHandlers() {
                 //pass the new settings to the verificationService
                 Server.nailgunService.changeSettings(Settings.settings);
 
-                restartBackendIfNeeded();
+                restartBackendIfNeeded(oldSettings);
             }
         } catch (e) {
             Log.error("Error handling configuration change: " + e);
@@ -84,7 +85,7 @@ function registerHandlers() {
                 Log.log("No backend was chosen, don't restart backend", LogLevel.Debug);
             } else if (Settings.valid()) {
                 Settings.selectedBackend = selectedBackend;
-                restartBackendIfNeeded();
+                restartBackendIfNeeded(null);
             }
         } catch (e) {
             Log.error("Error handling select backend request: " + e);
@@ -215,10 +216,14 @@ function resetDiagnostics(uri: string) {
     task.resetDiagnostics();
 }
 
-function restartBackendIfNeeded() {
+function restartBackendIfNeeded(oldSettings:ViperSettings) {
     let newBackend = Settings.autoselectBackend(Settings.settings);
     //only restart the backend after settings changed if the active backend was affected
-    if (!Settings.backendEquals(Server.backend, newBackend)) {
+    let restartBackend = !Settings.backendEquals(Server.backend, newBackend);
+    if(oldSettings){
+        restartBackend = restartBackend || newBackend.useNailgun && (!Settings.nailgunEquals(Settings.settings.nailgunSettings,oldSettings.nailgunSettings));
+    }
+    if (restartBackend) {
         Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info)
         Server.backend = newBackend;
         Server.verificationTasks.forEach(task => task.resetLastSuccess());

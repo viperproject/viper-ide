@@ -208,9 +208,12 @@ export interface MyProtocolDecorationOptions {
     originalPosition: Position;
     //depth in the symbExLog
     depth: number,
+    //used for determining which states belong to the same method
     methodIndex: number,
     //client index of current state
     index: number,
+    //client index of the parent state in the execution graph
+    parent: number,
     //is the current state an error state?
     isErrorState: boolean
 }
@@ -232,6 +235,8 @@ export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE, UNKONWN };
 export interface Backend {
     name: string;
     stages: Stage[];
+    useNailgun: boolean;
+    timeout: number;
     paths: string[];
 }
 
@@ -246,22 +251,25 @@ export interface Stage {
     onSuccess: string;
 }
 
+export interface NailgunSettings {
+    serverJar: string;
+    clientExecutable: string;
+    port: string;
+    timeout: number;
+}
+
 export interface ViperSettings {
     verificationBackends: Backend[];
-    nailgunServerJar: string;
-    nailgunClient: string;
+    nailgunSettings: NailgunSettings;
     z3Executable: string;
     autoSave: boolean;
-    useNailgun: boolean;
-    nailgunPort: string;
     logLevel: number;
     autoVerifyAfterBackendChange: boolean;
     showProgress: boolean;
     dotExecutable: string;
     showSymbolicState: boolean;
     darkGraphs: boolean;
-    nailgunTimeout: number;
-    verificationTimeout: number;
+    verificationBufferSize: number;
 }
 
 //Format expected from other tools:

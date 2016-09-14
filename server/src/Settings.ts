@@ -4,7 +4,7 @@ import fs = require('fs');
 import * as pathHelper from 'path';
 var commandExists = require('command-exists');
 import {Log} from './Log';
-import {Commands, Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
+import {NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
 import {Server} from './ServerClass';
 const os = require('os');
 
@@ -54,6 +54,8 @@ export class Settings {
         }
         let same = a.stages.length === b.stages.length;
         same = same && a.name === b.name;
+        same = same && a.timeout === b.timeout;
+        same = same && a.useNailgun === b.useNailgun;
         a.stages.forEach((element, i) => {
             same = same && this.stageEquals(element, b.stages[i]);
         });
@@ -76,12 +78,20 @@ export class Settings {
         return same;
     }
 
-    static completeNGArguments(stage: Stage, fileToVerify: string, backend:Backend): string {
+    public static nailgunEquals(a: NailgunSettings, b: NailgunSettings): boolean {
+        let same = a.clientExecutable == b.clientExecutable;
+        same = same && a.port == b.port;
+        same = same && a.serverJar == b.serverJar;
+        same = same && a.timeout == b.timeout;
+        return same;
+    }
+
+    static completeNGArguments(stage: Stage, fileToVerify: string, backend: Backend): string {
         let args = stage.customArguments;
         if (!args || args.length == 0) return "";
         args = args.replace(/\$z3Exe\$/g, '"' + this.settings.z3Executable + '"');
         args = args.replace(/\$mainMethod\$/g, stage.mainMethod);
-        args = args.replace(/\$nailgunPort\$/g, this.settings.nailgunPort);
+        args = args.replace(/\$nailgunPort\$/g, this.settings.nailgunSettings.port);
         args = args.replace(/\$fileToVerify\$/g, '"' + fileToVerify + '"');
         args = args.replace(/\$backendPaths\$/g, Settings.backendJars(backend))
         return args;
@@ -118,51 +128,79 @@ export class Settings {
         return this._valid;
     }
 
+    private static checkNailgunSettings(nailgunSettings: NailgunSettings): string {
+        if (!nailgunSettings) {
+            return "viperSettings.nailgunSettings is missing"
+        }
+
+        //check nailgun port
+        if (!nailgunSettings.port) {
+            return "NailgunPort is missing";
+        } else if (!/\d+/.test(nailgunSettings.port)) {
+            return "Invalid NailgunPort: " + nailgunSettings.port;
+        } else {
+            try {
+                let port = Number.parseInt(nailgunSettings.port);
+                if (port < 1024 || port > 65535) {
+                    return "Invalid NailgunPort: please use a port in the range of 1024 - 65535";
+                }
+            } catch (e) {
+                return "viperSettings.nailgunSettings.port needs to be an integer";
+            }
+        }
+        //check nailgun jar
+        if (!nailgunSettings.serverJar || nailgunSettings.serverJar.length == 0) {
+            return "Path to nailgun server jar is missing"
+        } else {
+            let resolvedPath = Settings.resolvePath(nailgunSettings.serverJar)
+            if (!resolvedPath.exists) {
+                return "No nailgun server jar file found at path: " + resolvedPath.path;
+            }
+            nailgunSettings.serverJar = resolvedPath.path;
+        }
+
+        //check nailgun client
+        if (!nailgunSettings.clientExecutable || nailgunSettings.clientExecutable.length == 0) {
+            return "Path to nailgun client executable is missing"
+        } else {
+            let resolvedPath = Settings.resolvePath(nailgunSettings.clientExecutable)
+            if (!resolvedPath.exists) {
+                return "No nailgun client executable file found at path: " + resolvedPath.path;
+            } else {
+                nailgunSettings.clientExecutable = resolvedPath.path;
+            }
+        }
+
+        //check nailgun timeout
+        if (!nailgunSettings.timeout || (nailgunSettings.timeout && nailgunSettings.timeout <= 0)) {
+            nailgunSettings.timeout = null;
+        }
+        return null;
+    }
+
     public static checkSettings(settings: ViperSettings) {
         try {
-            this._valid = false;
-            Log.log("Checking Backends...", LogLevel.Debug);
-            this._error = Settings.areBackendsValid(settings.verificationBackends);
-            let useNailgun = settings.useNailgun;
-            if (useNailgun && !this._error) {
-                //check nailgun port
-                if (!settings.nailgunPort) {
-                    this._error = "NailgunPort is missing";
-                } else if (!/\d+/.test(settings.nailgunPort)) {
-                    this._error = "Invalid NailgunPort: " + settings.nailgunPort;
-                } else {
-                    let port = Number.parseInt(settings.nailgunPort);
-                    if (port < 1024 || port > 65535) {
-                        this._error = "Invalid NailgunPort: please use a port in the range of 1024 - 65535";
-                    }
-                }
 
-                Log.log("Checking Other Settings...", LogLevel.Debug);
-                //check nailgun jar
-                if (!settings.nailgunServerJar || settings.nailgunServerJar.length == 0) {
-                    this._error = "Path to nailgun server jar is missing"
-                } else {
-                    let resolvedPath = Settings.resolvePath(settings.nailgunServerJar)
-                    if (!resolvedPath.exists) {
-                        this._error = "No nailgun server jar file found at path: " + resolvedPath.path;
-                    }
-                    settings.nailgunServerJar = resolvedPath.path;
-                }
-            }
+            //Attempt for typechecking
+            // for (let p in settings) {
+            //     Log.log("Settings property " + p);
+            // }
+
+            // let temp = new ViperSettings();
+            // for (let p in temp) {
+            //     Log.log("Interface property " + p);
+            // }
+
+            this._valid = false;
+            Log.log("Checking backends...", LogLevel.Debug);
+            this._error = Settings.checkBackends(settings.verificationBackends);
+            let useNailgun = settings.verificationBackends.some(elem => elem.useNailgun);
             if (useNailgun && !this._error) {
-                //check nailgun client
-                if (!settings.nailgunClient || settings.nailgunClient.length == 0) {
-                    this._error = "Path to nailgun client executable is missing"
-                } else {
-                    let resolvedPath = Settings.resolvePath(settings.nailgunClient)
-                    if (!resolvedPath.exists) {
-                        this._error = "No nailgun client executable file found at path: " + resolvedPath.path;
-                    } else {
-                        settings.nailgunClient = resolvedPath.path;
-                    }
-                }
+                Log.log("Checking nailgun settings...", LogLevel.Debug);
+                this._error = this.checkNailgunSettings(settings.nailgunSettings);
             }
             if (!this._error) {
+                Log.log("Checking other settings...", LogLevel.Debug);
                 //check z3 executable
                 if (!settings.z3Executable || settings.z3Executable.length == 0) {
                     this._error = "Path to z3 executable is missing"
@@ -184,7 +222,7 @@ export class Settings {
         }
     }
 
-    private static areBackendsValid(backends: Backend[]): string {
+    private static checkBackends(backends: Backend[]): string {
         if (!backends || backends.length == 0) {
             return "No backend detected, specify at least one backend";
         }
@@ -212,6 +250,14 @@ export class Settings {
                 if (stages.has(stage.name)) return backend.name + ": Dublicated stage name: " + backend.name + ":" + stage.name
                 stages.add(stage.name);
                 if (!stage.mainMethod || stage.mainMethod.length == 0) return backend.name + ": Stage: " + stage.name + "is missing a mainMethod";
+
+                //check customArguments
+                if (!stage.customArguments) {
+                    return backend.name + ": Stage: " + stage.name + " is missing customArguments, try the default arguments";
+                }
+                if (!backend.useNailgun && stage.customArguments.indexOf("nailgun") >= 0) {
+                    Log.hint("WARNING: " + backend.name + ": Stage: " + stage.name + ": customArguments should not contain nailgun arguments if useNailgun is false");
+                }
                 //TODO: check mainMethods:
             }
             for (let i = 0; i < backend.stages.length; i++) {
@@ -238,6 +284,12 @@ export class Settings {
                 //-> set path to environment variable value
                 backend.paths[i] = path;
             }
+
+            //check verification timeout
+            if (!backend.timeout || (backend.timeout && backend.timeout <= 0)) {
+                backend.timeout = null;
+            }
+
             //-> the settings seem right
         }
         return null;
@@ -250,13 +302,13 @@ export class Settings {
         backend.paths.forEach(path => {
             if (this.isJar(path)) {
                 //its a jar file
-                backendJars = backendJars + concatenationSymbol + '"'+path+'"';
+                backendJars = backendJars + concatenationSymbol + '"' + path + '"';
             } else {
                 //its a folder
                 let files = fs.readdirSync(path);
                 files.forEach(file => {
                     if (this.isJar(file)) {
-                        backendJars = backendJars + concatenationSymbol + '"'+pathHelper.join(path, file)+'"';
+                        backendJars = backendJars + concatenationSymbol + '"' + pathHelper.join(path, file) + '"';
                     }
                 });
             }

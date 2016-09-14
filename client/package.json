@@ -1,7 +1,7 @@
 {
     "name": "viper-advanced",
     "displayName": "Viper Advanced",
-    "version": "0.2.5",
+    "version": "0.2.8",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "license": "MIT",
@@ -166,6 +166,8 @@
                             "paths": [
                                 "%SILICON_JAR%"
                             ],
+                            "useNailgun": true,
+                            "timeout": 20000,
                             "stages": [
                                 {
                                     "name": "verify",
@@ -178,19 +180,39 @@
                                     "onSuccess": ""
                                 }
                             ]
+                        },
+                        {
+                            "name": "silicon_no_nailgun",
+                            "paths": [
+                                "%SILICON_JAR%"
+                            ],
+                            "useNailgun": false,
+                            "timeout": 20000,
+                            "stages": [
+                                {
+                                    "name": "verify",
+                                    "isVerification": true,
+                                    "mainMethod": "viper.silicon.SiliconRunner",
+                                    "customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$ $mainMethod$ --ideMode --z3Exe $z3Exe$ $fileToVerify$",
+                                    "onParsingError": "",
+                                    "onTypeCheckingError": "",
+                                    "onVerificationError": "",
+                                    "onSuccess": ""
+                                }
+                            ]
                         }
                     ],
                     "description": "You can add your backends here.\n    // The first stage of the first backend in the array will be used for verification by default.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
                 },
-                "viperSettings.nailgunServerJar": {
-                    "type": "string",
-                    "default": "%NAILGUN_SERVER_JAR%",
-                    "description": "The path to the nailgun server jar or the folder containg the jars.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
-                },
-                "viperSettings.nailgunClient": {
-                    "type": "string",
-                    "default": "ng",
-                    "description": "The path to the nailgun client executable.\n    // Use %ENV_VAR% for environment variables, C:\\\\path\\\\to\\\\ng.exe for paths, or ng if its folder is in the PATH environment variable."
+                "viperSettings.nailgunSettings": {
+                    "type": "object",
+                    "default": {
+                        "serverJar": "%NAILGUN_SERVER_JAR%",
+                        "clientExecutable": "ng",
+                        "port": "7654",
+                        "timeout": 3000
+                    },
+                    "description": "All nailgun related settings"
                 },
                 "viperSettings.z3Executable": {
                     "type": "string",
@@ -201,16 +223,6 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Enable automatically saving modified viper files"
-                },
-                "viperSettings.useNailgun": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Should the verification use nailgun to speed up the verification? without nailgun each verification needs to start a instance of the Java Virtual Machine.\n    // When disabling nailgun use the following settings as custom arguments: -Xmx2048m -Xss16m -cp $backendPaths$ $mainMethod$ --ideMode --z3Exe $z3Exe$ $fileToVerify$"
-                },
-                "viperSettings.nailgunPort": {
-                    "type": "string",
-                    "default": "7654",
-                    "description": "The port on which the nailgun server communicates with the nailgun client."
                 },
                 "viperSettings.logLevel": {
                     "type": "number",
@@ -247,15 +259,10 @@
                     "default": true,
                     "description": "To get the best visual heap representation, this setting should match with the active theme."
                 },
-                "viperSettings.nailgunTimeout": {
+                "viperSettings.verificationBufferSize": {
                     "type": "number",
-                    "default": 3000,
-                    "description": "The time in ms after which the nailgun server start is considered to have failed."
-                },
-                "viperSettings.verificationTimeout": {
-                    "type": "number",
-                    "default": 20000,
-                    "description": "The time in ms after which a verification is considered to have failed."
+                    "default": 1024,
+                    "description": "Maximal buffer size for verification in KB"
                 }
             }
         },

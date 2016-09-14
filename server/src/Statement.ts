@@ -58,7 +58,7 @@ export class Statement {
         */
     static numberOfStatementsCreatedFromSymbExLog: number = 0;
 
-    static CreateFromSymbExLog(depth: number, parent: Statement, symbExLog: SymbExLogEntry, verifiable: Verifiable, task: VerificationTask) {
+    static CreateFromSymbExLog(depth: number, parent: Statement, symbExLog: SymbExLogEntry, verifiable: Verifiable, task: VerificationTask, wellformednessCheck: boolean) {
         let index = task.steps.length
         let type = Statement.parseStatementType(symbExLog.type);
         let kind = symbExLog.kind;
@@ -78,7 +78,16 @@ export class Statement {
         //put the created Statement into the task's steps
         task.steps.push(statement);
 
-        statement.canBeShownAsDecoration = !!position;
+        wellformednessCheck = wellformednessCheck || statement.kind === "WellformednessCheck";
+
+        //hide structural logEntries such as method, globalBranch, ifThenElse
+        //hide wellformedness checks
+        statement.canBeShownAsDecoration = !!position && !wellformednessCheck;
+
+        //hide simple steps like eval this, eval read, eval write
+        if (type == StatementType.EVAL && formula && formula == "this" || formula == "write" || formula == "read") {
+            statement.canBeShownAsDecoration = false;
+        }
 
         //add depth info
         statement.depth = depth;
@@ -87,7 +96,7 @@ export class Statement {
         statement.children = [];
         if (symbExLog.children) {
             symbExLog.children.forEach(child => {
-                statement.children.push(Statement.CreateFromSymbExLog(depth + 1, statement, child, verifiable, task));
+                statement.children.push(Statement.CreateFromSymbExLog(depth + 1, statement, child, verifiable, task, wellformednessCheck));
             });
         }
 
@@ -110,7 +119,11 @@ export class Statement {
         this.verifiable = verifiable;
     }
     public depthLevel(): number {
-        return this.depth;
+        if (this.parent) {
+            return (this.parent.canBeShownAsDecoration ? 1 : 0) + this.parent.depthLevel();
+        }
+        else return 0;
+        //return this.depth;
     }
 
     //PARSING
@@ -139,6 +152,19 @@ export class Statement {
             line = line.substring(line.indexOf("(") + 1, line.lastIndexOf(")"));
             //line = model.fillInValues(line);
             return this.splitAtComma(line);
+        }
+    }
+
+    public getClientParent(): Statement {
+        if (!this.parent) return null;
+        if (this.parent.canBeShownAsDecoration) {
+            return this.parent;
+        } else {
+            if (this.parent.index >= this.index) {
+                Log.error("The parent graph might not be cycle free. Cycles can lead to non-termination");
+                return null;
+            }
+            return this.parent.getClientParent();
         }
     }
 

@@ -17,8 +17,9 @@ export interface MyDecorationOptions extends vscode.DecorationOptions {
     originalPosition: Position;
     depth: number,
     index: number,
+    parent: number,
     methodIndex: number,
-    isErrorState: boolean
+    isErrorState: boolean,
 }
 
 export class StateVisualizer {
@@ -92,6 +93,7 @@ export class StateVisualizer {
                 originalPosition: new vscode.Position(d.originalPosition.line, d.originalPosition.character),
                 depth: d.depth,
                 index: d.index,
+                parent: d.parent,
                 methodIndex: d.methodIndex,
                 isErrorState: d.isErrorState
             })
@@ -219,6 +221,16 @@ export class StateVisualizer {
                     if (option.index == selectedState) {
                         //if it's the current step -> red
                         option.renderOptions.before.color = StateColors.currentState(darkGraphs);
+                        //mark all parents of the current step
+                        let parentIndex = option.parent
+                        while (parentIndex >= 0) {
+                            let parent = this.decorationOptions[parentIndex];
+                            if (parent.renderOptions.before.color != StateColors.previousState(darkGraphs)) {
+                                parent.renderOptions.before.color = StateColors.interestingState(darkGraphs);
+                            }
+                            parentIndex = parent.parent;
+                        }
+
                         continue;
                     }
                     if (option.index == this.previousState) {
@@ -233,7 +245,8 @@ export class StateVisualizer {
                         option.depth <= option.depth
                         && option.methodIndex === currentMethodIdx //&& option.state > selectedState
                     ) {
-                        option.renderOptions.before.color = StateColors.interestingState(darkGraphs);
+                        //only interested in parent states
+                        option.renderOptions.before.color = StateColors.uninterestingState(darkGraphs);
                     }
                 }
                 if (StateVisualizer.showStates) {

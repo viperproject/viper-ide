@@ -23,7 +23,7 @@ export class Verifiable {
         this.type = this.parseVerifiableType(data.kind);
         this.name = data.value;
         this.startIndex = task.steps.length;
-        this.root = Statement.CreateFromSymbExLog(0, null, data, this, task);
+        this.root = Statement.CreateFromSymbExLog(0, null, data, this, task, false);
         this.endIndex = task.steps.length - 1;
         //TODO: fill in the verifiable's start and end
     }

@@ -24,7 +24,7 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         let table: string;
         let darkGraphs = <boolean>Helper.getConfiguration("darkGraphs");
         if (this.heapGraphs.length > 1) {
-            table = ` <table>
+            table = ` <table style="width:100%">
   <tr><td>
    <h1 id="Hprev" style="color:${StateColors.previousState(darkGraphs)}">Previous State</h1>
    ${this.heapGraphToContent(this.stateVisualizer.nextHeapIndex, 1 - this.stateVisualizer.nextHeapIndex)}
@@ -44,6 +44,9 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
 <style>
  table td, table td * {
   vertical-align: top;
+ }
+ svg {
+     width:100%;
  }
 </style>
 </head>
