@@ -18,6 +18,14 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         this.heapGraphs = [];
     }
 
+    public discardState(index: number) {
+        if (this.heapGraphs && this.heapGraphs.length > (1 - index)) {
+            let heap = this.heapGraphs[1 - index];
+            this.heapGraphs = []
+            this.heapGraphs.push(heap);
+        }
+    }
+
     stateVisualizer: StateVisualizer;
 
     public provideTextDocumentContent(uri: vscode.Uri): string {
@@ -25,16 +33,20 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         let darkGraphs = <boolean>Helper.getConfiguration("darkGraphs");
         if (this.heapGraphs.length > 1) {
             table = ` <table style="width:100%">
+  <colgroup>
+   <col style="width: 50%" />
+   <col style="width: 50%" />
+  </colgroup>
   <tr><td>
-   <h1 id="Hprev" style="color:${StateColors.previousState(darkGraphs)}">Previous State</h1>
+   <h1 class="Hprev">Previous State</h1>
    ${this.heapGraphToContent(this.stateVisualizer.nextHeapIndex, 1 - this.stateVisualizer.nextHeapIndex)}
   </td><td>
-   <h1 id="Hcurr" style="color:${StateColors.currentState(darkGraphs)}">Current State</h1>
+   <h1 class="Hcurr">Current State</h1>
    ${this.heapGraphToContent(1 - this.stateVisualizer.nextHeapIndex, this.stateVisualizer.nextHeapIndex)}
   </td></tr>
  </table>`;
         } else if (this.heapGraphs.length == 1) {
-            table = ` <h1 id="Hcurr" style="color:${StateColors.currentState(darkGraphs)}">Current State</h1>${this.heapGraphToContent(0)}`;
+            table = ` <h1 class="Hcurr">Current State</h1>${this.heapGraphToContent(0)}`;
         } else {
             table = " <p>No graph to show</p>";
         }
@@ -47,6 +59,17 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
  }
  svg {
      width:100%;
+     height:800px;
+     max-height: 800px;
+ }
+ .Hcurr {
+     color:${StateColors.currentState(darkGraphs)}
+ }
+ .Hprev {
+     color:${StateColors.previousState(darkGraphs)}
+ }
+ .ErrorState {
+     color:red
  }
 </style>
 </head>
@@ -89,7 +112,7 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
 
         let content = `
     <h2>file: ${heapGraph.fileName}<br />${heapGraph.methodType}: ${heapGraph.methodName}</h2>
-    <h3${state.isErrorState ? ' style="color:red">Errorstate' : ">State"} ${state.numberToDisplay}<br />position: ${heapGraph.position.line + 1}:${heapGraph.position.character + 1}</h3>
+    <h3${state.isErrorState ? ' class="ErrorState">Errorstate' : ">State"} ${state.numberToDisplay}<br />position: ${heapGraph.position.line + 1}:${heapGraph.position.character + 1}</h3>
     ${this.getSvgContent(Log.svgFilePath(index))}
     ${conditions}
     <p>${this.stringToHtml(heapGraph.stateInfos)}</p><br />`;

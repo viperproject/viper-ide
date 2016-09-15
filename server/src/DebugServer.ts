@@ -141,6 +141,9 @@ export class DebugServer {
                                             }
                                         }
                                     }
+                                    if (newServerState == -1) {
+                                        newServerState = currentServerState;
+                                    }
                                     break;
                                 case StepType.Next:
                                     for (let i = currentServerState + 1; i < steps.length; i++) {

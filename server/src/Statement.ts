@@ -120,12 +120,19 @@ export class Statement {
     }
     public depthLevel(): number {
         if (this.parent) {
-            return (this.parent.canBeShownAsDecoration ? 1 : 0) + this.parent.depthLevel();
+            let addDepth = this.parent.canBeShownAsDecoration && !this.parent.isBranch();
+            return (addDepth ? 1 : 0) + this.parent.depthLevel();
         }
         else return 0;
         //return this.depth;
     }
 
+    public isBranch(): boolean {
+        if (this.kind == "If" || this.kind == "Else" || this.kind == "Branch 1" || this.kind == "Branch 2") {
+            return true;
+        }
+        return false;
+    }
     //PARSING
     private static parseVariables(store: string[]): Variable[] {
         if (!store) return [];

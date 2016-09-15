@@ -26,6 +26,8 @@ export class StateVisualizer {
 
     static showStates: boolean = false;
 
+    collapsedSymbol = "⚫";
+
     viperFile: ViperFileState;
 
     graphvizProcess: child_process.ChildProcess;
@@ -133,7 +135,8 @@ export class StateVisualizer {
         this.selectState(heapGraph.methodName, heapGraph.state, heapGraph.position);
 
         this.generateSvg(Log.dotFilePath(index), Log.svgFilePath(index), () => {
-            this.showHeapGraph(heapGraph, index);
+            this.provider.setState(heapGraph, index);
+            this.showHeapGraph();
         })
     }
 
@@ -169,8 +172,7 @@ export class StateVisualizer {
         }
     }
 
-    private showHeapGraph(heapGraph: HeapGraph, index: number) {
-        this.provider.setState(heapGraph, index);
+    private showHeapGraph() {
         this.provider.update(this.previewUri);
         //Log.log("Show heap graph", LogLevel.Debug);
         vscode.commands.executeCommand('vscode.previewHtml', this.previewUri, vscode.ViewColumn.Two).then((success) => { }, (reason) => {
@@ -197,6 +199,48 @@ export class StateVisualizer {
         return line + ":" + character;
     }
 
+    private collapseOutsideMethod(option: MyDecorationOptions, currentMethodIdx: number) {
+        if (option.methodIndex == currentMethodIdx)
+            option.renderOptions.before.contentText = this.getLabel(option);
+        else
+            option.renderOptions.before.contentText = this.collapsedSymbol;
+
+    }
+    private getLabel(option: MyDecorationOptions) {
+        if (!option) return "()"
+        return `(${option.numberToDisplay})`;
+    }
+
+    private expand(option: MyDecorationOptions) {
+        option.renderOptions.before.contentText = this.getLabel(option);
+    }
+
+    private collapse(option: MyDecorationOptions) {
+        option.renderOptions.before.contentText = this.collapsedSymbol;
+    }
+
+    private hide(option: MyDecorationOptions) {
+        option.renderOptions.before.contentText = "";
+    }
+
+    private color(option: MyDecorationOptions, color: string, darkGraphs: boolean) {
+        let isOldCurrentState = StateColors.currentState(darkGraphs) == option.renderOptions.before.color;
+        let isOldPreviousState = StateColors.previousState(darkGraphs) == option.renderOptions.before.color;
+        let isOldErrorState = StateColors.errorState(darkGraphs) == option.renderOptions.before.color;
+        let isNewCurrentState = StateColors.currentState(darkGraphs) == color;
+        let isNewPreviousState = StateColors.previousState(darkGraphs) == color;
+        let isNewUninterestingState = StateColors.uninterestingState(darkGraphs) == color;
+        let isNewInterestingState = StateColors.interestingState(darkGraphs) == color;
+        let isNewErrorState = StateColors.errorState(darkGraphs) == color;
+        if (isNewUninterestingState
+            || isNewCurrentState
+            || (!isOldCurrentState && isNewPreviousState)
+            || (!isOldCurrentState && !isOldPreviousState && isNewErrorState)
+            || (!isOldCurrentState && !isOldPreviousState && !isOldErrorState && isNewInterestingState)) {
+            option.renderOptions.before.color = color;
+        }
+    }
+
     selectState(debuggedMethodName: string, selectedState: number, pos: Position) {
         if (StateVisualizer.showStates && this.decorationOptions) {
             //state should be visualized
@@ -214,55 +258,54 @@ export class StateVisualizer {
                 for (var i = 0; i < this.decorationOptions.length; i++) {
                     let option = this.decorationOptions[i];
                     let errorStateFound = false;
-                    option.renderOptions.before.contentText = this.getLabel(option, currentMethodIdx);
+
+                    this.hide(option);
+                    //this.collapse(option);
+                    //this.collapseOutsideMethod(option, currentMethodIdx);
 
                     //default is grey
-                    option.renderOptions.before.color = StateColors.uninterestingState(darkGraphs);
+                    this.color(option, StateColors.uninterestingState(darkGraphs), darkGraphs);
+                    if (option.isErrorState /*&& option.methodIndex === currentMethodIdx*/) {
+                        this.collapse(option);
+                        this.color(option, StateColors.errorState(darkGraphs), darkGraphs);
+                        errorStateFound = true;
+                    }
                     if (option.index == selectedState) {
                         //if it's the current step -> red
-                        option.renderOptions.before.color = StateColors.currentState(darkGraphs);
-                        //mark all parents of the current step
-                        let parentIndex = option.parent
-                        while (parentIndex >= 0) {
-                            let parent = this.decorationOptions[parentIndex];
-                            if (parent.renderOptions.before.color != StateColors.previousState(darkGraphs)) {
-                                parent.renderOptions.before.color = StateColors.interestingState(darkGraphs);
-                            }
-                            parentIndex = parent.parent;
-                        }
-
+                        this.color(option, StateColors.currentState(darkGraphs), darkGraphs);
                         continue;
                     }
                     if (option.index == this.previousState) {
-                        option.renderOptions.before.color = StateColors.previousState(darkGraphs);
+                        this.color(option, StateColors.previousState(darkGraphs), darkGraphs);
                         continue;
                     }
-                    else if (option.isErrorState && option.methodIndex === currentMethodIdx) {
-                        option.renderOptions.before.color = StateColors.errorState(darkGraphs);
-                        errorStateFound = true;
-                    }
-                    else if (!errorStateFound &&
-                        option.depth <= option.depth
-                        && option.methodIndex === currentMethodIdx //&& option.state > selectedState
-                    ) {
-                        //only interested in parent states
-                        option.renderOptions.before.color = StateColors.uninterestingState(darkGraphs);
-                    }
+                    // else if (!errorStateFound &&
+                    //     option.depth <= option.depth
+                    //     && option.methodIndex === currentMethodIdx //&& option.state > selectedState
+                    // ) {
+                    //     //only interested in parent states
+                    //     option.renderOptions.before.color = StateColors.uninterestingState(darkGraphs);
+                    // }
                 }
                 if (StateVisualizer.showStates) {
-                    this.showDecorations();
+                    //mark execution trace that led to the current state
+                    Log.log("Request Execution Trace", LogLevel.Info);
+                    ExtensionState.instance.client.sendRequest(Commands.GetExecutionTrace, { uri: this.uri.toString(), clientState: selectedState }).then((trace: number[]) => {
+                        Log.log("Mark Execution Trace", LogLevel.Debug);
+                        trace.forEach(element => {
+                            let option = this.decorationOptions[element];
+                            this.expand(option);
+                            this.color(option, StateColors.interestingState(darkGraphs), darkGraphs);
+                        });
+
+                        this.showDecorations();
+                    })
+
                 }
 
                 this.previousState = selectedState;
             }
         }
-    }
-
-    private getLabel(decoration: MyDecorationOptions, methodIndex: number) {
-        if (decoration.methodIndex == methodIndex)
-            return `(${decoration.numberToDisplay})`;
-        else
-            return "⚫";
     }
 
     showStateSelection(pos: { line: number, character: number }) {
@@ -279,6 +322,12 @@ export class StateVisualizer {
                     }
                     ExtensionState.instance.client.sendRequest(Commands.ShowHeap, params);
                 } else {
+                    //hide previous state if the same state is selected twice
+                    Log.log("Hide previous state", LogLevel.Debug);
+                    this.previousState = -1;
+                    this.provider.discardState(this.nextHeapIndex);
+                    this.nextHeapIndex = 1;
+                    this.showHeapGraph()
                     //Log.log("State already selected", LogLevel.Debug);
                 }
             }

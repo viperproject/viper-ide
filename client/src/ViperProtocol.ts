@@ -45,6 +45,8 @@ export class Commands {
     static BackendReady = { method: "BackendReady" };
     //Client tells Server to start backends
     static StartBackend = { method: "StartBackend" };
+    //Request a list of all states that led to the current state
+    static GetExecutionTrace = { method: "GetExecutionTrace" };
 }
 
 //Communication between Language Client and Language Server:

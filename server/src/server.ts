@@ -170,6 +170,35 @@ function registerHandlers() {
         }
     });
 
+    Server.connection.onRequest(Commands.GetExecutionTrace, (params: { uri: string, clientState: number }) => {
+        return new Promise((resolve, reject) => {
+            let result: number[] = [];
+            try {
+                let task = Server.verificationTasks.get(params.uri);
+                let serverState = task.clientStepIndexToServerStep[params.clientState];
+                let maxDepth = serverState.depthLevel();
+                while (true) {
+                    let depth = serverState.depthLevel();
+                    if (serverState.canBeShownAsDecoration && depth <= maxDepth) {
+                        maxDepth = depth;
+                        result.push(serverState.decorationOptions.index)//push client state
+                    }
+                    if (serverState.isBranch()) {
+                        serverState = serverState.parent;
+                    } else if (!serverState.parent) {
+                        break;
+                    } else {
+                        serverState = task.steps[serverState.index - 1];
+                    }
+                    resolve(result);
+                }
+            } catch (e) {
+                Log.error("Error handling Execution Trace Request: " + e);
+                resolve(result);
+            }
+        });
+    });
+
     Server.connection.onNotification(Commands.StopVerification, (uri: string) => {
         try {
             let task = Server.verificationTasks.get(uri);
@@ -216,18 +245,18 @@ function resetDiagnostics(uri: string) {
     task.resetDiagnostics();
 }
 
-function restartBackendIfNeeded(oldSettings:ViperSettings) {
+function restartBackendIfNeeded(oldSettings: ViperSettings) {
     let newBackend = Settings.autoselectBackend(Settings.settings);
     //only restart the backend after settings changed if the active backend was affected
     let restartBackend = !Settings.backendEquals(Server.backend, newBackend);
-    if(oldSettings){
-        restartBackend = restartBackend || newBackend.useNailgun && (!Settings.nailgunEquals(Settings.settings.nailgunSettings,oldSettings.nailgunSettings));
+    if (oldSettings) {
+        restartBackend = restartBackend || newBackend.useNailgun && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings));
     }
     if (restartBackend) {
         Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info)
         Server.backend = newBackend;
         Server.verificationTasks.forEach(task => task.resetLastSuccess());
-        Server.nailgunService.startOrRestartNailgunServer(Server.backend,true);
+        Server.nailgunService.startOrRestartNailgunServer(Server.backend, true);
     } else {
         Log.log("No need to restart backend. It's still the same", LogLevel.Debug)
         Server.backend = newBackend;

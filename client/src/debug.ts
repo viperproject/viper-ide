@@ -130,7 +130,7 @@ class ViperDebugSession extends DebugSession {
 				this.sendEvent(new TerminatedEvent(false));
 				return;
 			} else {
-				this.requestFromLanguageServer("Move", JSON.stringify({ type: StepType.Stay, state: this._currentState }));
+				this.requestFromLanguageServer("Move", JSON.stringify({ type: StepType.Continue, state: this._currentState }));
 			}
 		});
 		this.registerIpcHandler("Move", true, res => {
