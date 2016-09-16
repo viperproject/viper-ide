@@ -85,33 +85,43 @@ export class Server {
         }
     }
 
-    public static extractPosition(s: string, nonNull: boolean = true): { before: string, pos: Position, after: string } {
-        let pos: Position;
+    public static extractPosition(s: string): { before: string, pos: Position, after: string } {
         let before = "";
         let after = "";
-        if (s) {
-            pos = nonNull ? { line: 0, character: 0 } : null;
-            let regex = /^(.*?)((\d+):(\d+)|<no position>)?:?(.*)$/.exec(s);
-            if (regex && regex[3] && regex[4]) {
-                //subtract 1 to confirm with VS Codes 0-based numbering
-                let lineNr = Math.max(0, +regex[3] - 1);
-                let charNr = Math.max(0, +regex[4] - 1);
-                pos = { line: lineNr, character: charNr };
-            }
-            if (regex && regex[1]) {
-                before = regex[1].trim();
-            }
-            if (regex && regex[5]) {
-                after = regex[5].trim();
-            }
+        if (!s) return { before: before, pos: null, after: after };
+        let pos: Position = { line: 0, character: 0 };
+        try {
+            if (s) {
 
+                let regex = /^(.*?)(\(.*?@(\d+)\.(\d+)\)|(\d+):(\d+)|<no position>):?(.*)$/.exec(s);
+                if (regex && regex[3] && regex[4]) {
+                    //subtract 1 to confirm with VS Codes 0-based numbering
+                    let lineNr = Math.max(0, +regex[3] - 1);
+                    let charNr = Math.max(0, +regex[4] - 1);
+                    pos = { line: lineNr, character: charNr };
+                }
+                else if (regex && regex[5] && regex[6]) {
+                    //subtract 1 to confirm with VS Codes 0-based numbering
+                    let lineNr = Math.max(0, +regex[5] - 1);
+                    let charNr = Math.max(0, +regex[6] - 1);
+                    pos = { line: lineNr, character: charNr };
+                }
+                if (regex && regex[1]) {
+                    before = regex[1].trim();
+                }
+                if (regex && regex[7]) {
+                    after = regex[7].trim();
+                }
+            }
+        } catch (e) {
+            Log.error("Error extracting number out of: " + s);
         }
         return { before: before, pos: pos, after: after };
     }
 
     public static extractRange(startString: string, endString: string) {
-        let start = Server.extractPosition(startString, false).pos;
-        let end = Server.extractPosition(endString, false).pos;
+        let start = Server.extractPosition(startString).pos;
+        let end = Server.extractPosition(endString).pos;
         //handle uncomplete positions
         if (!end && start) {
             end = start;

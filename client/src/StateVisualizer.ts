@@ -125,19 +125,17 @@ export class StateVisualizer {
             return;
         }
         Log.writeToDotFile(heapGraph.heap, index);
-        //Log.log(graphDescription, LogLevel.Debug);
 
         if (heapGraph.fileUri != this.uri.toString()) {
             Log.error("Uri mismatch in StateVisualizer: " + this.uri.toString() + " expected, " + heapGraph.fileUri + " found.")
             return;
         }
 
-        this.selectState(heapGraph.methodName, heapGraph.state, heapGraph.position);
-
         this.generateSvg(Log.dotFilePath(index), Log.svgFilePath(index), () => {
             this.provider.setState(heapGraph, index);
             this.showHeapGraph();
         })
+        this.nextHeapIndex = 1-index;
     }
 
     public generateSvg(dotFilePath: string, svgFilePath: string, callback) {
@@ -241,7 +239,7 @@ export class StateVisualizer {
         }
     }
 
-    selectState(debuggedMethodName: string, selectedState: number, pos: Position) {
+    markStateSelection(debuggedMethodName: string, selectedState: number, pos: Position) {
         if (StateVisualizer.showStates && this.decorationOptions) {
             //state should be visualized
             if (selectedState >= 0 && selectedState < this.decorationOptions.length) {
@@ -297,38 +295,53 @@ export class StateVisualizer {
                             this.expand(option);
                             this.color(option, StateColors.interestingState(darkGraphs), darkGraphs);
                         });
-
                         this.showDecorations();
                     })
-
                 }
-
                 this.previousState = selectedState;
             }
         }
     }
 
+    //request the heap graph of state from the language server
+    private requestState(state: number) {
+        Log.log("Request showing the heap of state " + state, LogLevel.Debug);
+        let params: ShowHeapParams = {
+            uri: this.uri.toString(),
+            clientIndex: state
+        }
+        ExtensionState.instance.client.sendRequest(Commands.ShowHeap, params);
+    }
+
+    //handle both selection change, or debugger movement notification
     showStateSelection(pos: { line: number, character: number }) {
         if (StateVisualizer.showStates && this.decorationOptionsByPosition) {
             let key = this.posToKey(pos.line, pos.character);
             if (this.decorationOptionsByPosition.has(key)) {
-                let selectedState = this.decorationOptionsByPosition.get(key).index;
-                if (this.currentState != selectedState) {
-                    this.currentState = selectedState
-                    Log.log("Request showing the heap of state " + this.currentState, LogLevel.Debug);
-                    let params: ShowHeapParams = {
-                        uri: this.uri.toString(),
-                        clientIndex: this.currentState
+                //there is a decoration at the selected position
+                let decoration = this.decorationOptionsByPosition.get(key);
+                let selectedState = decoration.index;
+
+                if (Helper.getConfiguration("simpleMode") === true) {
+                    //Simple Mode
+                    if (decoration.renderOptions.before.contentText && decoration.renderOptions.before.contentText.length > 0) {
+                        //the selected element is visible and thus, lies on the execution path to the current state
+                        this.requestState(selectedState);
                     }
-                    ExtensionState.instance.client.sendRequest(Commands.ShowHeap, params);
                 } else {
-                    //hide previous state if the same state is selected twice
-                    Log.log("Hide previous state", LogLevel.Debug);
-                    this.previousState = -1;
-                    this.provider.discardState(this.nextHeapIndex);
-                    this.nextHeapIndex = 1;
-                    this.showHeapGraph()
-                    //Log.log("State already selected", LogLevel.Debug);
+                    //Advanced Mode
+                    if (this.currentState != selectedState) {
+                        this.currentState = selectedState
+                        this.requestState(this.currentState);
+                    } else {
+                        //hide previous state if the same state is selected twice
+                        Log.log("Hide previous state", LogLevel.Debug);
+                        this.previousState = -1;
+                        this.provider.discardState(this.nextHeapIndex);
+                        this.nextHeapIndex = 1;
+                        this.showHeapGraph()
+                        //Log.log("State already selected", LogLevel.Debug);
+                    }
                 }
             }
         }

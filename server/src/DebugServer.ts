@@ -169,7 +169,7 @@ export class DebugServer {
                             let position = Server.debuggedVerificationTask ? Server.debuggedVerificationTask.getPositionOfState(newServerState) : { line: 0, character: 0 };
 
                             //translate from server state to client state
-                            let newClientState = (newServerState >= 0) ? steps[newServerState].decorationOptions.index : -1;
+                            let newClientState = (newServerState >= 0 && newServerState < steps.length) ? steps[newServerState].decorationOptions.index : -1;
 
                             if (position.line >= 0) {
                                 Server.showHeap(Server.debuggedVerificationTask, newClientState);

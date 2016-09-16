@@ -1,7 +1,7 @@
 {
     "name": "viper-advanced",
     "displayName": "Viper Advanced",
-    "version": "0.2.9",
+    "version": "0.2.10",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "license": "MIT",
@@ -158,13 +158,28 @@
             "type": "object",
             "title": "Viper Configuration",
             "properties": {
+                "viperSettings.viperToolsPath": {
+                    "type": "string",
+                    "default": "$defaultViperToolsPath$",
+                    "description": "Path to the folder containing all the ViperTools:\n    // The default is:\n    // Windows: %programfiles%\\Viper\\\n    // Mac: /usr/local/Viper/\n    // Linux: /usr/local/Viper/\n    // Can be refered to by $viperTools$\n    //\n    // For all path you can use absolute paths, paths relative to the folder open in VsCode, %ENV_VAR% for environment variables, or e.g.: z3 or ng if its folder is in the PATH environment variable."
+                },
+                "viperSettings.nailgunSettings": {
+                    "type": "object",
+                    "default": {
+                        "serverJar": "$viperTools$/nailgun/nailgun.jar",
+                        "clientExecutable": "$viperTools$/nailgun/ng",
+                        "port": "7654",
+                        "timeout": 3000
+                    },
+                    "description": "All nailgun related settings. The nailgun port can be refered to by $nailgunPort$"
+                },
                 "viperSettings.verificationBackends": {
                     "type": "array",
                     "default": [
                         {
                             "name": "silicon",
                             "paths": [
-                                "%SILICON_JAR%"
+                                "$viperTools$/backends/silicon.jar"
                             ],
                             "useNailgun": true,
                             "timeout": 20000,
@@ -182,9 +197,40 @@
                             ]
                         },
                         {
-                            "name": "silicon_no_nailgun",
+                            "name": "silicon with infer",
                             "paths": [
-                                "%SILICON_JAR%"
+                                "$viperTools$/backends/silicon.jar",
+                                "$viperTools$/backends/infer.jar"
+                            ],
+                            "useNailgun": true,
+                            "timeout": 20000,
+                            "stages": [
+                                {
+                                    "name": "verify",
+                                    "isVerification": true,
+                                    "mainMethod": "viper.silicon.SiliconRunner",
+                                    "customArguments": "--nailgun-port $nailgunPort$ $mainMethod$ --ideMode --z3Exe $z3Exe$ $fileToVerify$",
+                                    "onParsingError": "",
+                                    "onTypeCheckingError": "",
+                                    "onVerificationError": "infer",
+                                    "onSuccess": ""
+                                },
+                                {
+                                    "name": "infer",
+                                    "isVerification": false,
+                                    "mainMethod": "ch.ethz.inf.pm.sample.permissionanalysis.Main",
+                                    "customArguments": "--nailgun-port $nailgunPort$ $mainMethod$ $fileToVerify$",
+                                    "onParsingError": "",
+                                    "onTypeCheckingError": "",
+                                    "onVerificationError": "",
+                                    "onSuccess": "verify"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "carbon_no_nailgun",
+                            "paths": [
+                                "$viperTools$/backends/carbon.jar"
                             ],
                             "useNailgun": false,
                             "timeout": 20000,
@@ -193,7 +239,7 @@
                                     "name": "verify",
                                     "isVerification": true,
                                     "mainMethod": "viper.silicon.SiliconRunner",
-                                    "customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$ $mainMethod$ --ideMode --z3Exe $z3Exe$ $fileToVerify$",
+                                    "customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$ $mainMethod$ --z3Exe $z3Exe$ --boogieExe $boogieExe$ $fileToVerify$",
                                     "onParsingError": "",
                                     "onTypeCheckingError": "",
                                     "onVerificationError": "",
@@ -202,22 +248,17 @@
                             ]
                         }
                     ],
-                    "description": "You can add your backends here.\n    // The first stage of the first backend in the array will be used for verification by default.\n    // Use %ENV_VAR% for environment variables and C:\\\\path\\\\to\\\\file.jar for paths."
-                },
-                "viperSettings.nailgunSettings": {
-                    "type": "object",
-                    "default": {
-                        "serverJar": "%NAILGUN_SERVER_JAR%",
-                        "clientExecutable": "ng",
-                        "port": "7654",
-                        "timeout": 3000
-                    },
-                    "description": "All nailgun related settings"
+                    "description": "You can add your backends here."
                 },
                 "viperSettings.z3Executable": {
                     "type": "string",
-                    "default": "z3",
-                    "description": "The path to the z3 executable.\n    // Use %ENV_VAR% for environment variables, C:\\\\path\\\\to\\\\z3.exe for paths, or z3 if its folder is in the PATH environment variable."
+                    "default": "$viperTools$/z3/bin/z3",
+                    "description": "The path to the z3 executable. Can be refered to by $z3Exe$"
+                },
+                "viperSettings.boogieExecutable": {
+                    "type": "string",
+                    "default": "$viperTools$/boogie/Binaries/Boogie",
+                    "description": "The path to the boogie executable. Can be refered to by $boogieExe$"
                 },
                 "viperSettings.autoSave": {
                     "type": "boolean",
@@ -246,8 +287,8 @@
                 },
                 "viperSettings.dotExecutable": {
                     "type": "string",
-                    "default": "dot",
-                    "description": "The path to the dot executable.\n    // Use %ENV_VAR% for environment variables, C:\\\\path\\\\to\\\\dot.exe for paths, or z3 if its folder is in the PATH environment variable."
+                    "default": "$viperTools$/dot/dot",
+                    "description": "The path to the dot executable."
                 },
                 "viperSettings.showSymbolicState": {
                     "type": "boolean",
@@ -258,6 +299,11 @@
                     "type": "boolean",
                     "default": true,
                     "description": "To get the best visual heap representation, this setting should match with the active theme."
+                },
+                "viperSettings.simpleMode": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Useful for verifying programs. Disable when developing the backend"
                 },
                 "viperSettings.verificationBufferSize": {
                     "type": "number",

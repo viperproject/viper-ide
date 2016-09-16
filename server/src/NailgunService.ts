@@ -180,7 +180,7 @@ export class NailgunService {
             try {
                 this.setStopping();
                 Log.log("gracefully shutting down nailgun server on port: " + this.settings.nailgunSettings.port, LogLevel.Info);
-                let shutDownNailgunProcess = child_process.exec(this.settings.nailgunSettings.clientExecutable + ' --nailgun-port ' + this.settings.nailgunSettings.port + ' ng-stop');
+                let shutDownNailgunProcess = child_process.exec('"'+this.settings.nailgunSettings.clientExecutable + '" --nailgun-port ' + this.settings.nailgunSettings.port + ' ng-stop');
                 shutDownNailgunProcess.on('exit', (code, signal) => {
                     Log.log("nailgun server is stopped", LogLevel.Info);
                     this.setStopped();
@@ -218,9 +218,9 @@ export class NailgunService {
 
     public startStageProcess(fileToVerify: string, stage: Stage, onData, onError, onClose): child_process.ChildProcess {
         let program = this.activeBackend.useNailgun ? this.settings.nailgunSettings.clientExecutable : "java"
-        let command = program + ' ' + Settings.completeNGArguments(stage, fileToVerify, this.activeBackend);
+        let command = '"' + program + '" ' + Settings.expandCustomArguments(stage, fileToVerify, this.activeBackend);
         Log.log(command, LogLevel.Debug);
-        let verifyProcess = child_process.exec(command, {maxBuffer: 1024 * this.settings.verificationBufferSize, cwd: Settings.workspace });
+        let verifyProcess = child_process.exec(command, { maxBuffer: 1024 * this.settings.verificationBufferSize, cwd: Settings.workspace });
         verifyProcess.stdout.on('data', onData);
         verifyProcess.stderr.on('data', onError);
         verifyProcess.on('close', onClose);
@@ -243,7 +243,7 @@ export class NailgunService {
             if (!this.nailgunProcess) {
                 return resolve(false);
             }
-            let command = this.settings.nailgunSettings.clientExecutable + ' --nailgun-port ' + this.settings.nailgunSettings.port + " NOT_USED_CLASS_NAME";
+            let command = '"'+this.settings.nailgunSettings.clientExecutable + '" --nailgun-port ' + this.settings.nailgunSettings.port + " NOT_USED_CLASS_NAME";
             Log.log(command, LogLevel.Debug);
             let nailgunServerTester = child_process.exec(command);
             nailgunServerTester.stderr.on('data', data => {

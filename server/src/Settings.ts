@@ -24,6 +24,19 @@ export class Settings {
     private static _error: string;
 
     private static home = os.homedir();
+    private static defaultViperToolsPath = Settings.computeDefaultViperToolsPath();
+
+    private static computeDefaultViperToolsPath() {
+        try {
+            if (this.isWin) {
+                return pathHelper.join(this.extractEnvVars("%ProgramFiles%"), "Viper\\");
+            } else {
+                return "/usr/local/Viper/"
+            }
+        } catch (e) {
+            Log.error("Error computing default viper tools path");
+        }
+    }
 
     public static getStage(backend: Backend, name: string): Stage {
         if (!name) return null;
@@ -86,15 +99,23 @@ export class Settings {
         return same;
     }
 
-    static completeNGArguments(stage: Stage, fileToVerify: string, backend: Backend): string {
+    static expandCustomArguments(stage: Stage, fileToVerify: string, backend: Backend): string {
         let args = stage.customArguments;
         if (!args || args.length == 0) return "";
         args = args.replace(/\$z3Exe\$/g, '"' + this.settings.z3Executable + '"');
+        args = args.replace(/\$boogieExe\$/g, '"' + this.settings.boogieExecutable + '"');
         args = args.replace(/\$mainMethod\$/g, stage.mainMethod);
         args = args.replace(/\$nailgunPort\$/g, this.settings.nailgunSettings.port);
         args = args.replace(/\$fileToVerify\$/g, '"' + fileToVerify + '"');
         args = args.replace(/\$backendPaths\$/g, Settings.backendJars(backend))
         return args;
+    }
+
+    static expandViperToolsPath(path: string): string {
+        if (!path) return path;
+        path = path.replace(/\$defaultViperToolsPath\$/g, this.defaultViperToolsPath);
+        path = path.replace(/\$viperTools\$/g, this.defaultViperToolsPath);
+        return path;
     }
 
     public static autoselectBackend(settings: ViperSettings) {
@@ -152,23 +173,14 @@ export class Settings {
         if (!nailgunSettings.serverJar || nailgunSettings.serverJar.length == 0) {
             return "Path to nailgun server jar is missing"
         } else {
-            let resolvedPath = Settings.resolvePath(nailgunSettings.serverJar)
-            if (!resolvedPath.exists) {
-                return "No nailgun server jar file found at path: " + resolvedPath.path;
-            }
-            nailgunSettings.serverJar = resolvedPath.path;
+            nailgunSettings.serverJar = Settings.checkPath(nailgunSettings.serverJar, "Nailgun Server:", false)
         }
 
         //check nailgun client
         if (!nailgunSettings.clientExecutable || nailgunSettings.clientExecutable.length == 0) {
             return "Path to nailgun client executable is missing"
         } else {
-            let resolvedPath = Settings.resolvePath(nailgunSettings.clientExecutable)
-            if (!resolvedPath.exists) {
-                return "No nailgun client executable file found at path: " + resolvedPath.path;
-            } else {
-                nailgunSettings.clientExecutable = resolvedPath.path;
-            }
+            nailgunSettings.clientExecutable = Settings.checkPath(nailgunSettings.clientExecutable, "Nailgun Client:", true)
         }
 
         //check nailgun timeout
@@ -192,25 +204,44 @@ export class Settings {
             // }
 
             this._valid = false;
-            Log.log("Checking backends...", LogLevel.Debug);
-            this._error = Settings.checkBackends(settings.verificationBackends);
-            let useNailgun = settings.verificationBackends.some(elem => elem.useNailgun);
-            if (useNailgun && !this._error) {
-                Log.log("Checking nailgun settings...", LogLevel.Debug);
-                this._error = this.checkNailgunSettings(settings.nailgunSettings);
+            this._error = null;
+            //check viperToolsPath
+            if (!settings.viperToolsPath || settings.viperToolsPath.length == 0) {
+                Log.log("No ViperToolsPath is specified.", LogLevel.Info);
+                settings.viperToolsPath = null;
+            } else {
+                settings.viperToolsPath = this.checkPath(settings.viperToolsPath, "Path to Viper Tools:", false);
             }
+            //check backends
+            if (!this._error) {
+                Log.log("Checking backends...", LogLevel.Debug);
+                let backendError = Settings.checkBackends(settings.verificationBackends);
+                if (!this._error) {
+                    this._error = backendError;
+                }
+                //check nailgun settings
+                let useNailgun = settings.verificationBackends.some(elem => elem.useNailgun);
+                if (useNailgun && !this._error) {
+                    Log.log("Checking nailgun settings...", LogLevel.Debug);
+                    let nailgunError = this.checkNailgunSettings(settings.nailgunSettings);
+                    if (!this._error) {
+                        this._error = nailgunError;
+                    }
+                }
+            }
+            //check z3 executable
             if (!this._error) {
                 Log.log("Checking other settings...", LogLevel.Debug);
-                //check z3 executable
                 if (!settings.z3Executable || settings.z3Executable.length == 0) {
                     this._error = "Path to z3 executable is missing"
                 } else {
-                    let resolvedPath = Settings.resolvePath(settings.z3Executable)
-                    if (!resolvedPath.exists) {
-                        this._error = "No z3 executable file found at path: " + resolvedPath.path;
-                    } else {
-                        settings.z3Executable = resolvedPath.path;
-                    }
+                    settings.z3Executable = this.checkPath(settings.z3Executable, "z3 Executable:", true);
+                }
+            }
+            //check boogie executable
+            if (!this._error) {
+                if (settings.boogieExecutable && settings.z3Executable.length > 0) {
+                    settings.boogieExecutable = this.checkPath(settings.boogieExecutable, `Boogie Executable: (If you don't need boogie, set it to "")`, true);
                 }
             }
             this._valid = !this._error;
@@ -219,6 +250,16 @@ export class Settings {
             }
         } catch (e) {
             Log.error("Error checking settings: " + e);
+        }
+    }
+
+    private static checkPath(path: string, message: string, executable: boolean): string {
+        let resolvedPath = Settings.resolvePath(path, executable)
+        if (!resolvedPath.exists) {
+            this._error = message + ' path not found: "' + path + '"' + (resolvedPath.path != path ? 'which expands to "' + resolvedPath.path + '"' : "");
+            return path;
+        } else {
+            return resolvedPath.path;
         }
     }
 
@@ -273,16 +314,8 @@ export class Settings {
                 return backend.name + ": The backend setting needs at least one path";
             }
             for (let i = 0; i < backend.paths.length; i++) {
-                let path = backend.paths[i];
-
                 //extract environment variable or leave unchanged
-                let resolvedPath = Settings.resolvePath(path);
-                if (!resolvedPath.exists) {
-                    return backend.name + ": Cannot resolve path: " + path;
-                }
-                path = resolvedPath.path;
-                //-> set path to environment variable value
-                backend.paths[i] = path;
+                backend.paths[i] = Settings.checkPath(backend.paths[i], backend.name + ':', false);
             }
 
             //check verification timeout
@@ -345,54 +378,60 @@ export class Settings {
         return path;
     }
 
-    private static resolvePath(path: string): ResolvedPath {
+    private static resolvePath(path: string, executable: boolean): ResolvedPath {
         try {
             if (!path) {
                 return { path: path, exists: false };
             }
             path = path.trim();
+
+            //expand internal variables
+            let resolvedPath = this.expandViperToolsPath(path);
             //handle env Vars
-            let envVar = this.extractEnvVars(path);
+            let envVar = this.extractEnvVars(resolvedPath);
             if (!envVar) {
-                return { path: path, exists: false };
+                return { path: resolvedPath, exists: false };
             }
-            path = envVar;
-            let resolvedPath: string;
+            resolvedPath = envVar;
+
             //handle files in Path env var
-            if (path.indexOf("/") < 0 && path.indexOf("\\") < 0) {
+            if (resolvedPath.indexOf("/") < 0 && resolvedPath.indexOf("\\") < 0) {
                 //its only a filename, try to find it in the path
                 let pathEnvVar: string = process.env.PATH;
                 if (pathEnvVar) {
                     let pathList: string[] = pathEnvVar.split(Settings.isWin ? ";" : ":");
                     for (let i = 0; i < pathList.length; i++) {
                         let pathElement = pathList[i];
-                        if (Settings.isWin && path.indexOf(".") < 0) {
-                            resolvedPath = this.toAbsolute(pathHelper.join(pathElement, path + ".exe"));
-                            if (fs.existsSync(resolvedPath)) {
-                                return { path: resolvedPath, exists: true };
-                            }
-                        }
-                        resolvedPath = this.toAbsolute(pathHelper.join(pathElement, path));
-                        if (fs.existsSync(resolvedPath)) {
-                            return { path: resolvedPath, exists: true };
-                        }
+                        let combinedPath = this.toAbsolute(pathHelper.join(pathElement, resolvedPath));
+                        let exists = this.exists(combinedPath, executable);
+                        if (exists.exists) return exists;
                     }
                 }
             } else {
                 //handle absolute and relative paths
                 if (this.home) {
-                    path = path.replace(/^~($|\/|\\)/, `${this.home}$1`);
+                    resolvedPath = resolvedPath.replace(/^~($|\/|\\)/, `${this.home}$1`);
                 }
-                resolvedPath = this.toAbsolute(path);
-                try {
-                    fs.accessSync(resolvedPath);
-                    return { path: resolvedPath, exists: true };
-                } catch (e) { }
+                resolvedPath = this.toAbsolute(resolvedPath);
+                return this.exists(resolvedPath, executable);
             }
             return { path: resolvedPath, exists: false };
         } catch (e) {
             Log.error("Error resolving path: " + e);
         }
+    }
+
+    private static exists(path: string, executable: boolean): ResolvedPath {
+        try {
+            fs.accessSync(path);
+            return { path: path, exists: true };
+        } catch (e) { }
+        if (executable && this.isWin && !path.toLowerCase().endsWith(".exe")) {
+            path += ".exe";
+            //only one recursion at most, because the ending is checked
+            return this.exists(path, executable);
+        }
+        return { path: path, exists: false }
     }
 
     private static toAbsolute(path: string): string {

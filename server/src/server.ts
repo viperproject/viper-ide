@@ -248,7 +248,7 @@ function resetDiagnostics(uri: string) {
 function restartBackendIfNeeded(oldSettings: ViperSettings) {
     let newBackend = Settings.autoselectBackend(Settings.settings);
     //only restart the backend after settings changed if the active backend was affected
-    let restartBackend = !Settings.backendEquals(Server.backend, newBackend);
+    let restartBackend = !Server.nailgunService.isReady() || !Settings.backendEquals(Server.backend, newBackend);
     if (oldSettings) {
         restartBackend = restartBackend || newBackend.useNailgun && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings));
     }

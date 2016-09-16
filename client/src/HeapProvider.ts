@@ -14,6 +14,10 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         this.heapGraphs[index] = heapGraph;
     }
 
+    public getHeap(index: number): HeapGraph {
+        return this.heapGraphs[index];
+    }
+
     public resetState() {
         this.heapGraphs = [];
     }
@@ -29,6 +33,13 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
     stateVisualizer: StateVisualizer;
 
     public provideTextDocumentContent(uri: vscode.Uri): string {
+        let previousState = "Previous State";
+        let currentState = "Current State";
+        if (Helper.getConfiguration("simpleMode") === true) {
+            previousState = "Selected State";
+            currentState = "Error State";
+        }
+
         let table: string;
         let darkGraphs = <boolean>Helper.getConfiguration("darkGraphs");
         if (this.heapGraphs.length > 1) {
@@ -38,15 +49,15 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
    <col style="width: 50%" />
   </colgroup>
   <tr><td>
-   <h1 class="Hprev">Previous State</h1>
+   <h1 class="Hprev">${previousState}</h1>
    ${this.heapGraphToContent(this.stateVisualizer.nextHeapIndex, 1 - this.stateVisualizer.nextHeapIndex)}
   </td><td>
-   <h1 class="Hcurr">Current State</h1>
+   <h1 class="Hcurr">${currentState}</h1>
    ${this.heapGraphToContent(1 - this.stateVisualizer.nextHeapIndex, this.stateVisualizer.nextHeapIndex)}
   </td></tr>
  </table>`;
         } else if (this.heapGraphs.length == 1) {
-            table = ` <h1 class="Hcurr">Current State</h1>${this.heapGraphToContent(0)}`;
+            table = ` <h1 class="Hcurr">${currentState}</h1>${this.heapGraphToContent(0)}`;
         } else {
             table = " <p>No graph to show</p>";
         }

@@ -236,10 +236,10 @@ export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE, UNKONWN };
 
 export interface Backend {
     name: string;
-    stages: Stage[];
+    paths: string[];
     useNailgun: boolean;
     timeout: number;
-    paths: string[];
+    stages: Stage[];
 }
 
 export interface Stage {
@@ -261,16 +261,35 @@ export interface NailgunSettings {
 }
 
 export interface ViperSettings {
-    verificationBackends: Backend[];
+    //Path to the folder containing all the ViperTools
+    viperToolsPath: string;
+    //All nailgun related settings
     nailgunSettings: NailgunSettings;
+    //Description of backends
+    verificationBackends: Backend[];
+    //The path to the z3 executable
     z3Executable: string;
+    //The path to the boogie executable
+    boogieExecutable: string;
+    //Enable automatically saving modified viper files
     autoSave: boolean;
+    //Verbosity of the output, all output is written to the logFile, regardless of the logLevel
     logLevel: number;
+    //Reverify the open viper file upon backend change.
     autoVerifyAfterBackendChange: boolean;
+    //Display the verification progress in the status bar. Only useful if the backend supports progress reporting.
     showProgress: boolean;
+    //Enable heap visualization, stepwise debugging and execution path visualization
+    advancedFeatures: boolean;
+    //The path to the dot executable.
     dotExecutable: string;
+    //Show the symbolic values in the heap visualization. If disabled, the symbolic values are only shown in the error states.
     showSymbolicState: boolean;
+    //To get the best visual heap representation, this setting should match with the active theme.
     darkGraphs: boolean;
+    //Useful for verifying programs. Disable when developing the backend
+    simpleMode: boolean;
+    //Maximal buffer size for verification in KB
     verificationBufferSize: number;
 }
 

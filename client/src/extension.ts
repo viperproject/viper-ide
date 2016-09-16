@@ -553,9 +553,26 @@ function registerHandlers() {
         try {
             if (Helper.getConfiguration("advancedFeatures") === true) {
                 let visualizer = ExtensionState.viperFiles.get(heapGraph.fileUri).stateVisualizer;
-                if (heapGraph.state != visualizer.previousState) {
-                    visualizer.createAndShowHeap(heapGraph, visualizer.nextHeapIndex);
-                    visualizer.nextHeapIndex = 1 - visualizer.nextHeapIndex;
+                let state = visualizer.decorationOptions[heapGraph.state];
+                if (Helper.getConfiguration("simpleMode") === true) {
+                    //Simple Mode
+                    if (state.isErrorState) {
+                        //replace the error state
+                        visualizer.createAndShowHeap(heapGraph, 0);
+                        visualizer.markStateSelection(heapGraph.methodName, heapGraph.state, heapGraph.position);
+                    } else {
+                        //replace the execution state
+                        visualizer.createAndShowHeap(heapGraph, 1);
+                        let errorHeap = visualizer.provider.getHeap(0);
+                        visualizer.previousState = heapGraph.state;
+                        visualizer.markStateSelection(errorHeap.methodName, errorHeap.state, errorHeap.position);
+                    }
+                } else {
+                    //Advanced Mode
+                    if (heapGraph.state != visualizer.previousState) {
+                        visualizer.createAndShowHeap(heapGraph, visualizer.nextHeapIndex);
+                        visualizer.markStateSelection(heapGraph.methodName, heapGraph.state, heapGraph.position);
+                    }
                 }
             } else {
                 Log.log("WARNING: Heap Graph is generated, even though the advancedFeatures are disabled.", LogLevel.Debug);
@@ -665,6 +682,13 @@ function registerHandlers() {
                 if (!fileState.stateVisualizer.readyToDebug) {
                     Log.hint("Don't debug " + filename + ", the verification provided no states");
                     return;
+                }
+
+                if (Helper.getConfiguration("simpleMode") === true) {
+                    if (!fileState.stateVisualizer.decorationOptions.some(option => option.isErrorState)){
+                        Log.hint("Don't debug in simple mode, because there is no error state");
+                        return;
+                    }
                 }
 
                 let openDoc = uri.path;
