@@ -260,6 +260,13 @@ export interface NailgunSettings {
     timeout: number;
 }
 
+export enum SettingsErrorType { Error, Warning }
+
+export interface SettingsError {
+    type: SettingsErrorType;
+    msg: string;
+}
+
 export interface ViperSettings {
     //Path to the folder containing all the ViperTools
     viperToolsPath: string;

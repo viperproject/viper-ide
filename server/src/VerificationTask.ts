@@ -79,7 +79,7 @@ export class VerificationTask {
         DebugServer.moveDebuggerToPos(step.position, clientIndex);
 
         return {
-            heap: HeapVisualizer.heapToDot(step, step.isErrorState || this.nailgunService.settings.showSymbolicState, step.isErrorState, this.model),
+            heap: HeapVisualizer.heapToDot(step, step.isErrorState || Settings.settings.showSymbolicState, step.isErrorState, this.model),
             state: step.decorationOptions.index,
             fileName: this.filename,
             fileUri: this.fileUri,
@@ -183,7 +183,7 @@ export class VerificationTask {
                         renderOptions: {
                             before: {
                                 contentText: "(" + (decorationOptions.length + 1) + ")",
-                                color: step.isErrorState ? StateColors.errorState(this.nailgunService.settings.darkGraphs) : StateColors.interestingState(this.nailgunService.settings.darkGraphs),
+                                color: step.isErrorState ? StateColors.errorState(Settings.settings.darkGraphs) : StateColors.interestingState(Settings.settings.darkGraphs),
                             }
                         },
                         index: decorationOptions.length,
@@ -675,12 +675,13 @@ export class VerificationTask {
                         }
                     }
                     tag = tag ? "[" + tag + "] " : "";
+                    let pos = parsedPosition.pos || { line: 0, character: 0 };
 
-                    Log.log(`Error: [${Server.backend.name}] ${tag}${parsedPosition.pos.line + 1}:${parsedPosition.pos.character + 1} ${message}`, LogLevel.Default);
+                    Log.log(`Error: [${Server.backend.name}] ${tag}${pos.line + 1}:${pos.character + 1} ${message}`, LogLevel.Default);
                     this.diagnostics.push({
                         range: {
-                            start: parsedPosition.pos,
-                            end: { line: parsedPosition.pos.line, character: 10000 }//Number.max does not work -> 10000 is an arbitrary large number that does the job
+                            start: pos,
+                            end: { line: pos.line, character: 10000 }//Number.max does not work -> 10000 is an arbitrary large number that does the job
                         },
                         source: null, //Server.backend.name
                         severity: DiagnosticSeverity.Error,

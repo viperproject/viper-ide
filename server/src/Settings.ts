@@ -4,13 +4,14 @@ import fs = require('fs');
 import * as pathHelper from 'path';
 var commandExists = require('command-exists');
 import {Log} from './Log';
-import {NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
+import {SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
 import {Server} from './ServerClass';
 const os = require('os');
 
 export interface ResolvedPath {
     path: string,
-    exists: boolean
+    exists: boolean,
+    error?: string
 }
 
 export class Settings {
@@ -21,15 +22,15 @@ export class Settings {
     public static selectedBackend: string;
 
     private static _valid: boolean = false;
-    private static _error: string;
+    private static _errors: SettingsError[];
 
     private static home = os.homedir();
-    private static defaultViperToolsPath = Settings.computeDefaultViperToolsPath();
+    private static defaultViperToolsPath: string;
 
     private static computeDefaultViperToolsPath() {
         try {
             if (this.isWin) {
-                return pathHelper.join(this.extractEnvVars("%ProgramFiles%"), "Viper\\");
+                return pathHelper.join(this.extractEnvVars("%ProgramFiles%").path, "Viper\\");
             } else {
                 return "/usr/local/Viper/"
             }
@@ -114,14 +115,14 @@ export class Settings {
     static expandViperToolsPath(path: string): string {
         if (!path) return path;
         path = path.replace(/\$defaultViperToolsPath\$/g, this.defaultViperToolsPath);
-        path = path.replace(/\$viperTools\$/g, this.defaultViperToolsPath);
+        path = path.replace(/\$viperTools\$/g, Settings.settings.viperToolsPath);
         return path;
     }
 
-    public static autoselectBackend(settings: ViperSettings) {
+    public static autoselectBackend(settings: ViperSettings): Backend {
         if (!settings || !settings.verificationBackends || settings.verificationBackends.length == 0) {
-            Log.error("No backend, even though the setting check succeeded.");
-            return;
+            this.selectedBackend = null;
+            return null;
         }
         if (this.selectedBackend) {
             for (let i = 0; i < settings.verificationBackends.length; i++) {
@@ -145,42 +146,43 @@ export class Settings {
 
     public static valid(): boolean {
         if (!this._valid)
-            Server.sendInvalidSettingsNotification(this._error);
+            Server.sendInvalidSettingsNotification(this._errors);
         return this._valid;
     }
 
     private static checkNailgunSettings(nailgunSettings: NailgunSettings): string {
         if (!nailgunSettings) {
-            return "viperSettings.nailgunSettings is missing"
+            this.addError("viperSettings.nailgunSettings is missing");
+            return;
         }
 
         //check nailgun port
         if (!nailgunSettings.port) {
-            return "NailgunPort is missing";
+            this.addError("NailgunPort is missing");
         } else if (!/\d+/.test(nailgunSettings.port)) {
-            return "Invalid NailgunPort: " + nailgunSettings.port;
+            this.addError("Invalid NailgunPort: " + nailgunSettings.port);
         } else {
             try {
                 let port = Number.parseInt(nailgunSettings.port);
                 if (port < 1024 || port > 65535) {
-                    return "Invalid NailgunPort: please use a port in the range of 1024 - 65535";
+                    this.addError("Invalid NailgunPort: please use a port in the range of 1024 - 65535");
                 }
             } catch (e) {
-                return "viperSettings.nailgunSettings.port needs to be an integer";
+                this.addError("viperSettings.nailgunSettings.port needs to be an integer");
             }
         }
         //check nailgun jar
         if (!nailgunSettings.serverJar || nailgunSettings.serverJar.length == 0) {
-            return "Path to nailgun server jar is missing"
+            this.addError("Path to nailgun server jar is missing");
         } else {
-            nailgunSettings.serverJar = Settings.checkPath(nailgunSettings.serverJar, "Nailgun Server:", false)
+            nailgunSettings.serverJar = Settings.checkPath(nailgunSettings.serverJar, "Nailgun Server:", false).path
         }
 
         //check nailgun client
         if (!nailgunSettings.clientExecutable || nailgunSettings.clientExecutable.length == 0) {
             return "Path to nailgun client executable is missing"
         } else {
-            nailgunSettings.clientExecutable = Settings.checkPath(nailgunSettings.clientExecutable, "Nailgun Client:", true)
+            nailgunSettings.clientExecutable = Settings.checkPath(nailgunSettings.clientExecutable, "Nailgun Client:", true).path
         }
 
         //check nailgun timeout
@@ -190,7 +192,14 @@ export class Settings {
         return null;
     }
 
-    public static checkSettings(settings: ViperSettings) {
+    private static addError(msg: string) {
+        this._errors.push({ type: SettingsErrorType.Error, msg: msg });
+    }
+    private static addWarning(msg: string) {
+        this._errors.push({ type: SettingsErrorType.Warning, msg: msg });
+    }
+
+    public static checkSettings() {
         try {
 
             //Attempt for typechecking
@@ -204,47 +213,40 @@ export class Settings {
             // }
 
             this._valid = false;
-            this._error = null;
+            this._errors = [];
+            let settings = Settings.settings;
+            this.defaultViperToolsPath = Settings.computeDefaultViperToolsPath();
             //check viperToolsPath
             if (!settings.viperToolsPath || settings.viperToolsPath.length == 0) {
-                Log.log("No ViperToolsPath is specified.", LogLevel.Info);
-                settings.viperToolsPath = null;
+                //its ok to have none
+                this.addWarning("No ViperToolsPath is specified, use the default one");
+                settings.viperToolsPath = this.defaultViperToolsPath;
             } else {
-                settings.viperToolsPath = this.checkPath(settings.viperToolsPath, "Path to Viper Tools:", false);
+                //if there is one check it
+                let resolvedPath = this.checkPath(settings.viperToolsPath, "Path to Viper Tools:", false);
+                settings.viperToolsPath = resolvedPath.path;
+                if (!resolvedPath.exists) return;
             }
             //check backends
-            if (!this._error) {
-                Log.log("Checking backends...", LogLevel.Debug);
-                let backendError = Settings.checkBackends(settings.verificationBackends);
-                if (!this._error) {
-                    this._error = backendError;
-                }
-                //check nailgun settings
-                let useNailgun = settings.verificationBackends.some(elem => elem.useNailgun);
-                if (useNailgun && !this._error) {
-                    Log.log("Checking nailgun settings...", LogLevel.Debug);
-                    let nailgunError = this.checkNailgunSettings(settings.nailgunSettings);
-                    if (!this._error) {
-                        this._error = nailgunError;
-                    }
-                }
+            Settings.checkBackends(settings.verificationBackends);
+            //check nailgun settings
+            let useNailgun = settings.verificationBackends.some(elem => elem.useNailgun);
+            if (useNailgun) {
+                Log.log("Checking nailgun settings...", LogLevel.Debug);
+                this.checkNailgunSettings(settings.nailgunSettings);
             }
             //check z3 executable
-            if (!this._error) {
-                Log.log("Checking other settings...", LogLevel.Debug);
-                if (!settings.z3Executable || settings.z3Executable.length == 0) {
-                    this._error = "Path to z3 executable is missing"
-                } else {
-                    settings.z3Executable = this.checkPath(settings.z3Executable, "z3 Executable:", true);
-                }
+            Log.log("Checking other settings...", LogLevel.Debug);
+            if (!settings.z3Executable || settings.z3Executable.length == 0) {
+                this.addError("Path to z3 executable is missing");
+            } else {
+                settings.z3Executable = this.checkPath(settings.z3Executable, "z3 Executable:", true).path;
             }
             //check boogie executable
-            if (!this._error) {
-                if (settings.boogieExecutable && settings.z3Executable.length > 0) {
-                    settings.boogieExecutable = this.checkPath(settings.boogieExecutable, `Boogie Executable: (If you don't need boogie, set it to "")`, true);
-                }
+            if (settings.boogieExecutable && settings.z3Executable.length > 0) {
+                settings.boogieExecutable = this.checkPath(settings.boogieExecutable, `Boogie Executable: (If you don't need boogie, set it to "")`, true).path;
             }
-            this._valid = !this._error;
+            this._valid = !this._errors.some(error => error.type == SettingsErrorType.Error); //if there is no error -> valid
             if (this._valid) {
                 Log.log("The settings are ok", LogLevel.Info);
             }
@@ -253,76 +255,104 @@ export class Settings {
         }
     }
 
-    private static checkPath(path: string, message: string, executable: boolean): string {
-        let resolvedPath = Settings.resolvePath(path, executable)
-        if (!resolvedPath.exists) {
-            this._error = message + ' path not found: "' + path + '"' + (resolvedPath.path != path ? 'which expands to "' + resolvedPath.path + '"' : "");
-            return path;
-        } else {
-            return resolvedPath.path;
+    private static checkPath(path: string, prefix: string, executable: boolean): ResolvedPath {
+        if (!path || path.length == 0) {
+            this.addError(prefix + " path is missing");
+            return { path: path, exists: false };
         }
+        let resolvedPath = Settings.resolvePath(path, executable);
+        if (!resolvedPath.exists) {
+            this.addError(prefix + ' path not found: "' + path + '"' + (resolvedPath.path != path ? ' which expands to "' + resolvedPath.path + '"' : "") + (" " + resolvedPath.error || ""));
+        }
+        return resolvedPath;
     }
 
-    private static checkBackends(backends: Backend[]): string {
+    private static checkBackends(backends: Backend[]) {
+        Log.log("Checking backends...", LogLevel.Debug);
         if (!backends || backends.length == 0) {
-            return "No backend detected, specify at least one backend";
+            this.addError("No backend detected, specify at least one backend");
+            return;
         }
 
         let backendNames: Set<string> = new Set<string>();
 
         for (let i = 0; i < backends.length; i++) {
             let backend = backends[i];
-            if (!backend) return "Empty backend detected";
-            //name there?
-            if (!backend.name || backend.name.length == 0) return "Every backend setting needs a name.";
+            if (!backend) {
+                this.addError("Empty backend detected");
+            }
+            else if (!backend.name || backend.name.length == 0) {//name there?
+                this.addError("Every backend setting needs a name.");
+            } else {
+                let backendName = "Backend " + backend.name + ":";
+                //check for dublicate backends
+                if (backendNames.has(backend.name)) this.addError("Dublicated backend name: " + backend.name);
+                backendNames.add(backend.name);
 
-            //check for dublicate backends
-            if (backendNames.has(backend.name)) return "Dublicated backend name: " + backend.name
-            backendNames.add(backend.name);
-
-            //check stages
-            if (!backend.stages || backend.stages.length == 0) return backend.name + ": The backend setting needs at least one stage";
-            let stages: Set<string> = new Set<string>();
-            let verifyStageFound = false;
-            for (let i = 0; i < backend.stages.length; i++) {
-                let stage: Stage = backend.stages[i];
-                if (!stage) return backend.name + ": Empty stage detected";
-                if (!stage.name || stage.name.length == 0) return backend.name + ": Every stage needs a name.";
-                if (stages.has(stage.name)) return backend.name + ": Dublicated stage name: " + backend.name + ":" + stage.name
-                stages.add(stage.name);
-                if (!stage.mainMethod || stage.mainMethod.length == 0) return backend.name + ": Stage: " + stage.name + "is missing a mainMethod";
-
-                //check customArguments
-                if (!stage.customArguments) {
-                    return backend.name + ": Stage: " + stage.name + " is missing customArguments, try the default arguments";
+                //check stages
+                if (!backend.stages || backend.stages.length == 0) {
+                    this.addError(backendName + " The backend setting needs at least one stage");
+                    continue;
                 }
-                if (!backend.useNailgun && stage.customArguments.indexOf("nailgun") >= 0) {
-                    Log.hint("WARNING: " + backend.name + ": Stage: " + stage.name + ": customArguments should not contain nailgun arguments if useNailgun is false");
+                let stages: Set<string> = new Set<string>();
+                let verifyStageFound = false;
+                for (let i = 0; i < backend.stages.length; i++) {
+                    let stage: Stage = backend.stages[i];
+                    if (!stage) {
+                        this.addError(backendName + " Empty stage detected");
+                    }
+                    else if (!stage.name || stage.name.length == 0) {
+                        this.addError(backendName + " Every stage needs a name.");
+                    } else {
+                        let backendAndStage = backendName + " Stage: " + stage.name + ":";
+                        //check for duplicated stage names
+                        if (stages.has(stage.name))
+                            this.addError(backendName + " Duplicated stage name: " + stage.name);
+                        stages.add(stage.name);
+                        //check mainMethod
+                        if (!stage.mainMethod || stage.mainMethod.length == 0)
+                            this.addError(backendAndStage + " Missing mainMethod");
+                        //check customArguments
+                        if (!stage.customArguments) {
+                            this.addError(backendAndStage + " Missing customArguments, try the default arguments");
+                        }
+                        if (!backend.useNailgun && stage.customArguments.indexOf("nailgun") >= 0) {
+                            this.addWarning(backendAndStage + " customArguments should not contain nailgun arguments if useNailgun is false");
+                        }
+                        //TODO: check mainMethods:
+                    }
                 }
-                //TODO: check mainMethods:
-            }
-            for (let i = 0; i < backend.stages.length; i++) {
-                let stage: Stage = backend.stages[i];
-                if (stage.onParsingError && stage.onParsingError.length > 0 && !stages.has(stage.onParsingError)) return backend.name + ": Cannot find stage " + stage.name + "'s onParsingError stage " + stage.onParsingError;
-                if (stage.onTypeCheckingError && stage.onTypeCheckingError.length > 0 && !stages.has(stage.onTypeCheckingError)) return backend.name + ": Cannot find stage " + stage.name + "'s onTypeCheckingError stage " + stage.onTypeCheckingError;
-                if (stage.onVerificationError && stage.onVerificationError.length > 0 && !stages.has(stage.onVerificationError)) return backend.name + ": Cannot find stage " + stage.name + "'s onVerificationError stage " + stage.onVerificationError;
-                if (stage.onSuccess && stage.onSuccess.length > 0 && !stages.has(stage.onSuccess)) return backend.name + ": Cannot find stage " + stage.name + "'s onSuccess stage " + stage.onSuccess;
-            }
+                for (let i = 0; i < backend.stages.length; i++) {
+                    let stage: Stage = backend.stages[i];
+                    let BackendMissingStage = backendName + ": Cannot find stage " + stage.name;
+                    if (stage.onParsingError && stage.onParsingError.length > 0 && !stages.has(stage.onParsingError))
+                        this.addError(BackendMissingStage + "'s onParsingError stage " + stage.onParsingError);
+                    if (stage.onTypeCheckingError && stage.onTypeCheckingError.length > 0 && !stages.has(stage.onTypeCheckingError))
+                        this.addError(BackendMissingStage + "'s onTypeCheckingError stage " + stage.onTypeCheckingError);
+                    if (stage.onVerificationError && stage.onVerificationError.length > 0 && !stages.has(stage.onVerificationError))
+                        this.addError(BackendMissingStage + "'s onVerificationError stage " + stage.onVerificationError);
+                    if (stage.onSuccess && stage.onSuccess.length > 0 && !stages.has(stage.onSuccess))
+                        this.addError(BackendMissingStage + "'s onSuccess stage " + stage.onSuccess);
+                }
 
-            //check paths
-            if (!backend.paths || backend.paths.length == 0) {
-                return backend.name + ": The backend setting needs at least one path";
-            }
-            for (let i = 0; i < backend.paths.length; i++) {
-                //extract environment variable or leave unchanged
-                backend.paths[i] = Settings.checkPath(backend.paths[i], backend.name + ':', false);
-            }
+                //check paths
+                if (!backend.paths || backend.paths.length == 0) {
+                    this.addError(backendName + " The backend setting needs at least one path");
+                } else {
+                    for (let i = 0; i < backend.paths.length; i++) {
+                        //extract environment variable or leave unchanged
+                        backend.paths[i] = Settings.checkPath(backend.paths[i], backendName, false).path;
+                    }
+                }
 
-            //check verification timeout
-            if (!backend.timeout || (backend.timeout && backend.timeout <= 0)) {
-                backend.timeout = null;
+                //check verification timeout
+                if (!backend.timeout || (backend.timeout && backend.timeout <= 0)) {
+                    if (backend.timeout && backend.timeout < 0) {
+                        this.addWarning(backendName + " The timeout of " + backend.timeout + " is interpreted as no timeout.");
+                    }
+                    backend.timeout = null;
+                }
             }
-
             //-> the settings seem right
         }
         return null;
@@ -353,29 +383,26 @@ export class Settings {
         return file ? file.trim().endsWith(".jar") : false;
     }
 
-    private static extractEnvVars(path: string) {
+    private static extractEnvVars(path: string): ResolvedPath {
         if (path && path.length > 2) {
             while (path.indexOf("%") >= 0) {
                 let start = path.indexOf("%")
                 let end = path.indexOf("%", start + 1);
                 if (end < 0) {
-                    Log.error("unbalanced % in path: " + path, LogLevel.Info);
-                    return null;
+                    return { path: path, exists: false, error: "unbalanced % in path: " + path };
                 }
                 let envName = path.substring(start + 1, end);
                 let envValue = process.env[envName];
                 if (!envValue) {
-                    Log.error("environment variable : " + envName + " is not set", LogLevel.Info);
-                    return null;
+                    return { path: path, exists: false, error: "environment variable " + envName + " used in path " + path + " is not set" };
                 }
                 if (envValue.indexOf("%") >= 0) {
-                    Log.error("environment variable: " + envName + " must not contain %: " + envValue, LogLevel.Info);
-                    return null;
+                    return { path: path, exists: false, error: "environment variable: " + envName + " must not contain %: " + envValue };
                 }
                 path = path.substring(0, start - 1) + envValue + path.substring(end + 1, path.length);
             }
         }
-        return path;
+        return { path: path, exists: true };
     }
 
     private static resolvePath(path: string, executable: boolean): ResolvedPath {
@@ -388,11 +415,9 @@ export class Settings {
             //expand internal variables
             let resolvedPath = this.expandViperToolsPath(path);
             //handle env Vars
-            let envVar = this.extractEnvVars(resolvedPath);
-            if (!envVar) {
-                return { path: resolvedPath, exists: false };
-            }
-            resolvedPath = envVar;
+            let envVarsExtracted = this.extractEnvVars(resolvedPath);
+            if (!envVarsExtracted.exists) return envVarsExtracted;
+            resolvedPath = envVarsExtracted.path;
 
             //handle files in Path env var
             if (resolvedPath.indexOf("/") < 0 && resolvedPath.indexOf("\\") < 0) {

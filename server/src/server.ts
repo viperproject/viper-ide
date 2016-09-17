@@ -63,15 +63,11 @@ function registerHandlers() {
         try {
             let oldSettings = Settings.settings;
             Settings.settings = <ViperSettings>change.settings.viperSettings;
-            Log.logLevel = Settings.settings.logLevel;
-            //after this line, Logging works
+            Log.logLevel = Settings.settings.logLevel; //after this line, Logging works
 
             Log.log('Configuration changed', LogLevel.Info);
-            Settings.checkSettings(Settings.settings);
+            let errors = Settings.checkSettings();
             if (Settings.valid()) {
-                //pass the new settings to the verificationService
-                Server.nailgunService.changeSettings(Settings.settings);
-
                 restartBackendIfNeeded(oldSettings);
             }
         } catch (e) {
@@ -245,22 +241,26 @@ function resetDiagnostics(uri: string) {
     task.resetDiagnostics();
 }
 
+//tries to restart backend, 
 function restartBackendIfNeeded(oldSettings: ViperSettings) {
     let newBackend = Settings.autoselectBackend(Settings.settings);
-    //only restart the backend after settings changed if the active backend was affected
-    let restartBackend = !Server.nailgunService.isReady() || !Settings.backendEquals(Server.backend, newBackend);
-    if (oldSettings) {
-        restartBackend = restartBackend || newBackend.useNailgun && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings));
-    }
-    if (restartBackend) {
-        Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info)
-        Server.backend = newBackend;
-        Server.verificationTasks.forEach(task => task.resetLastSuccess());
-        Server.nailgunService.startOrRestartNailgunServer(Server.backend, true);
+    if (newBackend) {
+        //only restart the backend after settings changed if the active backend was affected
+        let restartBackend = !Server.nailgunService.isReady() //backend is not ready -> restart
+            || !Settings.backendEquals(Server.backend, newBackend) //change in backend
+            || (oldSettings && (newBackend.useNailgun && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings)))); //backend needs nailgun and nailgun settings changed
+        if (restartBackend) {
+            Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info);
+            Server.backend = newBackend;
+            Server.verificationTasks.forEach(task => task.resetLastSuccess());
+            Server.nailgunService.startOrRestartNailgunServer(Server.backend, true);
+        } else {
+            Log.log("No need to restart backend. It is still the same", LogLevel.Debug)
+            Server.backend = newBackend;
+            Server.sendBackendReadyNotification({ name: Server.backend.name, restarted: false });
+        }
     } else {
-        Log.log("No need to restart backend. It's still the same", LogLevel.Debug)
-        Server.backend = newBackend;
-        Server.sendBackendReadyNotification({ name: Server.backend.name, restarted: false });
+        Log.error("No backend, even though the setting check succeeded.");
     }
 }
 

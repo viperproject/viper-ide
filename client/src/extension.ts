@@ -10,7 +10,7 @@ import {LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, Tr
 import {Timer} from './Timer';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
-import {BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success} from './ViperProtocol';
+import {SettingsErrorType, SettingsError, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success} from './ViperProtocol';
 import Uri from '../node_modules/vscode-uri/lib/index';
 import {Log} from './Log';
 import {StateVisualizer} from './StateVisualizer';
@@ -409,7 +409,7 @@ function handleStateChange(params: StateChangeParams) {
     }
 }
 
-function handleInvalidSettings(data) {
+function handleInvalidSettings(errors: SettingsError[]) {
     Log.log("Invalid Settings detected", LogLevel.Default);
     statusBarItem.color = 'red';
     statusBarItem.text = "Invalid Settings";
@@ -417,7 +417,33 @@ function handleInvalidSettings(data) {
     let userSettingsButton: vscode.MessageItem = { title: "Open User Settings" };
     let workspaceSettingsButton: vscode.MessageItem = { title: "Open Workspace Settings" };
 
-    vscode.window.showInformationMessage("Viper: Invalid settings: " + data, userSettingsButton, workspaceSettingsButton).then((choice) => {
+    if (!errors || errors.length == 0) {
+        Log.error("Invalid settings message with empty errors list received.");
+        return;
+    }
+
+    let nofErrors = 0;
+    let nofWarnings = 0;
+    let message = "";
+    errors.forEach(error => {
+        switch (error.type) {
+            case SettingsErrorType.Error:
+                nofErrors++;
+                Log.error("Settings Error: " + error.msg);
+                break;
+            case SettingsErrorType.Warning:
+                nofWarnings++;
+                Log.log("Settings Warning: " + error.msg);
+                break;
+        }
+        message = error.msg;
+    })
+
+    let errorCounts = (nofErrors > 0 ? (" " + nofErrors + " Error" + (nofErrors > 1 ? "s" : "")) : "") + (nofWarnings > 0 ? (" " + nofWarnings + " Warning" + (nofWarnings > 1 ? "s" : "")) : "");
+
+    if (nofErrors + nofWarnings > 1) message = "see View->Output->Viper";
+
+    vscode.window.showInformationMessage("Viper: Invalid settings:" + errorCounts + ": " + message, userSettingsButton, workspaceSettingsButton).then((choice) => {
         if (!choice) {
 
         } else if (choice.title === workspaceSettingsButton.title) {
@@ -452,7 +478,7 @@ function handleInvalidSettings(data) {
 function registerHandlers() {
 
     state.client.onNotification(Commands.StateChange, (params: StateChangeParams) => handleStateChange(params));
-    state.client.onNotification(Commands.InvalidSettings, (data) => handleInvalidSettings(data));
+    state.client.onNotification(Commands.InvalidSettings, (data: SettingsError[]) => handleInvalidSettings(data));
     state.client.onNotification(Commands.Hint, (data: string) => {
         Log.hint(data);
     });
@@ -685,7 +711,7 @@ function registerHandlers() {
                 }
 
                 if (Helper.getConfiguration("simpleMode") === true) {
-                    if (!fileState.stateVisualizer.decorationOptions.some(option => option.isErrorState)){
+                    if (!fileState.stateVisualizer.decorationOptions.some(option => option.isErrorState)) {
                         Log.hint("Don't debug in simple mode, because there is no error state");
                         return;
                     }

@@ -62,7 +62,7 @@ export class Statement {
         let index = task.steps.length
         let type = Statement.parseStatementType(symbExLog.type);
         let kind = symbExLog.kind;
-        let position = Server.extractPosition(symbExLog.pos).pos;
+        let position = Server.extractPosition(symbExLog.pos).pos || { line: 0, character: 0 };
         let formula = symbExLog.value;
         let statement: Statement;
         if (symbExLog.prestate) {

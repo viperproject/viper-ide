@@ -1,7 +1,7 @@
 'use strict'
 
 import {IConnection, TextDocuments, PublishDiagnosticsParams} from 'vscode-languageserver';
-import {Position, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+import {SettingsError, Position, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Log} from './Log';
@@ -43,8 +43,8 @@ export class Server {
     static sendBackendChangeNotification(name: string) {
         this.connection.sendNotification(Commands.BackendChange, name);
     }
-    static sendInvalidSettingsNotification(reason: string) {
-        this.connection.sendNotification(Commands.InvalidSettings, reason);
+    static sendInvalidSettingsNotification(errors: SettingsError[]) {
+        this.connection.sendNotification(Commands.InvalidSettings, errors);
     }
     static sendDiagnostics(params: PublishDiagnosticsParams) {
         this.connection.sendDiagnostics(params);
@@ -89,11 +89,11 @@ export class Server {
         let before = "";
         let after = "";
         if (!s) return { before: before, pos: null, after: after };
-        let pos: Position = { line: 0, character: 0 };
+        let pos:Position;
         try {
             if (s) {
 
-                let regex = /^(.*?)(\(.*?@(\d+)\.(\d+)\)|(\d+):(\d+)|<no position>):?(.*)$/.exec(s);
+                let regex = /^(.*?)(\(.*?@(\d+)\.(\d+)\)|(\d+):(\d+)|<.*>):?(.*)$/.exec(s);
                 if (regex && regex[3] && regex[4]) {
                     //subtract 1 to confirm with VS Codes 0-based numbering
                     let lineNr = Math.max(0, +regex[3] - 1);
