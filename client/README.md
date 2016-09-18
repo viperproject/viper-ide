@@ -53,20 +53,27 @@ $ cp nailgun-server-0.9.2-SNAPSHOT.jar ~/Library/Java/Extensions
 
 #### 4. Install the Extension
 
-install the viper IVE extension using the command pallete (f1 or ctrl+alt+p/cmd+alt+p) ```ext install viper-ive```
+install the viper IDE extension using the command pallete (f1 or ctrl+alt+p/cmd+alt+p) ```ext install viper advanced```
 
-#### 5. Setup the IDE
+#### 6. Run the IDE
 
-Start VS Code and the folder in which you would like to work on your viper source code files.  
-Open the settings through the menu or using the command pallete (f1 or ctrl+alt+p/cmd+alt+p) ```settings```  
-You can either open the user settings which are valid for this user or you can open the workspace settings which are only valid for the currently open folder.  
+Start VS Code and open the folder in which you would like to work on your viper source code files.  
+As soon as a ```.sil``` or ```.vpr``` source file is opened the extension is activated.
+When the file is saved the verification is triggered.  
 
-Copy the iveSettings from the default settings to your own settings.  
+### 7. Customize the Settings
+
+The extension expects the ViperTools directory to be at:  
+Windows: ```%programfiles%\Viper``` which is   ```C:\Program Files (x86)\Viper```  
+Linux/Max: ```/usr/local/Viper```  
+
+If the ViperTools directory is at another location you need to change the viperSettings.viperToolsPath accordingly.
+
+You can open the settings in VS Code through the menu or using the command pallete (f1 or ctrl+alt+p/cmd+alt+p) ```settings```  
+The user settings are valid for the current user whereas the workspace settings only affect the currently open folder.  
+
+You cannot change the default setting, but have to copy the default viperSettings to your own settings.
+
 You need to specify at least one verificationBackend, (the first one will be used for verification) and point to the Nailgun server.  
 The paths to the jar files can be either set as an Environment Variable or explicitly as paths.
 The nailgun client needs to be in the Path Environment Variable.
-
-#### 5. Run the IDE
-
-Start VS Code and as soon as a ```.sil``` source file is opened the extension is activated.  
-When the file is saved the verification is triggered.

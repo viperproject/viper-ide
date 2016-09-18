@@ -120,15 +120,16 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         }
 
         let state = this.stateVisualizer.decorationOptions[heapGraph.state];
-
         let content = `
-    <h2>file: ${heapGraph.fileName}<br />${heapGraph.methodType}: ${heapGraph.methodName}</h2>
-    <h3${state.isErrorState ? ' class="ErrorState">Errorstate' : ">State"} ${state.numberToDisplay}<br />position: ${heapGraph.position.line + 1}:${heapGraph.position.character + 1}</h3>
+    <h2>${heapGraph.fileName}<br />${heapGraph.methodType}: ${heapGraph.methodName}<br />${state.hoverMessage}</h2>
+    <h3${state.isErrorState ? ' class="ErrorState">Errorstate' : ">State"} ${state.numberToDisplay}</h3>
     ${this.getSvgContent(Log.svgFilePath(index))}
     ${conditions}
     <p>${this.stringToHtml(heapGraph.stateInfos)}</p><br />`;
         return content;
     }
+
+    //position: ${heapGraph.position.line + 1}:${heapGraph.position.character + 1}
 
     //<img src="${Log.svgFilePath(index)}"></img><br />
 

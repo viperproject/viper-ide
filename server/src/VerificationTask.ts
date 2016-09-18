@@ -175,14 +175,14 @@ export class VerificationTask {
 
                     let parent = step.getClientParent();
                     let options: MyProtocolDecorationOptions = {
-                        hoverMessage: step.toToolTip(),
+                        hoverMessage: (step.kind ? step.kind + ": " : "") + StatementType[step.type] + " " + step.formula,
                         range: {
                             start: { line: step.position.line, character: 0 },
                             end: { line: step.position.line, character: 0 }
                         },
                         renderOptions: {
                             before: {
-                                contentText: "(" + (decorationOptions.length + 1) + ")",
+                                contentText: ""/*"(" + (decorationOptions.length + 1) + ")"*/,
                                 color: step.isErrorState ? StateColors.errorState(Settings.settings.darkGraphs) : StateColors.interestingState(Settings.settings.darkGraphs),
                             }
                         },

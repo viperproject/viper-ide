@@ -414,8 +414,8 @@ export class Statement {
     }
 
     public toToolTip(): string {
-        let res = this.firstLine() + "\n"; //StatementType[this.type] + " " + this.formula + "\n";
-        if (this.store.length > 0) {
+        let res = this.firstLine();// + "\n"; //StatementType[this.type] + " " + this.formula + "\n";
+        /*if (this.store.length > 0) {
             res += "Store:\n";
             this.store.forEach(element => {
                 res += "    " + element.name + " = " + element.value + "\n"
@@ -427,7 +427,7 @@ export class Statement {
             this.heap.forEach(element => {
                 res += "    " + element.pretty() + "\n";
             });
-        }
+        }*/
         return res;
     }
 

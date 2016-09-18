@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-from https://github.com/IBM-Bluemix/vscode-log-output-colorizer
+based on https://github.com/IBM-Bluemix/vscode-log-output-colorizer
 
 The MIT License (MIT)
 Copyright (c) 2016 International Business Machines
@@ -69,14 +69,14 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
             <dict>
                 <!-- Error token -->
                 <key>match</key>
-                <string>\b(?i:((Internal\s)?Error\:))(\:|\b|\s)</string>
+                <string>\b(?i:((Internal\s|Settings\s)?Error\:))(\:|\b|\s)</string>
                 <key>name</key>
                 <string>error-token</string>
             </dict>
             <dict>
                 <!-- Info token -->
                 <key>match</key>
-                <string>\b(?i:(hint|info|information))(\:|\b)</string>
+                <string>\b(?i:(hint|info|information|stage))(\:|\b)</string>
                 <key>name</key>
                 <string>info-token</string>
             </dict>
