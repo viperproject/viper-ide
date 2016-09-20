@@ -67,6 +67,10 @@
             {
                 "command": "extension.startDebugging",
                 "title": "Viper: debug the open document"
+            },
+            {
+                "command": "extension.toggleAutoVerify",
+                "title": "Viper: toggle the automatic verification of viper files"
             }
         ],
         "grammars": [{
@@ -179,7 +183,7 @@
                                 "name": "verify",
                                 "isVerification": true,
                                 "mainMethod": "viper.silicon.SiliconRunner",
-                                "customArguments": "--nailgun-port $nailgunPort$ $mainMethod$ --ideMode --z3Exe $z3Exe$ $fileToVerify$",
+                                "customArguments": "--nailgun-port $nailgunPort$ $mainMethod$ --ideMode --ideModeAdvanced --z3Exe $z3Exe$ $fileToVerify$",
                                 "onParsingError": "",
                                 "onTypeCheckingError": "",
                                 "onVerificationError": "",
@@ -198,7 +202,7 @@
                                     "name": "verify",
                                     "isVerification": true,
                                     "mainMethod": "viper.silicon.SiliconRunner",
-                                    "customArguments": "--nailgun-port $nailgunPort$ $mainMethod$ --ideMode --z3Exe $z3Exe$ $fileToVerify$",
+                                    "customArguments": "--nailgun-port $nailgunPort$ $mainMethod$ --ideMode --ideModeAdvanced --z3Exe $z3Exe$ $fileToVerify$",
                                     "onParsingError": "",
                                     "onTypeCheckingError": "",
                                     "onVerificationError": "infer",

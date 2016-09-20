@@ -68,6 +68,7 @@ export class StateVisualizer {
         this.nextHeapIndex = 0;
         this.provider.resetState();
         this.currentState = -1;
+        this.previousState = -1;
     }
 
     public completeReset() {
@@ -131,16 +132,42 @@ export class StateVisualizer {
             return;
         }
 
+        this.provider.setState(heapGraph, index);
         this.generateSvg(Log.dotFilePath(index), Log.svgFilePath(index), () => {
-            this.provider.setState(heapGraph, index);
             this.showHeapGraph();
         })
-        this.nextHeapIndex = 1 - index;
+    }
+
+    public pushState(heapGraph: HeapGraph) {
+        //update heap preview
+        let currHeapIndex = this.nextHeapIndex
+        this.nextHeapIndex = 1 - this.nextHeapIndex;
+        this.createAndShowHeap(heapGraph, currHeapIndex);
+        //highligh states
+        this.previousState = this.currentState;
+        this.currentState = heapGraph.state;
+        this.markStateSelection(heapGraph.methodName, heapGraph.position);
+    }
+
+    public setState(heapGraph: HeapGraph, heapIndex: number) {
+        this.createAndShowHeap(heapGraph, 1);
+        let currentHeap = this.provider.getCurrentHeap();
+        this.previousState = this.provider.getPreviousHeap().state;
+        this.markStateSelection(currentHeap.methodName, currentHeap.position);
+    }
+
+    public focusOnState(heapGraph: HeapGraph) {
+        this.reset();
+        this.nextHeapIndex = 1;
+        this.createAndShowHeap(heapGraph, 0);
+        this.currentState = heapGraph.state;
+        this.markStateSelection(heapGraph.methodName, heapGraph.position);
     }
 
     public generateSvg(dotFilePath: string, svgFilePath: string, callback) {
         try {
             ExtensionState.instance.client.sendRequest(Commands.GetDotExecutable, null).then((dotExecutable: string) => {
+                //the path should have already been checked by the server, but check again to be sure
                 if (!dotExecutable || !fs.existsSync(dotExecutable)) {
                     Log.hint("Fix the path to the dotExecutable, no file found at: " + dotExecutable);
                     return;
@@ -149,7 +176,9 @@ export class StateVisualizer {
                     Log.error("Cannot generate svg, dot file not found at: " + dotFilePath);
                 }
                 //convert dot to svg
-                this.graphvizProcess = child_process.exec(`"${dotExecutable}" -Tsvg "${dotFilePath}" -o "${svgFilePath}"`);
+                let command = `"${dotExecutable}" -Tsvg "${dotFilePath}" -o "${svgFilePath}"`;
+                Log.log("Dot Command: " + command, LogLevel.Debug);
+                this.graphvizProcess = child_process.exec(command);
                 this.graphvizProcess.on('exit', code => {
                     //show svg
                     if (code != 0) {
@@ -239,13 +268,11 @@ export class StateVisualizer {
         }
     }
 
-    markStateSelection(debuggedMethodName: string, selectedState: number, pos: Position) {
+    markStateSelection(debuggedMethodName: string, pos: Position) {
         if (StateVisualizer.showStates && this.decorationOptions) {
             //state should be visualized
-            if (selectedState >= 0 && selectedState < this.decorationOptions.length) {
-                let selectedOption = this.decorationOptions[selectedState];
-                //its in range
-                this.currentState = selectedState;
+            if (this.currentState >= 0 && this.currentState < this.decorationOptions.length) {
+                let selectedOption = this.decorationOptions[this.currentState];
                 //this.selectedPosition = this.decorationOptionsOrderedByState[selectedState].range.start;
                 this.currentDepth = selectedOption.depth;
                 let currentMethodIdx = selectedOption.methodIndex;
@@ -268,7 +295,7 @@ export class StateVisualizer {
                         this.color(option, StateColors.errorState(darkGraphs), darkGraphs);
                         errorStateFound = true;
                     }
-                    if (option.index == selectedState) {
+                    if (option.index == this.currentState) {
                         //if it's the current step -> red
                         this.color(option, StateColors.currentState(darkGraphs), darkGraphs);
                         continue;
@@ -288,7 +315,7 @@ export class StateVisualizer {
                 if (StateVisualizer.showStates) {
                     //mark execution trace that led to the current state
                     Log.log("Request Execution Trace", LogLevel.Info);
-                    ExtensionState.instance.client.sendRequest(Commands.GetExecutionTrace, { uri: this.uri.toString(), clientState: selectedState }).then((trace: number[]) => {
+                    ExtensionState.instance.client.sendRequest(Commands.GetExecutionTrace, { uri: this.uri.toString(), clientState: this.currentState }).then((trace: number[]) => {
                         Log.log("Mark Execution Trace", LogLevel.Debug);
                         trace.forEach(element => {
                             let option = this.decorationOptions[element];
@@ -298,7 +325,6 @@ export class StateVisualizer {
                         this.showDecorations();
                     })
                 }
-                this.previousState = selectedState;
             }
         }
     }
@@ -326,7 +352,12 @@ export class StateVisualizer {
                     //Simple Mode
                     if (decoration.renderOptions.before.contentText && decoration.renderOptions.before.contentText.length > 0) {
                         //the selected element is visible and thus, lies on the execution path to the current state
-                        this.requestState(selectedState);
+                        if (this.previousState == selectedState || this.currentState == selectedState) {
+                            //the shown state has been selected twice, focus on current state
+                            this.focusOnState(this.provider.getCurrentHeap());
+                        } else {
+                            this.requestState(selectedState);
+                        }
                     }
                 } else {
                     //Advanced Mode
@@ -334,13 +365,8 @@ export class StateVisualizer {
                         this.currentState = selectedState
                         this.requestState(this.currentState);
                     } else {
-                        //hide previous state if the same state is selected twice
-                        Log.log("Hide previous state", LogLevel.Debug);
-                        this.previousState = -1;
-                        this.provider.discardState(this.nextHeapIndex);
-                        this.nextHeapIndex = 1;
-                        this.showHeapGraph()
-                        //Log.log("State already selected", LogLevel.Debug);
+                        //focus on current state if it is selected twice in a row
+                        this.focusOnState(this.provider.getCurrentHeap());
                     }
                 }
             }
