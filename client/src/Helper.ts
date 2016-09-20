@@ -21,7 +21,7 @@ export class Helper {
         if (doc) {
             //just show it if its open already
             vscode.window.showTextDocument(doc, column, true).then(msg => {
-                Log.log("file shown (already open): " + path.basename(msg.document.uri.toString()),LogLevel.Debug)
+                Log.log("file shown (already open): " + path.basename(msg.document.uri.toString()), LogLevel.Debug)
             });
         } else {
             if (!resource) {

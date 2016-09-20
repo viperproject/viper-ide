@@ -230,6 +230,10 @@ function registerHandlers() {
             Log.error("Error showing heap: " + e);
         }
     });
+
+    Server.connection.onRequest(Commands.GetDotExecutable, params => {
+        return Settings.settings.dotExecutable;
+    });
 }
 
 function resetDiagnostics(uri: string) {

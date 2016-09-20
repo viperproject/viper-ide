@@ -47,6 +47,8 @@ export class Commands {
     static StartBackend = { method: "StartBackend" };
     //Request a list of all states that led to the current state
     static GetExecutionTrace = { method: "GetExecutionTrace" };
+    //Request the path to the dot executable from the language server
+    static GetDotExecutable = { method: "GetDotExecutable" };
 }
 
 //Communication between Language Client and Language Server:

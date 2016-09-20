@@ -746,7 +746,7 @@ export class VerificationTask {
         this.verifierProcess.on('exit', (code, signal) => {
             Log.log(`Child process exited with code ${code} and signal ${signal}`, LogLevel.Debug);
         })
-        this.verifierProcess.kill('SIGINT');
+        this.verifierProcess.kill('SIGINT'); //TODO: not working on mac, linux?
         let l = this.verifierProcess.listeners;
         this.verifierProcess = null;
         this.running = false;

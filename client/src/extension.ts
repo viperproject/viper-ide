@@ -410,13 +410,6 @@ function handleStateChange(params: StateChangeParams) {
 }
 
 function handleInvalidSettings(errors: SettingsError[]) {
-    Log.log("Invalid Settings detected", LogLevel.Default);
-    statusBarItem.color = 'red';
-    statusBarItem.text = "Invalid Settings";
-
-    let userSettingsButton: vscode.MessageItem = { title: "Open User Settings" };
-    let workspaceSettingsButton: vscode.MessageItem = { title: "Open Workspace Settings" };
-
     if (!errors || errors.length == 0) {
         Log.error("Invalid settings message with empty errors list received.");
         return;
@@ -439,11 +432,22 @@ function handleInvalidSettings(errors: SettingsError[]) {
         message = error.msg;
     })
 
-    let errorCounts = (nofErrors > 0 ? (" " + nofErrors + " Error" + (nofErrors > 1 ? "s" : "")) : "") + (nofWarnings > 0 ? (" " + nofWarnings + " Warning" + (nofWarnings > 1 ? "s" : "")) : "");
+    let errorCounts = ((nofErrors > 0 ? ("" + nofErrors + " Error" + (nofErrors > 1 ? "s" : "")) : "") + (nofWarnings > 0 ? (" " + nofWarnings + " Warning" + (nofWarnings > 1 ? "s" : "")) : "")).trim();
+
+    //update status bar
+    Log.log(errorCounts + " in settings detected.", LogLevel.Default);
+    statusBarItem.text = errorCounts + " in settings";
+    if (nofErrors > 0) {
+        statusBarItem.color = 'red';
+    } else if (nofWarnings > 0) {
+        statusBarItem.color = 'orange';
+    }
 
     if (nofErrors + nofWarnings > 1) message = "see View->Output->Viper";
 
-    vscode.window.showInformationMessage("Viper: Invalid settings:" + errorCounts + ": " + message, userSettingsButton, workspaceSettingsButton).then((choice) => {
+    let userSettingsButton: vscode.MessageItem = { title: "Open User Settings" };
+    let workspaceSettingsButton: vscode.MessageItem = { title: "Open Workspace Settings" };
+    vscode.window.showInformationMessage("Viper Settings: " + errorCounts + ": " + message, userSettingsButton, workspaceSettingsButton).then((choice) => {
         if (!choice) {
 
         } else if (choice.title === workspaceSettingsButton.title) {

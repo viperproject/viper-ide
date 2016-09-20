@@ -135,35 +135,35 @@ export class StateVisualizer {
             this.provider.setState(heapGraph, index);
             this.showHeapGraph();
         })
-        this.nextHeapIndex = 1-index;
+        this.nextHeapIndex = 1 - index;
     }
 
     public generateSvg(dotFilePath: string, svgFilePath: string, callback) {
         try {
-            let dotExecutable: string = <string>Helper.getConfiguration("dotExecutable");
-            if (!dotExecutable || !fs.existsSync(dotExecutable)) {
-                Log.hint("Fix the path to the dotExecutable, no file found at: " + dotExecutable);
-                return;
-            }
-
-            if (!fs.existsSync(dotFilePath)) {
-                Log.error("Cannot generate svg, dot file not found at: " + dotFilePath);
-            }
-            //convert dot to svg
-            this.graphvizProcess = child_process.exec(`${dotExecutable} -Tsvg "${dotFilePath}" -o "${svgFilePath}"`);
-            this.graphvizProcess.on('exit', code => {
-                //show svg
-                if (code != 0) {
-                    Log.error("Could not convert dot to svg, exit code: " + code, LogLevel.Debug);
+            ExtensionState.instance.client.sendRequest(Commands.GetDotExecutable, null).then((dotExecutable: string) => {
+                if (!dotExecutable || !fs.existsSync(dotExecutable)) {
+                    Log.hint("Fix the path to the dotExecutable, no file found at: " + dotExecutable);
+                    return;
                 }
-                Log.log(`${path.basename(dotFilePath)} converted to ${path.basename(svgFilePath)}`, LogLevel.Debug);
-                callback();
-            });
-            this.graphvizProcess.stdout.on('data', data => {
-                Log.log("[Graphviz] " + data, LogLevel.Debug);
-            });
-            this.graphvizProcess.stderr.on('data', data => {
-                Log.log("[Graphviz stderr] " + data, LogLevel.Debug);
+                if (!fs.existsSync(dotFilePath)) {
+                    Log.error("Cannot generate svg, dot file not found at: " + dotFilePath);
+                }
+                //convert dot to svg
+                this.graphvizProcess = child_process.exec(`"${dotExecutable}" -Tsvg "${dotFilePath}" -o "${svgFilePath}"`);
+                this.graphvizProcess.on('exit', code => {
+                    //show svg
+                    if (code != 0) {
+                        Log.error("Could not convert dot to svg, exit code: " + code, LogLevel.Debug);
+                    }
+                    Log.log(`${path.basename(dotFilePath)} converted to ${path.basename(svgFilePath)}`, LogLevel.Debug);
+                    callback();
+                });
+                this.graphvizProcess.stdout.on('data', data => {
+                    Log.log("[Graphviz] " + data, LogLevel.Debug);
+                });
+                this.graphvizProcess.stderr.on('data', data => {
+                    Log.log("[Graphviz stderr] " + data, LogLevel.Debug);
+                });
             });
         } catch (e) {
             Log.error("Error generating svg for: " + dotFilePath + ": " + e);

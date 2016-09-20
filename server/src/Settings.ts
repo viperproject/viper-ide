@@ -145,7 +145,7 @@ export class Settings {
     }
 
     public static valid(): boolean {
-        if (!this._valid)
+        if (this._errors.length > 0)
             Server.sendInvalidSettingsNotification(this._errors);
         return this._valid;
     }
@@ -237,15 +237,16 @@ export class Settings {
             }
             //check z3 executable
             Log.log("Checking other settings...", LogLevel.Debug);
-            if (!settings.z3Executable || settings.z3Executable.length == 0) {
-                this.addError("Path to z3 executable is missing");
-            } else {
-                settings.z3Executable = this.checkPath(settings.z3Executable, "z3 Executable:", true).path;
-            }
+            settings.z3Executable = this.checkPath(settings.z3Executable, "z3 Executable:", true).path;
             //check boogie executable
             if (settings.boogieExecutable && settings.z3Executable.length > 0) {
                 settings.boogieExecutable = this.checkPath(settings.boogieExecutable, `Boogie Executable: (If you don't need boogie, set it to "")`, true).path;
             }
+            //check dot executable
+            if (Settings.settings.advancedFeatures) {
+                settings.dotExecutable = this.checkPath(settings.dotExecutable, "dot executable:", true).path;
+            }
+            //checks done
             this._valid = !this._errors.some(error => error.type == SettingsErrorType.Error); //if there is no error -> valid
             if (this._valid) {
                 Log.log("The settings are ok", LogLevel.Info);
@@ -262,7 +263,7 @@ export class Settings {
         }
         let resolvedPath = Settings.resolvePath(path, executable);
         if (!resolvedPath.exists) {
-            this.addError(prefix + ' path not found: "' + path + '"' + (resolvedPath.path != path ? ' which expands to "' + resolvedPath.path + '"' : "") + (" " + resolvedPath.error || ""));
+            this.addError(prefix + ' path not found: "' + path + '"' + (resolvedPath.path != path ? ' which expands to "' + resolvedPath.path + '"' : "") + (" " + (resolvedPath.error || "")));
         }
         return resolvedPath;
     }
@@ -315,9 +316,22 @@ export class Settings {
                         //check customArguments
                         if (!stage.customArguments) {
                             this.addError(backendAndStage + " Missing customArguments, try the default arguments");
+                            continue;
                         }
                         if (!backend.useNailgun && stage.customArguments.indexOf("nailgun") >= 0) {
                             this.addWarning(backendAndStage + " customArguments should not contain nailgun arguments if useNailgun is false");
+                        }
+                        //check customArguments for compliance with advancedFeatures
+                        let hasIdeModeAdvanced = stage.customArguments.indexOf("--ideModeAdvanced") >= 0;
+                        let hasIdeMode = stage.customArguments.indexOf("--ideMode ") >= 0;
+                        if (hasIdeModeAdvanced && !hasIdeMode) {
+                            this.addError(backendAndStage + " the --ideModeAdvanced depends on --ideMode, for the Advanced Mode you need to specify both.");
+                        }
+                        if (Settings.settings.advancedFeatures && hasIdeMode && !hasIdeModeAdvanced) {
+                            this.addWarning(backendAndStage + " the advanced features only work when --ideModeAdvanced is specified.");
+                        }
+                        if (!Settings.settings.advancedFeatures && hasIdeModeAdvanced) {
+                            this.addWarning(backendAndStage + " when the advanced features are disabled, you can speed up the verification by removing the --ideModeAdvanced flag from the customArguments.");
                         }
                         //TODO: check mainMethods:
                     }
