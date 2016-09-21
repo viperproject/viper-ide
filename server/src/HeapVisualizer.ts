@@ -21,22 +21,38 @@ export class HeapVisualizer {
         return cluster;
     }
 
+    private static createEmptyGraph(): any {
+        let emptyGraph = graphviz.digraph("G");
+        emptyGraph.setNodeAttribut("shape", "record");
+        emptyGraph.set("rankdir", "LR");
+        this.setGraphColors(emptyGraph, this.getBgColor(), this.getForegroundColor());
+        return emptyGraph;
+    }
+
+    private static getBgColor(): string {
+        if (Settings.settings.darkGraphs) {
+            return "#272822";
+        } else {
+            return "white";
+        }
+    }
+    private static getForegroundColor(): string {
+        if (Settings.settings.darkGraphs) {
+            return "white";
+        } else {
+            return "black";
+        }
+    }
+
+    // //TODO: show execution Tree Around State
+    // public static executionTreeAroundStateToDot(state: Statement) {
+    //     let graph = this.createEmptyGraph();
+    // }
+
     public static heapToDot(state: Statement, showSymbolicValues: boolean, showConcreteValues: boolean, model: Model): string {
         let count = 0;
         try {
-            let g = graphviz.digraph("G");
-            g.setNodeAttribut("shape", "record");
-            g.set("rankdir", "LR");
-
-            //light theme
-            let bgColor = "white";
-            let color = "black";
-            if (Settings.settings.darkGraphs) {
-                //dark theme
-                bgColor = "#272822";
-                color = "white";
-            }
-            this.setGraphColors(g, bgColor, color);
+            let g = this.createEmptyGraph();
 
             let store = this.addCluster(g, "Store", "dotted");
             let heap = this.addCluster(g, "Heap", "dotted");
@@ -75,8 +91,8 @@ export class HeapVisualizer {
             let vars: Map<string, any> = new Map<string, any>();
             if (state.store.length == 0) {
                 let dummyNode = store.addNode("store_dummy");
-                dummyNode.set("color", bgColor);
-                dummyNode.set("fontcolor", bgColor);
+                dummyNode.set("color", this.getBgColor());
+                dummyNode.set("fontcolor", this.getBgColor());
             } else {
                 state.store.forEach(variable => {
                     //add variable node
@@ -92,7 +108,8 @@ export class HeapVisualizer {
             }
 
             //add pointers inside heap
-            //also build Predicate nodes
+            //build Predicate nodes
+            //build FunctionApplication nodes
             state.heap.forEach(heapChunk => {
                 if (heapChunk.parsed && heapChunk.name.type == NameType.FieldReferenceName && heapChunk.value.type == ValueType.ObjectReferenceOrScalarValue) {
                     //add the adge only if the value is known to exist
@@ -101,12 +118,13 @@ export class HeapVisualizer {
                         edge.set("label", heapChunk.name.field);
                     }
                 }
-                else if (heapChunk.name.type == NameType.PredicateName) {
+                else if (heapChunk.name.type == NameType.PredicateName || heapChunk.name.type == NameType.FunctionApplicationName) {
                     heapEmpty = false;
                     //add predicate subgraph
                     let predicateCluster = heap.addCluster("cluster_" + heapChunk.name.receiver + "_" + (++count));
                     predicateCluster.set("style", "bold");
-                    predicateCluster.set("label", "Predicate " + heapChunk.name.receiver)
+                    let label = heapChunk.name.type == NameType.PredicateName ? "Predicate" : "Function call";
+                    predicateCluster.set("label", label + " " + heapChunk.name.receiver)
                     //add parameters into predicate cluster
                     for (let i = 0; i < heapChunk.name.arguments.length; i++) {
                         let parameter = heapChunk.name.arguments[i];
@@ -116,12 +134,11 @@ export class HeapVisualizer {
                             negated = "not";
                             parameter = parameter.substring(1, parameter.length);
                         }
+                        let argumentNode = predicateCluster.addNode(`predicate_${count}_arg${i}`);
                         if (parameter === FALSE || parameter === TRUE || /^\d+(\.\d+)$/.test(parameter)) {
                             //if its a scalar value, add it directly into the Predicate
-                            let argumentNode = predicateCluster.addNode(`predicate_${count}_arg${i} = ${negated ? "!" : ""}${parameter}`);
                             argumentNode.set("label", `arg${i} = ${negated ? "!" : ""}${parameter}`)
                         } else {
-                            let argumentNode = predicateCluster.addNode(`predicate_${count}_arg ${i}`);
                             argumentNode.set("label", `arg ${i}`)
                             if (heapChunkFields.has(parameter)) {
                                 this.addPredicateEdge(heap, parameter, argumentNode, negated);
@@ -141,14 +158,27 @@ export class HeapVisualizer {
                             }
                         }
                     }
+                    //add edge from Function Application to result
+                    if (heapChunk.name.type == NameType.FunctionApplicationName && heapChunk.value.type == ValueType.ObjectReferenceOrScalarValue) {
+                        let resultNode = predicateCluster.addNode(`predicate_${count}_result`)
+                        resultNode.set("label", "Result");
+                        if (!heapChunkFields.has(heapChunk.value.raw)) {
+                            let resultValueNode = heap.addNode(heapChunk.value.raw);
+                            resultValueNode.set("label", "<name>|");
+                        }
+                        let resultEdge = heap.addEdge(resultNode, heapChunk.value.raw);
+                        if (heapChunk.name.field) {
+                            resultEdge.set("label", heapChunk.name.field);
+                        }
+                    }
                 }
             })
 
             //make the empty heap is shown
             if (heapEmpty) {
                 let dummyNode = heap.addNode("heap_dummy");
-                dummyNode.set("color", bgColor);
-                dummyNode.set("fontcolor", bgColor);
+                dummyNode.set("color", this.getBgColor());
+                dummyNode.set("fontcolor", this.getBgColor());
             }
 
             return g.to_dot();

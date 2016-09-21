@@ -166,7 +166,10 @@ function registerHandlers() {
         }
     });
 
+
+
     Server.connection.onRequest(Commands.GetExecutionTrace, (params: { uri: string, clientState: number }) => {
+        Log.log("Generate execution trace for client state " + params.clientState, LogLevel.Debug);
         return new Promise((resolve, reject) => {
             let result: number[] = [];
             try {
@@ -186,6 +189,7 @@ function registerHandlers() {
                     } else {
                         serverState = task.steps[serverState.index - 1];
                     }
+                    task.shownExecutionTrace = result;
                     resolve(result);
                 }
             } catch (e) {
@@ -204,7 +208,7 @@ function registerHandlers() {
                 verificationCompleted: false,
                 verificationNeeded: false,
                 uri: uri
-            });
+            }, task);
         } catch (e) {
             Log.error("Error handling stop verification request: " + e);
         }

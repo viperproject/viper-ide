@@ -53,6 +53,8 @@ export class VerificationTask {
 
     progress: Progress;
 
+    shownExecutionTrace: number[];
+
     constructor(fileUri: string, nailgunService: NailgunService) {
         this.fileUri = fileUri;
         this.nailgunService = nailgunService;
@@ -273,7 +275,7 @@ export class VerificationTask {
 
         Log.log(Server.backend.name + ' verification started', LogLevel.Info);
 
-        Server.sendStateChangeNotification({ newState: VerificationState.VerificationRunning });
+        Server.sendStateChangeNotification({ newState: VerificationState.VerificationRunning }, this);
 
         VerificationTask.uriToPath(this.fileUri).then((path) => {
             //Request the debugger to terminate it's session
@@ -309,7 +311,7 @@ export class VerificationTask {
                         verificationCompleted: false,
                         verificationNeeded: false,
                         uri: this.fileUri
-                    });
+                    }, this);
                 }
             }, this.nailgunService.activeBackend.timeout);
         }
@@ -345,7 +347,7 @@ export class VerificationTask {
                     let newStageExecutions = Server.executedStages.filter(stage => stage.name === newStage.name).length;
                     if (newStageExecutions <= 0 ||
                         (newStage.isVerification && !lastStage.isVerification && newStageExecutions <= 1)) {
-                        Server.sendStateChangeNotification({ newState: VerificationState.Stage, stage: newStage.name, filename: this.filename })
+                        Server.sendStateChangeNotification({ newState: VerificationState.Stage, stage: newStage.name, filename: this.filename }, this)
                         if (newStage.isVerification) {
                             Log.log("Restart verifiacation after stage " + lastStage.name, LogLevel.Info)
                             this.verify(this.manuallyTriggered);
@@ -375,7 +377,7 @@ export class VerificationTask {
                 Server.sendStateChangeNotification({
                     newState: VerificationState.PostProcessing,
                     filename: this.filename,
-                });
+                }, this);
 
                 //load the Execution trace from the SymbExLogFile
                 this.loadSymbExLogFromFile();
@@ -404,7 +406,7 @@ export class VerificationTask {
                     verificationCompleted: true,
                     uri: this.fileUri,
                     error: this.internalErrorMessage
-                });
+                }, this);
             } else {
                 success = Success.Success;
                 Server.sendStateChangeNotification({
@@ -417,7 +419,7 @@ export class VerificationTask {
                     verificationCompleted: false,
                     uri: this.fileUri,
                     error: this.internalErrorMessage
-                });
+                }, this);
             }
 
             //is there the need to restart nailgun?
@@ -548,7 +550,7 @@ export class VerificationTask {
                                         newState: VerificationState.VerificationRunning,
                                         progress: 0,
                                         filename: this.filename
-                                    });
+                                    }, this);
                                     break;
                                 case BackendOutputType.FunctionVerified: case BackendOutputType.MethodVerified: case BackendOutputType.PredicateVerified:
                                     this.progress.updateProgress(json);
@@ -558,7 +560,7 @@ export class VerificationTask {
                                         newState: VerificationState.VerificationRunning,
                                         progress: progressInPercent,
                                         filename: this.filename
-                                    });
+                                    }, this);
                                     break;
                                 case BackendOutputType.Error:
                                     json.errors.forEach(err => {

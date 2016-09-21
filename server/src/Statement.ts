@@ -17,7 +17,7 @@ interface SplitResult { prefix: string; rest: string; }
 
 export enum PermissionType { UnknownPermission, ScalarPermission }
 export enum ValueType { UnknownValue, NoValue, ObjectReferenceOrScalarValue }
-export enum NameType { UnknownName, QuantifiedName, FunctionApplicationName, PredicateName, FieldReferenceName }
+export enum NameType { UnknownName, QuantifiedName, FunctionApplicationName, PredicateName, FieldReferenceName, MagicWand }
 export enum ConditionType { UnknownCondition, EqualityCondition, NullityCondition, WildCardCondition, QuantifiedCondition }
 
 export class Statement {
@@ -62,7 +62,7 @@ export class Statement {
         let index = task.steps.length
         let type = Statement.parseStatementType(symbExLog.type);
         let kind = symbExLog.kind;
-        let position = Server.extractPosition(symbExLog.pos).pos || { line: 0, character: 0 };
+        let position = symbExLog.pos ? Server.extractPosition(symbExLog.pos).pos || { line: 0, character: 0 } : null;
         let formula = symbExLog.value;
         let statement: Statement;
         if (symbExLog.prestate) {
@@ -264,7 +264,7 @@ export class Statement {
     }
 
     private static parseHeap(parts: string[]): HeapChunk[] {
-        if (!parts) return [];
+        if (!parts || parts.length == 0) return [];
         let res = [];
         try {
             parts.forEach((part) => {
@@ -273,9 +273,11 @@ export class Statement {
                 if (arrowPosition > 0) {
                     var name: string = part.substring(0, arrowPosition - 1).trim();
                     var value: string = part.substring(arrowPosition + 3, hashTagPosition - 1).trim();
-                } else {
+                } else if (hashTagPosition > 0) {
                     name = part.substring(0, hashTagPosition - 1).trim();
                     value = null;
+                } else {
+                    name = part;
                 }
                 let permission = part.substring(hashTagPosition + 2, part.length);
                 res.push(new HeapChunk(name, value, permission));
@@ -464,18 +466,29 @@ export class HeapChunk {
             this.parsed = false;
             this.name.type = NameType.QuantifiedName;
         }
-        else if (name.indexOf("[") > 0) {
-            //TODO: handle function application
+        else if (name.startsWith("wand@")) {
+            //TODO: handle magic wands
             this.parsed = false;
+            this.name.type = NameType.MagicWand;
+        }
+        else if (name.indexOf("[") > 0) {
             this.name.type = NameType.FunctionApplicationName;
+            this.name.receiver = name.substring(0, name.indexOf("["));
+            let endOfTypeDeclaration = name.indexOf("]");
+            this.name.arguments = name.substring(name.indexOf("(", endOfTypeDeclaration) + 1, name.lastIndexOf(")")).split(/,/);
+            if (name.lastIndexOf(").") >= 0) {
+                this.name.field = name.substring(name.lastIndexOf(").") + 2, name.length).trim();
+            }
+            for (var i = 0; i < this.name.arguments.length; i++) {
+                this.name.arguments[i] = this.name.arguments[i].trim();
+            }
         }
         else if (/^\w+\(.*\)$/.test(name)) {
             this.name.type = NameType.PredicateName;
             this.name.receiver = name.substring(0, name.indexOf("("));
             this.name.arguments = name.substring(name.indexOf(";") + 1, name.length - 1).split(/,/);
             for (var i = 0; i < this.name.arguments.length; i++) {
-                var element = this.name.arguments[i];
-                this.name.arguments[i] = element.trim();
+                this.name.arguments[i] = this.name.arguments[i].trim();
             }
         }
         else {

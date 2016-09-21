@@ -4,11 +4,14 @@ import {Server} from './ServerClass';
 import {Log} from './Log';
 import {LaunchRequestArguments, StatementType, Position, StepType, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
 import {VerificationTask} from './VerificationTask';
+import {Settings} from './Settings';
 let ipc = require('node-ipc');
 
 export class DebugServer {
 
     public static debuggerRunning = false;
+
+    private static debugClientConnected = false;
 
     public static initialize() {
         this.startIPCServer();
@@ -32,26 +35,41 @@ export class DebugServer {
                 });
             }
         });
+    }
 
+    static connectToDebuggerAsClient(): Thenable<boolean> {
         //connect to Debugger as client to be able to send messages
-        ipc.connectTo(
-            'viperDebugger', () => {
-                ipc.of.viperDebugger.on(
-                    'connect', () => {
-                        Log.log("Language Server connected to Debugger, as client", LogLevel.Debug);
-                    }
-                );
-                ipc.of.viperDebugger.on(
-                    'disconnect', () => {
-                        ipc.disconnect()
-                        if (DebugServer.debuggerRunning) {
-                            Log.log('LanguageServer disconnected from Debugger', LogLevel.Debug);
-                            DebugServer.debuggerRunning = false;
-                            Server.sendStopDebuggingNotification();
-                        }
-                    }
-                );
-            });
+        return new Promise((resolve, reject) => {
+            try {
+                if (!this.debugClientConnected) {
+                    this.debugClientConnected = true;
+                    ipc.connectTo(
+                        'viperDebugger', () => {
+                            ipc.of.viperDebugger.on(
+                                'connect', () => {
+                                    Log.log("Language Server connected to Debugger, as client", LogLevel.Debug);
+                                    resolve(true);
+                                }
+                            );
+                            ipc.of.viperDebugger.on(
+                                'disconnect', () => {
+                                    this.debugClientConnected = false;
+                                    ipc.disconnect('viperDebugger');
+                                    if (DebugServer.debuggerRunning) {
+                                        Log.log('LanguageServer disconnected from Debugger', LogLevel.Debug);
+                                        DebugServer.debuggerRunning = false;
+                                        Server.sendStopDebuggingNotification();
+                                    }
+                                }
+                            );
+                        });
+                } else {
+                    resolve(true);
+                }
+            } catch (e) {
+                Log.error("Error connecting toDebuggerAsClient: " + e);
+            }
+        });
     }
 
     //communication with debugger
@@ -76,8 +94,8 @@ export class DebugServer {
                             VerificationTask.pathToUri(data.program).then((uri) => {
                                 Server.debuggedVerificationTask = Server.verificationTasks.get(uri);
                                 let response = "true";
-                                if (!Server.debuggedVerificationTask) {
-                                    //TODO: use better criterion to detect a missing verification
+                                //TODO: is this a good criterion?
+                                if (!Server.debuggedVerificationTask || Server.debuggedVerificationTask.state != VerificationState.Ready) {
                                     Log.hint("Cannot debug file, you must first verify the file: " + uri);
                                     response = "false";
                                 }
@@ -100,39 +118,67 @@ export class DebugServer {
                             let data = JSON.parse(dataString);
                             let newServerState: number = -1;
 
+                            let task = Server.debuggedVerificationTask;
                             //translate from client state to server state
-                            let currentServerState = Server.debuggedVerificationTask.clientStepIndexToServerStep[data.state].index;
+                            let currentServerState = task.clientStepIndexToServerStep[data.state].index;
 
-                            let steps = Server.debuggedVerificationTask.steps;
+                            let steps = task.steps;
                             let currentDepth = steps[currentServerState].depthLevel();
-                            switch (data.type) {
-                                case StepType.Stay:
-                                    newServerState = currentServerState;
-                                    break;
-                                case StepType.In:
-                                    newServerState = currentServerState + 1;
-                                    while (newServerState < steps.length && !steps[newServerState].canBeShownAsDecoration) {
-                                        newServerState++;
-                                    }
-                                    break;
-                                case StepType.Back:
-                                    newServerState = currentServerState - 1;
-                                    while (newServerState >= 0 && !steps[newServerState].canBeShownAsDecoration) {
-                                        newServerState--;
-                                    }
-                                    break;
-                                case StepType.Continue:
-                                    //go to next error state
-                                    for (let i = currentServerState + 1; i < steps.length; i++) {
-                                        let step = steps[i];
-                                        if (step.isErrorState && step.canBeShownAsDecoration) {
-                                            //the step is on the same level or less deap
-                                            newServerState = i;
+
+                            if (Settings.settings.simpleMode && task.shownExecutionTrace) {
+                                //SIMPLE MODE
+                                let indexIntoExecutionTrace = 0;
+                                while (indexIntoExecutionTrace < task.shownExecutionTrace.length && task.shownExecutionTrace[indexIntoExecutionTrace] != data.state) {
+                                    indexIntoExecutionTrace++;
+                                }
+                                if (indexIntoExecutionTrace >= task.shownExecutionTrace.length) {
+                                    Log.error("the shown state must be in the execution trace in simple mode");
+                                } else {
+                                    let newExecutionTraceIndex = indexIntoExecutionTrace;
+                                    switch (data.type) {
+                                        case StepType.Stay:
+                                            //stay at the same executionTrace element
                                             break;
-                                        }
+                                        case StepType.In: case StepType.Next:
+                                            //walk to next execution trace item if there is a next one, otherwise stay
+                                            if (indexIntoExecutionTrace - 1 >= 0) {
+                                                newExecutionTraceIndex = indexIntoExecutionTrace - 1;
+                                            }
+                                            break;
+                                        case StepType.Back: case StepType.Out:
+                                            //walk to previous execution trace item if there is a next one, otherwise stay
+                                            if (indexIntoExecutionTrace + 1 < task.shownExecutionTrace.length) {
+                                                newExecutionTraceIndex = indexIntoExecutionTrace + 1;
+                                            }
+                                            break;
+                                        case StepType.Continue:
+                                            //goto last exectution trace state (error state)
+                                            newExecutionTraceIndex = 0;
+                                            break;
                                     }
-                                    if (newServerState < 0) {
-                                        for (let i = 0; i <= currentServerState; i++) {
+                                    newServerState = task.clientStepIndexToServerStep[task.shownExecutionTrace[newExecutionTraceIndex]].index;
+                                }
+                            } else {
+                                //ADVANCED MODE
+                                switch (data.type) {
+                                    case StepType.Stay:
+                                        newServerState = currentServerState;
+                                        break;
+                                    case StepType.In:
+                                        newServerState = currentServerState + 1;
+                                        while (newServerState < steps.length && !steps[newServerState].canBeShownAsDecoration) {
+                                            newServerState++;
+                                        }
+                                        break;
+                                    case StepType.Back:
+                                        newServerState = currentServerState - 1;
+                                        while (newServerState >= 0 && !steps[newServerState].canBeShownAsDecoration) {
+                                            newServerState--;
+                                        }
+                                        break;
+                                    case StepType.Continue:
+                                        //go to next error state
+                                        for (let i = currentServerState + 1; i < steps.length; i++) {
                                             let step = steps[i];
                                             if (step.isErrorState && step.canBeShownAsDecoration) {
                                                 //the step is on the same level or less deap
@@ -140,31 +186,41 @@ export class DebugServer {
                                                 break;
                                             }
                                         }
-                                    }
-                                    if (newServerState == -1) {
-                                        newServerState = currentServerState;
-                                    }
-                                    break;
-                                case StepType.Next:
-                                    for (let i = currentServerState + 1; i < steps.length; i++) {
-                                        let step = steps[i];
-                                        if (step.depthLevel() <= currentDepth && step.canBeShownAsDecoration) {
-                                            //the step is on the same level or less deap
-                                            newServerState = i;
-                                            break;
+                                        if (newServerState < 0) {
+                                            for (let i = 0; i <= currentServerState; i++) {
+                                                let step = steps[i];
+                                                if (step.isErrorState && step.canBeShownAsDecoration) {
+                                                    //the step is on the same level or less deap
+                                                    newServerState = i;
+                                                    break;
+                                                }
+                                            }
                                         }
-                                    }
-                                    break;
-                                case StepType.Out:
-                                    for (let i = currentServerState + 1; i < steps.length; i++) {
-                                        let step = steps[i];
-                                        if (step.depthLevel() < currentDepth && step.canBeShownAsDecoration) {
-                                            //the step is less deap
-                                            newServerState = i;
-                                            break;
+                                        if (newServerState == -1) {
+                                            newServerState = currentServerState;
                                         }
-                                    }
-                                    break;
+                                        break;
+                                    case StepType.Next:
+                                        for (let i = currentServerState + 1; i < steps.length; i++) {
+                                            let step = steps[i];
+                                            if (step.depthLevel() <= currentDepth && step.canBeShownAsDecoration) {
+                                                //the step is on the same level or less deap
+                                                newServerState = i;
+                                                break;
+                                            }
+                                        }
+                                        break;
+                                    case StepType.Out:
+                                        for (let i = currentServerState + 1; i < steps.length; i++) {
+                                            let step = steps[i];
+                                            if (step.depthLevel() < currentDepth && step.canBeShownAsDecoration) {
+                                                //the step is less deap
+                                                newServerState = i;
+                                                break;
+                                            }
+                                        }
+                                        break;
+                                }
                             }
                             let position = Server.debuggedVerificationTask ? Server.debuggedVerificationTask.getPositionOfState(newServerState) : { line: 0, character: 0 };
 
@@ -267,8 +323,10 @@ export class DebugServer {
     static moveDebuggerToPos(position: Position, clientStep) {
         if (DebugServer.debuggerRunning) {
             try {
-                ipc.of.viperDebugger.emit("MoveDebuggerToPos", JSON.stringify({ position: position, step: clientStep }));
-                Log.log("LanguageServer is telling Debugger to Move to Position of State " + clientStep, LogLevel.Debug)
+                this.connectToDebuggerAsClient().then(resolve => {
+                    ipc.of.viperDebugger.emit("MoveDebuggerToPos", JSON.stringify({ position: position, step: clientStep }));
+                    Log.log("LanguageServer is telling Debugger to Move to Position of State " + clientStep, LogLevel.Debug)
+                });
             } catch (e) {
                 Log.error("Error sending MoveDebuggerToPos request: " + e);
             }

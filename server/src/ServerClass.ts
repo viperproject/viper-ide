@@ -31,7 +31,10 @@ export class Server {
     }
 
     //Communication requests and notifications sent to language client
-    static sendStateChangeNotification(params: StateChangeParams) {
+    static sendStateChangeNotification(params: StateChangeParams, task?: VerificationTask) {
+        if (task) {
+            task.state = params.newState;
+        }
         this.connection.sendNotification(Commands.StateChange, params);
     }
     static sendBackendReadyNotification(params: BackendReadyParams) {
@@ -89,7 +92,7 @@ export class Server {
         let before = "";
         let after = "";
         if (!s) return { before: before, pos: null, after: after };
-        let pos:Position;
+        let pos: Position;
         try {
             if (s) {
 

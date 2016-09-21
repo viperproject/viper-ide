@@ -60,9 +60,9 @@ export class Model {
             //return "Snap: " + value;
             return "_";
         } else {
-            let match = /\$Ref!val!(\d+)/.exec(value);
-            if (match && match[1]) {
-                return "Ref_" + match[1];
+            let match = /\$(.*?)!val!(\d+)/.exec(value);
+            if (match && match[1] && match[2]) {
+                return match[1] + "_" + match[2];
             } else {
                 return value;
             }
