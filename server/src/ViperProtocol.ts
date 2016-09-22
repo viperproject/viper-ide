@@ -237,28 +237,45 @@ export interface LaunchRequestArguments {
 export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE, UNKONWN };
 
 export interface Backend {
+    //The unique name of this backend
     name: string;
+    //List of paths locating all used jar files, the files can be addressed directly or via folder, in which case all jar files in the folder are included
     paths: string[];
+    //Enable to run the backend through nailgun, speeding up the process by reusing the same Java Virtual Machine
     useNailgun: boolean;
+    //After timeout ms the verification is expected to be non terminating and is thus aborted.
     timeout: number;
+    //A list of verification stages
     stages: Stage[];
 }
 
 export interface Stage {
+    //The per backend unique name of this stage
     name: string;
+    //Enable if this stage is describing a verification
     isVerification: boolean;
+    //The method to invoke when staring the stage
     mainMethod: string;
+    //the commandline arguments for the nailgun client (or java, when useNailgun is disabled)
     customArguments: string;
+    //The name of the stage to start in case of a parsing error
     onParsingError: string;
+    //The name of the stage to start in case of a type checking error
     onTypeCheckingError: string;
+    //The name of the stage to start in case of a verification error
     onVerificationError: string;
+    //The name of the stage to start in case of a success
     onSuccess: string;
 }
 
 export interface NailgunSettings {
+    //The path to the nailgun server jar.
     serverJar: string;
+    //The path to the nailgun client executable 
     clientExecutable: string;
+    //The port used for the communication between nailgun client and server
     port: string;
+    //After timeout ms the startup of the nailgun server is expected to have failed and thus aborted
     timeout: number;
 }
 

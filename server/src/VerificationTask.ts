@@ -81,7 +81,7 @@ export class VerificationTask {
         DebugServer.moveDebuggerToPos(step.position, clientIndex);
 
         return {
-            heap: HeapVisualizer.heapToDot(step, step.isErrorState || Settings.settings.showSymbolicState, step.isErrorState, this.model),
+            heap: HeapVisualizer.heapToDotUsingOwnDotGraph(step, step.isErrorState || Settings.settings.showSymbolicState, step.isErrorState, this.model),
             state: step.decorationOptions.index,
             fileName: this.filename,
             fileUri: this.fileUri,

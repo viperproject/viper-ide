@@ -122,7 +122,7 @@ export class StateVisualizer {
 
     public createAndShowHeap(heapGraph: HeapGraph, index: number) {
         if (!heapGraph.heap) {
-            Log.error("Error creating heap description");
+            Log.error("Error creating heap description: no heap");
             return;
         }
         Log.writeToDotFile(heapGraph.heap, index);
@@ -284,9 +284,11 @@ export class StateVisualizer {
                     let option = this.decorationOptions[i];
                     let errorStateFound = false;
 
-                    this.hide(option);
-                    //this.collapse(option);
-                    //this.collapseOutsideMethod(option, currentMethodIdx);
+                    if (Helper.getConfiguration("simpleMode") === true) {
+                        this.hide(option);
+                    } else {
+                        this.collapseOutsideMethod(option, currentMethodIdx);
+                    }
 
                     //default is grey
                     this.color(option, StateColors.uninterestingState(darkGraphs), darkGraphs);

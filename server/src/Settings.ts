@@ -17,6 +17,8 @@ export interface ResolvedPath {
 export class Settings {
     public static settings: ViperSettings;
     public static isWin = /^win/.test(process.platform);
+    public static isLinux = /^linux/.test(process.platform);
+    public static isMac = /^darwin/.test(process.platform);
     public static workspace;
     public static VERIFY = "verify";
     public static selectedBackend: string;
@@ -232,16 +234,18 @@ export class Settings {
             //check nailgun settings
             let useNailgun = settings.verificationBackends.some(elem => elem.useNailgun);
             if (useNailgun) {
-                Log.log("Checking nailgun settings...", LogLevel.Debug);
+                //Log.log("Checking nailgun settings...", LogLevel.Debug);
                 this.checkNailgunSettings(settings.nailgunSettings);
             }
-            //check z3 executable
-            Log.log("Checking other settings...", LogLevel.Debug);
+            //Log.log("Checking other settings...", LogLevel.Debug);
+            //check z3 Executable
             settings.z3Executable = this.checkPath(settings.z3Executable, "z3 Executable:", true).path;
             //check boogie executable
-            if (settings.boogieExecutable && settings.z3Executable.length > 0) {
-                settings.boogieExecutable = this.checkPath(settings.boogieExecutable, `Boogie Executable: (If you don't need boogie, set it to "")`, true).path;
+            if (Settings.isLinux && settings.boogieExecutable && settings.boogieExecutable == "$viperTools$/boogie/Binaries/Boogie") {
+                //handle the special case of linux using Boogie.exe instead of Boogie
+                settings.boogieExecutable += ".exe";
             }
+            settings.boogieExecutable = this.checkPath(settings.boogieExecutable, `Boogie Executable: (If you don't need boogie, set it to "")`, true).path;
             //check dot executable
             if (Settings.settings.advancedFeatures) {
                 settings.dotExecutable = this.checkPath(settings.dotExecutable, "dot executable:", true).path;
@@ -269,7 +273,7 @@ export class Settings {
     }
 
     private static checkBackends(backends: Backend[]) {
-        Log.log("Checking backends...", LogLevel.Debug);
+        //Log.log("Checking backends...", LogLevel.Debug);
         if (!backends || backends.length == 0) {
             this.addError("No backend detected, specify at least one backend");
             return;
