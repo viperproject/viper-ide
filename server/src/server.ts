@@ -66,10 +66,11 @@ function registerHandlers() {
             Log.logLevel = Settings.settings.logLevel; //after this line, Logging works
 
             Log.log('Configuration changed', LogLevel.Info);
-            let errors = Settings.checkSettings();
-            if (Settings.valid()) {
-                restartBackendIfNeeded(oldSettings);
-            }
+            let errors = Settings.checkSettings().then(() => {
+                if (Settings.valid()) {
+                    restartBackendIfNeeded(oldSettings);
+                }
+            });
         } catch (e) {
             Log.error("Error handling configuration change: " + e);
         }

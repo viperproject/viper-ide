@@ -125,7 +125,8 @@ export class StateVisualizer {
             Log.error("Error creating heap description: no heap");
             return;
         }
-        Log.writeToDotFile(heapGraph.heap, index);
+        Log.writeToDotFile(heapGraph.heap, false, index);
+        Log.writeToDotFile(heapGraph.oldHeap, true, index);
 
         if (heapGraph.fileUri != this.uri.toString()) {
             Log.error("Uri mismatch in StateVisualizer: " + this.uri.toString() + " expected, " + heapGraph.fileUri + " found.")
@@ -133,8 +134,10 @@ export class StateVisualizer {
         }
 
         this.provider.setState(heapGraph, index);
-        this.generateSvg(Log.dotFilePath(index), Log.svgFilePath(index), () => {
-            this.showHeapGraph();
+        this.generateSvg(Log.dotFilePath(index, false), Log.svgFilePath(index, false), () => {
+            this.generateSvg(Log.dotFilePath(index, true), Log.svgFilePath(index, true), () => {
+                this.showHeapGraph();
+            })
         })
     }
 

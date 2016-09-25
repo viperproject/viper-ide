@@ -3,12 +3,12 @@
 //import {Position} from 'vscode';
 import {Log} from './Log';
 import {Model} from './Model';
-import {SymbExLogEntry, MyProtocolDecorationOptions, StatementType, Position, LogLevel} from './ViperProtocol';
+import {SymbExLogStore, SymbExLogEntry, MyProtocolDecorationOptions, StatementType, Position, LogLevel} from './ViperProtocol';
 import {Verifiable} from './Verifiable';
 import {VerificationTask} from './VerificationTask';
 import {Server} from './ServerClass';
 
-export interface Variable { name: string; value: string; variablesReference: number; concreteValue?: string; }
+export interface Variable { name: string; type: string, value: string; variablesReference: number; concreteValue?: string; }
 interface Name { raw: string; receiver?: string; field?: string; arguments?: string[]; type: NameType; }
 interface Value { raw: string; type: ValueType; concreteValue?: string; }
 interface Permission { raw: string; type: PermissionType; }
@@ -106,13 +106,13 @@ export class Statement {
         return statement;
     }
 
-    constructor(index: number, formula: string, type: StatementType, kind: string, position: Position, store: string[], heap: string[], oldHeap: string[], pcs: string[], verifiable: Verifiable) {
+    constructor(index: number, formula: string, type: StatementType, kind: string, position: Position, store: SymbExLogStore[], heap: string[], oldHeap: string[], pcs: string[], verifiable: Verifiable) {
         this.index = index;
         this.formula = formula;
         this.type = type;
         this.kind = kind;
         this.position = position;
-        this.store = Statement.parseVariables(store);
+        this.store = Statement.parseStore(store);
         this.heap = Statement.parseHeap(heap);
         this.oldHeap = Statement.parseHeap(oldHeap);
         this.pcs = Statement.parsePathConditions(pcs);
@@ -134,17 +134,18 @@ export class Statement {
         return false;
     }
     //PARSING
-    private static parseVariables(store: string[]): Variable[] {
+    private static parseStore(store: SymbExLogStore[]): Variable[] {
         if (!store) return [];
-        let result = [];
+        let result: Variable[] = [];
         store.forEach((variable) => {
-            let parts: string[] = variable.split('->');
+            let parts: string[] = variable.value.split('->');
             if (parts.length == 2) {
-                result.push({ name: parts[0].trim(), value: parts[1].trim(), variablesReference: 0 });
+                result.push({ name: parts[0].trim(), type: variable.type, value: parts[1].trim(), variablesReference: 0 });
             }
             else {
                 //TODO: make sure this doesn't happen
-                result.push({ name: variable, value: "unknown", variablesReference: 0 });
+                Log.log("Warning: unexpected format in store: expeccted: a -> b, found: " + variable,LogLevel.Debug);
+                result.push({ name: variable.value, type: variable.type, value: "unknown", variablesReference: 0 });
             }
         });
         return result;

@@ -49,6 +49,8 @@ export class Commands {
     static GetExecutionTrace = { method: "GetExecutionTrace" };
     //Request the path to the dot executable from the language server
     static GetDotExecutable = { method: "GetDotExecutable" };
+    //The language server requests a version check from the client before checking the settings itself
+    static CheckSettingsVersion = { method: "CheckSettingsVersion" };
 }
 
 //Communication between Language Client and Language Server:
@@ -138,6 +140,8 @@ export interface ShowHeapParams {
 export interface HeapGraph {
     //dot representation of heap
     heap: string,
+    //dot representation of the old heap
+    oldHeap: string,
     //client index of represented state
     state: number,
     //information about verified file
@@ -272,7 +276,7 @@ export interface NailgunSettings {
     //The path to the nailgun server jar.
     serverJar: string;
     //The path to the nailgun client executable 
-    clientExecutable: string;
+    clientExecutable: string | PlatformDependentPath;
     //The port used for the communication between nailgun client and server
     port: string;
     //After timeout ms the startup of the nailgun server is expected to have failed and thus aborted
@@ -287,16 +291,18 @@ export interface SettingsError {
 }
 
 export interface ViperSettings {
+    //The version of the viper settings is used for detecting old settings. When updating it you can set it to the current version of the viper extension.
+    settingsVersion: string;
     //Path to the folder containing all the ViperTools
-    viperToolsPath: string;
+    viperToolsPath: PlatformDependentPath;
     //All nailgun related settings
     nailgunSettings: NailgunSettings;
     //Description of backends
     verificationBackends: Backend[];
     //The path to the z3 executable
-    z3Executable: string;
+    z3Executable: string | PlatformDependentPath;
     //The path to the boogie executable
-    boogieExecutable: string;
+    boogieExecutable: string | PlatformDependentPath;
     //Enable automatically saving modified viper files
     autoSave: boolean;
     //Verbosity of the output, all output is written to the logFile, regardless of the logLevel
@@ -319,6 +325,12 @@ export interface ViperSettings {
     verificationBufferSize: number;
 }
 
+export interface PlatformDependentPath {
+    windows?: string;
+    mac?: string;
+    linux?: string;
+}
+
 //Format expected from other tools:
 //Silicon should provide the verification states in this format
 export interface SymbExLogEntry {
@@ -327,8 +339,13 @@ export interface SymbExLogEntry {
     kind?: string,
     open: boolean,
     pos?: string,
-    prestate?: { store: string[], heap: string[], oldHeap: string[], pcs: string[] },
+    prestate?: { store: SymbExLogStore[], heap: string[], oldHeap: string[], pcs: string[] },
     children?: SymbExLogEntry[];
+}
+
+export interface SymbExLogStore {
+    value: string;
+    type: string;
 }
 
 export class BackendOutputType {

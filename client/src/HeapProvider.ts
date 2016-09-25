@@ -70,6 +70,9 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
             table = " <p>No graph to show</p>";
         }
 
+        let debugInfo = `<p><font face="courier">${this.stringToHtml(this.stateVisualizer.globalInfo)}</font></p>
+ <a href='${uri}'>view source</a>`;
+
         return `<!DOCTYPE html>
 <html lang="en"><head>
 <style>
@@ -78,7 +81,7 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
  }
  svg {
      width:100%;
-     height:800px;
+     height:500px;
      max-height: 800px;
  }
  .Hcurr {
@@ -94,8 +97,7 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
 </head>
 <body>
  ${table}
- <p><font face="courier">${this.stringToHtml(this.stateVisualizer.globalInfo)}</font></p>
- <a href='${uri}'>view source</a>
+ ${Log.logLevel >= LogLevel.Debug ? debugInfo : ""}
 </body>
 </html>`;
     }
@@ -128,12 +130,15 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         }
 
         let state = this.stateVisualizer.decorationOptions[heapGraph.state];
+        let debugInfo = `<p>${this.stringToHtml(heapGraph.stateInfos)}</p>`;
         let content = `
     <h2>${heapGraph.fileName}<br />${heapGraph.methodType}: ${heapGraph.methodName}<br />${state.hoverMessage}</h2>
     <h3${state.isErrorState ? ' class="ErrorState">Errorstate' : ">State"} ${state.numberToDisplay}</h3>
-    ${this.getSvgContent(Log.svgFilePath(index))}
+    ${this.getSvgContent(Log.svgFilePath(index, false))}
     ${conditions}
-    <p>${this.stringToHtml(heapGraph.stateInfos)}</p><br />`;
+    <h3>Old Heap</h3>
+    ${this.getSvgContent(Log.svgFilePath(index, true))}
+    ${Log.logLevel >= LogLevel.Debug ? debugInfo : ""}<br />`;
         return content;
     }
 

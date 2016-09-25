@@ -58,6 +58,7 @@ export class DotGraph {
     toDot(): string {
         try {
             return `digraph ${this.name} {
+compound = true
 graph [${DotGraph.combine(this.graphAttributes, ", ")}];
 node [${DotGraph.combine(this.nodeAttributes, ", ")}];
 edge [${DotGraph.combine(this.edgeAttributes, ", ")}];
@@ -109,11 +110,25 @@ export class DotCluster {
     }
 
     addEdge(sourceCluster: DotCluster, source: string, destinationCluster: DotCluster, destination: string, label?: string, sourceField?: string, destinationField?: string, style?: string) {
+        if (sourceCluster.nodes.has(source)) {
+            sourceCluster.nodes.get(source).hasOutEdge = true;
+        }
         this.graph.edges.push(new DotEdge(sourceCluster.name + "_" + source.trim(), destinationCluster.name + "_" + destination.trim(), label, sourceField, destinationField, style));
     }
 
-    addDashedEdge(sourceCluster: DotCluster, source: string, destinationCluster, destination: string, label: string, sourceField?: string, destinationField?: string) {
+    addDashedEdge(sourceCluster: DotCluster, source: string, destinationCluster: DotCluster, destination: string, label: string, sourceField?: string, destinationField?: string) {
+        if (sourceCluster.nodes.has(source)) {
+            sourceCluster.nodes.get(source).hasOutEdge = true;
+        }
         this.graph.edges.push(new DotEdge(sourceCluster.name + "_" + source.trim(), destinationCluster.name + "_" + destination.trim(), label, sourceField, destinationField, "dashed"));
+    }
+
+    addEdgeFromCluster(sourceCluster: DotCluster, destinationCluster: DotCluster, destination: string, label?: string, sourceField?: string, destinationField?: string, style?: string) {
+        let source: string = sourceCluster.nodes.values().next().value.name;
+        if (!source) {
+            source = sourceCluster.addNode("dummy", "", true).name;
+        }
+        this.graph.edges.push(new DotEdge(sourceCluster.name + "_" + source.trim(), destinationCluster.name + "_" + destination.trim(), label, sourceField, destinationField, style, sourceCluster.name));
     }
 
     addNode(name: string, label?: string, invisible: boolean = false): DotNode {
@@ -162,6 +177,8 @@ export class DotNode {
         this.invisible = invisible;
     }
 
+    hasOutEdge = false;
+
     pretty(): string {
         let color = this.invisible ? ', color = "' + this.cluster.graph.bgColor + '", fontcolor = "' + this.cluster.graph.bgColor + '"' : '';
         return `"${this.cluster.name}_${this.name}" [ label = "${(this.label || "")}"${color}];`;
@@ -175,17 +192,20 @@ class DotEdge {
     destinationField: string;
     label: string;
     style: string;
-    constructor(source: string, destination: string, label?: string, sourceField?: string, destinationField?: string, style?: string) {
+    ltail: string;
+    constructor(source: string, destination: string, label?: string, sourceField?: string, destinationField?: string, style?: string, ltail?: string) {
         this.source = source;
         this.sourceField = sourceField;
         this.destination = destination;
         this.destinationField = destinationField;
         this.label = label;
         this.style = style;
+        this.ltail = ltail;
     }
 
     pretty(): string {
         let style = this.style ? ', style = "' + this.style + '"' : '';
-        return `"${this.source}"${this.sourceField ? ":" + this.sourceField : ""} -> "${this.destination}"${this.destinationField ? ":" + this.destinationField : ""} [ label = "${(this.label || "")}"${style}];`;
+        let ltail = this.ltail ? ', ltail = "cluster_' + this.ltail + '"' : '';
+        return `"${this.source}"${this.sourceField ? ":" + this.sourceField : ""} -> "${this.destination}"${this.destinationField ? ":" + this.destinationField : ""} [ label = "${(this.label || "")}"${style}${ltail}];`;
     }
 }

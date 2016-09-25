@@ -54,6 +54,7 @@ enum TaskType {
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+    lastVersionWithSettingsChange = new Version("0.2.13");
     workList = [];
     ExtensionState.viperFiles = new Map<string, ViperFileState>();
     Log.initialize(context);
@@ -71,6 +72,51 @@ export function activate(context: vscode.ExtensionContext) {
     let uri = vscode.window.activeTextEditor.document.uri;
     lastActiveTextEditor = Helper.isViperSourceFile(uri.toString()) ? uri : null;
     startVerificationController();
+}
+
+let lastVersionWithSettingsChange: Version;
+
+class Version {
+    versionNumbers: number[];
+    constructor(version: string) {
+        try {
+            if (!version) {
+                this.versionNumbers = [0, 0, 0];
+            } else {
+                this.versionNumbers = version.split(".").map(x => Number.parseInt(x));
+            }
+        } catch (e) {
+            Log.error("Error parsing version: " + e);
+        }
+    }
+    toString(): string {
+        return this.versionNumbers.join(".");
+    }
+
+    //1: this is larger, -1 other is larger
+    compare(other: Version): number {
+        for (let i = 0; i < this.versionNumbers.length; i++) {
+            if (i >= other.versionNumbers.length) return 1;
+            if (this.versionNumbers[i] > other.versionNumbers[i]) return 1;
+            if (this.versionNumbers[i] < other.versionNumbers[i]) return -1;
+        }
+        return this.versionNumbers.length < other.versionNumbers.length ? -1 : 0;
+    }
+}
+
+function isSettingsVersionOk(): boolean {
+    try {
+        let extensionVersion = new Version(vscode.extensions.getExtension("rukaelin.viper-advanced").packageJSON.version);
+        let settingsVersion = new Version(Helper.getConfiguration("settingsVersion"));
+        Log.log("Extension version: " + extensionVersion + ", settings version: " + settingsVersion + ", last version with settings changes: " + lastVersionWithSettingsChange, LogLevel.Info);
+        if (settingsVersion.compare(lastVersionWithSettingsChange) < 0) {
+            return false;
+        }
+        return true;
+    } catch (e) {
+        Log.error("Error checking settings version: " + e)
+        return false;
+    }
 }
 
 function resetViperFiles() {
@@ -556,6 +602,9 @@ function registerHandlers() {
         } catch (e) {
             Log.error("Error handling file closed notification: " + e);
         }
+    });
+    state.client.onRequest(Commands.CheckSettingsVersion, () => {
+        return isSettingsVersionOk();
     });
     state.client.onRequest(Commands.UriToPath, (uri: string) => {
         let uriObject: vscode.Uri = vscode.Uri.parse(uri);

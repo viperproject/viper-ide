@@ -15,7 +15,7 @@ export class Log {
     static _svgBasePath: string;
     private static _nofFiles: number = 0;
     static rootPath: string;
-    static symbExLogFilePath:string;
+    static symbExLogFilePath: string;
 
     static MAX_DOT_FILES: number = 2;
 
@@ -35,7 +35,7 @@ export class Log {
         Log._svgBasePath = path.join(Log.rootPath, '.vscode', 'heap');
         Log.symbExLogFilePath = path.join(Log.rootPath, '.vscode', 'executionTreeData.js');
 
-        Log.log('LogFilePath is: "' + Log.logFilePath+'"', LogLevel.LowLevelDebug)
+        Log.log('LogFilePath is: "' + Log.logFilePath + '"', LogLevel.LowLevelDebug)
         try {
             Log.createFile(Log.logFilePath);
             Log.logFile = fs.createWriteStream(Log.logFilePath);
@@ -49,28 +49,30 @@ export class Log {
 
     ///return the path to the indexth dot file
     ///creates non existing files
-    public static dotFilePath(index: number): string {
+    public static dotFilePath(index: number, oldHeap: boolean): string {
+        let old = oldHeap ? "_old" : "";
         if (index < 0) {
             Log.error("don't use negative indices for dotFilePath");
-            return this._dotBasePath + ".dot";
+            return this._dotBasePath + old + ".dot";
         }
         if (index >= this.MAX_DOT_FILES) {
             Log.error("don't use more than " + this.MAX_DOT_FILES + " dotFiles");
-            return this._dotBasePath + ".dot";
+            return this._dotBasePath + old + ".dot";
         }
-        return this._dotBasePath + index + ".dot";
+        return this._dotBasePath + index + old + ".dot";
     }
 
-    public static svgFilePath(index: number): string {
+    public static svgFilePath(index: number, oldHeap: boolean): string {
+        let old = oldHeap ? "_old" : "";
         if (index < 0) {
             Log.error("don't use negative indices for svgFilePath");
-            return this._svgBasePath + ".svg";
+            return this._svgBasePath + old + ".svg";
         }
         if (index >= this.MAX_DOT_FILES) {
             Log.error("don't use more than " + this.MAX_DOT_FILES + " svgFiles");
-            return this._svgBasePath + ".svg";
+            return this._svgBasePath + old + ".svg";
         }
-        return this._svgBasePath + index + ".svg";
+        return this._svgBasePath + index + old + ".svg";
     }
 
     private static createFile(filePath: string) {
@@ -80,9 +82,9 @@ export class Log {
         }
     }
 
-    public static writeToDotFile(graphDescription: string, index: number) {
+    public static writeToDotFile(graphDescription: string, oldHeap: boolean, index: number) {
         //delete and recreate file to fix the problem of not being able to open the dot files      
-        let dotFilePath = this.dotFilePath(index);
+        let dotFilePath = this.dotFilePath(index, oldHeap);
         this.createFile(dotFilePath);
         let dotFile: fs.WriteStream = fs.createWriteStream(dotFilePath);
         dotFile.write(graphDescription);
@@ -92,12 +94,13 @@ export class Log {
     public static deleteDotFiles() {
         //delete all dotFiles
         for (let i = 0; i < this.MAX_DOT_FILES; i++) {
-            this.deleteFile(this.dotFilePath(i));
+            this.deleteFile(this.dotFilePath(i, true));
+            this.deleteFile(this.dotFilePath(i, false));
         }
         this._nofFiles = 0;
     }
 
-    public static deleteFile(fileName:string){
+    public static deleteFile(fileName: string) {
         try {
             if (fs.existsSync(fileName)) {
                 fs.unlinkSync(fileName);

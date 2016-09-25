@@ -81,7 +81,8 @@ export class VerificationTask {
         DebugServer.moveDebuggerToPos(step.position, clientIndex);
 
         return {
-            heap: HeapVisualizer.heapToDotUsingOwnDotGraph(step, step.isErrorState || Settings.settings.showSymbolicState, step.isErrorState, this.model),
+            heap: HeapVisualizer.heapToDotUsingOwnDotGraph(step, false, step.isErrorState || Settings.settings.showSymbolicState, step.isErrorState, this.model),
+            oldHeap: HeapVisualizer.heapToDotUsingOwnDotGraph(step, true, step.isErrorState || Settings.settings.showSymbolicState, step.isErrorState, this.model),
             state: step.decorationOptions.index,
             fileName: this.filename,
             fileUri: this.fileUri,
@@ -786,6 +787,7 @@ export class VerificationTask {
             }
         } catch (e) {
             Log.error("Error loading SymbExLog from file: " + e);
+            Log.hint("Error reading backend output: please update the extension and the backend to the newest version.");
         }
     }
 

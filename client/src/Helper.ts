@@ -46,7 +46,7 @@ export class Helper {
         }
     }
 
-    public static getConfiguration(setting: string) {
+    public static getConfiguration(setting: string):any {
         return vscode.workspace.getConfiguration("viperSettings").get(setting);
     }
 

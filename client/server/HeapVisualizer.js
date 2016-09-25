@@ -9,19 +9,6 @@ let NULL = "Null";
 let TRUE = "True";
 let FALSE = "False";
 class HeapVisualizer {
-    // private static addCluster(graph, label: string, style: string): any {
-    //     let cluster = graph.addCluster("cluster_" + label);
-    //     cluster.set("style", style);
-    //     cluster.set("label", label);
-    //     return cluster;
-    // }
-    // private static createEmptyGraph(): any {
-    //     let emptyGraph = graphviz.digraph("G");
-    //     emptyGraph.setNodeAttribut("shape", "record");
-    //     emptyGraph.set("rankdir", "LR");
-    //     this.setGraphColors(emptyGraph, this.getBgColor(), this.getForegroundColor());
-    //     return emptyGraph;
-    // }
     static getBgColor() {
         if (Settings_1.Settings.settings.darkGraphs) {
             return "#272822";
@@ -42,146 +29,20 @@ class HeapVisualizer {
     // public static executionTreeAroundStateToDot(state: Statement) {
     //     let graph = this.createEmptyGraph();
     // }
-    // public static heapToDot(state: Statement, showSymbolicValues: boolean, showConcreteValues: boolean, model: Model): string {
-    //     let count = 0;
-    //     try {
-    //         let g = this.createEmptyGraph();
-    //         let store = this.addCluster(g, "Store", "dotted");
-    //         let heap = this.addCluster(g, "Heap", "dotted");
-    //         let heapEmpty = true;
-    //         //read all heap Chunks to find out all existing nodes in the heap,
-    //         //gather information about fields
-    //         let heapChunkFields = new Map<string, HeapChunk[]>();
-    //         state.heap.forEach(heapChunk => {
-    //             if (!heapChunk.parsed) {
-    //                 Log.log("Warning, I don't know how to visualize the heap chunk " + JSON.stringify(heapChunk.name), LogLevel.Debug);
-    //             }
-    //             else if (heapChunk.name.type == NameType.FieldReferenceName && heapChunk.value.type == ValueType.ObjectReferenceOrScalarValue) {
-    //                 let receiver = heapChunk.name.receiver;
-    //                 if (!heapChunkFields.has(receiver)) {
-    //                     heapChunkFields.set(receiver, []);
-    //                 }
-    //                 heapChunkFields.get(receiver).push(heapChunk);
-    //             }
-    //         })
-    //         //add all nodes with the appropriate fields to the heap
-    //         heapChunkFields.forEach((fields: HeapChunk[], receiver: string) => {
-    //             heapEmpty = false;
-    //             let label = "<name>|";
-    //             fields.forEach(chunk => {
-    //                 label += this.getHeapChunkLabel(chunk, showSymbolicValues, showConcreteValues, model, state) + "\\l";
-    //             });
-    //             //add heapChunk node
-    //             let heapChunkNode = heap.addNode(receiver);
-    //             heapChunkNode.set("label", label);
-    //         });
-    //         //populate the store and add pointers from store to heap
-    //         let vars: Map<string, any> = new Map<string, any>();
-    //         if (state.store.length == 0) {
-    //             let dummyNode = store.addNode("store_dummy");
-    //             dummyNode.set("color", this.getBgColor());
-    //             dummyNode.set("fontcolor", this.getBgColor());
-    //         } else {
-    //             state.store.forEach(variable => {
-    //                 //add variable node
-    //                 let variableNode = store.addNode(variable.name);
-    //                 vars.set(variable.name, variableNode);
-    //                 let variableLabel = this.getVariableLabel(variable, showSymbolicValues, showConcreteValues, model, state);
-    //                 variableNode.set("label", variableLabel);
-    //                 //add pointer from local vars to heap if the heap chunk exists
-    //                 if (heapChunkFields.has(variable.value)) {
-    //                     g.addEdge(variable.name, variable.value)
-    //                 }
-    //             });
-    //         }
-    //         //add pointers inside heap
-    //         //build Predicate nodes
-    //         //build FunctionApplication nodes
-    //         state.heap.forEach(heapChunk => {
-    //             if (heapChunk.parsed && heapChunk.name.type == NameType.FieldReferenceName && heapChunk.value.type == ValueType.ObjectReferenceOrScalarValue) {
-    //                 //add the adge only if the value is known to exist
-    //                 if (heapChunkFields.has(heapChunk.value.raw)) {
-    //                     let edge = heap.addEdge(heapChunk.name.receiver, heapChunk.value.raw);
-    //                     edge.set("label", heapChunk.name.field);
-    //                 }
-    //             }
-    //             else if (heapChunk.name.type == NameType.PredicateName || heapChunk.name.type == NameType.FunctionApplicationName) {
-    //                 heapEmpty = false;
-    //                 //add predicate subgraph
-    //                 let predicateCluster = heap.addCluster("cluster_" + heapChunk.name.receiver + "_" + (++count));
-    //                 predicateCluster.set("style", "bold");
-    //                 let label = heapChunk.name.type == NameType.PredicateName ? "Predicate" : "Function call";
-    //                 predicateCluster.set("label", label + " " + heapChunk.name.receiver)
-    //                 //add parameters into predicate cluster
-    //                 for (let i = 0; i < heapChunk.name.arguments.length; i++) {
-    //                     let parameter = heapChunk.name.arguments[i];
-    //                     let negated;
-    //                     if (parameter.startsWith("!")) {
-    //                         //parameter is a negated boolean
-    //                         negated = "not";
-    //                         parameter = parameter.substring(1, parameter.length);
-    //                     }
-    //                     let argumentNode = predicateCluster.addNode(`predicate_${count}_arg${i}`);
-    //                     if (parameter === FALSE || parameter === TRUE || /^\d+(\.\d+)$/.test(parameter)) {
-    //                         //if its a scalar value, add it directly into the Predicate
-    //                         argumentNode.set("label", `arg${i} = ${negated ? "!" : ""}${parameter}`)
-    //                     } else {
-    //                         argumentNode.set("label", `arg ${i}`)
-    //                         if (heapChunkFields.has(parameter)) {
-    //                             this.addPredicateEdge(heap, parameter, argumentNode, negated);
-    //                         } else {
-    //                             //try to add edge from variable to predicate argument;
-    //                             state.store.forEach(element => {
-    //                                 if (element.value === parameter) {
-    //                                     this.addPredicateEdge(heap, vars.get(element.name), argumentNode, negated);
-    //                                 }
-    //                             });
-    //                             //try to add edge from field to predicate argument
-    //                             state.heap.forEach(chunk => {
-    //                                 if (chunk.name.type == NameType.FieldReferenceName && chunk.value.raw === parameter) {
-    //                                     this.addPredicateEdge(heap, chunk.name.receiver, argumentNode, (negated ? "!" : "") + chunk.name.field);
-    //                                 }
-    //                             });
-    //                         }
-    //                     }
-    //                 }
-    //                 //add edge from Function Application to result
-    //                 if (heapChunk.name.type == NameType.FunctionApplicationName && heapChunk.value.type == ValueType.ObjectReferenceOrScalarValue) {
-    //                     let resultNode = predicateCluster.addNode(`predicate_${count}_result`)
-    //                     resultNode.set("label", "Result");
-    //                     if (!heapChunkFields.has(heapChunk.value.raw)) {
-    //                         let resultValueNode = heap.addNode(heapChunk.value.raw);
-    //                         resultValueNode.set("label", "<name>|");
-    //                     }
-    //                     let resultEdge = heap.addEdge(resultNode, heapChunk.value.raw);
-    //                     if (heapChunk.name.field) {
-    //                         resultEdge.set("label", heapChunk.name.field);
-    //                     }
-    //                 }
-    //             }
-    //         })
-    //         //make the empty heap is shown
-    //         if (heapEmpty) {
-    //             let dummyNode = heap.addNode("heap_dummy");
-    //             dummyNode.set("color", this.getBgColor());
-    //             dummyNode.set("fontcolor", this.getBgColor());
-    //         }
-    //         return g.to_dot();
-    //     } catch (e) {
-    //         Log.error("Graphviz Error: " + e);
-    //     }
-    // }
-    static heapToDotUsingOwnDotGraph(state, showSymbolicValues, showConcreteValues, model) {
+    static heapToDotUsingOwnDotGraph(state, useOldHeap, showSymbolicValues, showConcreteValues, model) {
         let count = 0;
         try {
+            //either select heap or oldHeap
+            let heapChunks = useOldHeap ? state.oldHeap : state.heap;
             let graph = new DotGraph_1.DotGraph("G", this.getBgColor(), this.getForegroundColor(), "LR", "record");
             let store = graph.addCluster("store", "dotted", "Store");
             let heap = graph.addCluster("heap", "dotted", "Heap");
             let heapEmpty = true;
+            let allNodes = [];
             //read all heap Chunks to find out all existing nodes in the heap,
             //gather information about fields
             let heapChunkFields = new Map();
-            state.heap.forEach(heapChunk => {
+            heapChunks.forEach(heapChunk => {
                 if (!heapChunk.parsed) {
                     Log_1.Log.log("Warning, I don't know how to visualize the heap chunk " + JSON.stringify(heapChunk.name), ViperProtocol_1.LogLevel.Debug);
                 }
@@ -195,13 +56,18 @@ class HeapVisualizer {
             });
             //add all nodes with the appropriate fields to the heap
             heapChunkFields.forEach((fields, receiver) => {
-                heapEmpty = false;
-                let label = "<name>|<fields>";
-                fields.forEach(chunk => {
-                    label += this.getHeapChunkLabel(chunk, showSymbolicValues, showConcreteValues, model, state) + "\\l";
-                });
-                //add heapChunk node
-                heap.addNode(receiver, label);
+                if (Settings_1.Settings.settings.simpleMode) {
+                    heap.addNode(receiver);
+                }
+                else {
+                    heapEmpty = false;
+                    let label = "<name>|<fields>";
+                    fields.forEach(chunk => {
+                        label += this.getHeapChunkLabel(chunk, showSymbolicValues, showConcreteValues, model, state) + "\\l";
+                    });
+                    //add heapChunk node
+                    heap.addNode(receiver, label);
+                }
             });
             //populate the store and add pointers from store to heap
             let vars = new Map();
@@ -209,11 +75,12 @@ class HeapVisualizer {
                 let dummyNode = store.addNode("dummy", "", true);
             }
             else {
-                state.store.forEach(variable => {
+                state.store.forEach((variable) => {
                     //add variable node
                     let variableLabel = this.getVariableLabel(variable, showSymbolicValues, showConcreteValues, model, state);
                     let variableNode = store.addNode(variable.name, variableLabel);
                     vars.set(variable.name, variableNode);
+                    allNodes.push({ variable: variable, node: variableNode });
                     //add pointer from local vars to heap if the heap chunk exists
                     if (heapChunkFields.has(variable.value)) {
                         store.addEdge(store, variable.name, heap, variable.value, "", null, "name");
@@ -223,7 +90,7 @@ class HeapVisualizer {
             //add pointers inside heap
             //build Predicate nodes
             //build FunctionApplication nodes
-            state.heap.forEach(heapChunk => {
+            heapChunks.forEach(heapChunk => {
                 if (heapChunk.parsed && heapChunk.name.type == Statement_1.NameType.FieldReferenceName && heapChunk.value.type == Statement_1.ValueType.ObjectReferenceOrScalarValue) {
                     //add the adge only if the value is known to exist
                     if (heapChunkFields.has(heapChunk.value.raw)) {
@@ -233,8 +100,14 @@ class HeapVisualizer {
                 else if (heapChunk.name.type == Statement_1.NameType.PredicateName || heapChunk.name.type == Statement_1.NameType.FunctionApplicationName) {
                     heapEmpty = false;
                     //add predicate subgraph
-                    let label = heapChunk.name.type == Statement_1.NameType.PredicateName ? "Predicate" : "Function call";
-                    let predicateCluster = heap.addCluster(heapChunk.name.receiver, "bold", label + " " + heapChunk.name.receiver);
+                    let label = heapChunk.name.type == Statement_1.NameType.PredicateName ? "Predicate" : "";
+                    let cluster;
+                    if (heapChunk.name.type == Statement_1.NameType.PredicateName) {
+                        cluster = heap.addCluster(heapChunk.name.receiver, "bold", "Predicate " + heapChunk.name.receiver);
+                    }
+                    else {
+                        cluster = store.addCluster(heapChunk.name.receiver, "bold", "Function call " + heapChunk.name.receiver);
+                    }
                     //add parameters into predicate cluster
                     for (let i = 0; i < heapChunk.name.arguments.length; i++) {
                         let parameter = heapChunk.name.arguments[i];
@@ -246,24 +119,24 @@ class HeapVisualizer {
                         }
                         if (parameter === FALSE || parameter === TRUE || /^\d+(\.\d+)$/.test(parameter)) {
                             //if its a scalar value, add it directly into the Predicate
-                            let argumentNode = predicateCluster.addNode(`arg${i}`, `arg${i} = ${negated ? "!" : ""}${parameter}`);
+                            let argumentNode = cluster.addNode(`arg${i}`, `arg${i} = ${negated ? "!" : ""}${parameter}`);
                         }
                         else {
-                            let argumentNode = predicateCluster.addNode(`arg${i}`, `arg ${i}`);
+                            let argumentNode = cluster.addNode(`arg${i}`, `arg ${i}`);
                             if (heapChunkFields.has(parameter)) {
-                                heap.addDashedEdge(heap, parameter, predicateCluster, argumentNode.name, negated);
+                                heap.addDashedEdge(heap, parameter, cluster, argumentNode.name, negated);
                             }
                             else {
                                 //try to add edge from variable to predicate argument;
                                 state.store.forEach(element => {
                                     if (element.value === parameter) {
-                                        store.addDashedEdge(store, vars.get(element.name).name, predicateCluster, argumentNode.name, negated);
+                                        store.addDashedEdge(store, vars.get(element.name).name, cluster, argumentNode.name, negated);
                                     }
                                 });
                                 //try to add edge from field to predicate argument
-                                state.heap.forEach(chunk => {
+                                heapChunks.forEach(chunk => {
                                     if (chunk.name.type == Statement_1.NameType.FieldReferenceName && chunk.value.raw === parameter) {
-                                        store.addDashedEdge(heap, chunk.name.receiver, predicateCluster, argumentNode.name, (negated ? "!" : "") + chunk.name.field, "fields");
+                                        store.addDashedEdge(heap, chunk.name.receiver, cluster, argumentNode.name, (negated ? "!" : "") + chunk.name.field, "fields");
                                     }
                                 });
                             }
@@ -271,14 +144,27 @@ class HeapVisualizer {
                     }
                     //add edge from Function Application to result
                     if (heapChunk.name.type == Statement_1.NameType.FunctionApplicationName && heapChunk.value.type == Statement_1.ValueType.ObjectReferenceOrScalarValue) {
-                        let resultNode = predicateCluster.addNode('result', "Result");
+                        //let resultNode = cluster.addNode('result', "Result")
                         if (!heapChunkFields.has(heapChunk.value.raw)) {
-                            let resultValueNode = heap.addNode(heapChunk.value.raw, "<name>|<fields>");
+                            if (Settings_1.Settings.settings.simpleMode) {
+                                heap.addNode(heapChunk.value.raw, "");
+                            }
+                            else {
+                                heap.addNode(heapChunk.value.raw, "<name>|<fields>" + (heapChunk.name.field || ""));
+                            }
                         }
-                        let resultEdge = heap.addEdge(predicateCluster, resultNode.name, heap, heapChunk.value.raw, heapChunk.name.field, "name");
+                        let resultEdge = heap.addEdgeFromCluster(cluster, heap, heapChunk.value.raw, null, "name", null, null);
                     }
                 }
             });
+            if (!Settings_1.Settings.settings.simpleMode) {
+                //add types for nodes with no outgoing arrows and no values
+                allNodes.forEach((value, key) => {
+                    if (!value.node.hasOutEdge && value.node.label.indexOf("=") < 0) {
+                        value.node.label += value.variable.type ? ": " + value.variable.type : "";
+                    }
+                });
+            }
             //make the empty heap is shown
             if (heapEmpty) {
                 let dummyNode = heap.addNode("heap_dummy", "", true);
@@ -298,6 +184,8 @@ class HeapVisualizer {
     //the label consists of name and symbolic and concrete values if requested
     static getLabel(name, symbolicValue, concreteValue, showSymbolicValues, showConcreteValues, model, state) {
         let result = name;
+        if (Settings_1.Settings.settings.simpleMode)
+            return result;
         //add symbolic and concrete values;
         let isValueNull = this.isKnownToBeNull(symbolicValue, state, showConcreteValues, model);
         if (symbolicValue && (showSymbolicValues || isValueNull)) {
@@ -338,4 +226,4 @@ class HeapVisualizer {
     }
 }
 exports.HeapVisualizer = HeapVisualizer;
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiSGVhcFZpc3VhbGl6ZXIuanMiLCJzb3VyY2VSb290IjoiIiwic291cmNlcyI6WyIuLi8uLi9zZXJ2ZXIvc3JjL0hlYXBWaXN1YWxpemVyLnRzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQUFBLFlBQVksQ0FBQztBQUViLHNCQUFrQixPQUFPLENBQUMsQ0FBQTtBQUUxQixnQ0FBaUMsaUJBQWlCLENBQUMsQ0FBQTtBQUNuRCw0QkFBaUcsYUFBYSxDQUFDLENBQUE7QUFFL0csMkJBQTRDLFlBQVksQ0FBQyxDQUFBO0FBQ3pELDJCQUF1QixZQUFZLENBQUMsQ0FBQTtBQUNwQyxJQUFJLFFBQVEsR0FBRyxPQUFPLENBQUMsVUFBVSxDQUFDLENBQUM7QUFFbkMsSUFBSSxJQUFJLEdBQUcsTUFBTSxDQUFDO0FBQ2xCLElBQUksSUFBSSxHQUFHLE1BQU0sQ0FBQztBQUNsQixJQUFJLEtBQUssR0FBRyxPQUFPLENBQUM7QUFFcEI7SUFFSSx3RUFBd0U7SUFDeEUsMERBQTBEO0lBQzFELG1DQUFtQztJQUNuQyxtQ0FBbUM7SUFDbkMsc0JBQXNCO0lBQ3RCLElBQUk7SUFFSiwyQ0FBMkM7SUFDM0MsOENBQThDO0lBQzlDLHFEQUFxRDtJQUNyRCx1Q0FBdUM7SUFDdkMscUZBQXFGO0lBQ3JGLHlCQUF5QjtJQUN6QixJQUFJO0lBRUosT0FBZSxVQUFVO1FBQ3JCLEVBQUUsQ0FBQyxDQUFDLG1CQUFRLENBQUMsUUFBUSxDQUFDLFVBQVUsQ0FBQyxDQUFDLENBQUM7WUFDL0IsTUFBTSxDQUFDLFNBQVMsQ0FBQztRQUNyQixDQUFDO1FBQUMsSUFBSSxDQUFDLENBQUM7WUFDSixNQUFNLENBQUMsT0FBTyxDQUFDO1FBQ25CLENBQUM7SUFDTCxDQUFDO0lBQ0QsT0FBZSxrQkFBa0I7UUFDN0IsRUFBRSxDQUFDLENBQUMsbUJBQVEsQ0FBQyxRQUFRLENBQUMsVUFBVSxDQUFDLENBQUMsQ0FBQztZQUMvQixNQUFNLENBQUMsT0FBTyxDQUFDO1FBQ25CLENBQUM7UUFBQyxJQUFJLENBQUMsQ0FBQztZQUNKLE1BQU0sQ0FBQyxPQUFPLENBQUM7UUFDbkIsQ0FBQztJQUNMLENBQUM7SUFFRCwyQ0FBMkM7SUFDM0Msa0VBQWtFO0lBQ2xFLDJDQUEyQztJQUMzQyxJQUFJO0lBRUosOEhBQThIO0lBQzlILHFCQUFxQjtJQUNyQixZQUFZO0lBQ1osMkNBQTJDO0lBRTNDLDZEQUE2RDtJQUM3RCwyREFBMkQ7SUFFM0QsZ0NBQWdDO0lBRWhDLDZFQUE2RTtJQUM3RSw0Q0FBNEM7SUFDNUMsZ0VBQWdFO0lBQ2hFLDRDQUE0QztJQUM1Qyx1Q0FBdUM7SUFDdkMsc0lBQXNJO0lBQ3RJLGdCQUFnQjtJQUNoQiwrSUFBK0k7SUFDL0ksMERBQTBEO0lBQzFELHdEQUF3RDtJQUN4RCx5REFBeUQ7SUFDekQsb0JBQW9CO0lBQ3BCLGlFQUFpRTtJQUNqRSxnQkFBZ0I7SUFDaEIsYUFBYTtJQUViLGtFQUFrRTtJQUNsRSwrRUFBK0U7SUFDL0UsaUNBQWlDO0lBQ2pDLHFDQUFxQztJQUNyQyx3Q0FBd0M7SUFDeEMsd0hBQXdIO0lBQ3hILGtCQUFrQjtJQUNsQixtQ0FBbUM7SUFDbkMsMERBQTBEO0lBQzFELGlEQUFpRDtJQUNqRCxjQUFjO0lBRWQsbUVBQW1FO0lBQ25FLCtEQUErRDtJQUMvRCx5Q0FBeUM7SUFDekMsNERBQTREO0lBQzVELHlEQUF5RDtJQUN6RCw2REFBNkQ7SUFDN0QsbUJBQW1CO0lBQ25CLGdEQUFnRDtJQUNoRCxzQ0FBc0M7SUFDdEMsbUVBQW1FO0lBQ25FLHlEQUF5RDtJQUN6RCw2SEFBNkg7SUFDN0gsNERBQTREO0lBQzVELGlGQUFpRjtJQUNqRiw2REFBNkQ7SUFDN0QsK0RBQStEO0lBQy9ELG9CQUFvQjtJQUNwQixrQkFBa0I7SUFDbEIsWUFBWTtJQUVaLHFDQUFxQztJQUNyQyxrQ0FBa0M7SUFDbEMsNENBQTRDO0lBQzVDLDRDQUE0QztJQUM1Qyw4SkFBOEo7SUFDOUoscUVBQXFFO0lBQ3JFLGtFQUFrRTtJQUNsRSw2RkFBNkY7SUFDN0YsK0RBQStEO0lBQy9ELG9CQUFvQjtJQUNwQixnQkFBZ0I7SUFDaEIsbUlBQW1JO0lBQ25JLHFDQUFxQztJQUNyQywyQ0FBMkM7SUFDM0Msa0hBQWtIO0lBQ2xILHlEQUF5RDtJQUN6RCw2R0FBNkc7SUFDN0csdUZBQXVGO0lBQ3ZGLDBEQUEwRDtJQUMxRCw4RUFBOEU7SUFDOUUsbUVBQW1FO0lBQ25FLG1DQUFtQztJQUNuQyx1REFBdUQ7SUFDdkQsMkRBQTJEO0lBQzNELDJDQUEyQztJQUMzQyxnRkFBZ0Y7SUFDaEYsd0JBQXdCO0lBQ3hCLGlHQUFpRztJQUNqRyx5R0FBeUc7SUFDekcsc0ZBQXNGO0lBQ3RGLG1HQUFtRztJQUNuRywrQkFBK0I7SUFDL0IsZ0VBQWdFO0lBQ2hFLGdFQUFnRTtJQUNoRSw2RkFBNkY7SUFDN0YsbUNBQW1DO0lBQ25DLHFGQUFxRjtJQUNyRiwrREFBK0Q7SUFDL0QscUVBQXFFO0lBQ3JFLGtIQUFrSDtJQUNsSCxvQ0FBb0M7SUFDcEMsa0NBQWtDO0lBQ2xDLGlGQUFpRjtJQUNqRiw0REFBNEQ7SUFDNUQseUhBQXlIO0lBQ3pILCtJQUErSTtJQUMvSSxvQ0FBb0M7SUFDcEMsa0NBQWtDO0lBQ2xDLDRCQUE0QjtJQUM1Qix3QkFBd0I7SUFDeEIsb0JBQW9CO0lBQ3BCLGlFQUFpRTtJQUNqRSxtSkFBbUo7SUFDbkosNkZBQTZGO0lBQzdGLHlEQUF5RDtJQUN6RCx1RUFBdUU7SUFDdkUsbUZBQW1GO0lBQ25GLG1FQUFtRTtJQUNuRSx3QkFBd0I7SUFDeEIsc0ZBQXNGO0lBQ3RGLGtEQUFrRDtJQUNsRCx5RUFBeUU7SUFDekUsd0JBQXdCO0lBQ3hCLG9CQUFvQjtJQUNwQixnQkFBZ0I7SUFDaEIsYUFBYTtJQUViLHlDQUF5QztJQUN6QywyQkFBMkI7SUFDM0IsMERBQTBEO0lBQzFELHlEQUF5RDtJQUN6RCw2REFBNkQ7SUFDN0QsWUFBWTtJQUVaLDZCQUE2QjtJQUM3QixvQkFBb0I7SUFDcEIsNkNBQTZDO0lBQzdDLFFBQVE7SUFDUixJQUFJO0lBRUosT0FBYyx5QkFBeUIsQ0FBQyxLQUFnQixFQUFFLGtCQUEyQixFQUFFLGtCQUEyQixFQUFFLEtBQVk7UUFDNUgsSUFBSSxLQUFLLEdBQUcsQ0FBQyxDQUFDO1FBQ2QsSUFBSSxDQUFDO1lBQ0QsSUFBSSxLQUFLLEdBQUcsSUFBSSxtQkFBUSxDQUFDLEdBQUcsRUFBRSxJQUFJLENBQUMsVUFBVSxFQUFFLEVBQUUsSUFBSSxDQUFDLGtCQUFrQixFQUFFLEVBQUUsSUFBSSxFQUFFLFFBQVEsQ0FBQyxDQUFDO1lBRTVGLElBQUksS0FBSyxHQUFHLEtBQUssQ0FBQyxVQUFVLENBQUMsT0FBTyxFQUFFLFFBQVEsRUFBRSxPQUFPLENBQUMsQ0FBQztZQUN6RCxJQUFJLElBQUksR0FBRyxLQUFLLENBQUMsVUFBVSxDQUFDLE1BQU0sRUFBRSxRQUFRLEVBQUUsTUFBTSxDQUFDLENBQUM7WUFFdEQsSUFBSSxTQUFTLEdBQUcsSUFBSSxDQUFDO1lBRXJCLGtFQUFrRTtZQUNsRSxpQ0FBaUM7WUFDakMsSUFBSSxlQUFlLEdBQUcsSUFBSSxHQUFHLEVBQXVCLENBQUM7WUFDckQsS0FBSyxDQUFDLElBQUksQ0FBQyxPQUFPLENBQUMsU0FBUztnQkFDeEIsRUFBRSxDQUFDLENBQUMsQ0FBQyxTQUFTLENBQUMsTUFBTSxDQUFDLENBQUMsQ0FBQztvQkFDcEIsU0FBRyxDQUFDLEdBQUcsQ0FBQyx3REFBd0QsR0FBRyxJQUFJLENBQUMsU0FBUyxDQUFDLFNBQVMsQ0FBQyxJQUFJLENBQUMsRUFBRSx3QkFBUSxDQUFDLEtBQUssQ0FBQyxDQUFDO2dCQUN2SCxDQUFDO2dCQUNELElBQUksQ0FBQyxFQUFFLENBQUMsQ0FBQyxTQUFTLENBQUMsSUFBSSxDQUFDLElBQUksSUFBSSxvQkFBUSxDQUFDLGtCQUFrQixJQUFJLFNBQVMsQ0FBQyxLQUFLLENBQUMsSUFBSSxJQUFJLHFCQUFTLENBQUMsNEJBQTRCLENBQUMsQ0FBQyxDQUFDO29CQUM1SCxJQUFJLFFBQVEsR0FBRyxTQUFTLENBQUMsSUFBSSxDQUFDLFFBQVEsQ0FBQztvQkFDdkMsRUFBRSxDQUFDLENBQUMsQ0FBQyxlQUFlLENBQUMsR0FBRyxDQUFDLFFBQVEsQ0FBQyxDQUFDLENBQUMsQ0FBQzt3QkFDakMsZUFBZSxDQUFDLEdBQUcsQ0FBQyxRQUFRLEVBQUUsRUFBRSxDQUFDLENBQUM7b0JBQ3RDLENBQUM7b0JBQ0QsZUFBZSxDQUFDLEdBQUcsQ0FBQyxRQUFRLENBQUMsQ0FBQyxJQUFJLENBQUMsU0FBUyxDQUFDLENBQUM7Z0JBQ2xELENBQUM7WUFDTCxDQUFDLENBQUMsQ0FBQTtZQUVGLHVEQUF1RDtZQUN2RCxlQUFlLENBQUMsT0FBTyxDQUFDLENBQUMsTUFBbUIsRUFBRSxRQUFnQjtnQkFDMUQsU0FBUyxHQUFHLEtBQUssQ0FBQztnQkFDbEIsSUFBSSxLQUFLLEdBQUcsaUJBQWlCLENBQUM7Z0JBQzlCLE1BQU0sQ0FBQyxPQUFPLENBQUMsS0FBSztvQkFDaEIsS0FBSyxJQUFJLElBQUksQ0FBQyxpQkFBaUIsQ0FBQyxLQUFLLEVBQUUsa0JBQWtCLEVBQUUsa0JBQWtCLEVBQUUsS0FBSyxFQUFFLEtBQUssQ0FBQyxHQUFHLEtBQUssQ0FBQztnQkFDekcsQ0FBQyxDQUFDLENBQUM7Z0JBQ0gsb0JBQW9CO2dCQUNwQixJQUFJLENBQUMsT0FBTyxDQUFDLFFBQVEsRUFBRSxLQUFLLENBQUMsQ0FBQztZQUNsQyxDQUFDLENBQUMsQ0FBQztZQUVILHdEQUF3RDtZQUN4RCxJQUFJLElBQUksR0FBeUIsSUFBSSxHQUFHLEVBQW1CLENBQUM7WUFDNUQsRUFBRSxDQUFDLENBQUMsS0FBSyxDQUFDLEtBQUssQ0FBQyxNQUFNLElBQUksQ0FBQyxDQUFDLENBQUMsQ0FBQztnQkFDMUIsSUFBSSxTQUFTLEdBQUcsS0FBSyxDQUFDLE9BQU8sQ0FBQyxPQUFPLEVBQUUsRUFBRSxFQUFFLElBQUksQ0FBQyxDQUFDO1lBQ3JELENBQUM7WUFBQyxJQUFJLENBQUMsQ0FBQztnQkFDSixLQUFLLENBQUMsS0FBSyxDQUFDLE9BQU8sQ0FBQyxRQUFRO29CQUN4QixtQkFBbUI7b0JBQ25CLElBQUksYUFBYSxHQUFHLElBQUksQ0FBQyxnQkFBZ0IsQ0FBQyxRQUFRLEVBQUUsa0JBQWtCLEVBQUUsa0JBQWtCLEVBQUUsS0FBSyxFQUFFLEtBQUssQ0FBQyxDQUFDO29CQUMxRyxJQUFJLFlBQVksR0FBRyxLQUFLLENBQUMsT0FBTyxDQUFDLFFBQVEsQ0FBQyxJQUFJLEVBQUUsYUFBYSxDQUFDLENBQUM7b0JBQy9ELElBQUksQ0FBQyxHQUFHLENBQUMsUUFBUSxDQUFDLElBQUksRUFBRSxZQUFZLENBQUMsQ0FBQztvQkFDdEMsOERBQThEO29CQUM5RCxFQUFFLENBQUMsQ0FBQyxlQUFlLENBQUMsR0FBRyxDQUFDLFFBQVEsQ0FBQyxLQUFLLENBQUMsQ0FBQyxDQUFDLENBQUM7d0JBQ3RDLEtBQUssQ0FBQyxPQUFPLENBQUMsS0FBSyxFQUFFLFFBQVEsQ0FBQyxJQUFJLEVBQUUsSUFBSSxFQUFFLFFBQVEsQ0FBQyxLQUFLLEVBQUUsRUFBRSxFQUFFLElBQUksRUFBRSxNQUFNLENBQUMsQ0FBQztvQkFDaEYsQ0FBQztnQkFDTCxDQUFDLENBQUMsQ0FBQztZQUNQLENBQUM7WUFFRCwwQkFBMEI7WUFDMUIsdUJBQXVCO1lBQ3ZCLGlDQUFpQztZQUNqQyxLQUFLLENBQUMsSUFBSSxDQUFDLE9BQU8sQ0FBQyxTQUFTO2dCQUN4QixFQUFFLENBQUMsQ0FBQyxTQUFTLENBQUMsTUFBTSxJQUFJLFNBQVMsQ0FBQyxJQUFJLENBQUMsSUFBSSxJQUFJLG9CQUFRLENBQUMsa0JBQWtCLElBQUksU0FBUyxDQUFDLEtBQUssQ0FBQyxJQUFJLElBQUkscUJBQVMsQ0FBQyw0QkFBNEIsQ0FBQyxDQUFDLENBQUM7b0JBQzNJLGtEQUFrRDtvQkFDbEQsRUFBRSxDQUFDLENBQUMsZUFBZSxDQUFDLEdBQUcsQ0FBQyxTQUFTLENBQUMsS0FBSyxDQUFDLEdBQUcsQ0FBQyxDQUFDLENBQUMsQ0FBQzt3QkFDM0MsSUFBSSxJQUFJLEdBQUcsSUFBSSxDQUFDLE9BQU8sQ0FBQyxJQUFJLEVBQUUsU0FBUyxDQUFDLElBQUksQ0FBQyxRQUFRLEVBQUUsSUFBSSxFQUFFLFNBQVMsQ0FBQyxLQUFLLENBQUMsR0FBRyxFQUFFLFNBQVMsQ0FBQyxJQUFJLENBQUMsS0FBSyxFQUFFLFFBQVEsQ0FBQyxDQUFDO29CQUN0SCxDQUFDO2dCQUNMLENBQUM7Z0JBQ0QsSUFBSSxDQUFDLEVBQUUsQ0FBQyxDQUFDLFNBQVMsQ0FBQyxJQUFJLENBQUMsSUFBSSxJQUFJLG9CQUFRLENBQUMsYUFBYSxJQUFJLFNBQVMsQ0FBQyxJQUFJLENBQUMsSUFBSSxJQUFJLG9CQUFRLENBQUMsdUJBQXVCLENBQUMsQ0FBQyxDQUFDO29CQUNoSCxTQUFTLEdBQUcsS0FBSyxDQUFDO29CQUNsQix3QkFBd0I7b0JBQ3hCLElBQUksS0FBSyxHQUFHLFNBQVMsQ0FBQyxJQUFJLENBQUMsSUFBSSxJQUFJLG9CQUFRLENBQUMsYUFBYSxHQUFHLFdBQVcsR0FBRyxlQUFlLENBQUM7b0JBQzFGLElBQUksZ0JBQWdCLEdBQUcsSUFBSSxDQUFDLFVBQVUsQ0FBQyxTQUFTLENBQUMsSUFBSSxDQUFDLFFBQVEsRUFBRSxNQUFNLEVBQUUsS0FBSyxHQUFHLEdBQUcsR0FBRyxTQUFTLENBQUMsSUFBSSxDQUFDLFFBQVEsQ0FBQyxDQUFDO29CQUMvRyx1Q0FBdUM7b0JBQ3ZDLEdBQUcsQ0FBQyxDQUFDLElBQUksQ0FBQyxHQUFHLENBQUMsRUFBRSxDQUFDLEdBQUcsU0FBUyxDQUFDLElBQUksQ0FBQyxTQUFTLENBQUMsTUFBTSxFQUFFLENBQUMsRUFBRSxFQUFFLENBQUM7d0JBQ3ZELElBQUksU0FBUyxHQUFHLFNBQVMsQ0FBQyxJQUFJLENBQUMsU0FBUyxDQUFDLENBQUMsQ0FBQyxDQUFDO3dCQUM1QyxJQUFJLE9BQU8sQ0FBQzt3QkFDWixFQUFFLENBQUMsQ0FBQyxTQUFTLENBQUMsVUFBVSxDQUFDLEdBQUcsQ0FBQyxDQUFDLENBQUMsQ0FBQzs0QkFDNUIsZ0NBQWdDOzRCQUNoQyxPQUFPLEdBQUcsS0FBSyxDQUFDOzRCQUNoQixTQUFTLEdBQUcsU0FBUyxDQUFDLFNBQVMsQ0FBQyxDQUFDLEVBQUUsU0FBUyxDQUFDLE1BQU0sQ0FBQyxDQUFDO3dCQUN6RCxDQUFDO3dCQUVELEVBQUUsQ0FBQyxDQUFDLFNBQVMsS0FBSyxLQUFLLElBQUksU0FBUyxLQUFLLElBQUksSUFBSSxjQUFjLENBQUMsSUFBSSxDQUFDLFNBQVMsQ0FBQyxDQUFDLENBQUMsQ0FBQzs0QkFDOUUsMkRBQTJEOzRCQUMzRCxJQUFJLFlBQVksR0FBRyxnQkFBZ0IsQ0FBQyxPQUFPLENBQUMsTUFBTSxDQUFDLEVBQUUsRUFBRSxNQUFNLENBQUMsTUFBTSxPQUFPLEdBQUcsR0FBRyxHQUFHLEVBQUUsR0FBRyxTQUFTLEVBQUUsQ0FBQyxDQUFDO3dCQUMxRyxDQUFDO3dCQUFDLElBQUksQ0FBQyxDQUFDOzRCQUNKLElBQUksWUFBWSxHQUFHLGdCQUFnQixDQUFDLE9BQU8sQ0FBQyxNQUFNLENBQUMsRUFBRSxFQUFFLE9BQU8sQ0FBQyxFQUFFLENBQUMsQ0FBQzs0QkFDbkUsRUFBRSxDQUFDLENBQUMsZUFBZSxDQUFDLEdBQUcsQ0FBQyxTQUFTLENBQUMsQ0FBQyxDQUFDLENBQUM7Z0NBQ2pDLElBQUksQ0FBQyxhQUFhLENBQUMsSUFBSSxFQUFFLFNBQVMsRUFBRSxnQkFBZ0IsRUFBRSxZQUFZLENBQUMsSUFBSSxFQUFFLE9BQU8sQ0FBQyxDQUFDOzRCQUN0RixDQUFDOzRCQUFDLElBQUksQ0FBQyxDQUFDO2dDQUNKLHNEQUFzRDtnQ0FDdEQsS0FBSyxDQUFDLEtBQUssQ0FBQyxPQUFPLENBQUMsT0FBTztvQ0FDdkIsRUFBRSxDQUFDLENBQUMsT0FBTyxDQUFDLEtBQUssS0FBSyxTQUFTLENBQUMsQ0FBQyxDQUFDO3dDQUM5QixLQUFLLENBQUMsYUFBYSxDQUFDLEtBQUssRUFBRSxJQUFJLENBQUMsR0FBRyxDQUFDLE9BQU8sQ0FBQyxJQUFJLENBQUMsQ0FBQyxJQUFJLEVBQUUsZ0JBQWdCLEVBQUUsWUFBWSxDQUFDLElBQUksRUFBRSxPQUFPLENBQUMsQ0FBQztvQ0FDMUcsQ0FBQztnQ0FDTCxDQUFDLENBQUMsQ0FBQztnQ0FDSCxrREFBa0Q7Z0NBQ2xELEtBQUssQ0FBQyxJQUFJLENBQUMsT0FBTyxDQUFDLEtBQUs7b0NBQ3BCLEVBQUUsQ0FBQyxDQUFDLEtBQUssQ0FBQyxJQUFJLENBQUMsSUFBSSxJQUFJLG9CQUFRLENBQUMsa0JBQWtCLElBQUksS0FBSyxDQUFDLEtBQUssQ0FBQyxHQUFHLEtBQUssU0FBUyxDQUFDLENBQUMsQ0FBQzt3Q0FDbEYsS0FBSyxDQUFDLGFBQWEsQ0FBQyxJQUFJLEVBQUUsS0FBSyxDQUFDLElBQUksQ0FBQyxRQUFRLEVBQUUsZ0JBQWdCLEVBQUUsWUFBWSxDQUFDLElBQUksRUFBRSxDQUFDLE9BQU8sR0FBRyxHQUFHLEdBQUcsRUFBRSxDQUFDLEdBQUcsS0FBSyxDQUFDLElBQUksQ0FBQyxLQUFLLEVBQUUsUUFBUSxDQUFDLENBQUM7b0NBQzNJLENBQUM7Z0NBQ0wsQ0FBQyxDQUFDLENBQUM7NEJBQ1AsQ0FBQzt3QkFDTCxDQUFDO29CQUNMLENBQUM7b0JBQ0QsOENBQThDO29CQUM5QyxFQUFFLENBQUMsQ0FBQyxTQUFTLENBQUMsSUFBSSxDQUFDLElBQUksSUFBSSxvQkFBUSxDQUFDLHVCQUF1QixJQUFJLFNBQVMsQ0FBQyxLQUFLLENBQUMsSUFBSSxJQUFJLHFCQUFTLENBQUMsNEJBQTRCLENBQUMsQ0FBQyxDQUFDO3dCQUM1SCxJQUFJLFVBQVUsR0FBRyxnQkFBZ0IsQ0FBQyxPQUFPLENBQUMsUUFBUSxFQUFFLFFBQVEsQ0FBQyxDQUFBO3dCQUM3RCxFQUFFLENBQUMsQ0FBQyxDQUFDLGVBQWUsQ0FBQyxHQUFHLENBQUMsU0FBUyxDQUFDLEtBQUssQ0FBQyxHQUFHLENBQUMsQ0FBQyxDQUFDLENBQUM7NEJBQzVDLElBQUksZUFBZSxHQUFHLElBQUksQ0FBQyxPQUFPLENBQUMsU0FBUyxDQUFDLEtBQUssQ0FBQyxHQUFHLEVBQUUsaUJBQWlCLENBQUMsQ0FBQzt3QkFDL0UsQ0FBQzt3QkFDRCxJQUFJLFVBQVUsR0FBRyxJQUFJLENBQUMsT0FBTyxDQUFDLGdCQUFnQixFQUFFLFVBQVUsQ0FBQyxJQUFJLEVBQUUsSUFBSSxFQUFFLFNBQVMsQ0FBQyxLQUFLLENBQUMsR0FBRyxFQUFFLFNBQVMsQ0FBQyxJQUFJLENBQUMsS0FBSyxFQUFFLE1BQU0sQ0FBQyxDQUFDO29CQUM5SCxDQUFDO2dCQUNMLENBQUM7WUFDTCxDQUFDLENBQUMsQ0FBQTtZQUVGLDhCQUE4QjtZQUM5QixFQUFFLENBQUMsQ0FBQyxTQUFTLENBQUMsQ0FBQyxDQUFDO2dCQUNaLElBQUksU0FBUyxHQUFHLElBQUksQ0FBQyxPQUFPLENBQUMsWUFBWSxFQUFFLEVBQUUsRUFBRSxJQUFJLENBQUMsQ0FBQztZQUN6RCxDQUFDO1lBRUQsTUFBTSxDQUFDLEtBQUssQ0FBQyxLQUFLLEVBQUUsQ0FBQztRQUN6QixDQUFFO1FBQUEsS0FBSyxDQUFDLENBQUMsQ0FBQyxDQUFDLENBQUMsQ0FBQztZQUNULFNBQUcsQ0FBQyxLQUFLLENBQUMsa0JBQWtCLEdBQUcsQ0FBQyxDQUFDLENBQUM7UUFDdEMsQ0FBQztJQUNMLENBQUM7SUFFRCxPQUFlLGdCQUFnQixDQUFDLFFBQWtCLEVBQUUsa0JBQTJCLEVBQUUsa0JBQTJCLEVBQUUsS0FBWSxFQUFFLEtBQWdCO1FBQ3hJLE1BQU0sQ0FBQyxJQUFJLENBQUMsUUFBUSxDQUFDLFFBQVEsQ0FBQyxJQUFJLEVBQUUsUUFBUSxDQUFDLEtBQUssRUFBRSxRQUFRLENBQUMsYUFBYSxFQUFFLGtCQUFrQixFQUFFLGtCQUFrQixFQUFFLEtBQUssRUFBRSxLQUFLLENBQUMsQ0FBQztJQUN0SSxDQUFDO0lBRUQsT0FBZSxpQkFBaUIsQ0FBQyxLQUFnQixFQUFFLGtCQUEyQixFQUFFLGtCQUEyQixFQUFFLEtBQVksRUFBRSxLQUFnQjtRQUN2SSxNQUFNLENBQUMsSUFBSSxDQUFDLFFBQVEsQ0FBQyxLQUFLLENBQUMsSUFBSSxDQUFDLEtBQUssRUFBRSxLQUFLLENBQUMsS0FBSyxDQUFDLEdBQUcsRUFBRSxLQUFLLENBQUMsS0FBSyxDQUFDLGFBQWEsRUFBRSxrQkFBa0IsRUFBRSxrQkFBa0IsRUFBRSxLQUFLLEVBQUUsS0FBSyxDQUFDLENBQUM7SUFDN0ksQ0FBQztJQUVELDBFQUEwRTtJQUMxRSxPQUFlLFFBQVEsQ0FBQyxJQUFZLEVBQUUsYUFBcUIsRUFBRSxhQUFxQixFQUFFLGtCQUEyQixFQUFFLGtCQUEyQixFQUFFLEtBQVksRUFBRSxLQUFnQjtRQUN4SyxJQUFJLE1BQU0sR0FBRyxJQUFJLENBQUM7UUFDbEIsbUNBQW1DO1FBQ25DLElBQUksV0FBVyxHQUFHLElBQUksQ0FBQyxlQUFlLENBQUMsYUFBYSxFQUFFLEtBQUssRUFBRSxrQkFBa0IsRUFBRSxLQUFLLENBQUMsQ0FBQztRQUN4RixFQUFFLENBQUMsQ0FBQyxhQUFhLElBQUksQ0FBQyxrQkFBa0IsSUFBSSxXQUFXLENBQUMsQ0FBQyxDQUFDLENBQUM7WUFDdkQsTUFBTSxJQUFJLEtBQUssR0FBRyxDQUFDLFdBQVcsR0FBRyxJQUFJLEdBQUcsYUFBYSxDQUFDLENBQUM7WUFDdkQsRUFBRSxDQUFDLENBQUMsa0JBQWtCLElBQUksYUFBYSxDQUFDLENBQUMsQ0FBQztnQkFDdEMsTUFBTSxJQUFJLElBQUksR0FBRyxhQUFhLEdBQUcsR0FBRyxDQUFDO1lBQ3pDLENBQUM7UUFDTCxDQUFDO1FBQ0QsTUFBTSxDQUFDLE1BQU0sQ0FBQztJQUNsQixDQUFDO0lBRUQsaUZBQWlGO0lBQ2pGLHdDQUF3QztJQUN4QyxzQ0FBc0M7SUFDdEMsMENBQTBDO0lBQzFDLGtEQUFrRDtJQUNsRCxzREFBc0Q7SUFDdEQsa0RBQWtEO0lBQ2xELHNEQUFzRDtJQUN0RCxJQUFJO0lBRUosMkZBQTJGO0lBQzNGLE9BQWUsZUFBZSxDQUFDLGFBQXFCLEVBQUUsS0FBZ0IsRUFBRSxrQkFBMkIsRUFBRSxLQUFZO1FBQzdHLEVBQUUsQ0FBQyxDQUFDLGFBQWEsS0FBSyxJQUFJLENBQUM7WUFBQyxNQUFNLENBQUMsSUFBSSxDQUFDO1FBQ3hDLEdBQUcsQ0FBQyxDQUFDLElBQUksQ0FBQyxHQUFHLENBQUMsRUFBRSxDQUFDLEdBQUcsS0FBSyxDQUFDLEdBQUcsQ0FBQyxNQUFNLEVBQUUsQ0FBQyxFQUFFLEVBQUUsQ0FBQztZQUN4QyxJQUFJLElBQUksR0FBRyxLQUFLLENBQUMsR0FBRyxDQUFDLENBQUMsQ0FBQyxDQUFDO1lBQ3hCLEVBQUUsQ0FBQyxDQUFDLElBQUksQ0FBQyxJQUFJLElBQUkseUJBQWEsQ0FBQyxnQkFBZ0IsSUFBSSxJQUFJLENBQUMsS0FBSyxJQUFJLElBQUksQ0FBQyxHQUFHLEtBQUssYUFBYSxDQUFDLENBQUMsQ0FBQztnQkFDMUYsTUFBTSxDQUFDLElBQUksQ0FBQztZQUNoQixDQUFDO1FBQ0wsQ0FBQztRQUFBLENBQUM7UUFDRixFQUFFLENBQUMsQ0FBQyxrQkFBa0IsQ0FBQyxDQUFDLENBQUM7WUFDckIsRUFBRSxDQUFDLENBQUMsS0FBSyxDQUFDLE1BQU0sQ0FBQyxHQUFHLENBQUMsYUFBYSxDQUFDLENBQUMsQ0FBQyxDQUFDO2dCQUNsQyxJQUFJLGFBQWEsR0FBRyxLQUFLLENBQUMsTUFBTSxDQUFDLEdBQUcsQ0FBQyxhQUFhLENBQUMsQ0FBQztnQkFDcEQsTUFBTSxDQUFDLGFBQWEsQ0FBQyxXQUFXLEVBQUUsS0FBSyxJQUFJLENBQUM7WUFDaEQsQ0FBQztRQUNMLENBQUM7UUFDRCxNQUFNLENBQUMsS0FBSyxDQUFDO0lBQ2pCLENBQUM7QUFDTCxDQUFDO0FBNVZZLHNCQUFjLGlCQTRWMUIsQ0FBQSJ9
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiSGVhcFZpc3VhbGl6ZXIuanMiLCJzb3VyY2VSb290IjoiIiwic291cmNlcyI6WyIuLi8uLi9zZXJ2ZXIvc3JjL0hlYXBWaXN1YWxpemVyLnRzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQUFBLFlBQVksQ0FBQztBQUViLHNCQUFrQixPQUFPLENBQUMsQ0FBQTtBQUUxQixnQ0FBaUMsaUJBQWlCLENBQUMsQ0FBQTtBQUNuRCw0QkFBaUcsYUFBYSxDQUFDLENBQUE7QUFFL0csMkJBQTRDLFlBQVksQ0FBQyxDQUFBO0FBQ3pELDJCQUF1QixZQUFZLENBQUMsQ0FBQTtBQUNwQyxJQUFJLFFBQVEsR0FBRyxPQUFPLENBQUMsVUFBVSxDQUFDLENBQUM7QUFFbkMsSUFBSSxJQUFJLEdBQUcsTUFBTSxDQUFDO0FBQ2xCLElBQUksSUFBSSxHQUFHLE1BQU0sQ0FBQztBQUNsQixJQUFJLEtBQUssR0FBRyxPQUFPLENBQUM7QUFFcEI7SUFFSSxPQUFlLFVBQVU7UUFDckIsRUFBRSxDQUFDLENBQUMsbUJBQVEsQ0FBQyxRQUFRLENBQUMsVUFBVSxDQUFDLENBQUMsQ0FBQztZQUMvQixNQUFNLENBQUMsU0FBUyxDQUFDO1FBQ3JCLENBQUM7UUFBQyxJQUFJLENBQUMsQ0FBQztZQUNKLE1BQU0sQ0FBQyxPQUFPLENBQUM7UUFDbkIsQ0FBQztJQUNMLENBQUM7SUFDRCxPQUFlLGtCQUFrQjtRQUM3QixFQUFFLENBQUMsQ0FBQyxtQkFBUSxDQUFDLFFBQVEsQ0FBQyxVQUFVLENBQUMsQ0FBQyxDQUFDO1lBQy9CLE1BQU0sQ0FBQyxPQUFPLENBQUM7UUFDbkIsQ0FBQztRQUFDLElBQUksQ0FBQyxDQUFDO1lBQ0osTUFBTSxDQUFDLE9BQU8sQ0FBQztRQUNuQixDQUFDO0lBQ0wsQ0FBQztJQUVELDJDQUEyQztJQUMzQyxrRUFBa0U7SUFDbEUsMkNBQTJDO0lBQzNDLElBQUk7SUFFSixPQUFjLHlCQUF5QixDQUFDLEtBQWdCLEVBQUUsVUFBbUIsRUFBRSxrQkFBMkIsRUFBRSxrQkFB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

@@ -4,7 +4,7 @@ import fs = require('fs');
 import * as pathHelper from 'path';
 var commandExists = require('command-exists');
 import {Log} from './Log';
-import {SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
+import {PlatformDependentPath, SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
 import {Server} from './ServerClass';
 const os = require('os');
 
@@ -27,19 +27,18 @@ export class Settings {
     private static _errors: SettingsError[];
 
     private static home = os.homedir();
-    private static defaultViperToolsPath: string;
 
-    private static computeDefaultViperToolsPath() {
-        try {
-            if (this.isWin) {
-                return pathHelper.join(this.extractEnvVars("%ProgramFiles%").path, "Viper\\");
-            } else {
-                return "/usr/local/Viper/"
-            }
-        } catch (e) {
-            Log.error("Error computing default viper tools path");
-        }
-    }
+    // private static computeDefaultViperToolsPath() {
+    //     try {
+    //         if (this.isWin) {
+    //             return pathHelper.join(this.extractEnvVars("%ProgramFiles%").path, "Viper\\");
+    //         } else {
+    //             return "/usr/local/Viper/"
+    //         }
+    //     } catch (e) {
+    //         Log.error("Error computing default viper tools path");
+    //     }
+    // }
 
     public static getStage(backend: Backend, name: string): Stage {
         if (!name) return null;
@@ -116,8 +115,10 @@ export class Settings {
 
     static expandViperToolsPath(path: string): string {
         if (!path) return path;
-        path = path.replace(/\$defaultViperToolsPath\$/g, this.defaultViperToolsPath);
-        path = path.replace(/\$viperTools\$/g, Settings.settings.viperToolsPath);
+        if (typeof Settings.settings.viperToolsPath !== "string") {
+            return path;
+        }
+        path = path.replace(/\$viperTools\$/g, <string>Settings.settings.viperToolsPath);
         return path;
     }
 
@@ -177,15 +178,11 @@ export class Settings {
         if (!nailgunSettings.serverJar || nailgunSettings.serverJar.length == 0) {
             this.addError("Path to nailgun server jar is missing");
         } else {
-            nailgunSettings.serverJar = Settings.checkPath(nailgunSettings.serverJar, "Nailgun Server:", false).path
+            nailgunSettings.serverJar = Settings.checkPath(nailgunSettings.serverJar, "Nailgun Server:", false, false).path
         }
 
         //check nailgun client
-        if (!nailgunSettings.clientExecutable || nailgunSettings.clientExecutable.length == 0) {
-            return "Path to nailgun client executable is missing"
-        } else {
-            nailgunSettings.clientExecutable = Settings.checkPath(nailgunSettings.clientExecutable, "Nailgun Client:", true).path
-        }
+        nailgunSettings.clientExecutable = Settings.checkPath(nailgunSettings.clientExecutable, "Nailgun Client:", true, true).path
 
         //check nailgun timeout
         if (!nailgunSettings.timeout || (nailgunSettings.timeout && nailgunSettings.timeout <= 0)) {
@@ -201,73 +198,96 @@ export class Settings {
         this._errors.push({ type: SettingsErrorType.Warning, msg: msg });
     }
 
-    public static checkSettings() {
-        try {
+    public static checkSettings(): Thenable<boolean> {
+        return new Promise((resolve, reject) => {
+            try {
+                this._valid = false;
+                this._errors = [];
 
-            //Attempt for typechecking
-            // for (let p in settings) {
-            //     Log.log("Settings property " + p);
-            // }
-
-            // let temp = new ViperSettings();
-            // for (let p in temp) {
-            //     Log.log("Interface property " + p);
-            // }
-
-            this._valid = false;
-            this._errors = [];
-            let settings = Settings.settings;
-            this.defaultViperToolsPath = Settings.computeDefaultViperToolsPath();
-            //check viperToolsPath
-            if (!settings.viperToolsPath || settings.viperToolsPath.length == 0) {
-                //its ok to have none
-                this.addWarning("No ViperToolsPath is specified, use the default one");
-                settings.viperToolsPath = this.defaultViperToolsPath;
-            } else {
-                //if there is one check it
-                let resolvedPath = this.checkPath(settings.viperToolsPath, "Path to Viper Tools:", false);
-                settings.viperToolsPath = resolvedPath.path;
-                if (!resolvedPath.exists) return;
+                //check settings version
+                Server.connection.sendRequest(Commands.CheckSettingsVersion).then(versionOk => {
+                    if (versionOk) {
+                        let settings = Settings.settings;
+                        //check viperToolsPath
+                        //if there is one check it
+                        let resolvedPath = this.checkPath(settings.viperToolsPath, "Path to Viper Tools:", false, true, false);
+                        settings.viperToolsPath = resolvedPath.path;
+                        if (!resolvedPath.exists) {
+                            resolve(false);
+                            return;
+                        }
+                        //check backends
+                        Settings.checkBackends(settings.verificationBackends);
+                        //check nailgun settings
+                        let useNailgun = settings.verificationBackends.some(elem => elem.useNailgun);
+                        if (useNailgun) {
+                            //Log.log("Checking nailgun settings...", LogLevel.Debug);
+                            this.checkNailgunSettings(settings.nailgunSettings);
+                        }
+                        //Log.log("Checking other settings...", LogLevel.Debug);
+                        //check z3 Executable
+                        settings.z3Executable = this.checkPath(settings.z3Executable, "z3 Executable:", true, true).path;
+                        //check boogie executable
+                        settings.boogieExecutable = this.checkPath(settings.boogieExecutable, `Boogie Executable: (If you don't need boogie, set it to "")`, true, true).path;
+                        //check dot executable
+                        if (Settings.settings.advancedFeatures) {
+                            settings.dotExecutable = this.checkPath(settings.dotExecutable, "dot executable:", true, true).path;
+                        }
+                        //checks done
+                        this._valid = !this._errors.some(error => error.type == SettingsErrorType.Error); //if there is no error -> valid
+                        if (this._valid) {
+                            Log.log("The settings are ok", LogLevel.Info);
+                            resolve(true);
+                        } else {
+                            resolve(false);
+                        }
+                    } else {
+                        Log.hint("Old viper settings detected: please check if your settings were affected by changes in the default settings. If this is a fresh installation you can simply update the viperSettings.settingsVersion to the current version of the extension.");
+                    }
+                });
+            } catch (e) {
+                Log.error("Error checking settings: " + e);
+                resolve(false);
             }
-            //check backends
-            Settings.checkBackends(settings.verificationBackends);
-            //check nailgun settings
-            let useNailgun = settings.verificationBackends.some(elem => elem.useNailgun);
-            if (useNailgun) {
-                //Log.log("Checking nailgun settings...", LogLevel.Debug);
-                this.checkNailgunSettings(settings.nailgunSettings);
-            }
-            //Log.log("Checking other settings...", LogLevel.Debug);
-            //check z3 Executable
-            settings.z3Executable = this.checkPath(settings.z3Executable, "z3 Executable:", true).path;
-            //check boogie executable
-            if (Settings.isLinux && settings.boogieExecutable && settings.boogieExecutable == "$viperTools$/boogie/Binaries/Boogie") {
-                //handle the special case of linux using Boogie.exe instead of Boogie
-                settings.boogieExecutable += ".exe";
-            }
-            settings.boogieExecutable = this.checkPath(settings.boogieExecutable, `Boogie Executable: (If you don't need boogie, set it to "")`, true).path;
-            //check dot executable
-            if (Settings.settings.advancedFeatures) {
-                settings.dotExecutable = this.checkPath(settings.dotExecutable, "dot executable:", true).path;
-            }
-            //checks done
-            this._valid = !this._errors.some(error => error.type == SettingsErrorType.Error); //if there is no error -> valid
-            if (this._valid) {
-                Log.log("The settings are ok", LogLevel.Info);
-            }
-        } catch (e) {
-            Log.error("Error checking settings: " + e);
-        }
+        });
     }
 
-    private static checkPath(path: string, prefix: string, executable: boolean): ResolvedPath {
-        if (!path || path.length == 0) {
+    private static checkPath(path: (string | PlatformDependentPath), prefix: string, executable: boolean, allowPlatformDependentPath: boolean, allowStringPath: boolean = true): ResolvedPath {
+        if (!path) {
             this.addError(prefix + " path is missing");
-            return { path: path, exists: false };
+            return { path: null, exists: false };
         }
-        let resolvedPath = Settings.resolvePath(path, executable);
+        let stringPath: string;
+        if (typeof path === "string") {
+            if (!allowStringPath) {
+                this.addError(prefix + ' path has wrong type: expected: {windows:string, mac:string, linux:string}, found: ' + typeof path);
+                return { path: stringPath, exists: false };
+            }
+            stringPath = <string>path;
+        } else {
+            if (!allowPlatformDependentPath) {
+                this.addError(prefix + ' path has wrong type: expected: string, found: ' + typeof path + " at path: " + JSON.stringify(path));
+                return { path: null, exists: false };
+            }
+            let platformDependentPath: PlatformDependentPath = <PlatformDependentPath>path;
+            if (Settings.isLinux) {
+                stringPath = platformDependentPath.linux;
+            } else if (Settings.isMac) {
+                stringPath = platformDependentPath.mac;
+            } else if (Settings.isWin) {
+                stringPath = platformDependentPath.windows;
+            } else {
+                Log.error("Operation System detection failed, Its not Mac, Windows or Linux");
+            }
+        }
+
+        if (!stringPath || stringPath.length == 0) {
+            this.addError(prefix + ' path has wrong type: expected: string' + (executable ? ' or {windows:string, mac:string, linux:string}' : "") + ', found: ' + typeof path + " at path: " + JSON.stringify(path));
+            return { path: stringPath, exists: false };
+        }
+        let resolvedPath = Settings.resolvePath(stringPath, executable);
         if (!resolvedPath.exists) {
-            this.addError(prefix + ' path not found: "' + path + '"' + (resolvedPath.path != path ? ' which expands to "' + resolvedPath.path + '"' : "") + (" " + (resolvedPath.error || "")));
+            this.addError(prefix + ' path not found: "' + stringPath + '"' + (resolvedPath.path != stringPath ? ' which expands to "' + resolvedPath.path + '"' : "") + (" " + (resolvedPath.error || "")));
         }
         return resolvedPath;
     }
@@ -359,7 +379,7 @@ export class Settings {
                 } else {
                     for (let i = 0; i < backend.paths.length; i++) {
                         //extract environment variable or leave unchanged
-                        backend.paths[i] = Settings.checkPath(backend.paths[i], backendName, false).path;
+                        backend.paths[i] = Settings.checkPath(backend.paths[i], backendName, false, false).path;
                     }
                 }
 

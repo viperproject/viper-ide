@@ -52,8 +52,7 @@
         "onLanguage:viper"
     ],
     "contributes": {
-        "commands": [
-            {
+        "commands": [{
                 "command": "extension.verify",
                 "title": "Viper: verify the open document"
             },
@@ -74,8 +73,7 @@
                 "title": "Viper: toggle the automatic verification of viper files"
             }
         ],
-        "grammars": [
-            {
+        "grammars": [{
                 "language": "viper",
                 "scopeName": "source.silver",
                 "path": "./syntaxes/Viper.tmLanguage"
@@ -86,8 +84,7 @@
                 "path": "./syntaxes/log.tmLanguage"
             }
         ],
-        "languages": [
-            {
+        "languages": [{
                 "id": "viper",
                 "extensions": [
                     ".sil",
@@ -108,8 +105,7 @@
                 ]
             }
         ],
-        "themes": [
-            {
+        "themes": [{
                 "label": "Viper-Dark",
                 "uiTheme": "vs-dark",
                 "path": "./themes/Viper (Dark).tmTheme"
@@ -120,14 +116,11 @@
                 "path": "./themes/Viper (Light).tmTheme"
             }
         ],
-        "snippets": [
-            {
-                "language": "viper",
-                "path": "./snippets/viper.json"
-            }
-        ],
-        "keybindings": [
-            {
+        "snippets": [{
+            "language": "viper",
+            "path": "./snippets/viper.json"
+        }],
+        "keybindings": [{
                 "command": "extension.selectBackend",
                 "key": "ctrl+l",
                 "mac": "cmd+l",
@@ -162,10 +155,19 @@
             "type": "object",
             "title": "Viper Configuration",
             "properties": {
-                "viperSettings.viperToolsPath": {
+                "viperSettings.settingsVersion": {
                     "type": "string",
-                    "default": "$defaultViperToolsPath$",
-                    "description": "Path to the folder containing all the ViperTools:\n    // The default is:\n    // Windows: %programfiles%\\Viper\\\n    // Mac: /usr/local/Viper/\n    // Linux: /usr/local/Viper/\n    // Can be refered to by $viperTools$\n    //\n    // For all path you can use absolute paths, paths relative to the folder open in VsCode, %ENV_VAR% for environment variables, or e.g.: z3 or ng if its folder is in the PATH environment variable."
+                    "default": "0.0.1",
+                    "description": "The version of the viper settings is used for detecting old settings. When updating it you can set it to the current version of the viper extension."
+                },
+                "viperSettings.viperToolsPath": {
+                    "type": "object",
+                    "default": {
+                        "windows": "%ProgramFiles%\\Viper\\",
+                        "linux": "/usr/local/Viper",
+                        "mac": "/usr/local/Viper"
+                    },
+                    "description": "Path to the folder containing all the ViperTools.\n    // Can be refered to by $viperTools$\n    //\n    // For all path you can use absolute paths, paths relative to the folder open in VsCode, %ENV_VAR% for environment variables, or e.g.: z3 or ng if its folder is in the PATH environment variable."
                 },
                 "viperSettings.nailgunSettings": {
                     "type": "object",
@@ -179,26 +181,23 @@
                 },
                 "viperSettings.verificationBackends": {
                     "type": "array",
-                    "default": [
-                        {
+                    "default": [{
                             "name": "silicon",
                             "paths": [
                                 "$viperTools$/backends/silicon.jar"
                             ],
                             "useNailgun": true,
                             "timeout": 100000,
-                            "stages": [
-                                {
-                                    "name": "verify",
-                                    "isVerification": true,
-                                    "mainMethod": "viper.silicon.SiliconRunner",
-                                    "customArguments": "--nailgun-port $nailgunPort$ $mainMethod$ --ideMode --ideModeAdvanced --z3Exe $z3Exe$ $fileToVerify$",
-                                    "onParsingError": "",
-                                    "onTypeCheckingError": "",
-                                    "onVerificationError": "",
-                                    "onSuccess": ""
-                                }
-                            ]
+                            "stages": [{
+                                "name": "verify",
+                                "isVerification": true,
+                                "mainMethod": "viper.silicon.SiliconRunner",
+                                "customArguments": "--nailgun-port $nailgunPort$ $mainMethod$ --ideMode --ideModeAdvanced --z3Exe $z3Exe$ $fileToVerify$",
+                                "onParsingError": "",
+                                "onTypeCheckingError": "",
+                                "onVerificationError": "",
+                                "onSuccess": ""
+                            }]
                         },
                         {
                             "name": "silicon with infer",
@@ -208,8 +207,7 @@
                             ],
                             "useNailgun": true,
                             "timeout": 100000,
-                            "stages": [
-                                {
+                            "stages": [{
                                     "name": "verify",
                                     "isVerification": true,
                                     "mainMethod": "viper.silicon.SiliconRunner",
@@ -238,30 +236,30 @@
                             ],
                             "useNailgun": false,
                             "timeout": 100000,
-                            "stages": [
-                                {
-                                    "name": "verify",
-                                    "isVerification": true,
-                                    "mainMethod": "viper.silicon.SiliconRunner",
-                                    "customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$ $mainMethod$ --z3Exe $z3Exe$ --boogieExe $boogieExe$ $fileToVerify$",
-                                    "onParsingError": "",
-                                    "onTypeCheckingError": "",
-                                    "onVerificationError": "",
-                                    "onSuccess": ""
-                                }
-                            ]
+                            "stages": [{
+                                "name": "verify",
+                                "isVerification": true,
+                                "mainMethod": "viper.silicon.SiliconRunner",
+                                "customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$ $mainMethod$ --z3Exe $z3Exe$ --boogieExe $boogieExe$ $fileToVerify$",
+                                "onParsingError": "",
+                                "onTypeCheckingError": "",
+                                "onVerificationError": "",
+                                "onSuccess": ""
+                            }]
                         }
                     ],
                     "description": "You can add your backends here."
                 },
                 "viperSettings.z3Executable": {
-                    "type": "string",
                     "default": "$viperTools$/z3/bin/z3",
                     "description": "The path to the z3 executable. Can be refered to by $z3Exe$"
                 },
                 "viperSettings.boogieExecutable": {
-                    "type": "string",
-                    "default": "$viperTools$/boogie/Binaries/Boogie",
+                    "default": {
+                        "windows": "$viperTools$/boogie/Binaries/Boogie.exe",
+                        "linux": "$viperTools$/boogie/Binaries/Boogie.exe",
+                        "mac": "$viperTools$/boogie/Binaries/Boogie"
+                    },
                     "description": "The path to the boogie executable. Can be refered to by $boogieExe$"
                 },
                 "viperSettings.autoSave": {
@@ -290,7 +288,6 @@
                     "description": "Enable heap visualization, stepwise debugging and execution path visualization"
                 },
                 "viperSettings.dotExecutable": {
-                    "type": "string",
                     "default": "$viperTools$/graphviz/bin/dot",
                     "description": "The path to the dot executable."
                 },
@@ -316,46 +313,35 @@
                 }
             }
         },
-        "debuggers": [
-            {
-                "type": "viper",
-                "label": "Viper Debug",
-                "enableBreakpointsFor": {
-                    "languageIds": [
-                        "viper"
-                    ]
-                },
-                "program": "./out/debug.js",
-                "runtime": "node",
-                "configurationAttributes": {
-                    "launch": {
-                        "required": [
-                            "program"
-                        ],
-                        "properties": {
-                            "program": {
-                                "type": "string",
-                                "description": "Path to a viper source file.",
-                                "default": "${workspaceRoot}/sum.sil"
-                            },
-                            "startInState": {
-                                "type": "int",
-                                "description": "",
-                                "default": true
-                            }
+        "debuggers": [{
+            "type": "viper",
+            "label": "Viper Debug",
+            "enableBreakpointsFor": {
+                "languageIds": [
+                    "viper"
+                ]
+            },
+            "program": "./out/debug.js",
+            "runtime": "node",
+            "configurationAttributes": {
+                "launch": {
+                    "required": [
+                        "program"
+                    ],
+                    "properties": {
+                        "program": {
+                            "type": "string",
+                            "description": "Path to a viper source file.",
+                            "default": "${workspaceRoot}/sum.sil"
+                        },
+                        "startInState": {
+                            "type": "int",
+                            "description": "",
+                            "default": true
                         }
                     }
-                },
-                "initialConfigurations": [
-                    {
-                        "name": "Viper Debug",
-                        "type": "viper",
-                        "request": "launch",
-                        "program": "${workspaceRoot}/sum.sil",
-                        "stopOnEntry": true
-                    }
-                ]
+                }
             }
-        ]
+        }]
     }
 }
