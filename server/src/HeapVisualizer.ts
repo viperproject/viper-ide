@@ -83,9 +83,7 @@ export class HeapVisualizer {
 
             //populate the store and add pointers from store to heap
             let vars: Map<string, DotNode> = new Map<string, DotNode>();
-            if (state.store.length == 0) {
-                let dummyNode = store.addNode("dummy", "", true);
-            } else {
+            if (state.store.length > 0) {
                 state.store.forEach((variable: Variable) => {
                     //add variable node
                     let variableLabel = this.getVariableLabel(variable, showSymbolicValues, showConcreteValues, model, state);
@@ -176,12 +174,6 @@ export class HeapVisualizer {
                     }
                 });
             }
-
-            //make the empty heap is shown
-            if (heapEmpty) {
-                let dummyNode = heap.addNode("heap_dummy", "", true);
-            }
-
             return graph.toDot();
         } catch (e) {
             Log.error("Graphviz Error: " + e);

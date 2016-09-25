@@ -157,6 +157,9 @@ export class DotCluster {
     }
 
     pretty(): string {
+        if (this.nodes.size == 0 && this.clusters.length == 0) {
+            this.addNode("dummy", "", true);
+        }
         return `subgraph cluster_${this.name} {
 graph [${DotGraph.combine(this.clusterAttributes, ", ")}];
 ${DotGraph.combine(this.clusters, "\n")}
