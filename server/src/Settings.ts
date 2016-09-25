@@ -210,7 +210,7 @@ export class Settings {
                         let settings = Settings.settings;
                         //check viperToolsPath
                         //if there is one check it
-                        let resolvedPath = this.checkPath(settings.viperToolsPath, "Path to Viper Tools:", false, true, false);
+                        let resolvedPath = this.checkPath(settings.viperToolsPath, "Path to Viper Tools:", false, true, true);
                         settings.viperToolsPath = resolvedPath.path;
                         if (!resolvedPath.exists) {
                             resolve(false);

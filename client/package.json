@@ -157,11 +157,10 @@
             "properties": {
                 "viperSettings.settingsVersion": {
                     "type": "string",
-                    "default": "0.0.1",
+                    "default": "0.0.0",
                     "description": "The version of the viper settings is used for detecting old settings. When updating it you can set it to the current version of the viper extension."
                 },
                 "viperSettings.viperToolsPath": {
-                    "type": "object",
                     "default": {
                         "windows": "%ProgramFiles%\\Viper\\",
                         "linux": "/usr/local/Viper",

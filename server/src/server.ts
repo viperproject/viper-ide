@@ -66,7 +66,7 @@ function registerHandlers() {
             Log.logLevel = Settings.settings.logLevel; //after this line, Logging works
 
             Log.log('Configuration changed', LogLevel.Info);
-            let errors = Settings.checkSettings().then(() => {
+            Settings.checkSettings().then(() => {
                 if (Settings.valid()) {
                     restartBackendIfNeeded(oldSettings);
                 }
@@ -80,9 +80,14 @@ function registerHandlers() {
         try {
             if (!selectedBackend || selectedBackend.length == 0) {
                 Log.log("No backend was chosen, don't restart backend", LogLevel.Debug);
-            } else if (Settings.valid()) {
-                Settings.selectedBackend = selectedBackend;
-                restartBackendIfNeeded(null);
+            } else {
+                //recheck settings upon 
+                Settings.checkSettings().then(() => {
+                    if (Settings.valid()) {
+                        Settings.selectedBackend = selectedBackend;
+                        restartBackendIfNeeded(null);
+                    }
+                });
             }
         } catch (e) {
             Log.error("Error handling select backend request: " + e);
