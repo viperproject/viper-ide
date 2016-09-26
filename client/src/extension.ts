@@ -54,7 +54,7 @@ enum TaskType {
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-    lastVersionWithSettingsChange = new Version("0.2.13");
+    lastVersionWithSettingsChange = new Version("0.2.14"); //null means latest version
     workList = [];
     ExtensionState.viperFiles = new Map<string, ViperFileState>();
     Log.initialize(context);
@@ -108,7 +108,8 @@ function isSettingsVersionOk(): boolean {
     try {
         let extensionVersion = new Version(vscode.extensions.getExtension("rukaelin.viper-advanced").packageJSON.version);
         let settingsVersion = new Version(Helper.getConfiguration("settingsVersion"));
-        Log.log("Extension version: " + extensionVersion + ", settings version: " + settingsVersion + ", last version with settings changes: " + lastVersionWithSettingsChange, LogLevel.Info);
+        if (!lastVersionWithSettingsChange) lastVersionWithSettingsChange = extensionVersion;
+        Log.log("Settings version: " + settingsVersion + ", required settings version: " + lastVersionWithSettingsChange + ", extension version: " + extensionVersion, LogLevel.Info);
         if (settingsVersion.compare(lastVersionWithSettingsChange) < 0) {
             return false;
         }
