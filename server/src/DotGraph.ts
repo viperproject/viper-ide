@@ -52,7 +52,6 @@ export class DotGraph {
         this.edgeAttributes.push(new DotAttribute("fontcolor", color));
     }
     clusters: DotCluster[] = [];
-    //nodes: DotNode[] = [];
     edges: DotEdge[] = [];
 
     toDot(): string {

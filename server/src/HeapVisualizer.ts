@@ -203,16 +203,6 @@ export class HeapVisualizer {
         return result;
     }
 
-    // private static setGraphColors(graph, background: string, foreground: string) {
-    //     graph.set("bgcolor", background);
-    //     graph.set("color", foreground);
-    //     graph.set("fontcolor", foreground);
-    //     graph.setNodeAttribut("color", foreground);
-    //     graph.setNodeAttribut("fontcolor", foreground);
-    //     graph.setEdgeAttribut("color", foreground);
-    //     graph.setEdgeAttribut("fontcolor", foreground);
-    // }
-
     //TODO: could be optimized if needed using a hash map storing all variables with value null
     private static isKnownToBeNull(symbolicValue: string, state: Statement, showConcreteValues: boolean, model: Model): boolean {
         if (symbolicValue === NULL) return true;

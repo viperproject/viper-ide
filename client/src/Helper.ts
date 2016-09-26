@@ -35,10 +35,6 @@ export class Helper {
                     return;
                 }
                 vscode.window.showTextDocument(doc, column, true).then(msg => {
-                    //Log.log("file shown: " + path.basename(msg.document.uri.toString()))
-
-                    //TODO: Hack: to alleviate the graph image refresh and the vscode bug 
-                    //Log.deleteDotFiles();
                 });
             }, (reason) => {
                 Log.error("Show file error: " + reason);

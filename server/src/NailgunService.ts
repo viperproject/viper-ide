@@ -224,18 +224,6 @@ export class NailgunService {
         return verifyProcess;
     }
 
-    //currently unused, the purpose of this method is to trigger a repeated settings check
-    public tryToStartNailgunServer(backend: Backend) {
-        if (this._ready || NailgunService.startingOrRestarting || this.nailgunProcess) return;
-        //repeat the settings check
-        Settings.checkSettings().then(() => {
-            if (Settings.valid()) {
-                //since the nailgun server is not started, do that now
-                this.startOrRestartNailgunServer(backend, true);
-            }
-        });
-    }
-
     private isNailgunServerReallyRunning(): Thenable<boolean> {
         return new Promise((resolve, reject) => {
             if (!this.nailgunProcess) {

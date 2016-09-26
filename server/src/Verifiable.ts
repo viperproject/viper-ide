@@ -14,8 +14,6 @@ export class Verifiable {
     startIndex: number;
     endIndex: number;
     root: Statement;
-    start: Position;
-    end: Position;
     index: number;
 
     constructor(index: number, data: SymbExLogEntry, task: VerificationTask) {
@@ -25,7 +23,6 @@ export class Verifiable {
         this.startIndex = task.steps.length;
         this.root = Statement.CreateFromSymbExLog(0, null, data, this, task, false);
         this.endIndex = task.steps.length - 1;
-        //TODO: fill in the verifiable's start and end
     }
 
     private parseVerifiableType(type: string): VerifiableType {

@@ -41,11 +41,6 @@ export class Model {
                         value += " " + parts[i];
                     }
                 }
-                // if (this.values.has(name)) {
-                //     if (this.values.get(name) != value) {
-                //         Log.error("model inconsistency: " + name + " has values " + this.values.get(name) + " and " + value);
-                //     }
-                // }
                 this.values.set(name, this.simplifyValue(value));
             }
         } catch (e) {

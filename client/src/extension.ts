@@ -29,7 +29,6 @@ let state: ExtensionState;
 let verificationController: Timer;
 
 let fileSystemWatcher: vscode.FileSystemWatcher;
-//let manuallyTriggered: boolean;
 
 let formatter: ViperFormatter;
 
@@ -48,7 +47,7 @@ interface Task {
 }
 
 enum TaskType {
-    Save, Verify, NoOp//Open,Close, VerificationCompleted
+    Save, Verify, NoOp
 }
 
 // this method is called when your extension is activated
@@ -80,8 +79,10 @@ function getRequiredVersion(): string {
     try {
         if (lastVersionWithSettingsChange)
             return lastVersionWithSettingsChange;
-        else
+        else {
+            //TODO: is this still the name of the extension?
             return vscode.extensions.getExtension("rukaelin.viper-advanced").packageJSON.version;
+        }
     } catch (e) {
         Log.error("Error checking settings version: " + e)
         return null;
@@ -147,21 +148,12 @@ function startVerificationController() {
                                 Log.log(dontVerify + "file is closed", LogLevel.Debug);
                             } else if (fileState.verifying) {
                                 Log.log(dontVerify + `file is verifying`, LogLevel.Debug);
-                                //} else if (!task.manuallyTriggered && !fileState.changed) {
-                                //    Log.log(dontVerify+`!manuallyTriggered and file is not changed`, LogLevel.Debug);
                             } else if (!task.manuallyTriggered && fileState.verified) {
                                 Log.log(dontVerify + `not manuallyTriggered and file is verified`, LogLevel.Debug);
-                            }/* else if (!task.manuallyTriggered && fileState.success === Success.Aborted) {
-                                Log.log(dontVerify + `not manuallyTriggered and file was aborted when last verified`, LogLevel.Debug);
-                            } else if (!task.manuallyTriggered && fileState.success === Success.Error) {
-                                Log.log(dontVerify + `not manuallyTriggered and file caused error when last verified`, LogLevel.Debug);
-                            }*/
-                            else if (!activeFile) {
+                            }else if (!activeFile) {
                                 Log.log(dontVerify + `no file is active`, LogLevel.Debug);
                             } else if (activeFile !== task.uri.toString()) {
                                 Log.log(dontVerify + `another file is active`, LogLevel.Debug);
-                                // } else if (fileState.decorationsShown && !task.manuallyTriggered) {
-                                //     Log.log(dontVerify+`not manuallyTriggered and the decorations are shown`, LogLevel.Debug);
                             } else {
                                 verify(fileState, task.manuallyTriggered);
                             }
@@ -176,7 +168,6 @@ function startVerificationController() {
                         } else {
                             //Log.log("Save " + path.basename(task.uri.toString()) + " is handled", LogLevel.Info);
                             fileState.changed = true;
-                            //TODO: ignore saves due to special characters
                             fileState.verified = false;
 
                             if (ExtensionState.isDebugging) {
@@ -186,18 +177,6 @@ function startVerificationController() {
                         }
                         task.type = TaskType.NoOp;
                         break;
-                    // case TaskType.VerificationCompleted:
-                    //     task.type = TaskType.NoOp;
-                    //     break;
-                    // case TaskType.Open:
-                    //     Log.log("Open " + task.uri.path + " is handled", LogLevel.Info);
-                    //     workList.push({ type: TaskType.Verify, uri: task.uri, manuallyTriggered: false });
-                    //     task.type = TaskType.NoOp;
-                    //     break;
-                    // case TaskType.Close:
-                    //     viperFiles.get(task.uri.toString()).open = false;
-                    //     task.type = TaskType.NoOp;
-                    //     break;
                 }
             }
         } catch (e) {
@@ -231,10 +210,7 @@ function startVerificationController() {
                     let fileState = ExtensionState.viperFiles.get(uri.toString());
                     if (fileState) {
                         fileState.setEditor(editor);
-
-                        if (fileState.verified) {
-                            //showStates(()=>{});
-                        } else {
+                        if (!fileState.verified) {
                             Log.log("reverify because the active text editor changed", LogLevel.Debug);
                             workList.push({ type: TaskType.Verify, uri: uri, manuallyTriggered: false })
                         }
@@ -266,8 +242,6 @@ function registerFormatter() {
 }
 
 function initializeStatusBar() {
-    //state.state = VerificationState.Stopped;
-
     statusBarProgress = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 11);
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
     updateStatusBarItem(statusBarItem, "Hello from Viper", "white");
@@ -310,7 +284,6 @@ function startAutoSaver() {
         //only save viper files
         if (vscode.window.activeTextEditor != null && vscode.window.activeTextEditor.document.languageId == 'viper') {
             if (Helper.getConfiguration('preferences').autoSave === true) {
-                //manuallyTriggered = false;
                 vscode.window.activeTextEditor.document.save();
             }
         }
@@ -336,7 +309,7 @@ function handleStateChange(params: StateChangeParams) {
         switch (params.newState) {
             case VerificationState.Starting:
                 _backendReady = false;
-                updateStatusBarItem(statusBarItem, 'starting', 'orange'/*,"Starting " + params.backendName*/);
+                updateStatusBarItem(statusBarItem, 'starting', 'orange');
                 break;
             case VerificationState.VerificationRunning:
                 let showProgressBar = Helper.getConfiguration('preferences').showProgress === true;

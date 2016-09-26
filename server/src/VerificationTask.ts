@@ -209,7 +209,6 @@ export class VerificationTask {
             this.stateIndicesOrderedByPosition.forEach(idx => {
                 let step = this.steps[idx.index];
                 if (step.canBeShownAsDecoration) {
-                    //let step = this.steps[idx.index];
                     if (step.position.line === line) {
                         optionsInLine++;
                     } else {
@@ -256,11 +255,6 @@ export class VerificationTask {
     }
 
     verify(manuallyTriggered: boolean): boolean {
-        // if (!manuallyTriggered && this.lastSuccess == Success.Error) {
-        //     Log.log("After an internal error, reverification has to be triggered manually.", LogLevel.Info);
-        //     this.lastSuccess = Success.None;
-        //     return false;
-        // }
         //Initialization
         this.prepareVerification();
         this.manuallyTriggered = manuallyTriggered;
@@ -475,7 +469,6 @@ export class VerificationTask {
                 Log.toLogFile(data, LogLevel.LowLevelDebug);
                 return;
             }
-            //Log.error(data, LogLevel.Debug);
             this.internalErrorMessage = data;
 
             let stage = Server.stage();
@@ -665,7 +658,7 @@ export class VerificationTask {
                 else if (line.startsWith('  ')) {
                     let parsedPosition = Server.extractPosition(line);
                     let message = parsedPosition.after.length > 0 ? parsedPosition.after : parsedPosition.before;
-                    //for Marktoberdorf
+                    //read in error tags
                     let tag: string;
                     if (line.indexOf("[") >= 0 && line.indexOf("]") >= 0) {
                         tag = line.substring(line.indexOf("[") + 1, line.indexOf("]")).trim();

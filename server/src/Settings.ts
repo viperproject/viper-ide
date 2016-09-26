@@ -28,18 +28,6 @@ export class Settings {
 
     private static home = os.homedir();
 
-    // private static computeDefaultViperToolsPath() {
-    //     try {
-    //         if (this.isWin) {
-    //             return pathHelper.join(this.extractEnvVars("%ProgramFiles%").path, "Viper\\");
-    //         } else {
-    //             return "/usr/local/Viper/"
-    //         }
-    //     } catch (e) {
-    //         Log.error("Error computing default viper tools path");
-    //     }
-    // }
-
     public static getStage(backend: Backend, name: string): Stage {
         if (!name) return null;
         for (let i = 0; i < backend.stages.length; i++) {
@@ -394,7 +382,6 @@ export class Settings {
                         if (!Settings.settings.advancedFeatures && hasIdeModeAdvanced) {
                             this.addWarning(backendAndStage + " when the advanced features are disabled, you can speed up the verification by removing the --ideModeAdvanced flag from the customArguments.");
                         }
-                        //TODO: check mainMethods:
                     }
                 }
                 for (let i = 0; i < backend.stages.length; i++) {
@@ -428,7 +415,6 @@ export class Settings {
                     backend.timeout = null;
                 }
             }
-            //-> the settings seem right
         }
         return null;
     }

@@ -1,6 +1,5 @@
 'use strict';
 
-//import {Position} from 'vscode';
 import {Log} from './Log';
 import {Model} from './Model';
 import {SymbExLogStore, SymbExLogEntry, MyProtocolDecorationOptions, StatementType, Position, LogLevel} from './ViperProtocol';
@@ -38,24 +37,6 @@ export class Statement {
     canBeShownAsDecoration: boolean;
     decorationOptions: MyProtocolDecorationOptions;
 
-    /*
-        static CreateFromTrace(firstLine: string, store: string, heap: string, oldHeap: string, conditions: string, model: Model, index: number, methodIndex: number): Statement {
-            Log.log("WARNING: creating from trace is deprecated", LogLevel.Debug);
-            let parts = Statement.parseFirstLine(firstLine);
-            if (!parts || !parts[1] || !parts[2] || !parts[3]) {
-                Log.error('could not parse first Line of the silicon trace message : "' + firstLine + '"');
-                return;
-            }
-            let type = Statement.parseStatementType(parts[1]);
-            let position = Statement.parsePosition(parts[2]);
-            let formula = parts[3].trim();
-            let unpackedStore = this.unpack(store, model);
-            let unpackedHeap = this.unpack(heap, model);
-            let unpackedOldHeap = this.unpack(oldHeap, model);
-            let unpackedConditions = this.unpack(conditions, model);
-            return new Statement(index, type, "", position, unpackedStore, unpackedHeap, unpackedOldHeap, unpackedConditions, null);
-        }
-        */
     static numberOfStatementsCreatedFromSymbExLog: number = 0;
 
     static CreateFromSymbExLog(depth: number, parent: Statement, symbExLog: SymbExLogEntry, verifiable: Verifiable, task: VerificationTask, wellformednessCheck: boolean) {
@@ -124,7 +105,6 @@ export class Statement {
             return (addDepth ? 1 : 0) + this.parent.depthLevel();
         }
         else return 0;
-        //return this.depth;
     }
 
     public isBranch(): boolean {
@@ -133,6 +113,7 @@ export class Statement {
         }
         return false;
     }
+
     //PARSING
     private static parseStore(store: SymbExLogStore[]): Variable[] {
         if (!store) return [];
@@ -158,7 +139,6 @@ export class Statement {
         } else {
             let res = [];
             line = line.substring(line.indexOf("(") + 1, line.lastIndexOf(")"));
-            //line = model.fillInValues(line);
             return this.splitAtComma(line);
         }
     }
@@ -332,7 +312,6 @@ export class Statement {
                 return StatementType.EXECUTE;
             }
         }
-        //Log.error("Unknown StatementType: " + s);
         return StatementType.UNKONWN;
     }
 

@@ -143,27 +143,4 @@ export class ViperFormatter {
 	private isWhiteSpace(char) {
 		return char === " " || char === "\t" || char == "\r" || char == "\n";
 	}
-
-	// public provideDocumentFormattingEdits(document: vscode.TextDocument, options: vscode.FormattingOptions, token: vscode.CancellationToken): Thenable<vscode.TextEdit[]> {
-	// 	return document.save().then(() => {
-	// 		return new Promise((resolve, reject) => {
-	// 			try {
-	// 				let indent = "\t";
-	// 				if (options.insertSpaces) {
-	// 					indent = " ".repeat(options.tabSize);
-	// 				}
-	// 				let edits: vscode.TextEdit[] = [];
-	// 				let index = document.getText().indexOf("()");
-	// 				if(index >=0){
-	// 					let start =document.positionAt(index);
-	// 					edits.push(vscode.TextEdit.insert(start,"test"));
-	// 				}
-	// 				resolve(edits);
-	// 			} catch (e) {
-	// 				reject(e);
-	// 			}
-	// 		});
-	// 	});
-	// }
-
 }
