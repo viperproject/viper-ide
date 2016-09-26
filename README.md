@@ -1,4 +1,4 @@
-Visual Sutio Code is a powerful GUI text editor which is a base for implementing features of an integrated verification environment for the Silver language.
+Visual Studio Code is a powerful GUI text editor which is a base for implementing features of an integrated verification environment for the Silver language.
 
 This repository contains the source files of the VS Code Extension, installation instructions, and the needed files for installing it on OsX, Debian, and Windows.
 
