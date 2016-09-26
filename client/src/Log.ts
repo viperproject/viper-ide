@@ -4,9 +4,9 @@ import * as vscode from "vscode";
 import * as path from 'path';
 import * as fs from 'fs';
 import {LogLevel} from './ViperProtocol';
+import {Helper} from './Helper';
 
 export class Log {
-
     static logFilePath = "viper.log";
     static logFile: fs.WriteStream;
     static outputChannel = vscode.window.createOutputChannel('Viper');
@@ -113,7 +113,7 @@ export class Log {
     public static updateSettings() {
         let oldLogLevel = Log.logLevel;
         let settings = vscode.workspace.getConfiguration("viperSettings");
-        Log.logLevel = settings.get<number>("logLevel", LogLevel.Default);
+        Log.logLevel = Helper.getConfiguration("preferences").logLevel || LogLevel.Default;
         if (oldLogLevel && oldLogLevel != Log.logLevel)
             Log.log(`The logLevel was changed from ${LogLevel[oldLogLevel]} to ${LogLevel[Log.logLevel]}`, LogLevel.LowLevelDebug);
     }

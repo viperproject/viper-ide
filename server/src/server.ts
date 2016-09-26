@@ -63,7 +63,7 @@ function registerHandlers() {
         try {
             let oldSettings = Settings.settings;
             Settings.settings = <ViperSettings>change.settings.viperSettings;
-            Log.logLevel = Settings.settings.logLevel; //after this line, Logging works
+            Log.logLevel = Settings.settings.preferences.logLevel; //after this line, Logging works
 
             Log.log('Configuration changed', LogLevel.Info);
             Settings.checkSettings().then(() => {
@@ -242,7 +242,7 @@ function registerHandlers() {
     });
 
     Server.connection.onRequest(Commands.GetDotExecutable, params => {
-        return Settings.settings.dotExecutable;
+        return Settings.settings.paths.dotExecutable;
     });
 }
 

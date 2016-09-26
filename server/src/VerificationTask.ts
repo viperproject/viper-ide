@@ -81,8 +81,8 @@ export class VerificationTask {
         DebugServer.moveDebuggerToPos(step.position, clientIndex);
 
         return {
-            heap: HeapVisualizer.heapToDotUsingOwnDotGraph(step, false, step.isErrorState || Settings.settings.showSymbolicState, step.isErrorState, this.model),
-            oldHeap: HeapVisualizer.heapToDotUsingOwnDotGraph(step, true, step.isErrorState || Settings.settings.showSymbolicState, step.isErrorState, this.model),
+            heap: HeapVisualizer.heapToDotUsingOwnDotGraph(step, false, step.isErrorState || Settings.settings.advancedFeatures.showSymbolicState, step.isErrorState, this.model),
+            oldHeap: HeapVisualizer.heapToDotUsingOwnDotGraph(step, true, step.isErrorState || Settings.settings.advancedFeatures.showSymbolicState, step.isErrorState, this.model),
             state: step.decorationOptions.index,
             fileName: this.filename,
             fileUri: this.fileUri,
@@ -186,7 +186,7 @@ export class VerificationTask {
                         renderOptions: {
                             before: {
                                 contentText: ""/*"(" + (decorationOptions.length + 1) + ")"*/,
-                                color: step.isErrorState ? StateColors.errorState(Settings.settings.darkGraphs) : StateColors.interestingState(Settings.settings.darkGraphs),
+                                color: step.isErrorState ? StateColors.errorState(Settings.settings.advancedFeatures.darkGraphs) : StateColors.interestingState(Settings.settings.advancedFeatures.darkGraphs),
                             }
                         },
                         index: decorationOptions.length,

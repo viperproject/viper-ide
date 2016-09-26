@@ -54,7 +54,7 @@ enum TaskType {
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-    lastVersionWithSettingsChange = new Version("0.2.14"); //null means latest version
+    lastVersionWithSettingsChange = "0.2.15"; //null means latest version
     workList = [];
     ExtensionState.viperFiles = new Map<string, ViperFileState>();
     Log.initialize(context);
@@ -74,49 +74,17 @@ export function activate(context: vscode.ExtensionContext) {
     startVerificationController();
 }
 
-let lastVersionWithSettingsChange: Version;
+let lastVersionWithSettingsChange: string;
 
-class Version {
-    versionNumbers: number[];
-    constructor(version: string) {
-        try {
-            if (!version) {
-                this.versionNumbers = [0, 0, 0];
-            } else {
-                this.versionNumbers = version.split(".").map(x => Number.parseInt(x));
-            }
-        } catch (e) {
-            Log.error("Error parsing version: " + e);
-        }
-    }
-    toString(): string {
-        return this.versionNumbers.join(".");
-    }
-
-    //1: this is larger, -1 other is larger
-    compare(other: Version): number {
-        for (let i = 0; i < this.versionNumbers.length; i++) {
-            if (i >= other.versionNumbers.length) return 1;
-            if (this.versionNumbers[i] > other.versionNumbers[i]) return 1;
-            if (this.versionNumbers[i] < other.versionNumbers[i]) return -1;
-        }
-        return this.versionNumbers.length < other.versionNumbers.length ? -1 : 0;
-    }
-}
-
-function isSettingsVersionOk(): boolean {
+function getRequiredVersion(): string {
     try {
-        let extensionVersion = new Version(vscode.extensions.getExtension("rukaelin.viper-advanced").packageJSON.version);
-        let settingsVersion = new Version(Helper.getConfiguration("settingsVersion"));
-        if (!lastVersionWithSettingsChange) lastVersionWithSettingsChange = extensionVersion;
-        Log.log("Settings version: " + settingsVersion + ", required settings version: " + lastVersionWithSettingsChange + ", extension version: " + extensionVersion, LogLevel.Info);
-        if (settingsVersion.compare(lastVersionWithSettingsChange) < 0) {
-            return false;
-        }
-        return true;
+        if (lastVersionWithSettingsChange)
+            return lastVersionWithSettingsChange;
+        else
+            return vscode.extensions.getExtension("rukaelin.viper-advanced").packageJSON.version;
     } catch (e) {
         Log.error("Error checking settings version: " + e)
-        return false;
+        return null;
     }
 }
 
@@ -341,7 +309,7 @@ function startAutoSaver() {
     autoSaver = new Timer(() => {
         //only save viper files
         if (vscode.window.activeTextEditor != null && vscode.window.activeTextEditor.document.languageId == 'viper') {
-            if (Helper.getConfiguration('autoSave') === true) {
+            if (Helper.getConfiguration('preferences').autoSave === true) {
                 //manuallyTriggered = false;
                 vscode.window.activeTextEditor.document.save();
             }
@@ -371,7 +339,7 @@ function handleStateChange(params: StateChangeParams) {
                 updateStatusBarItem(statusBarItem, 'starting', 'orange'/*,"Starting " + params.backendName*/);
                 break;
             case VerificationState.VerificationRunning:
-                let showProgressBar = Helper.getConfiguration('showProgress') === true;
+                let showProgressBar = Helper.getConfiguration('preferences').showProgress === true;
                 if (!params.progress) {
                     updateStatusBarItem(statusBarItem, "pre-processing", 'orange');
                     updateStatusBarItem(statusBarProgress, progressBarText(0), 'white', null, showProgressBar);
@@ -420,7 +388,7 @@ function handleStateChange(params: StateChangeParams) {
                             //for SymbexLogger
                             let symbexDotFile = path.resolve(path.join(vscode.workspace.rootPath, ".vscode", "dot_input.dot"));
                             let symbexSvgFile = path.resolve(path.join(vscode.workspace.rootPath, ".vscode", "symbExLoggerOutput.svg"))
-                            if (Helper.getConfiguration("advancedFeatures") === true && fs.existsSync(symbexDotFile)) {
+                            if (Helper.getConfiguration("advancedFeatures").enabled === true && fs.existsSync(symbexDotFile)) {
                                 let fileState = ExtensionState.viperFiles.get(params.uri);
                                 fileState.stateVisualizer.generateSvg(symbexDotFile, symbexSvgFile, () => { });
                             }
@@ -515,30 +483,15 @@ function handleInvalidSettings(errors: SettingsError[]) {
     let userSettingsButton: vscode.MessageItem = { title: "Open User Settings" };
     let workspaceSettingsButton: vscode.MessageItem = { title: "Open Workspace Settings" };
     vscode.window.showInformationMessage("Viper Settings: " + errorCounts + ": " + message, userSettingsButton, workspaceSettingsButton).then((choice) => {
-        if (!choice) {
-
-        } else if (choice.title === workspaceSettingsButton.title) {
+        if (choice && choice.title === workspaceSettingsButton.title) {
             try {
-                let rootPath = vscode.workspace.rootPath;
-                if (!rootPath) {
-                    Log.hint("Only if a folder is opened, the workspace settings can be accessed.")
-                    return;
-                }
-                //workspaceSettings
-                let workspaceSettingsPath = path.join(rootPath, '.vscode', 'settings.json');
-                Log.log("WorkspaceSettings: " + workspaceSettingsPath, LogLevel.Debug);
-                Helper.makeSureFileExists(workspaceSettingsPath);
-                Helper.showFile(workspaceSettingsPath, vscode.ViewColumn.Two);
+                vscode.commands.executeCommand("workbench.action.openWorkspaceSettings")
             } catch (e) {
                 Log.error("Error accessing workspace settings: " + e)
             }
-        } else if (choice.title === userSettingsButton.title) {
+        } else if (choice && choice.title === userSettingsButton.title) {
             try {
-                //user Settings
-                let userSettings = state.userSettingsPath();
-                Log.log("UserSettings: " + userSettings, LogLevel.Debug);
-                Helper.makeSureFileExists(userSettings);
-                Helper.showFile(userSettings, vscode.ViewColumn.Two);
+                vscode.commands.executeCommand("workbench.action.openGlobalSettings")
             } catch (e) {
                 Log.error("Error accessing user settings: " + e)
             }
@@ -604,8 +557,8 @@ function registerHandlers() {
             Log.error("Error handling file closed notification: " + e);
         }
     });
-    state.client.onRequest(Commands.CheckSettingsVersion, () => {
-        return isSettingsVersionOk();
+    state.client.onRequest(Commands.RequestRequiredVersion, () => {
+        return getRequiredVersion();
     });
     state.client.onRequest(Commands.UriToPath, (uri: string) => {
         let uriObject: vscode.Uri = vscode.Uri.parse(uri);
@@ -651,10 +604,10 @@ function registerHandlers() {
     });
     state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
         try {
-            if (Helper.getConfiguration("advancedFeatures") === true) {
+            if (Helper.getConfiguration("advancedFeatures").enabled === true) {
                 let visualizer = ExtensionState.viperFiles.get(heapGraph.fileUri).stateVisualizer;
                 let state = visualizer.decorationOptions[heapGraph.state];
-                if (Helper.getConfiguration("simpleMode") === true) {
+                if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
                     //Simple Mode
                     if (state.isErrorState) {
                         //replace the error state
@@ -768,7 +721,7 @@ function registerHandlers() {
     //startDebugging
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.startDebugging', () => {
         try {
-            if (Helper.getConfiguration("advancedFeatures") === true) {
+            if (Helper.getConfiguration("advancedFeatures").enabled === true) {
                 if (!lastActiveTextEditor) {
                     Log.log("Don't debug, no viper file open.", LogLevel.Debug);
                     return;
@@ -788,7 +741,7 @@ function registerHandlers() {
                     return;
                 }
 
-                if (Helper.getConfiguration("simpleMode") === true) {
+                if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
                     if (!fileState.stateVisualizer.decorationOptions.some(option => option.isErrorState)) {
                         Log.hint("Don't debug in simple mode, because there is no error state");
                         return;
@@ -868,7 +821,7 @@ function handleBackendReadyNotification(params: BackendReadyParams) {
         if (params.restarted) {
             //no file is verifying
             resetViperFiles()
-            if (lastActiveTextEditor && Helper.getConfiguration('autoVerifyAfterBackendChange') === true) {
+            if (lastActiveTextEditor && Helper.getConfiguration('preferences').autoVerifyAfterBackendChange === true) {
                 Log.log("autoVerify after backend change", LogLevel.Info);
                 workList.push({ type: TaskType.Verify, uri: lastActiveTextEditor, manuallyTriggered: false });
             }

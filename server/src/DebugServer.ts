@@ -125,7 +125,7 @@ export class DebugServer {
                             let steps = task.steps;
                             let currentDepth = steps[currentServerState].depthLevel();
 
-                            if (Settings.settings.simpleMode && task.shownExecutionTrace) {
+                            if (Settings.settings.advancedFeatures.simpleMode && task.shownExecutionTrace) {
                                 //SIMPLE MODE
                                 let indexIntoExecutionTrace = 0;
                                 while (indexIntoExecutionTrace < task.shownExecutionTrace.length && task.shownExecutionTrace[indexIntoExecutionTrace] != data.state) {

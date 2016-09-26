@@ -43,13 +43,13 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
     public provideTextDocumentContent(uri: vscode.Uri): string {
         let previousState = "Previous State";
         let currentState = "Current State";
-        if (Helper.getConfiguration("simpleMode") === true) {
+        if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
             previousState = "Selected State";
             currentState = "Error State";
         }
 
         let table: string;
-        let darkGraphs = <boolean>Helper.getConfiguration("darkGraphs");
+        let darkGraphs = <boolean>Helper.getConfiguration("advancedFeatures").darkGraphs === true;
         if (this.heapGraphs.length > 1) {
             table = ` <table style="width:100%">
   <colgroup>

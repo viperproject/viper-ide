@@ -4,7 +4,7 @@ import fs = require('fs');
 import * as pathHelper from 'path';
 var commandExists = require('command-exists');
 import {Log} from './Log';
-import {PlatformDependentPath, SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
+import {JavaSettings, AdvancedFeatureSettings, UserPreferences, PathSettings, PlatformDependentPath, SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
 import {Server} from './ServerClass';
 const os = require('os');
 
@@ -101,11 +101,12 @@ export class Settings {
         return same;
     }
 
-    static expandCustomArguments(stage: Stage, fileToVerify: string, backend: Backend): string {
-        let args = stage.customArguments;
+    static expandCustomArguments(program: string, stage: Stage, fileToVerify: string, backend: Backend): string {
+        let args = program + " " + stage.mainMethod + " " + (backend.useNailgun ? "--nailgun-port $nailgunPort$ " : "") + stage.customArguments;
         if (!args || args.length == 0) return "";
-        args = args.replace(/\$z3Exe\$/g, '"' + this.settings.z3Executable + '"');
-        args = args.replace(/\$boogieExe\$/g, '"' + this.settings.boogieExecutable + '"');
+        args = args.replace(/\s+/g, ' '); //remove multiple spaces
+        args = args.replace(/\$z3Exe\$/g, '"' + this.settings.paths.z3Executable + '"');
+        args = args.replace(/\$boogieExe\$/g, '"' + this.settings.paths.boogieExecutable + '"');
         args = args.replace(/\$mainMethod\$/g, stage.mainMethod);
         args = args.replace(/\$nailgunPort\$/g, this.settings.nailgunSettings.port);
         args = args.replace(/\$fileToVerify\$/g, '"' + fileToVerify + '"');
@@ -115,10 +116,10 @@ export class Settings {
 
     static expandViperToolsPath(path: string): string {
         if (!path) return path;
-        if (typeof Settings.settings.viperToolsPath !== "string") {
+        if (typeof Settings.settings.paths.viperToolsPath !== "string") {
             return path;
         }
-        path = path.replace(/\$viperTools\$/g, <string>Settings.settings.viperToolsPath);
+        path = path.replace(/\$viperTools\$/g, <string>Settings.settings.paths.viperToolsPath);
         return path;
     }
 
@@ -204,45 +205,81 @@ export class Settings {
                 this._valid = false;
                 this._errors = [];
 
-                //check settings version
-                Server.connection.sendRequest(Commands.CheckSettingsVersion).then(versionOk => {
-                    if (versionOk) {
-                        let settings = Settings.settings;
-                        //check viperToolsPath
-                        //if there is one check it
-                        let resolvedPath = this.checkPath(settings.viperToolsPath, "Path to Viper Tools:", false, true, true);
-                        settings.viperToolsPath = resolvedPath.path;
-                        if (!resolvedPath.exists) {
-                            resolve(false);
-                            return;
-                        }
-                        //check backends
-                        Settings.checkBackends(settings.verificationBackends);
-                        //check nailgun settings
-                        let useNailgun = settings.verificationBackends.some(elem => elem.useNailgun);
-                        if (useNailgun) {
-                            //Log.log("Checking nailgun settings...", LogLevel.Debug);
-                            this.checkNailgunSettings(settings.nailgunSettings);
-                        }
-                        //Log.log("Checking other settings...", LogLevel.Debug);
-                        //check z3 Executable
-                        settings.z3Executable = this.checkPath(settings.z3Executable, "z3 Executable:", true, true).path;
-                        //check boogie executable
-                        settings.boogieExecutable = this.checkPath(settings.boogieExecutable, `Boogie Executable: (If you don't need boogie, set it to "")`, true, true).path;
-                        //check dot executable
-                        if (Settings.settings.advancedFeatures) {
-                            settings.dotExecutable = this.checkPath(settings.dotExecutable, "dot executable:", true, true).path;
-                        }
-                        //checks done
-                        this._valid = !this._errors.some(error => error.type == SettingsErrorType.Error); //if there is no error -> valid
-                        if (this._valid) {
-                            Log.log("The settings are ok", LogLevel.Info);
-                            resolve(true);
-                        } else {
-                            resolve(false);
-                        }
+                //check settings versions
+                Server.connection.sendRequest(Commands.RequestRequiredVersion).then((requiredVersionString: string) => {
+                    let settings = Settings.settings;
+                    let oldSettings: string[] = [];
+                    //check the settings versions
+                    if (!requiredVersionString) {
+                        Log.error("Getting required version failed.");
                     } else {
-                        Log.hint("Old viper settings detected: please check if your settings were affected by changes in the default settings. If this is a fresh installation you can simply update the viperSettings.settingsVersion to the current version of the extension.");
+                        let requiredVersion = new Version(requiredVersionString);
+                        if (requiredVersion.compare(new Version(settings.advancedFeatures.v)) > 0) {
+                            oldSettings.push("advancedFeatures");
+                        }
+                        if (requiredVersion.compare(new Version(settings.javaSettings.v)) > 0) {
+                            oldSettings.push("javaSettings");
+                        }
+                        if (requiredVersion.compare(new Version(settings.nailgunSettings.v)) > 0) {
+                            oldSettings.push("nailgunSettings");
+                        }
+                        if (requiredVersion.compare(new Version(settings.paths.v)) > 0) {
+                            oldSettings.push("paths");
+                        }
+                        if (requiredVersion.compare(new Version(settings.preferences.v)) > 0) {
+                            oldSettings.push("preferences");
+                        }
+                        settings.verificationBackends.forEach(backend => {
+                            if (requiredVersion.compare(new Version(backend.v)) > 0) {
+                                oldSettings.push("backend " + backend.name);
+                            }
+                        });
+                    }
+
+                    if (oldSettings.length > 0) {
+                        let affectedSettings = oldSettings.length < 4 ? "(" + oldSettings.join(", ") + ")" : "(" + oldSettings.length + ")";
+
+                        this.addError("Old viper settings detected: " + affectedSettings + " please replace the old settings with the new default settings.");
+                        resolve(false); return;
+                    }
+
+                    //Check Paths
+                    //check viperToolsPath
+                    let resolvedPath = this.checkPath(settings.paths.viperToolsPath, "Path to Viper Tools:", false, true, true);
+                    settings.paths.viperToolsPath = resolvedPath.path;
+                    if (!resolvedPath.exists) {
+                        resolve(false); return;
+                    }
+                    //check z3 Executable
+                    settings.paths.z3Executable = this.checkPath(settings.paths.z3Executable, "z3 Executable:", true, true).path;
+                    //check boogie executable
+                    settings.paths.boogieExecutable = this.checkPath(settings.paths.boogieExecutable, `Boogie Executable: (If you don't need boogie, set it to "")`, true, true).path;
+                    //check dot executable
+                    if (Settings.settings.advancedFeatures.enabled) {
+                        settings.paths.dotExecutable = this.checkPath(settings.paths.dotExecutable, "dot executable:", true, true).path;
+                    }
+
+                    //check backends
+                    Settings.checkBackends(settings.verificationBackends);
+                    //check nailgun settings
+                    let useNailgun = settings.verificationBackends.some(elem => elem.useNailgun);
+                    if (useNailgun) {
+                        this.checkNailgunSettings(settings.nailgunSettings);
+                    }
+
+                    //no need to check preferences
+                    //check java settings
+                    if (!settings.javaSettings.customArguments) {
+                        this.addError("The customArguments are missing in the java settings");
+                    }
+
+                    //checks done
+                    this._valid = !this._errors.some(error => error.type == SettingsErrorType.Error); //if there is no error -> valid
+                    if (this._valid) {
+                        Log.log("The settings are ok", LogLevel.Info);
+                        resolve(true);
+                    } else {
+                        resolve(false);
                     }
                 });
             } catch (e) {
@@ -499,5 +536,33 @@ export class Settings {
 
     private static toAbsolute(path: string): string {
         return pathHelper.resolve(pathHelper.normalize(path));
+    }
+}
+
+class Version {
+    versionNumbers: number[];
+    constructor(version: string) {
+        try {
+            if (!version) {
+                this.versionNumbers = [0, 0, 0];
+            } else {
+                this.versionNumbers = version.split(".").map(x => Number.parseInt(x));
+            }
+        } catch (e) {
+            Log.error("Error parsing version: " + e);
+        }
+    }
+    toString(): string {
+        return this.versionNumbers.join(".");
+    }
+
+    //1: this is larger, -1 other is larger
+    compare(other: Version): number {
+        for (let i = 0; i < this.versionNumbers.length; i++) {
+            if (i >= other.versionNumbers.length) return 1;
+            if (this.versionNumbers[i] > other.versionNumbers[i]) return 1;
+            if (this.versionNumbers[i] < other.versionNumbers[i]) return -1;
+        }
+        return this.versionNumbers.length < other.versionNumbers.length ? -1 : 0;
     }
 }

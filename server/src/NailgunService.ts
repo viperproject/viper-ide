@@ -87,8 +87,10 @@ export class NailgunService {
                         Server.sendBackendChangeNotification(backend.name);
                         Server.sendStateChangeNotification({ newState: VerificationState.Starting, backendName: backend.name });
 
+
+                        let command = 'java ' + Settings.settings.javaSettings.customArguments + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + Settings.settings.nailgunSettings.port;
                         let backendJars = Settings.backendJars(backend);
-                        let command = 'java -Xmx2048m -Xss16m -cp "' + Settings.settings.nailgunSettings.serverJar + '"' + backendJars + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + Settings.settings.nailgunSettings.port;
+                        command = command.replace(/\$backendPaths\$/g, '"' + Settings.settings.nailgunSettings.serverJar + '"' + backendJars);
                         Log.log(command, LogLevel.Debug)
 
                         this.instanceCount++;
@@ -212,10 +214,10 @@ export class NailgunService {
     // }
 
     public startStageProcess(fileToVerify: string, stage: Stage, onData, onError, onClose): child_process.ChildProcess {
-        let program = this.activeBackend.useNailgun ? Settings.settings.nailgunSettings.clientExecutable : "java"
-        let command = '"' + program + '" ' + Settings.expandCustomArguments(stage, fileToVerify, this.activeBackend);
+        let program = this.activeBackend.useNailgun ? ('"' + Settings.settings.nailgunSettings.clientExecutable + '"') : ('java ' + Settings.settings.javaSettings.customArguments);
+        let command = Settings.expandCustomArguments(program, stage, fileToVerify, this.activeBackend);
         Log.log(command, LogLevel.Debug);
-        let verifyProcess = child_process.exec(command, { maxBuffer: 1024 * Settings.settings.verificationBufferSize, cwd: Settings.workspace });
+        let verifyProcess = child_process.exec(command, { maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, cwd: Settings.workspace });
         verifyProcess.stdout.on('data', onData);
         verifyProcess.stderr.on('data', onError);
         verifyProcess.on('close', onClose);

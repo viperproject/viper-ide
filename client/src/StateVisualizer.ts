@@ -281,13 +281,13 @@ export class StateVisualizer {
                 let currentMethodIdx = selectedOption.methodIndex;
                 this.debuggedMethodName = debuggedMethodName
 
-                let darkGraphs = <boolean>Helper.getConfiguration("darkGraphs");
+                let darkGraphs = <boolean>Helper.getConfiguration("advancedFeatures").darkGraphs === true;
                 //color labels
                 for (var i = 0; i < this.decorationOptions.length; i++) {
                     let option = this.decorationOptions[i];
                     let errorStateFound = false;
 
-                    if (Helper.getConfiguration("simpleMode") === true) {
+                    if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
                         this.hide(option);
                     } else {
                         this.collapseOutsideMethod(option, currentMethodIdx);
@@ -353,7 +353,7 @@ export class StateVisualizer {
                 let decoration = this.decorationOptionsByPosition.get(key);
                 let selectedState = decoration.index;
 
-                if (Helper.getConfiguration("simpleMode") === true) {
+                if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
                     //Simple Mode
                     if (decoration.renderOptions.before.contentText && decoration.renderOptions.before.contentText.length > 0) {
                         //the selected element is visible and thus, lies on the execution path to the current state

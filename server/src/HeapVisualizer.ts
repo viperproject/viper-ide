@@ -16,14 +16,14 @@ let FALSE = "False";
 export class HeapVisualizer {
 
     private static getBgColor(): string {
-        if (Settings.settings.darkGraphs) {
+        if (Settings.settings.advancedFeatures.darkGraphs) {
             return "#272822";
         } else {
             return "white";
         }
     }
     private static getForegroundColor(): string {
-        if (Settings.settings.darkGraphs) {
+        if (Settings.settings.advancedFeatures.darkGraphs) {
             return "white";
         } else {
             return "black";
@@ -68,7 +68,7 @@ export class HeapVisualizer {
 
             //add all nodes with the appropriate fields to the heap
             heapChunkFields.forEach((fields: HeapChunk[], receiver: string) => {
-                if (Settings.settings.simpleMode) {
+                if (Settings.settings.advancedFeatures.simpleMode) {
                     heap.addNode(receiver);
                 } else {
                     heapEmpty = false;
@@ -155,7 +155,7 @@ export class HeapVisualizer {
                     if (heapChunk.name.type == NameType.FunctionApplicationName && heapChunk.value.type == ValueType.ObjectReferenceOrScalarValue) {
                         //let resultNode = cluster.addNode('result', "Result")
                         if (!heapChunkFields.has(heapChunk.value.raw)) {
-                            if (Settings.settings.simpleMode) {
+                            if (Settings.settings.advancedFeatures.simpleMode) {
                                 heap.addNode(heapChunk.value.raw, "");
                             } else {
                                 heap.addNode(heapChunk.value.raw, "<name>|<fields>" + (heapChunk.name.field || ""));
@@ -166,7 +166,7 @@ export class HeapVisualizer {
                 }
             })
 
-            if (!Settings.settings.simpleMode) {
+            if (!Settings.settings.advancedFeatures.simpleMode) {
                 //add types for nodes with no outgoing arrows and no values
                 allNodes.forEach((value: { variable: Variable, node: DotNode }, key) => {
                     if (!value.node.hasOutEdge && value.node.label.indexOf("=") < 0) {
@@ -191,7 +191,7 @@ export class HeapVisualizer {
     //the label consists of name and symbolic and concrete values if requested
     private static getLabel(name: string, symbolicValue: string, concreteValue: string, showSymbolicValues: boolean, showConcreteValues: boolean, model: Model, state: Statement): string {
         let result = name;
-        if (Settings.settings.simpleMode) return result;
+        if (Settings.settings.advancedFeatures.simpleMode) return result;
         //add symbolic and concrete values;
         let isValueNull = this.isKnownToBeNull(symbolicValue, state, showConcreteValues, model);
         if (symbolicValue && (showSymbolicValues || isValueNull)) {

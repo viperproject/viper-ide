@@ -49,8 +49,8 @@ export class Commands {
     static GetExecutionTrace = { method: "GetExecutionTrace" };
     //Request the path to the dot executable from the language server
     static GetDotExecutable = { method: "GetDotExecutable" };
-    //The language server requests a version check from the client before checking the settings itself
-    static CheckSettingsVersion = { method: "CheckSettingsVersion" };
+    //The language server requests what version is required for the settings
+    static RequestRequiredVersion = { method: "RequestRequiredVersion" };
 }
 
 //Communication between Language Client and Language Server:
@@ -240,7 +240,39 @@ export interface LaunchRequestArguments {
 
 export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE, UNKONWN };
 
-export interface Backend {
+////////////////////////////////////////////////////
+//SETTINGS
+////////////////////////////////////////////////////
+
+export interface ViperSettings {
+    //All nailgun related settings
+    nailgunSettings: NailgunSettings;
+    //Description of backends
+    verificationBackends: Backend[];
+    //Used paths
+    paths: PathSettings;
+    //General user preferences
+    preferences: UserPreferences;
+    //Java settings
+    javaSettings: JavaSettings;
+    //Settings for AdvancedFeatures
+    advancedFeatures: AdvancedFeatureSettings;
+}
+
+export interface VersionedSettings { v: string; }
+
+export interface NailgunSettings extends VersionedSettings {
+    //The path to the nailgun server jar.
+    serverJar: string;
+    //The path to the nailgun client executable 
+    clientExecutable: string | PlatformDependentPath;
+    //The port used for the communication between nailgun client and server
+    port: string;
+    //After timeout ms the startup of the nailgun server is expected to have failed and thus aborted
+    timeout: number;
+}
+
+export interface Backend extends VersionedSettings {
     //The unique name of this backend
     name: string;
     //List of paths locating all used jar files, the files can be addressed directly or via folder, in which case all jar files in the folder are included
@@ -272,37 +304,18 @@ export interface Stage {
     onSuccess: string;
 }
 
-export interface NailgunSettings {
-    //The path to the nailgun server jar.
-    serverJar: string;
-    //The path to the nailgun client executable 
-    clientExecutable: string | PlatformDependentPath;
-    //The port used for the communication between nailgun client and server
-    port: string;
-    //After timeout ms the startup of the nailgun server is expected to have failed and thus aborted
-    timeout: number;
-}
-
-export enum SettingsErrorType { Error, Warning }
-
-export interface SettingsError {
-    type: SettingsErrorType;
-    msg: string;
-}
-
-export interface ViperSettings {
-    //The version of the viper settings is used for detecting old settings. When updating it you can set it to the current version of the viper extension.
-    settingsVersion: string;
+export interface PathSettings extends VersionedSettings {
     //Path to the folder containing all the ViperTools
     viperToolsPath: PlatformDependentPath;
-    //All nailgun related settings
-    nailgunSettings: NailgunSettings;
-    //Description of backends
-    verificationBackends: Backend[];
     //The path to the z3 executable
     z3Executable: string | PlatformDependentPath;
     //The path to the boogie executable
     boogieExecutable: string | PlatformDependentPath;
+    //The path to the dot executable.
+    dotExecutable: string;
+}
+
+export interface UserPreferences extends VersionedSettings {
     //Enable automatically saving modified viper files
     autoSave: boolean;
     //Verbosity of the output, all output is written to the logFile, regardless of the logLevel
@@ -311,10 +324,16 @@ export interface ViperSettings {
     autoVerifyAfterBackendChange: boolean;
     //Display the verification progress in the status bar. Only useful if the backend supports progress reporting.
     showProgress: boolean;
+}
+
+export interface JavaSettings extends VersionedSettings {
+    //The arguments used for all java invocations
+    customArguments: string;
+}
+
+export interface AdvancedFeatureSettings extends VersionedSettings {
     //Enable heap visualization, stepwise debugging and execution path visualization
-    advancedFeatures: boolean;
-    //The path to the dot executable.
-    dotExecutable: string;
+    enabled: boolean;
     //Show the symbolic values in the heap visualization. If disabled, the symbolic values are only shown in the error states.
     showSymbolicState: boolean;
     //To get the best visual heap representation, this setting should match with the active theme.
@@ -330,6 +349,17 @@ export interface PlatformDependentPath {
     mac?: string;
     linux?: string;
 }
+
+export enum SettingsErrorType { Error, Warning }
+
+export interface SettingsError {
+    type: SettingsErrorType;
+    msg: string;
+}
+
+////////////////////////////////////////////////////
+//BACKEND OUTPUT
+////////////////////////////////////////////////////
 
 //Format expected from other tools:
 //Silicon should provide the verification states in this format
