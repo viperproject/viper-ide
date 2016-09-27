@@ -5,19 +5,19 @@ import * as path from 'path';
 import * as fs from 'fs';
 import {LogLevel} from './ViperProtocol';
 import {Helper} from './Helper';
+const os = require('os');
 
 export class Log {
     static logFileName = "viper.log";
-    //static logFilePath = "viper.log";
+    static tempDirectory = path.join(os.tmpDir(), ".vscode");
+    static logFilePath: string;
     static logFile: fs.WriteStream;
     static outputChannel = vscode.window.createOutputChannel('Viper');
     static logLevel: LogLevel;
     private static _nofFiles: number = 0;
-    //static rootPath: string;
-    static tempDirectory: string;
     static MAX_DOT_FILES: number = 2;
 
-    public static initialize() {
+    public static initialize(context: vscode.ExtensionContext) {
         try {
             Log.updateSettings();
             // Log.rootPath = vscode.workspace.rootPath;
@@ -27,40 +27,43 @@ export class Log {
             // if (!Log.rootPath) {
             //     Log.error("No rootPath found");
             // }
+
+            //create logfile if it wasn't created before
+            if (!fs.existsSync(this.tempDirectory)) {
+                fs.mkdirSync(this.tempDirectory);
+            }
+            if (!this.logFile) {
+                this.logFilePath = path.join(this.tempDirectory, "viper.log");
+
+                let logFilePath = path.join(this.tempDirectory, Log.logFileName);
+                Log.log('LogFilePath is: "' + logFilePath + '"', LogLevel.Info)
+                try {
+                    Log.createFile(logFilePath);
+                    Log.logFile = fs.createWriteStream(logFilePath);
+                    //make sure the logFile is closed when the extension is closed
+                    context.subscriptions.push(new Log());
+                } catch (e) {
+                    Log.error("cannot create logFile at: " + logFilePath + ", access denied. " + e)
+                }
+            }
         } catch (e) {
             Log.error("Error initializing Log: " + e)
         }
     }
 
     static getSymbExLogPath(): string {
-        if (!Log.tempDirectory) {
-            Log.error("Don't try to access the symbExLogPath before the tempDirectory path is set");
-            return;
-        }
         return path.join(Log.tempDirectory, 'executionTreeData.js');
     }
     static getSymbExDotPath(): string {
-        if (!Log.tempDirectory) {
-            Log.error("Don't try to access the symbExDotPath before the tempDirectory path is set");
-            return;
-        }
         return path.join(Log.tempDirectory, 'dot_input.dot');
     }
     static getSymbExSvgPath(): string {
-        if (!Log.tempDirectory) {
-            Log.error("Don't try to access the symbExSvgPath before the tempDirectory path is set");
-            return;
-        }
         return path.join(Log.tempDirectory, 'symbExLoggerOutput.svg');
     }
 
     ///return the path to the indexth dot file
     ///creates non existing files
     public static dotFilePath(index: number, oldHeap: boolean): string {
-        if (!Log.tempDirectory) {
-            Log.error("Don't try to access the dotFiles before the tempDirectory path is set");
-            return;
-        }
         let basePath = path.join(Log.tempDirectory, 'heap');
         let old = oldHeap ? "_old" : "";
         if (index < 0) {
@@ -75,10 +78,6 @@ export class Log {
     }
 
     public static svgFilePath(index: number, oldHeap: boolean): string {
-        if (!Log.tempDirectory) {
-            Log.error("Don't try to access the svgFiles before the tempDirectory path is set");
-            return;
-        }
         let basePath = path.join(Log.tempDirectory, 'heap');
         let old = oldHeap ? "_old" : "";
         if (index < 0) {
@@ -132,23 +131,6 @@ export class Log {
         Log.logLevel = Helper.getConfiguration("preferences").logLevel || LogLevel.Default;
         if (oldLogLevel && oldLogLevel != Log.logLevel)
             Log.log(`The logLevel was changed from ${LogLevel[oldLogLevel]} to ${LogLevel[Log.logLevel]}`, LogLevel.LowLevelDebug);
-    }
-
-    public static setTempDir(tempDirPath: string, context: vscode.ExtensionContext) {
-        this.tempDirectory = tempDirPath;
-        //create logfile if it wasn't created before
-        if (!this.logFile) {
-            let logFilePath = path.join(this.tempDirectory, Log.logFileName);
-            Log.log('LogFilePath is: "' + logFilePath + '"', LogLevel.Info)
-            try {
-                Log.createFile(logFilePath);
-                Log.logFile = fs.createWriteStream(logFilePath);
-                //make sure the logFile is closed when the extension is closed
-                context.subscriptions.push(new Log());
-            } catch (e) {
-                Log.error("cannot create logFile at: " + logFilePath + ", access denied. " + e)
-            }
-        }
     }
 
     public static log(message: string, logLevel: LogLevel = LogLevel.Default) {

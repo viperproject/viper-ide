@@ -761,7 +761,7 @@ export class VerificationTask {
 
     private loadSymbExLogFromFile() {
         try {
-            let symbExLogPath = pathHelper.join(Settings.settings.paths.tempDirectory, "executionTreeData.js");
+            let symbExLogPath = pathHelper.join(Server.tempDirectory, "executionTreeData.js");
             Log.log("Loading The symbexLog from: " + symbExLogPath, LogLevel.Debug);
             if (fs.existsSync(symbExLogPath)) {
                 let content = fs.readFileSync(symbExLogPath).toString();

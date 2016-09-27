@@ -56,7 +56,7 @@ export function activate(context: vscode.ExtensionContext) {
     lastVersionWithSettingsChange = "0.2.15"; //null means latest version
     workList = [];
     ExtensionState.viperFiles = new Map<string, ViperFileState>();
-    Log.initialize();
+    Log.initialize(context);
     Log.log('Viper-Client is now active!', LogLevel.Info);
     state = ExtensionState.createExtensionState();
     ExtensionState.checkOperatingSystem();
@@ -87,7 +87,6 @@ function getRequiredVersion(): string {
         return null;
     }
 }
-
 function resetViperFiles() {
     Log.log("Reset all viper files", LogLevel.Info);
     ExtensionState.viperFiles.forEach(element => {
@@ -462,9 +461,6 @@ function handleSettingsCheckResult(params: SettingsCheckParams) {
             }
         });
     }
-    if (params.ok) {
-        Log.setTempDir(<string>params.settings.paths.tempDirectory, state.context);
-    }
 }
 
 function registerHandlers() {
@@ -767,6 +763,18 @@ function registerHandlers() {
             formatter.formatOpenDoc();
         } catch (e) {
             Log.error("Error handling formating request: " + e);
+        }
+    }));
+
+    //open logFile
+    state.context.subscriptions.push(vscode.commands.registerCommand('extension.openLogFile', () => {
+        try {
+            Log.log("Open logFile located at: " + Log.logFilePath, LogLevel.Info);
+            vscode.workspace.openTextDocument(Log.logFilePath).then(textDocument => {
+                vscode.window.showTextDocument(textDocument, vscode.ViewColumn.Two);
+            })
+        } catch (e) {
+            Log.error("Error opening log file: " + e);
         }
     }));
 }

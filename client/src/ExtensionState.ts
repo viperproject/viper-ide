@@ -10,17 +10,11 @@ import {ViperFileState} from './ViperFileState';
 export class ExtensionState {
     public client: LanguageClient;
     public context: vscode.ExtensionContext;
-
-    //public state: VerificationState;
-
-    public static viperFiles: Map<string, ViperFileState>;
-
     public static instance: ExtensionState;
 
+    public static viperFiles: Map<string, ViperFileState>;
     public static isDebugging: boolean = false;
-
     private languageServerDisposable;
-
     public static isWin = /^win/.test(process.platform);
     public static isLinux = /^linux/.test(process.platform);
     public static isMac = /^darwin/.test(process.platform);

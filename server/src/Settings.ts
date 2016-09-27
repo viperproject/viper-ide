@@ -237,20 +237,6 @@ export class Settings {
                     if (!resolvedPath.exists) {
                         resolve(false); return;
                     }
-                    //check tempDirectory
-                    let tempDir = this.checkPath(settings.paths.tempDirectory, "tempDirectory:", false, true, true);
-                    settings.paths.tempDirectory = tempDir.path;
-                    Server.backendOutputDirectory = tempDir.path;
-                    if (tempDir.exists) {
-                        settings.paths.tempDirectory = pathHelper.join(settings.paths.tempDirectory, ".vscode");
-                        try {
-                            if (!fs.existsSync(<string>settings.paths.tempDirectory)) {
-                                fs.mkdirSync(<string>settings.paths.tempDirectory);
-                            }
-                        } catch (e) {
-                            this.addError("Error creating tempDirectory: " + settings.paths.tempDirectory + ", choose a directory you have access to.");
-                        }
-                    }
 
                     //check z3 Executable
                     settings.paths.z3Executable = this.checkPath(settings.paths.z3Executable, "z3 Executable:", true, true).path;

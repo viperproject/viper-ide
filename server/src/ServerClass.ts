@@ -5,9 +5,13 @@ import {SettingsCheckParams, SettingsError, Position, StepsAsDecorationOptionsRe
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Log} from './Log';
+import * as pathHelper from 'path';
+const os = require('os');
 
 export class Server {
     static backend: Backend;
+    static tempDirectory: string = pathHelper.join(os.tmpDir(), ".vscode");
+    static backendOutputDirectory: string = os.tmpDir();
     static executedStages: Stage[];
     static stage(): Stage {
         if (this.executedStages && this.executedStages.length > 0) {
@@ -19,7 +23,6 @@ export class Server {
     static documents: TextDocuments = new TextDocuments();
     static verificationTasks: Map<string, VerificationTask> = new Map();
     static nailgunService: NailgunService;
-    static backendOutputDirectory: string;
     static debuggedVerificationTask: VerificationTask;
 
     static isViperSourceFile(uri: string): boolean {

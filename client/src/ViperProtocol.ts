@@ -313,8 +313,6 @@ export interface Stage {
 }
 
 export interface PathSettings extends VersionedSettings {
-    //Directory to store all temporary files in
-    tempDirectory: string | PlatformDependentPath;
     //Path to the folder containing all the ViperTools
     viperToolsPath: string | PlatformDependentPath;
     //The path to the z3 executable
