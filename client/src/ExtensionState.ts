@@ -21,9 +21,9 @@ export class ExtensionState {
 
     private languageServerDisposable;
 
-    public isWin = /^win/.test(process.platform);
-    public isLinux = /^linux/.test(process.platform);
-    public isMac = /^darwin/.test(process.platform);
+    public static isWin = /^win/.test(process.platform);
+    public static isLinux = /^linux/.test(process.platform);
+    public static isMac = /^darwin/.test(process.platform);
 
     static createExtensionState(): ExtensionState {
         if (ExtensionState.instance) {
@@ -85,7 +85,7 @@ export class ExtensionState {
         })
     }
 
-    public checkOperatingSystem() {
+    public static checkOperatingSystem() {
         if ((this.isWin ? 1 : 0) + (this.isMac ? 1 : 0) + (this.isLinux ? 1 : 0) != 1) {
             Log.error("Cannot detect OS")
             return;
@@ -101,19 +101,19 @@ export class ExtensionState {
         }
     }
 
-    public userSettingsPath(): string {
-        if (this.isWin) {
-            let appdata = process.env.APPDATA;
-            return path.join(appdata, "Code", "User", "settings.json");
-        } else {
-            let home = process.env.HOME;
-            if (this.isLinux) {
-                return path.join(home, ".config", "Code", "User", "settings.json");
-            } else if (this.isMac) {
-                return path.join(home, "Library", "Application Support", "Code", "User", "settings.json");
-            } else {
-                Log.error("unknown Operating System: " + process.platform);
-            }
-        }
-    }
+    // public static userSettingsPath(): string {
+    //     if (this.isWin) {
+    //         let appdata = process.env.APPDATA;
+    //         return path.join(appdata, "Code", "User", "settings.json");
+    //     } else {
+    //         let home = process.env.HOME;
+    //         if (this.isLinux) {
+    //             return path.join(home, ".config", "Code", "User", "settings.json");
+    //         } else if (this.isMac) {
+    //             return path.join(home, "Library", "Application Support", "Code", "User", "settings.json");
+    //         } else {
+    //             Log.error("unknown Operating System: " + process.platform);
+    //         }
+    //     }
+    // }
 }

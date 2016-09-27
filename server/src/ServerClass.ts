@@ -1,7 +1,7 @@
 'use strict'
 
 import {IConnection, TextDocuments, PublishDiagnosticsParams} from 'vscode-languageserver';
-import {SettingsError, Position, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+import {SettingsCheckParams, SettingsError, Position, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Log} from './Log';
@@ -19,15 +19,15 @@ export class Server {
     static documents: TextDocuments = new TextDocuments();
     static verificationTasks: Map<string, VerificationTask> = new Map();
     static nailgunService: NailgunService;
-    static workspaceRoot: string;
+    static backendOutputDirectory: string;
     static debuggedVerificationTask: VerificationTask;
 
     static isViperSourceFile(uri: string): boolean {
         return uri.endsWith(".sil") || uri.endsWith(".vpr");
     }
 
-    static showHeap(task: VerificationTask, clientIndex: number) {
-        Server.connection.sendRequest(Commands.HeapGraph, task.getHeapGraphDescription(clientIndex));
+    static showHeap(task: VerificationTask, clientIndex: number, isHeapNeeded: boolean) {
+        Server.connection.sendRequest(Commands.HeapGraph, task.getHeapGraphDescription(clientIndex, isHeapNeeded));
     }
 
     //Communication requests and notifications sent to language client
@@ -46,8 +46,8 @@ export class Server {
     static sendBackendChangeNotification(name: string) {
         this.connection.sendNotification(Commands.BackendChange, name);
     }
-    static sendInvalidSettingsNotification(errors: SettingsError[]) {
-        this.connection.sendNotification(Commands.InvalidSettings, errors);
+    static sendSettingsCheckedNotification(errors: SettingsCheckParams) {
+        this.connection.sendNotification(Commands.SettingsChecked, errors);
     }
     static sendDiagnostics(params: PublishDiagnosticsParams) {
         this.connection.sendDiagnostics(params);

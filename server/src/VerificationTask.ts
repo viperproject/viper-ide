@@ -60,7 +60,7 @@ export class VerificationTask {
         this.nailgunService = nailgunService;
     }
 
-    public getHeapGraphDescription(clientIndex: number): HeapGraph {
+    public getHeapGraphDescription(clientIndex: number, isHeapNeeded: boolean): HeapGraph {
         //convert client index to server index
         let serverIndex = this.clientStepIndexToServerStep[clientIndex].index;
 
@@ -80,7 +80,7 @@ export class VerificationTask {
         //inform debug server about selected State
         DebugServer.moveDebuggerToPos(step.position, clientIndex);
 
-        return {
+        return isHeapNeeded ? {
             heap: HeapVisualizer.heapToDotUsingOwnDotGraph(step, false, step.isErrorState || Settings.settings.advancedFeatures.showSymbolicState, step.isErrorState, this.model),
             oldHeap: HeapVisualizer.heapToDotUsingOwnDotGraph(step, true, step.isErrorState || Settings.settings.advancedFeatures.showSymbolicState, step.isErrorState, this.model),
             state: step.decorationOptions.index,
@@ -92,7 +92,7 @@ export class VerificationTask {
             methodType: step.verifiable.typeString(),
             methodOffset: step.verifiable.startIndex - 1,
             conditions: step.prettyConditions()
-        };
+        } : null;
     }
 
     private prettySteps(): string {
@@ -761,7 +761,8 @@ export class VerificationTask {
 
     private loadSymbExLogFromFile() {
         try {
-            let symbExLogPath = pathHelper.join(Server.workspaceRoot, ".vscode", "executionTreeData.js");
+            let symbExLogPath = pathHelper.join(Settings.settings.paths.tempDirectory, "executionTreeData.js");
+            Log.log("Loading The symbexLog from: " + symbExLogPath, LogLevel.Debug);
             if (fs.existsSync(symbExLogPath)) {
                 let content = fs.readFileSync(symbExLogPath).toString();
                 content = content.substring(content.indexOf("["), content.length).replace(/\n/g, ' ');

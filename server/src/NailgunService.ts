@@ -95,7 +95,7 @@ export class NailgunService {
 
                         this.instanceCount++;
                         this.startNailgunTimeout(this.instanceCount);
-                        this.nailgunProcess = child_process.exec(command);
+                        this.nailgunProcess = child_process.exec(command, { cwd: Server.backendOutputDirectory });
                         this.nailgunProcess.stdout.on('data', (data: string) => {
                             Log.logWithOrigin('NS', data, LogLevel.LowLevelDebug);
                             if (data.indexOf("started") > 0) {
@@ -217,7 +217,7 @@ export class NailgunService {
         let program = this.activeBackend.useNailgun ? ('"' + Settings.settings.nailgunSettings.clientExecutable + '"') : ('java ' + Settings.settings.javaSettings.customArguments);
         let command = Settings.expandCustomArguments(program, stage, fileToVerify, this.activeBackend);
         Log.log(command, LogLevel.Debug);
-        let verifyProcess = child_process.exec(command, { maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, cwd: Settings.workspace });
+        let verifyProcess = child_process.exec(command, { maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, cwd: Server.backendOutputDirectory });
         verifyProcess.stdout.on('data', onData);
         verifyProcess.stderr.on('data', onError);
         verifyProcess.on('close', onClose);

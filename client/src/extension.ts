@@ -10,7 +10,7 @@ import {LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, Tr
 import {Timer} from './Timer';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
-import {SettingsErrorType, SettingsError, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success} from './ViperProtocol';
+import {SettingsCheckParams, ViperSettings, SettingsErrorType, SettingsError, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success} from './ViperProtocol';
 import Uri from '../node_modules/vscode-uri/lib/index';
 import {Log} from './Log';
 import {StateVisualizer} from './StateVisualizer';
@@ -56,17 +56,16 @@ export function activate(context: vscode.ExtensionContext) {
     lastVersionWithSettingsChange = "0.2.15"; //null means latest version
     workList = [];
     ExtensionState.viperFiles = new Map<string, ViperFileState>();
-    Log.initialize(context);
+    Log.initialize();
     Log.log('Viper-Client is now active!', LogLevel.Info);
     state = ExtensionState.createExtensionState();
-    state.checkOperatingSystem();
+    ExtensionState.checkOperatingSystem();
     context.subscriptions.push(state);
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/*.sil, **/*.vpr');
     state.startLanguageServer(context, fileSystemWatcher, false); //break?
     registerHandlers();
     startAutoSaver();
     initializeStatusBar();
-    Log.deleteDotFiles();
     registerFormatter();
     let uri = vscode.window.activeTextEditor.document.uri;
     lastActiveTextEditor = Helper.isViperSourceFile(uri.toString()) ? uri : null;
@@ -150,7 +149,7 @@ function startVerificationController() {
                                 Log.log(dontVerify + `file is verifying`, LogLevel.Debug);
                             } else if (!task.manuallyTriggered && fileState.verified) {
                                 Log.log(dontVerify + `not manuallyTriggered and file is verified`, LogLevel.Debug);
-                            }else if (!activeFile) {
+                            } else if (!activeFile) {
                                 Log.log(dontVerify + `no file is active`, LogLevel.Debug);
                             } else if (activeFile !== task.uri.toString()) {
                                 Log.log(dontVerify + `another file is active`, LogLevel.Debug);
@@ -359,8 +358,8 @@ function handleStateChange(params: StateChangeParams) {
                             updateStatusBarItem(statusBarItem, "$(check) " + msg, 'lightgreen');
                             if (params.manuallyTriggered) Log.hint(msg);
                             //for SymbexLogger
-                            let symbexDotFile = path.resolve(path.join(vscode.workspace.rootPath, ".vscode", "dot_input.dot"));
-                            let symbexSvgFile = path.resolve(path.join(vscode.workspace.rootPath, ".vscode", "symbExLoggerOutput.svg"))
+                            let symbexDotFile = Log.getSymbExDotPath();
+                            let symbexSvgFile = Log.getSymbExSvgPath();
                             if (Helper.getConfiguration("advancedFeatures").enabled === true && fs.existsSync(symbexDotFile)) {
                                 let fileState = ExtensionState.viperFiles.get(params.uri);
                                 fileState.stateVisualizer.generateSvg(symbexDotFile, symbexSvgFile, () => { });
@@ -417,65 +416,61 @@ function formatProgress(progress: number): string {
     return progress.toFixed(0) + "%";
 }
 
-function handleInvalidSettings(errors: SettingsError[]) {
-    if (!errors || errors.length == 0) {
-        Log.error("Invalid settings message with empty errors list received.");
-        return;
-    }
-
-    let nofErrors = 0;
-    let nofWarnings = 0;
-    let message = "";
-    errors.forEach(error => {
-        switch (error.type) {
-            case SettingsErrorType.Error:
-                nofErrors++;
-                Log.error("Settings Error: " + error.msg);
-                break;
-            case SettingsErrorType.Warning:
-                nofWarnings++;
-                Log.log("Settings Warning: " + error.msg);
-                break;
-        }
-        message = error.msg;
-    })
-
-    let errorCounts = ((nofErrors > 0 ? ("" + nofErrors + " Error" + (nofErrors > 1 ? "s" : "")) : "") + (nofWarnings > 0 ? (" " + nofWarnings + " Warning" + (nofWarnings > 1 ? "s" : "")) : "")).trim();
-
-    //update status bar
-    Log.log(errorCounts + " in settings detected.", LogLevel.Default);
-    statusBarItem.text = errorCounts + " in settings";
-    if (nofErrors > 0) {
-        statusBarItem.color = 'red';
-    } else if (nofWarnings > 0) {
-        statusBarItem.color = 'orange';
-    }
-
-    if (nofErrors + nofWarnings > 1) message = "see View->Output->Viper";
-
-    let userSettingsButton: vscode.MessageItem = { title: "Open User Settings" };
-    let workspaceSettingsButton: vscode.MessageItem = { title: "Open Workspace Settings" };
-    vscode.window.showInformationMessage("Viper Settings: " + errorCounts + ": " + message, userSettingsButton, workspaceSettingsButton).then((choice) => {
-        if (choice && choice.title === workspaceSettingsButton.title) {
-            try {
-                vscode.commands.executeCommand("workbench.action.openWorkspaceSettings")
-            } catch (e) {
-                Log.error("Error accessing workspace settings: " + e)
+function handleSettingsCheckResult(params: SettingsCheckParams) {
+    if (params.errors && params.errors.length > 0) {
+        let nofErrors = 0;
+        let nofWarnings = 0;
+        let message = "";
+        params.errors.forEach(error => {
+            switch (error.type) {
+                case SettingsErrorType.Error:
+                    nofErrors++;
+                    Log.error("Settings Error: " + error.msg, LogLevel.Default);
+                    break;
+                case SettingsErrorType.Warning:
+                    nofWarnings++;
+                    Log.log("Settings Warning: " + error.msg);
+                    break;
             }
-        } else if (choice && choice.title === userSettingsButton.title) {
-            try {
-                vscode.commands.executeCommand("workbench.action.openGlobalSettings")
-            } catch (e) {
-                Log.error("Error accessing user settings: " + e)
-            }
+            message = error.msg;
+        })
+
+        let errorCounts = ((nofErrors > 0 ? ("" + nofErrors + " Error" + (nofErrors > 1 ? "s" : "")) : "") + (nofWarnings > 0 ? (" " + nofWarnings + " Warning" + (nofWarnings > 1 ? "s" : "")) : "")).trim();
+
+        //update status bar
+        Log.log(errorCounts + " in settings detected.", LogLevel.Default);
+        statusBarItem.text = errorCounts + " in settings";
+        if (nofErrors > 0) {
+            statusBarItem.color = 'red';
+        } else if (nofWarnings > 0) {
+            statusBarItem.color = 'orange';
         }
-    });
+
+        if (nofErrors + nofWarnings > 1) message = "see View->Output->Viper";
+
+        let userSettingsButton: vscode.MessageItem = { title: "Open User Settings" };
+        let workspaceSettingsButton: vscode.MessageItem = { title: "Open Workspace Settings" };
+        vscode.window.showInformationMessage("Viper Settings: " + errorCounts + ": " + message, userSettingsButton, workspaceSettingsButton).then((choice) => {
+            try {
+                if (choice && choice.title === workspaceSettingsButton.title) {
+                    vscode.commands.executeCommand("workbench.action.openWorkspaceSettings")
+                } else if (choice && choice.title === userSettingsButton.title) {
+                    vscode.commands.executeCommand("workbench.action.openGlobalSettings")
+                }
+            } catch (e) {
+                Log.error("Error accessing " + choice.title + " settings: " + e)
+            }
+        });
+    }
+    if (params.ok) {
+        Log.setTempDir(<string>params.settings.paths.tempDirectory, state.context);
+    }
 }
 
 function registerHandlers() {
 
     state.client.onNotification(Commands.StateChange, (params: StateChangeParams) => handleStateChange(params));
-    state.client.onNotification(Commands.InvalidSettings, (data: SettingsError[]) => handleInvalidSettings(data));
+    state.client.onNotification(Commands.SettingsChecked, (data: SettingsCheckParams) => handleSettingsCheckResult(data));
     state.client.onNotification(Commands.Hint, (data: string) => {
         Log.hint(data);
     });
@@ -722,7 +717,7 @@ function registerHandlers() {
                 }
 
                 let openDoc = uri.path;
-                if (state.isWin) {
+                if (ExtensionState.isWin) {
                     openDoc = openDoc.substring(1, openDoc.length);
                 }
                 let launchConfig = {
@@ -856,7 +851,7 @@ function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
             visualizer.completeReset();
             hideStates(() => {
                 //delete old SymbExLog:
-                Log.deleteFile(Log.symbExLogFilePath);
+                Log.deleteFile(Log.getSymbExLogPath());
 
                 //change fileState
                 fileState.changed = false;

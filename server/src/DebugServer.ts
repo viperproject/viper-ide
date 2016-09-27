@@ -228,7 +228,7 @@ export class DebugServer {
                             let newClientState = (newServerState >= 0 && newServerState < steps.length) ? steps[newServerState].decorationOptions.index : -1;
 
                             if (position.line >= 0) {
-                                Server.showHeap(Server.debuggedVerificationTask, newClientState);
+                                Server.showHeap(Server.debuggedVerificationTask, newClientState, true);
                             }
                             Log.log(`Step${StepType[data.type]}: state ${data.state} -> state ${newClientState}`, LogLevel.LowLevelDebug);
                             ipc.server.emit(

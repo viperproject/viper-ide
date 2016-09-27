@@ -7,72 +7,89 @@ import {LogLevel} from './ViperProtocol';
 import {Helper} from './Helper';
 
 export class Log {
-    static logFilePath = "viper.log";
+    static logFileName = "viper.log";
+    //static logFilePath = "viper.log";
     static logFile: fs.WriteStream;
     static outputChannel = vscode.window.createOutputChannel('Viper');
     static logLevel: LogLevel;
-    static _dotBasePath: string;
-    static _svgBasePath: string;
     private static _nofFiles: number = 0;
-    static rootPath: string;
-    static symbExLogFilePath: string;
-
+    //static rootPath: string;
+    static tempDirectory: string;
     static MAX_DOT_FILES: number = 2;
 
-    public static initialize(context: vscode.ExtensionContext) {
-        Log.updateSettings();
-        Log.rootPath = vscode.workspace.rootPath;
-        if (!Log.rootPath) {
-            Log.rootPath = path.dirname(vscode.window.activeTextEditor.document.fileName);
-        }
-        Log.logFilePath = path.join(Log.rootPath, '.vscode', Log.logFilePath);
-        //create .vscode folder if not there yet
-        if (!fs.existsSync(path.join(Log.rootPath, '.vscode'))) {
-            fs.mkdirSync(path.join(Log.rootPath, '.vscode'));
-        }
-
-        Log._dotBasePath = path.join(Log.rootPath, '.vscode', 'heap');
-        Log._svgBasePath = path.join(Log.rootPath, '.vscode', 'heap');
-        Log.symbExLogFilePath = path.join(Log.rootPath, '.vscode', 'executionTreeData.js');
-
-        Log.log('LogFilePath is: "' + Log.logFilePath + '"', LogLevel.LowLevelDebug)
+    public static initialize() {
         try {
-            Log.createFile(Log.logFilePath);
-            Log.logFile = fs.createWriteStream(Log.logFilePath);
-
-            //make sure the logFile is closed when the extension is closed
-            context.subscriptions.push(new Log());
+            Log.updateSettings();
+            // Log.rootPath = vscode.workspace.rootPath;
+            // if (!Log.rootPath) {
+            //     Log.rootPath = path.dirname(vscode.window.activeTextEditor.document.fileName);
+            // }
+            // if (!Log.rootPath) {
+            //     Log.error("No rootPath found");
+            // }
         } catch (e) {
-            Log.error("cannot write to LogFile, access denied. " + e)
+            Log.error("Error initializing Log: " + e)
         }
+    }
+
+    static getSymbExLogPath(): string {
+        if (!Log.tempDirectory) {
+            Log.error("Don't try to access the symbExLogPath before the tempDirectory path is set");
+            return;
+        }
+        return path.join(Log.tempDirectory, 'executionTreeData.js');
+    }
+    static getSymbExDotPath(): string {
+        if (!Log.tempDirectory) {
+            Log.error("Don't try to access the symbExDotPath before the tempDirectory path is set");
+            return;
+        }
+        return path.join(Log.tempDirectory, 'dot_input.dot');
+    }
+    static getSymbExSvgPath(): string {
+        if (!Log.tempDirectory) {
+            Log.error("Don't try to access the symbExSvgPath before the tempDirectory path is set");
+            return;
+        }
+        return path.join(Log.tempDirectory, 'symbExLoggerOutput.svg');
     }
 
     ///return the path to the indexth dot file
     ///creates non existing files
     public static dotFilePath(index: number, oldHeap: boolean): string {
+        if (!Log.tempDirectory) {
+            Log.error("Don't try to access the dotFiles before the tempDirectory path is set");
+            return;
+        }
+        let basePath = path.join(Log.tempDirectory, 'heap');
         let old = oldHeap ? "_old" : "";
         if (index < 0) {
             Log.error("don't use negative indices for dotFilePath");
-            return this._dotBasePath + old + ".dot";
+            return basePath + old + ".dot";
         }
         if (index >= this.MAX_DOT_FILES) {
             Log.error("don't use more than " + this.MAX_DOT_FILES + " dotFiles");
-            return this._dotBasePath + old + ".dot";
+            return basePath + old + ".dot";
         }
-        return this._dotBasePath + index + old + ".dot";
+        return basePath + index + old + ".dot";
     }
 
     public static svgFilePath(index: number, oldHeap: boolean): string {
+        if (!Log.tempDirectory) {
+            Log.error("Don't try to access the svgFiles before the tempDirectory path is set");
+            return;
+        }
+        let basePath = path.join(Log.tempDirectory, 'heap');
         let old = oldHeap ? "_old" : "";
         if (index < 0) {
             Log.error("don't use negative indices for svgFilePath");
-            return this._svgBasePath + old + ".svg";
+            return basePath + old + ".svg";
         }
         if (index >= this.MAX_DOT_FILES) {
             Log.error("don't use more than " + this.MAX_DOT_FILES + " svgFiles");
-            return this._svgBasePath + old + ".svg";
+            return basePath + old + ".svg";
         }
-        return this._svgBasePath + index + old + ".svg";
+        return basePath + index + old + ".svg";
     }
 
     private static createFile(filePath: string) {
@@ -112,10 +129,26 @@ export class Log {
 
     public static updateSettings() {
         let oldLogLevel = Log.logLevel;
-        let settings = vscode.workspace.getConfiguration("viperSettings");
         Log.logLevel = Helper.getConfiguration("preferences").logLevel || LogLevel.Default;
         if (oldLogLevel && oldLogLevel != Log.logLevel)
             Log.log(`The logLevel was changed from ${LogLevel[oldLogLevel]} to ${LogLevel[Log.logLevel]}`, LogLevel.LowLevelDebug);
+    }
+
+    public static setTempDir(tempDirPath: string, context: vscode.ExtensionContext) {
+        this.tempDirectory = tempDirPath;
+        //create logfile if it wasn't created before
+        if (!this.logFile) {
+            let logFilePath = path.join(this.tempDirectory, Log.logFileName);
+            Log.log('LogFilePath is: "' + logFilePath + '"', LogLevel.Info)
+            try {
+                Log.createFile(logFilePath);
+                Log.logFile = fs.createWriteStream(logFilePath);
+                //make sure the logFile is closed when the extension is closed
+                context.subscriptions.push(new Log());
+            } catch (e) {
+                Log.error("cannot create logFile at: " + logFilePath + ", access denied. " + e)
+            }
+        }
     }
 
     public static log(message: string, logLevel: LogLevel = LogLevel.Default) {

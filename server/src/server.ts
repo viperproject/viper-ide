@@ -40,7 +40,7 @@ function registerHandlers() {
         try {
             DebugServer.initialize();
 
-            Server.workspaceRoot = params.rootPath;
+            //Server.workspaceRoot = params.rootPath;
             Server.nailgunService = new NailgunService();
             return {
                 capabilities: {}
@@ -69,6 +69,8 @@ function registerHandlers() {
             Settings.checkSettings().then(() => {
                 if (Settings.valid()) {
                     restartBackendIfNeeded(oldSettings);
+                } else {
+                    Server.nailgunService.stopNailgunServer();
                 }
             });
         } catch (e) {
@@ -81,11 +83,13 @@ function registerHandlers() {
             if (!selectedBackend || selectedBackend.length == 0) {
                 Log.log("No backend was chosen, don't restart backend", LogLevel.Debug);
             } else {
-                //recheck settings upon 
+                //recheck settings upon backend change
                 Settings.checkSettings().then(() => {
                     if (Settings.valid()) {
                         Settings.selectedBackend = selectedBackend;
                         restartBackendIfNeeded(null);
+                    } else {
+                        Server.nailgunService.stopNailgunServer();
                     }
                 });
             }
@@ -235,7 +239,7 @@ function registerHandlers() {
                 Log.error("No verificationTask found for " + params.uri);
                 return;
             }
-            Server.showHeap(task, params.clientIndex);
+            Server.showHeap(task, params.clientIndex,params.isHeapNeeded);
         } catch (e) {
             Log.error("Error showing heap: " + e);
         }

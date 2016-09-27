@@ -2,8 +2,8 @@
 
 //These commands are used to distinguish the different message types
 export class Commands {
-    //Server notifies client about invalid settings
-    static InvalidSettings = { method: "InvalidSettings" };
+    //Server notifies client about the result of the settings check
+    static SettingsChecked = { method: "SettingsChecked" };
     //Server asks client to transform a uri to a file path
     static UriToPath = { method: "UriToPath" };
     //Server asks client to transform a file path to a uri
@@ -134,7 +134,9 @@ export interface ShowHeapParams {
     uri: string,
     //the index of the state to show
     //the client index does only take the states with a position into account
-    clientIndex: number
+    clientIndex: number;
+    //is the server expected to return the heap, or is it just a notification and the heap already known.
+    isHeapNeeded:boolean;
 }
 
 export interface HeapGraph {
@@ -199,6 +201,12 @@ export interface StepsAsDecorationOptionsResult {
     globalInfo: string
     //file under verification
     uri: string;
+}
+
+export interface SettingsCheckParams {
+    ok: boolean;
+    errors: SettingsError[];
+    settings: ViperSettings;
 }
 
 export interface MyProtocolDecorationOptions {
@@ -305,8 +313,10 @@ export interface Stage {
 }
 
 export interface PathSettings extends VersionedSettings {
+    //Directory to store all temporary files in
+    tempDirectory: string | PlatformDependentPath;
     //Path to the folder containing all the ViperTools
-    viperToolsPath: PlatformDependentPath;
+    viperToolsPath: string | PlatformDependentPath;
     //The path to the z3 executable
     z3Executable: string | PlatformDependentPath;
     //The path to the boogie executable

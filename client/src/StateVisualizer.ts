@@ -165,6 +165,7 @@ export class StateVisualizer {
         this.createAndShowHeap(heapGraph, 0);
         this.currentState = heapGraph.state;
         this.markStateSelection(heapGraph.methodName, heapGraph.position);
+        this.requestState(heapGraph.state, false);
     }
 
     public generateSvg(dotFilePath: string, svgFilePath: string, callback) {
@@ -335,11 +336,12 @@ export class StateVisualizer {
     }
 
     //request the heap graph of state from the language server
-    private requestState(state: number) {
+    private requestState(state: number, isHeapNeeded: boolean) {
         Log.log("Request showing the heap of state " + state, LogLevel.Debug);
         let params: ShowHeapParams = {
             uri: this.uri.toString(),
-            clientIndex: state
+            clientIndex: state,
+            isHeapNeeded: isHeapNeeded
         }
         ExtensionState.instance.client.sendRequest(Commands.ShowHeap, params);
     }
@@ -361,14 +363,14 @@ export class StateVisualizer {
                             //the shown state has been selected twice, focus on current state
                             this.focusOnState(this.provider.getCurrentHeap());
                         } else {
-                            this.requestState(selectedState);
+                            this.requestState(selectedState, true);
                         }
                     }
                 } else {
                     //Advanced Mode
                     if (this.currentState != selectedState) {
                         this.currentState = selectedState
-                        this.requestState(this.currentState);
+                        this.requestState(this.currentState, true);
                     } else {
                         //focus on current state if it is selected twice in a row
                         this.focusOnState(this.provider.getCurrentHeap());
