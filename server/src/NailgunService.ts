@@ -46,18 +46,6 @@ export class NailgunService {
         Server.sendStateChangeNotification({ newState: VerificationState.Stopped });
     }
 
-    //TODO: move to VerificationTask
-    //TODO: resolve only after completion 
-    public static stopAllRunningVerifications(): Thenable<boolean> {
-        return new Promise((resolve, reject) => {
-            if (Server.verificationTasks && Server.verificationTasks.size > 0) {
-                Log.log("Stop all running verificationTasks before restarting backend", LogLevel.Debug)
-                Server.verificationTasks.forEach(task => { task.abortVerification(); });
-            }
-            resolve(true);
-        });
-    }
-
     public startOrRestartNailgunServer(backend: Backend, reverifyWhenBackendReady: boolean) {
         try {
             this.reverifyWhenBackendReady = reverifyWhenBackendReady;
@@ -67,7 +55,7 @@ export class NailgunService {
             }
 
             //Stop all running verificationTasks before restarting backend
-            NailgunService.stopAllRunningVerifications().then(done => {
+            VerificationTask.stopAllRunningVerifications().then(done => {
                 //check java version
                 this.isJreInstalled().then(jreInstalled => {
                     if (!jreInstalled) {
@@ -205,13 +193,13 @@ export class NailgunService {
         });
     }
 
-    //unused
-    // private killNailgunServer() {
-    //     Log.log('killing nailgun server, this may leave its sub processes running', LogLevel.Debug);
-    //     //this.nailgunProcess.kill('SIGINT');
-    //     process.kill(this.nailgunProcess.pid);
-    //     this.nailgunProcess = null;
-    // }
+    
+    public killNailgunServer() {
+         Log.log('killing nailgun server, this may leave its sub processes running', LogLevel.Debug);
+         process.kill(this.nailgunProcess.pid,'SIGTERM')
+         //this.nailgunProcess.kill('SIGINT');
+         this.nailgunProcess = null;
+     }
 
     public startStageProcess(fileToVerify: string, stage: Stage, onData, onError, onClose): child_process.ChildProcess {
         let program = this.activeBackend.useNailgun ? ('"' + Settings.settings.nailgunSettings.clientExecutable + '"') : ('java ' + Settings.settings.javaSettings.customArguments);

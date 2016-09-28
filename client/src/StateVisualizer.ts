@@ -1,7 +1,7 @@
 'use strict';
 
 import {Log} from './Log';
-import {ShowHeapParams, StepsAsDecorationOptionsResult, MyProtocolDecorationOptions, StateColors, Position, HeapGraph, Commands, LogLevel} from './ViperProtocol';
+import {TimingInfo, ShowHeapParams, StepsAsDecorationOptionsResult, MyProtocolDecorationOptions, StateColors, Position, HeapGraph, Commands, LogLevel} from './ViperProtocol';
 import * as fs from 'fs';
 import child_process = require('child_process');
 import {HeapProvider} from './HeapProvider';
@@ -51,6 +51,7 @@ export class StateVisualizer {
 
     private removingSpecialChars = false;
     private addingSpecialChars = false;
+    private addingTimingInformation = false;
 
     public initialize(viperFile: ViperFileState) {
         this.viperFile = viperFile;
@@ -408,6 +409,67 @@ export class StateVisualizer {
             } else {
                 Log.error("cannot show decorations: no editor to show it in");
             }
+        }
+    }
+
+    private timingPrefix = '//@TIMING:';
+
+    getLastTiming(): TimingInfo {
+        let content = this.viperFile.editor.document.getText();
+        let timingStart = content.indexOf(this.timingPrefix);
+        let timingEnd = content.indexOf('}', timingStart) + 1;
+        let timingInfo: TimingInfo;
+        if (timingStart >= 0) {
+            try {
+                timingInfo = JSON.parse(content.substring(timingStart + this.timingPrefix.length, timingEnd));
+            } catch (e) {
+                Log.log("Warning: Misformed timing information: " + content.substring(timingStart + this.timingPrefix.length, timingEnd));
+            }
+        }
+        return timingInfo;
+    }
+
+    //TIMING IN FILE
+    addTimingInformationToFile(time: TimingInfo) {
+        if (this.areSpecialCharsBeingModified("Don't add timing to file, its being modified")) return;
+        try {
+            let editor = this.viperFile.editor;
+            if (Helper.getConfiguration("preferences").showProgress && editor) {
+                this.addingTimingInformation = true;
+                let openDoc = editor.document;
+                let edit = new vscode.WorkspaceEdit();
+                let content = openDoc.getText();
+                let timingStart = content.indexOf(this.timingPrefix)
+                let timingEnd = content.indexOf('}', timingStart) + 1;
+                let newTiming = this.timingPrefix + JSON.stringify(time);
+                if (timingStart >= 0) {
+                    if (timingEnd <= 0) {
+                        timingEnd = content.length + 1;
+                    }
+                    //replace existing timing
+                    edit.replace(openDoc.uri, new vscode.Range(openDoc.positionAt(timingStart), openDoc.positionAt(timingEnd)), newTiming);
+                } else {
+                    //add new timing if there is non yet
+                    edit.insert(openDoc.uri, openDoc.positionAt(content.length), "\n" + newTiming);
+                }
+                this.viperFile.onlySpecialCharsChanged = true;
+                vscode.workspace.applyEdit(edit).then(resolve => {
+                    if (resolve) {
+                        openDoc.save().then(() => {
+                            this.addingTimingInformation = false;
+                            Log.log("Timing information added to " + this.viperFile.name(), LogLevel.Debug);
+                        });
+                    } else {
+                        this.addingTimingInformation = false;
+                    }
+                }, reason => {
+                    Log.error("Error adding timing information: apply was rejected: " + reason)
+                    this.addingTimingInformation = false;
+                });
+            }
+        } catch (e) {
+            this.addingTimingInformation = false;
+            Log.error("Error adding timing information: " + e);
         }
     }
 

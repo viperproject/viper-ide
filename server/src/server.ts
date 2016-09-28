@@ -168,7 +168,8 @@ function registerHandlers() {
 
     Server.connection.onRequest(Commands.Dispose, (lineNumber) => {
         try {
-            Server.nailgunService.stopNailgunServer();
+            //Server.nailgunService.stopNailgunServer();
+            Server.nailgunService.killNailgunServer();
             Server.nailgunService.killNgDeamon();
             return null;
         } catch (e) {
@@ -239,7 +240,7 @@ function registerHandlers() {
                 Log.error("No verificationTask found for " + params.uri);
                 return;
             }
-            Server.showHeap(task, params.clientIndex,params.isHeapNeeded);
+            Server.showHeap(task, params.clientIndex, params.isHeapNeeded);
         } catch (e) {
             Log.error("Error showing heap: " + e);
         }

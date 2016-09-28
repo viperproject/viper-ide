@@ -10,7 +10,7 @@ import {LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, Tr
 import {Timer} from './Timer';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
-import {SettingsCheckParams, ViperSettings, SettingsErrorType, SettingsError, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success} from './ViperProtocol';
+import {TimingInfo, SettingsCheckParams, ViperSettings, SettingsErrorType, SettingsError, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success} from './ViperProtocol';
 import Uri from '../node_modules/vscode-uri/lib/index';
 import {Log} from './Log';
 import {StateVisualizer} from './StateVisualizer';
@@ -39,6 +39,14 @@ let _backendReady: boolean = false;
 
 let lastActiveTextEditor: vscode.Uri;
 
+//for timing:
+let verificationStartTime: number;
+let timings: number[];
+let oldTimings: TimingInfo;
+let progressUpdater;
+let lastProgress: number;
+let progressLabel = "";
+
 interface Task {
     type: TaskType;
     uri?: vscode.Uri;
@@ -56,7 +64,7 @@ export function activate(context: vscode.ExtensionContext) {
     lastVersionWithSettingsChange = "0.2.15"; //null means latest version
     workList = [];
     ExtensionState.viperFiles = new Map<string, ViperFileState>();
-    Log.initialize(context);
+    Log.initialize();
     Log.log('Viper-Client is now active!', LogLevel.Info);
     state = ExtensionState.createExtensionState();
     ExtensionState.checkOperatingSystem();
@@ -226,13 +234,18 @@ function startVerificationController() {
 }
 
 export function deactivate() {
-    Log.log("deactivate", LogLevel.Info);
+    console.log("deactivate");
     state.dispose();
+    console.log("state disposed");
     //TODO: make sure no doc contains special chars any more
+    console.log("Removing special chars of last opened file.");
     let oldFileState = ExtensionState.viperFiles.get(lastActiveTextEditor.toString());
     oldFileState.stateVisualizer.removeSpecialCharacters(() => {
-        Log.log("deactivated", LogLevel.Info);
+        console.log("deactivated");
     });
+    console.log("Close Log");
+    Log.dispose();
+    console.log("Deactivated")
 }
 
 function registerFormatter() {
@@ -310,19 +323,13 @@ function handleStateChange(params: StateChangeParams) {
                 updateStatusBarItem(statusBarItem, 'starting', 'orange');
                 break;
             case VerificationState.VerificationRunning:
-                let showProgressBar = Helper.getConfiguration('preferences').showProgress === true;
-                if (!params.progress) {
-                    updateStatusBarItem(statusBarItem, "pre-processing", 'orange');
-                    updateStatusBarItem(statusBarProgress, progressBarText(0), 'white', null, showProgressBar);
-                }
-                else {
-                    updateStatusBarItem(statusBarItem, `verifying ${params.filename}: ` + formatProgress(params.progress), 'orange');
-                    updateStatusBarItem(statusBarProgress, progressBarText(params.progress), 'white', null, showProgressBar);
-                }
+                progressLabel = `verifying ${params.filename}:`;
+                addTiming(params.progress, 'orange');
                 abortButton.show();
                 break;
             case VerificationState.PostProcessing:
-                updateStatusBarItem(statusBarItem, `postprocessing ${params.filename}: `, 'white');
+                progressLabel = `postprocessing ${params.filename}:`;
+                addTiming(params.progress, 'white');
                 break;
             case VerificationState.Stage:
                 Log.log("Run " + params.stage + " for " + params.filename);
@@ -330,6 +337,7 @@ function handleStateChange(params: StateChangeParams) {
             case VerificationState.Ready:
                 statusBarProgress.hide();
                 abortButton.hide();
+                clearInterval(progressUpdater);
 
                 ExtensionState.viperFiles.forEach(file => {
                     file.verifying = false;
@@ -344,9 +352,15 @@ function handleStateChange(params: StateChangeParams) {
                     //since at most one file can be verified at a time, set all to non-verified before potentially setting one to verified 
                     ExtensionState.viperFiles.forEach(state => state.verified = false);
                     ExtensionState.viperFiles.get(params.uri).success = params.success;
+
+                    let verifiedFile = ExtensionState.viperFiles.get(params.uri);
                     if (params.success != Success.Aborted && params.success != Success.Error) {
-                        ExtensionState.viperFiles.get(params.uri).verified = true;
+                        verifiedFile.verified = true;
                     }
+
+                    //complete the timing measurement
+                    addTiming(100, 'white', true);
+                    verifiedFile.stateVisualizer.addTimingInformationToFile({ total: params.time, timings: timings });
 
                     //workList.push({ type: TaskType.VerificationCompleted, uri: uri, success: params.success });
                     let msg: string = "";
@@ -407,13 +421,7 @@ function handleStateChange(params: StateChangeParams) {
     }
 }
 
-function formatSeconds(time: number): string {
-    return time.toFixed(1) + " seconds";
-}
 
-function formatProgress(progress: number): string {
-    return progress.toFixed(0) + "%";
-}
 
 function handleSettingsCheckResult(params: SettingsCheckParams) {
     if (params.errors && params.errors.length > 0) {
@@ -850,6 +858,22 @@ function hideStates(callback, visualizer: StateVisualizer) {
 }
 
 function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
+    //reset timing;
+    verificationStartTime = Date.now();
+    timings = [];
+    //load expected timing
+    let expectedTimings: TimingInfo = fileState.stateVisualizer.getLastTiming();
+    if (expectedTimings && expectedTimings.total) {
+        Log.log("Verification is expected to take " + formatSeconds(expectedTimings.total), LogLevel.Info);
+        oldTimings = expectedTimings;
+    }
+
+    progressUpdater = setInterval(() => {
+        let progress = getProgress(lastProgress)
+        statusBarProgress.text = progressBarText(progress);
+        statusBarItem.text = progressLabel + " " + formatProgress(progress);
+    }, 500);
+
     let uri = fileState.uri.toString();
     if (Helper.isViperSourceFile(uri)) {
         if (!state.client) {
@@ -873,7 +897,48 @@ function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
     }
 }
 
+function addTiming(paramProgress: number, color: string, hide: boolean = false) {
+    let showProgressBar = Helper.getConfiguration('preferences').showProgress === true;
+    timings.push(Date.now() - verificationStartTime);
+    let progress = getProgress(paramProgress || 0);
+    lastProgress = lastProgress;
+    if (hide)
+        statusBarProgress.hide();
+    else {
+        updateStatusBarItem(statusBarProgress, progressBarText(progress), 'white', null, showProgressBar);
+        updateStatusBarItem(statusBarItem, progressLabel + " " + formatProgress(progress), color);
+    }
+}
+
+function getProgress(progress: number): number {
+    try {
+        let timeSpentUntilLastStep = timings[timings.length - 1];
+        let timeAlreadySpent = Date.now() - verificationStartTime;
+        if (oldTimings && oldTimings.timings) {
+            let old = oldTimings.timings;
+            if (old.length >= timings.length) {
+                let timeSpentLastTime = old[timings.length - 1];
+                let oldTotal = old[old.length - 1];
+                let timeSpent = timeSpentUntilLastStep;
+                if (old.length > timings.length && timeSpent > old[timings.length]) {
+                    //if this time we should already have completed the step, factor that in
+                    timeSpentLastTime = old[timings.length];
+                    timeSpent = timeAlreadySpent;
+                }
+                let leftToCompute = oldTotal - timeSpentLastTime
+                let estimatedTotal = timeSpent + leftToCompute;
+                progress = 100 * Math.min((timeAlreadySpent / estimatedTotal), 1);
+            }
+        }
+        Log.log("Progress: " + progress, LogLevel.Debug);
+        return progress;
+    } catch (e) {
+        Log.error("Error computing progress: " + e);
+    }
+}
+
 function progressBarText(progress: number): string {
+    progress = Math.floor(progress);
     let bar = "";
     for (var i = 0; i < progress / 10; i++) {
         bar = bar + "⚫";
@@ -882,4 +947,12 @@ function progressBarText(progress: number): string {
         bar = bar + "⚪";
     }
     return bar;
+}
+
+function formatSeconds(time: number): string {
+    return time.toFixed(1) + " seconds";
+}
+
+function formatProgress(progress: number): string {
+    return progress.toFixed(0) + "%";
 }

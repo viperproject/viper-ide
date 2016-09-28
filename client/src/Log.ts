@@ -17,7 +17,7 @@ export class Log {
     private static _nofFiles: number = 0;
     static MAX_DOT_FILES: number = 2;
 
-    public static initialize(context: vscode.ExtensionContext) {
+    public static initialize() {
         try {
             Log.updateSettings();
             // Log.rootPath = vscode.workspace.rootPath;
@@ -41,7 +41,6 @@ export class Log {
                     Log.createFile(logFilePath);
                     Log.logFile = fs.createWriteStream(logFilePath);
                     //make sure the logFile is closed when the extension is closed
-                    context.subscriptions.push(new Log());
                 } catch (e) {
                     Log.error("cannot create logFile at: " + logFilePath + ", access denied. " + e)
                 }
@@ -122,7 +121,7 @@ export class Log {
                 fs.unlinkSync(fileName);
             };
         } catch (e) {
-            Log.error("Error deleting file " + fileName);
+            Log.error("Error deleting file " + fileName + ": "+ e);
         }
     }
 
@@ -176,7 +175,7 @@ export class Log {
         }
     }
 
-    public dispose() {
+    public static dispose() {
         Log.logFile.close();
     }
 

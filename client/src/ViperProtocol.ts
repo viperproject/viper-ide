@@ -136,7 +136,7 @@ export interface ShowHeapParams {
     //the client index does only take the states with a position into account
     clientIndex: number;
     //is the server expected to return the heap, or is it just a notification and the heap already known.
-    isHeapNeeded:boolean;
+    isHeapNeeded: boolean;
 }
 
 export interface HeapGraph {
@@ -418,4 +418,11 @@ export interface Error {
     end: string,
     tag?: string,
     message: string
+}
+
+export interface TimingInfo {
+    //the total time in seconds
+    total: number;
+    //the intermediate timings in milliseconds
+    timings: number[];
 }

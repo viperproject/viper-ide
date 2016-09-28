@@ -72,11 +72,15 @@ export class ExtensionState {
     }
 
     public dispose() {
-        Log.log("Ask language server to shut down.", LogLevel.Info);
-        this.client.sendRequest(Commands.Dispose, (error) => {
-            Log.log("Language server has shut down, terminate the connection", LogLevel.Info);
-            this.languageServerDisposable.dispose();
-        })
+        try {
+            Log.log("Ask language server to shut down.", LogLevel.Info);
+            this.client.sendRequest(Commands.Dispose, (error) => {
+                Log.log("Language server has shut down, terminate the connection", LogLevel.Info);
+                this.languageServerDisposable.dispose();
+            })
+        } catch (e) {
+            Log.log("Error disposing state: " + e);
+        }
     }
 
     public static checkOperatingSystem() {
@@ -94,20 +98,4 @@ export class ExtensionState {
             Log.log("OS: Linux", LogLevel.Debug);
         }
     }
-
-    // public static userSettingsPath(): string {
-    //     if (this.isWin) {
-    //         let appdata = process.env.APPDATA;
-    //         return path.join(appdata, "Code", "User", "settings.json");
-    //     } else {
-    //         let home = process.env.HOME;
-    //         if (this.isLinux) {
-    //             return path.join(home, ".config", "Code", "User", "settings.json");
-    //         } else if (this.isMac) {
-    //             return path.join(home, "Library", "Application Support", "Code", "User", "settings.json");
-    //         } else {
-    //             Log.error("unknown Operating System: " + process.platform);
-    //         }
-    //     }
-    // }
 }

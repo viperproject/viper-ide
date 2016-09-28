@@ -270,7 +270,10 @@ export class VerificationTask {
 
         Log.log(Server.backend.name + ' verification started', LogLevel.Info);
 
-        Server.sendStateChangeNotification({ newState: VerificationState.VerificationRunning }, this);
+        Server.sendStateChangeNotification({
+            newState: VerificationState.VerificationRunning,
+            filename: this.filename
+        }, this);
 
         VerificationTask.uriToPath(this.fileUri).then((path) => {
             //Request the debugger to terminate it's session
@@ -308,6 +311,7 @@ export class VerificationTask {
                         uri: this.fileUri
                     }, this);
                 }
+                this.running = false;
             }, this.nailgunService.activeBackend.timeout);
         }
     }
@@ -549,7 +553,6 @@ export class VerificationTask {
                                 case BackendOutputType.FunctionVerified: case BackendOutputType.MethodVerified: case BackendOutputType.PredicateVerified:
                                     this.progress.updateProgress(json);
                                     let progressInPercent = this.progress.toPercent();
-                                    Log.log("Progress: " + progressInPercent, LogLevel.Info);
                                     Server.sendStateChangeNotification({
                                         newState: VerificationState.VerificationRunning,
                                         progress: progressInPercent,
@@ -728,25 +731,40 @@ export class VerificationTask {
         }
     }
 
-    public abortVerification() {
-        if (!this.running) return;
+    public abortVerification(): Thenable<boolean> {
+        return new Promise((resolve, reject) => {
+            try {
+                if (!this.running) {
+                    resolve(true);
+                    return;
+                }
 
-        Log.log('Abort running verification', LogLevel.Info);
-        this.aborting = true;
+                Log.log('Abort running verification', LogLevel.Info);
+                this.aborting = true;
 
-        //remove impact of child_process to kill
-        this.verifierProcess.removeAllListeners('close');
-        this.verifierProcess.stdout.removeAllListeners('data');
-        this.verifierProcess.stderr.removeAllListeners('data');
-        //log the exit of the child_process to kill
-        this.verifierProcess.on('exit', (code, signal) => {
-            Log.log(`Child process exited with code ${code} and signal ${signal}`, LogLevel.Debug);
-        })
-        this.verifierProcess.kill('SIGINT'); //TODO: not working on mac, linux?
-        let l = this.verifierProcess.listeners;
-        this.verifierProcess = null;
-        this.running = false;
-        this.lastSuccess = Success.Aborted;
+                //remove impact of child_process to kill
+                this.verifierProcess.removeAllListeners('close');
+                this.verifierProcess.stdout.removeAllListeners('data');
+                this.verifierProcess.stderr.removeAllListeners('data');
+                //log the exit of the child_process to kill
+                this.verifierProcess.on('exit', (code, signal) => {
+                    Log.log(`Child process exited with code ${code} and signal ${signal}`, LogLevel.Debug);
+                    resolve(true);
+                })
+                try {
+                    this.verifierProcess.kill('SIGINT'); //TODO: not working on mac, linux?
+                    process.kill(this.verifierProcess.pid, 'SIGINT');
+                } catch (e) {// if stopping does not work, there is nothing we can do about it.
+                }
+                let l = this.verifierProcess.listeners;
+                this.verifierProcess = null;
+                this.running = false;
+                this.lastSuccess = Success.Aborted;
+            } catch (e) {
+                Log.error("Error aborting verification of " + this.filename + ": " + e);
+                resolve(false);
+            }
+        });
     }
 
     public getStepsOnLine(line: number): Statement[] {
@@ -783,6 +801,29 @@ export class VerificationTask {
             Log.error("Error loading SymbExLog from file: " + e);
             Log.hint("Error reading backend output: please update the extension and the backend to the newest version.");
         }
+    }
+
+    public static stopAllRunningVerifications(): Thenable<boolean> {
+        return new Promise((resolve, reject) => {
+            try {
+                if (Server.verificationTasks && Server.verificationTasks.size > 0) {
+                    Log.log("Stop all running verificationTasks before restarting backend", LogLevel.Debug)
+                    let promises: Promise<boolean>[] = [];
+                    Server.verificationTasks.forEach(task => {
+                        promises.push(new Promise((res, rej) => {
+                            task.abortVerification().then(() => { res(true) });
+                        }));
+                    });
+                    Promise.all(promises).then(() => {
+                        resolve(true);
+                    })
+                } else {
+                    resolve(true);
+                }
+            } catch (e) {
+                Log.error("Error stopping all running verifications: " + e);
+            }
+        });
     }
 
     //URI helper Methods
