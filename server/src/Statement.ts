@@ -28,7 +28,8 @@ export class Statement {
     heap: HeapChunk[];
     oldHeap: HeapChunk[];
     pcs: Condition[];
-    depth: number;
+    private _depth: number;
+    private _depthLevel: number = -1;
     index: number;
     isErrorState: boolean = false;
     verifiable: Verifiable;
@@ -71,7 +72,7 @@ export class Statement {
         }
 
         //add depth info
-        statement.depth = depth;
+        statement._depth = depth;
 
         //create the statements children
         statement.children = [];
@@ -100,11 +101,16 @@ export class Statement {
         this.verifiable = verifiable;
     }
     public depthLevel(): number {
-        if (this.parent) {
-            let addDepth = this.parent.canBeShownAsDecoration && !this.parent.isBranch();
-            return (addDepth ? 1 : 0) + this.parent.depthLevel();
+        if (this._depthLevel < 0) {
+            //compute only once
+            if (this.parent) {
+                let addDepth = this.parent.canBeShownAsDecoration && !this.parent.isBranch();
+                this._depthLevel = (addDepth ? 1 : 0) + this.parent.depthLevel();
+            } else {
+                this._depthLevel = 0;
+            }
         }
-        else return 0;
+        return this._depthLevel;
     }
 
     public isBranch(): boolean {
@@ -125,7 +131,7 @@ export class Statement {
             }
             else {
                 //TODO: make sure this doesn't happen
-                Log.log("Warning: unexpected format in store: expeccted: a -> b, found: " + variable,LogLevel.Debug);
+                Log.log("Warning: unexpected format in store: expeccted: a -> b, found: " + variable, LogLevel.Debug);
                 result.push({ name: variable.value, type: variable.type, value: "unknown", variablesReference: 0 });
             }
         });

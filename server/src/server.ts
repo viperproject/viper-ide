@@ -16,7 +16,7 @@ import {
 import {LogEntry, LogType} from './LogEntry';
 import {Log} from './Log';
 import {Settings} from './Settings'
-import {BackendReadyParams, StatementType, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+import {StateColors, ExecutionTrace, BackendReadyParams, StatementType, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Statement} from './Statement';
@@ -177,21 +177,46 @@ function registerHandlers() {
         }
     });
 
-
-
     Server.connection.onRequest(Commands.GetExecutionTrace, (params: { uri: string, clientState: number }) => {
         Log.log("Generate execution trace for client state " + params.clientState, LogLevel.Debug);
         return new Promise((resolve, reject) => {
-            let result: number[] = [];
+            let result: ExecutionTrace[] = [];
             try {
                 let task = Server.verificationTasks.get(params.uri);
                 let serverState = task.clientStepIndexToServerStep[params.clientState];
                 let maxDepth = serverState.depthLevel();
+                let dark = Settings.settings.advancedFeatures.darkGraphs === true;
+
+                if (!Settings.settings.advancedFeatures.simpleMode) {
+                    //ADVANCED MODE ONLY
+                    //get stateExpansion states
+                    serverState.verifiable.forAllExpansionStatesWithDecoration(serverState, (child: Statement) => {
+                        result.push({
+                            state: child.decorationOptions.index,
+                            color: StateColors.uninterestingState(dark),
+                            showNumber: true
+                        });
+                    });
+                    //get top level statements
+                    serverState.verifiable.getTopLevelStatesWithDecoration().forEach(child => {
+                        result.push({
+                            state: child.decorationOptions.index,
+                            color: StateColors.uninterestingState(dark),
+                            showNumber: true
+                        });
+                    });
+                }
+                //BOTH SIMPLE AND ANVANCED MODE
+                //get executionTrace of serverState
                 while (true) {
                     let depth = serverState.depthLevel();
                     if (serverState.canBeShownAsDecoration && depth <= maxDepth) {
                         maxDepth = depth;
-                        result.push(serverState.decorationOptions.index)//push client state
+                        result.push({
+                            state: serverState.decorationOptions.index,
+                            color: StateColors.interestingState(dark),
+                            showNumber: true
+                        })//push client state
                     }
                     if (serverState.isBranch()) {
                         serverState = serverState.parent;
@@ -201,8 +226,8 @@ function registerHandlers() {
                         serverState = task.steps[serverState.index - 1];
                     }
                     task.shownExecutionTrace = result;
-                    resolve(result);
                 }
+                resolve(result);
             } catch (e) {
                 Log.error("Error handling Execution Trace Request: " + e);
                 resolve(result);

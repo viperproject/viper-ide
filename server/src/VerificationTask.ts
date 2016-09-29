@@ -3,7 +3,7 @@
 import child_process = require('child_process');
 import {Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
 import {Settings} from './Settings'
-import {BackendOutput, BackendOutputType, Error, SymbExLogEntry, Stage, StateChangeParams, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
+import {ExecutionTrace, BackendOutput, BackendOutputType, Error, SymbExLogEntry, Stage, StateChangeParams, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, HeapGraph, Backend, ViperSettings, Commands, VerificationState, LogLevel, Success} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement} from './Statement';
@@ -53,7 +53,7 @@ export class VerificationTask {
 
     progress: Progress;
 
-    shownExecutionTrace: number[];
+    shownExecutionTrace: ExecutionTrace[];
 
     constructor(fileUri: string, nailgunService: NailgunService) {
         this.fileUri = fileUri;
@@ -791,7 +791,7 @@ export class VerificationTask {
                 this.verifiables = [];
                 this.symbExLog.forEach(data => {
                     let index = this.verifiables.length;
-                    this.verifiables.push(new Verifiable(index, data, this))
+                    this.verifiables.push(new Verifiable(this.steps,index, data, this))
                 });
 
             } else {

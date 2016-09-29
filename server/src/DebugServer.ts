@@ -128,7 +128,7 @@ export class DebugServer {
                             if (Settings.settings.advancedFeatures.simpleMode && task.shownExecutionTrace) {
                                 //SIMPLE MODE
                                 let indexIntoExecutionTrace = 0;
-                                while (indexIntoExecutionTrace < task.shownExecutionTrace.length && task.shownExecutionTrace[indexIntoExecutionTrace] != data.state) {
+                                while (indexIntoExecutionTrace < task.shownExecutionTrace.length && task.shownExecutionTrace[indexIntoExecutionTrace].state != data.state) {
                                     indexIntoExecutionTrace++;
                                 }
                                 if (indexIntoExecutionTrace >= task.shownExecutionTrace.length) {
@@ -156,7 +156,7 @@ export class DebugServer {
                                             newExecutionTraceIndex = 0;
                                             break;
                                     }
-                                    newServerState = task.clientStepIndexToServerStep[task.shownExecutionTrace[newExecutionTraceIndex]].index;
+                                    newServerState = task.clientStepIndexToServerStep[task.shownExecutionTrace[newExecutionTraceIndex].state].index;
                                 }
                             } else {
                                 //ADVANCED MODE

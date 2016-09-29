@@ -1,7 +1,7 @@
 {
     "name": "viper-advanced",
     "displayName": "Viper Advanced",
-    "version": "0.2.17",
+    "version": "0.2.18",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "license": "MIT",
@@ -162,7 +162,7 @@
                 "viperSettings.nailgunSettings": {
                     "type": "object",
                     "default": {
-                        "v": "0.2.17",
+                        "v": "0.2.18",
                         "serverJar": "$viperTools$/nailgun/nailgun.jar",
                         "clientExecutable": "$viperTools$/nailgun/ng",
                         "port": "7654",
@@ -173,7 +173,7 @@
                 "viperSettings.verificationBackends": {
                     "type": "array",
                     "default": [{
-                            "v": "0.2.17",
+                            "v": "0.2.18",
                             "name": "silicon",
                             "paths": [
                                 "$viperTools$/backends/silicon.jar"
@@ -188,7 +188,7 @@
                             }]
                         },
                         {
-                            "v": "0.2.17",
+                            "v": "0.2.18",
                             "name": "silicon with infer",
                             "paths": [
                                 "$viperTools$/backends/silicon.jar",
@@ -219,7 +219,7 @@
                             ]
                         },
                         {
-                            "v": "0.2.17",
+                            "v": "0.2.18",
                             "name": "carbon",
                             "paths": [
                                 "$viperTools$/backends/carbon.jar"
@@ -239,7 +239,7 @@
                 "viperSettings.paths": {
                     "type": "object",
                     "default": {
-                        "v": "0.2.17",
+                        "v": "0.2.18",
                         "viperToolsPath": {
                             "windows": "%ProgramFiles%\\Viper\\",
                             "linux": "/usr/local/Viper",
@@ -265,7 +265,7 @@
                 "viperSettings.preferences": {
                     "type": "object",
                     "default": {
-                        "v": "0.2.17",
+                        "v": "0.2.18",
                         "autoSave": true,
                         "logLevel": 1,
                         "autoVerifyAfterBackendChange": true,
@@ -276,7 +276,7 @@
                 "viperSettings.javaSettings": {
                     "type": "object",
                     "default": {
-                        "v": "0.2.17",
+                        "v": "0.2.18",
                         "customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$"
                     },
                     "description": "Settings used for running java command"
@@ -284,7 +284,7 @@
                 "viperSettings.advancedFeatures": {
                     "type": "object",
                     "default": {
-                        "v": "0.2.17",
+                        "v": "0.2.18",
                         "enabled": true,
                         "showSymbolicState": true,
                         "simpleMode": true,

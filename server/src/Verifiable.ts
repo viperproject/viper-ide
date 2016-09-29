@@ -15,8 +15,10 @@ export class Verifiable {
     endIndex: number;
     root: Statement;
     index: number;
+    allSteps: Statement[];
 
-    constructor(index: number, data: SymbExLogEntry, task: VerificationTask) {
+    constructor(steps: Statement[], index: number, data: SymbExLogEntry, task: VerificationTask) {
+        this.allSteps = steps;
         this.index = index;
         this.type = this.parseVerifiableType(data.kind);
         this.name = data.value;
@@ -35,6 +37,27 @@ export class Verifiable {
 
     typeString(): string {
         return VerifiableType[this.type];
+    }
+
+    forAllExpansionStatesWithDecoration(state: Statement, task: (state: Statement) => void) {
+        state.children.forEach(element => {
+            if (element.canBeShownAsDecoration) {
+                task(element);
+            } else {
+                this.forAllExpansionStatesWithDecoration(element, task);
+            }
+        });
+    }
+
+    getTopLevelStatesWithDecoration(): Statement[] {
+        let result: Statement[] = [];
+        for (let i = this.startIndex; i <= this.endIndex; i++) {
+            let state = this.allSteps[i];
+            if (state.depthLevel() == 0 && state.canBeShownAsDecoration) {
+                result.push(state);
+            }
+        }
+        return result;
     }
 }
 

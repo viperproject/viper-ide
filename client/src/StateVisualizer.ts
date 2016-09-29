@@ -1,7 +1,7 @@
 'use strict';
 
 import {Log} from './Log';
-import {TimingInfo, ShowHeapParams, StepsAsDecorationOptionsResult, MyProtocolDecorationOptions, StateColors, Position, HeapGraph, Commands, LogLevel} from './ViperProtocol';
+import {ExecutionTrace, TimingInfo, ShowHeapParams, StepsAsDecorationOptionsResult, MyProtocolDecorationOptions, StateColors, Position, HeapGraph, Commands, LogLevel} from './ViperProtocol';
 import * as fs from 'fs';
 import child_process = require('child_process');
 import {HeapProvider} from './HeapProvider';
@@ -289,11 +289,11 @@ export class StateVisualizer {
                     let option = this.decorationOptions[i];
                     let errorStateFound = false;
 
-                    if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
+                    //if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
                         this.hide(option);
-                    } else {
-                        this.collapseOutsideMethod(option, currentMethodIdx);
-                    }
+                    //} else {
+                    //    this.collapseOutsideMethod(option, currentMethodIdx);
+                    //}
 
                     //default is grey
                     this.color(option, StateColors.uninterestingState(darkGraphs), darkGraphs);
@@ -322,12 +322,16 @@ export class StateVisualizer {
                 if (StateVisualizer.showStates) {
                     //mark execution trace that led to the current state
                     Log.log("Request Execution Trace", LogLevel.Info);
-                    ExtensionState.instance.client.sendRequest(Commands.GetExecutionTrace, { uri: this.uri.toString(), clientState: this.currentState }).then((trace: number[]) => {
+                    ExtensionState.instance.client.sendRequest(Commands.GetExecutionTrace, { uri: this.uri.toString(), clientState: this.currentState }).then((trace: ExecutionTrace[]) => {
                         Log.log("Mark Execution Trace", LogLevel.Debug);
                         trace.forEach(element => {
-                            let option = this.decorationOptions[element];
-                            this.expand(option);
-                            this.color(option, StateColors.interestingState(darkGraphs), darkGraphs);
+                            let option = this.decorationOptions[element.state];
+                            if (element.showNumber) {
+                                this.expand(option);
+                            } else {
+                                this.collapse(option);
+                            }
+                            this.color(option, element.color, darkGraphs);
                         });
                         this.showDecorations();
                     })

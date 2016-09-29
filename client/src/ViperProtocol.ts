@@ -55,6 +55,12 @@ export class Commands {
 
 //Communication between Language Client and Language Server:
 
+export interface ExecutionTrace {
+    state: number;
+    color: string;
+    showNumber: boolean;
+}
+
 export enum VerificationState {
     Stopped = 0,
     Starting = 1,
