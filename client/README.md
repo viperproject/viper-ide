@@ -136,16 +136,37 @@ More Information on the Settings in VSCode can be found here: [User and Workspac
 
 ## 6. Technical Desciptions
 
+The IDE can handle any jar backend that uses the right output format. 
+
 ### 6.1 The format expected from the backend verification tools:
-The backend is expected to send a Start message.
-{"type":"Start","backendType":"Silicon"}
-{"type":"VerificationStart","nofPredicates":1,"nofMethods":1,"nofFunctions":0}
+Here we describe the format expected by the IDE. Upon detecting a deviation from this specification, the IDE will output an error and not support the backend.
 
-{"type":"PredicateVerified","name":"list"}
+* The backend is expected to send a Start message. The backendType field must contain the type of the backend, e.g. Carbon, Silicon.  
+```{"type":"Start","backendType":"Silicon"}```  
+* Once the verification is started, a VerificationStart message must be sent. The message needs to contain information about the number of methods, functions, and predicates to be verified.  
+```{"type":"VerificationStart","nofPredicates":1,"nofMethods":1,"nofFunctions":0}```  
+* Upon completed verification of a predicate, a method, or a function the appropriate Verified method, including the name of the verified structure, must be sent.  
+```{"type":"PredicateVerified","name":"list"}```  
+```{"type":"MethodVerified","name":"addAtEnd"}```  
+```{"type":"FunctionVerified","name":"addAtEnd"}```  
+* When the verification inside the backend is done, an End message is expected. The End message must contain total duration of the verification. The format can be either of these:  
+```{"type":"End","time":"4.101 seconds"}```  
+```{"type":"End","time":"4.101s"}```  
+```{"type":"End","time":"4.101"}```  
+* The errors detected by the backend should be sent as one message in the following structure:
+```{"type":"Error","file":"file.vpr","errors":[{"tag":"example.error.tag","start":"27:2","end":"27:22","message":"Message Explaining Error"}]}```  
+All fields in the example are mandatory and need to be set.  
+```errors``` is a list of objects containing
+  * The error tag, informing about the type of error. e.g. ```"typechecker.error"```, ```"parser.error"```.
+  * The start and end location of the error. Both locations must either be structered like ```"line:character"``` if known or ```"<unknown line>:<unknown column>"``` if unknown.
+  * The message briefly explaining the error
+* If there are no errors the backend should output the following message instead.  
+```{"type":"Success"}```  
 
-{"type":"MethodVerified","name":"addAtEnd"}
-{"type":"FunctionVerified","name":"addAtEnd"}
+All messages can have additional fields, however, they will not be regarded by the IDE.  
 
-{"type":"End","time":"4.101 seconds"}
+### 6.2 Output behaviour for the advanced features:
 
-{"type":"Error","file":"P_list.vpr","errors":[{"tag":"fold.failed:insufficient.permission","message":"Folding list(head) might fail. There might be insufficient permission to access list(this.next).","start":"27:2","end":"27:22"}]}
+In order to use the advanced features of the IDE, the backend must create additional output.
+
+The symbolic execution log is expected to be stored in the file ```./.vscode/executionTreeData.js```
