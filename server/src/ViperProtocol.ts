@@ -400,6 +400,7 @@ export class BackendOutputType {
     static FunctionVerified = "FunctionVerified";
     static PredicateVerified = "PredicateVerified";
     static Error = "Error";
+    static Success = "Success";
 }
 
 export interface BackendOutput {
@@ -422,7 +423,7 @@ export interface BackendOutput {
 export interface Error {
     start: string,
     end: string,
-    tag?: string,
+    tag: string,
     message: string
 }
 

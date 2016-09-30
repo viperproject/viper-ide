@@ -360,8 +360,9 @@ function handleStateChange(params: StateChangeParams) {
 
                     //complete the timing measurement
                     addTiming(100, 'white', true);
-                    verifiedFile.stateVisualizer.addTimingInformationToFile({ total: params.time, timings: timings });
-
+                    if (Helper.getConfiguration("preferences").showProgress === true) {
+                        verifiedFile.stateVisualizer.addTimingInformationToFile({ total: params.time, timings: timings });
+                    }
                     //workList.push({ type: TaskType.VerificationCompleted, uri: uri, success: params.success });
                     let msg: string = "";
                     switch (params.success) {
@@ -411,6 +412,7 @@ function handleStateChange(params: StateChangeParams) {
                 updateStatusBarItem(statusBarItem, 'preparing', 'orange');
                 break;
             case VerificationState.Stopped:
+                clearInterval(progressUpdater);
                 updateStatusBarItem(statusBarItem, 'stopped', 'white');
                 break;
             default:
@@ -754,6 +756,7 @@ function registerHandlers() {
     //stopVerification
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.stopVerification', () => {
         if (state.client) {
+            clearInterval(progressUpdater);
             Log.log("Verification stop request", LogLevel.Debug);
             abortButton.hide();
             statusBarItem.color = 'orange';
@@ -929,6 +932,8 @@ function getProgress(progress: number): number {
                 let estimatedTotal = timeSpent + leftToCompute;
                 progress = 100 * Math.min((timeAlreadySpent / estimatedTotal), 1);
             }
+            //don't show 100%, because otherwise people think it is done.
+            if (progress > 99) progress = 99;
         }
         Log.log("Progress: " + progress, LogLevel.Debug);
         return progress;

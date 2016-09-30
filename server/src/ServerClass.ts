@@ -75,6 +75,12 @@ export class Server {
         this.connection.sendNotification(Commands.FileClosed, uri);
     }
 
+    static containsNumber(s: string): boolean {
+        if (!s || s.length == 0) return false;
+        let match = s.match("^.*?(\d).*$");
+        return (match && match[1]) ? true : false;
+    }
+
     //regex helper methods
     static extractNumber(s: string): number {
         try {

@@ -518,6 +518,57 @@ export class VerificationTask {
         }
     }
 
+    private isMessageComplete(json: BackendOutput): boolean {
+        let error: string;
+        if (!json || !json.type) {
+            error = "Message has no type, raw: " + JSON.stringify(json);
+        } else {
+            switch (json.type) {
+                case BackendOutputType.Start:
+                    //backendType;
+                    if (!json.backendType) {
+                        error = "The Start message needs to contain the backendType";
+                    }
+                    break;
+                case BackendOutputType.VerificationStart:
+                    //nofPredicates,nofMethods,nofFunctions;
+                    if (json.nofFunctions == undefined || json.nofMethods == undefined || json.nofPredicates == undefined) {
+                        error = "The VerificationStart message needs to contain nofPredicates, nofMethods, and nofFunctions.";
+                    }
+                    break;
+                case BackendOutputType.Success: case BackendOutputType.FunctionVerified: case BackendOutputType.MethodVerified: case BackendOutputType.PredicateVerified:
+                    //nothing
+                    break;
+                case BackendOutputType.Error:
+                    //errors, err.tag, err.start, err.end, err.message
+                    if (!json.errors) {
+                        error = "Error message needs to contain errors";
+                    } else {
+                        json.errors.forEach(err => {
+                            if (!err.tag || !err.start || !err.end || !err.message) {
+                                error = "each error in error message needs to be of type {start: string, end: string, tag: string, message: string}";
+                            }
+                        });
+                    }
+                    break;
+                case BackendOutputType.End:
+                    //time
+                    if (!Server.containsNumber(json.time)) {
+                        error = "End message needs to contain the time";
+                    }
+                    break;
+                default:
+                    error = "Unknown message type: " + json.type;
+            }
+            if (error) {
+                Log.error("Malformed backend message: " + error);
+                return false;
+            } else {
+                return true;
+            }
+        }
+    }
+
     private stdOutHandler(data: string) {
         try {
             if (data.trim().length == 0) {
@@ -538,6 +589,9 @@ export class VerificationTask {
                     if (line.startsWith("{\"") && line.endsWith("}")) {
                         try {
                             let json: BackendOutput = JSON.parse(line);
+                            if (!this.isMessageComplete(json)) {
+                                return;
+                            }
                             switch (json.type) {
                                 case BackendOutputType.Start:
                                     this.backendType = json.backendType;
@@ -551,6 +605,10 @@ export class VerificationTask {
                                     }, this);
                                     break;
                                 case BackendOutputType.FunctionVerified: case BackendOutputType.MethodVerified: case BackendOutputType.PredicateVerified:
+                                    if (!this.progress) {
+                                        Log.error("The backend must send a VerificationStart message before the ...Verified message.");
+                                        return;
+                                    }
                                     this.progress.updateProgress(json);
                                     let progressInPercent = this.progress.toPercent();
                                     Server.sendStateChangeNotification({
@@ -791,7 +849,7 @@ export class VerificationTask {
                 this.verifiables = [];
                 this.symbExLog.forEach(data => {
                     let index = this.verifiables.length;
-                    this.verifiables.push(new Verifiable(this.steps,index, data, this))
+                    this.verifiables.push(new Verifiable(this.steps, index, data, this))
                 });
 
             } else {

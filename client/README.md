@@ -94,9 +94,8 @@ The user settings are valid for the current user whereas the workspace settings 
 
 More Information on the Settings in VSCode can be found here: [User and Workspace Settings in VS Code](https://code.visualstudio.com/docs/customization/userandworkspace)
 
-## 5.1 List of all viperSettings
+### 5.1 List of all viperSettings
 
-* **viperToolsPath:** Path to the folder containing all the ViperTools
 * **nailgunSettings:** All nailgun related settings
   * **serverJar:** The path to the nailgun server jar.
   * **clientExecutable:** The path to the nailgun client executable 
@@ -116,15 +115,37 @@ More Information on the Settings in VSCode can be found here: [User and Workspac
     * **onTypeCheckingError:** The name of the stage to start in case of a type checking error
     * **onVerificationError:** The name of the stage to start in case of a verification error
     * **onSuccess:** The name of the stage to start in case of a success
-* **z3Executable:** The path to the z3 executable
-* **boogieExecutable:** The path to the boogie executable
-* **autoSave:** Enable automatically saving modified viper files
-* **logLevel:** Verbosity of the output, all output is written to the logFile, regardless of the logLevel
-* **autoVerifyAfterBackendChange:** Reverify the open viper file upon backend change.
-* **showProgress:** Display the verification progress in the status bar. Only useful if the backend supports progress reporting.
-* **advancedFeatures:** Enable heap visualization, stepwise debugging and execution path visualization
-* **dotExecutable:** The path to the dot executable.
-* **showSymbolicState:** Show the symbolic values in the heap visualization. If disabled, the symbolic values are only shown in the error states.
-* **darkGraphs:** To get the best visual heap representation, this setting should match with the active theme.
-* **simpleMode:** Useful for verifying programs. Disable when developing the backend
-* **verificationBufferSize:** Maximal buffer size for verification in KB
+* **pathSettings:** Used paths
+  * **viperToolsPath:** Path to the folder containing all the ViperTools
+  * **z3Executable:** The path to the z3 executable
+  * **boogieExecutable:** The path to the boogie executable
+  * **dotExecutable:** The path to the dot executable.
+* **preferences:** General user preferences
+  * **autoSave:** Enable automatically saving modified viper files
+  * **logLevel:** Verbosity of the output, all output is written to the logFile, regardless of the logLevel
+  * **autoVerifyAfterBackendChange:** Reverify the open viper file upon backend change.
+  * **showProgress:** Display the verification progress in the status bar. Only useful if the backend supports progress reporting.
+* **javaSettings:** Java related settings
+  * **customArguments:** The arguments used for all java invocations
+* **advancedFeatures:** Settings concening the advanced features
+  * **enabled:** Enable heap visualization, stepwise debugging and execution path visualization
+  * **showSymbolicState:** Show the symbolic values in the heap visualization. If disabled, the symbolic values are only shown in the error states.
+  * **darkGraphs:** To get the best visual heap representation, this setting should match with the active theme.
+  * **simpleMode:** Useful for verifying programs. Disable when developing the backend
+  * **verificationBufferSize:** Maximal buffer size for verification in KB
+
+## 6. Technical Desciptions
+
+### 6.1 The format expected from the backend verification tools:
+The backend is expected to send a Start message.
+{"type":"Start","backendType":"Silicon"}
+{"type":"VerificationStart","nofPredicates":1,"nofMethods":1,"nofFunctions":0}
+
+{"type":"PredicateVerified","name":"list"}
+
+{"type":"MethodVerified","name":"addAtEnd"}
+{"type":"FunctionVerified","name":"addAtEnd"}
+
+{"type":"End","time":"4.101 seconds"}
+
+{"type":"Error","file":"P_list.vpr","errors":[{"tag":"fold.failed:insufficient.permission","message":"Folding list(head) might fail. There might be insufficient permission to access list(this.next).","start":"27:2","end":"27:22"}]}
