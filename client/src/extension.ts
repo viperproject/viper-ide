@@ -62,7 +62,7 @@ enum TaskType {
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
     lastVersionWithSettingsChange = "0.2.15"; //null means latest version
-    workList = [];
+    workList = []; 
     ExtensionState.viperFiles = new Map<string, ViperFileState>();
     Log.initialize();
     Log.log('Viper-Client is now active!', LogLevel.Info);
