@@ -3,7 +3,7 @@
 import child_process = require('child_process');
 import {Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
 import {Settings} from './Settings'
-import {ExecutionTrace, BackendOutput, BackendOutputType, SymbExLogEntry, Stage, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, HeapGraph, VerificationState, LogLevel, Success} from './ViperProtocol'
+import {Common, ExecutionTrace, BackendOutput, BackendOutputType, SymbExLogEntry, Stage, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, HeapGraph, VerificationState, LogLevel, Success} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement} from './Statement';
@@ -275,16 +275,15 @@ export class VerificationTask {
             filename: this.filename
         }, this);
 
-        VerificationTask.uriToPath(this.fileUri).then((path) => {
-            //Request the debugger to terminate it's session
-            DebugServer.stopDebugging();
-            //start verification of current file
-            this.path = path
-            this.filename = pathHelper.basename(path);
-            this.verificationCount++;
-            this.startVerificationTimeout(this.verificationCount);
-            this.verifierProcess = this.nailgunService.startStageProcess(path, stage, this.stdOutHandler.bind(this), this.stdErrHadler.bind(this), this.completionHandler.bind(this));
-        });
+        let path = Common.uriToPath(this.fileUri);
+        //Request the debugger to terminate it's session
+        DebugServer.stopDebugging();
+        //start verification of current file
+        this.path = path
+        this.filename = pathHelper.basename(path);
+        this.verificationCount++;
+        this.startVerificationTimeout(this.verificationCount);
+        this.verifierProcess = this.nailgunService.startStageProcess(path, stage, this.stdOutHandler.bind(this), this.stdErrHadler.bind(this), this.completionHandler.bind(this));
         return true;
     }
 
@@ -354,9 +353,8 @@ export class VerificationTask {
                             let successMessage = Success[isVerifyingStage ? success : Success.Success];
                             Log.log("Start stage " + newStage.name + " after stage " + lastStage.name + " success was: " + successMessage, LogLevel.Info);
                             Server.executedStages.push(newStage);
-                            VerificationTask.uriToPath(this.fileUri).then((path) => {
-                                Server.nailgunService.startStageProcess(path, newStage, this.stdOutHandler.bind(this), this.stdErrHadler.bind(this), this.completionHandler.bind(this));
-                            });
+                            let path = Common.uriToPath(this.fileUri);
+                            Server.nailgunService.startStageProcess(path, newStage, this.stdOutHandler.bind(this), this.stdErrHadler.bind(this), this.completionHandler.bind(this));
                         }
                         return;
                     }
@@ -881,33 +879,6 @@ export class VerificationTask {
             } catch (e) {
                 Log.error("Error stopping all running verifications: " + e);
             }
-        });
-    }
-
-    //URI helper Methods
-    public static uriToPath(uri: string): Thenable<string> {
-        return new Promise((resolve, reject) => {
-            //input check
-            if (!uri.startsWith("file:")) {
-                Log.error("cannot convert uri to filepath, uri: " + uri);
-                return resolve(uri);
-            }
-            Server.uriToPath(uri).then((path) => {
-                return resolve(path);
-            });
-        });
-    }
-
-    public static pathToUri(path: string): Thenable<string> {
-        return new Promise((resolve, reject) => {
-            //input check
-            if (path.startsWith("file")) {
-                Log.error("cannot convert path to uri, path: " + path);
-                return resolve(path);
-            }
-            Server.pathToUri(path).then((uri) => {
-                return resolve(uri);
-            });
         });
     }
 }

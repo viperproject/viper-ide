@@ -2,7 +2,7 @@
 
 import {Server} from './ServerClass';
 import {Log} from './Log';
-import {LaunchRequestArguments, StatementType, Position, StepType, VerificationState, LogLevel} from './ViperProtocol'
+import {Common, LaunchRequestArguments, StatementType, Position, StepType, VerificationState, LogLevel} from './ViperProtocol'
 import {VerificationTask} from './VerificationTask';
 import {Settings} from './Settings';
 let ipc = require('node-ipc');
@@ -91,20 +91,19 @@ export class DebugServer {
                         try {
                             DebugServer.debuggerRunning = true;
                             Log.log('Debugging was requested for file: ' + data.program, LogLevel.Debug);
-                            VerificationTask.pathToUri(data.program).then((uri) => {
-                                Server.debuggedVerificationTask = Server.verificationTasks.get(uri);
-                                let response = "true";
-                                //TODO: is this a good criterion?
-                                if (!Server.debuggedVerificationTask || Server.debuggedVerificationTask.state != VerificationState.Ready) {
-                                    Log.hint("Cannot debug file, you must first verify the file: " + uri);
-                                    response = "false";
-                                }
-                                ipc.server.emit(
-                                    socket,
-                                    'launchResponse',
-                                    response
-                                );
-                            });
+                            let uri = Common.pathToUri(data.program);
+                            Server.debuggedVerificationTask = Server.verificationTasks.get(uri);
+                            let response = "true";
+                            //TODO: is this a good criterion?
+                            if (!Server.debuggedVerificationTask || Server.debuggedVerificationTask.state != VerificationState.Ready) {
+                                Log.hint("Cannot debug file, you must first verify the file: " + uri);
+                                response = "false";
+                            }
+                            ipc.server.emit(
+                                socket,
+                                'launchResponse',
+                                response
+                            );
                         } catch (e) {
                             Log.error("Error handling lanch request: " + e);
                         }

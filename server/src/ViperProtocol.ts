@@ -1,3 +1,7 @@
+'use strict';
+
+import Uri from 'vscode-uri/lib/index';
+
 //Global interfaces:
 
 //These commands are used to distinguish the different message types
@@ -5,10 +9,6 @@ export class Commands {
     //SERVER TO CLIENT
     //Server notifies client about the result of the settings check
     static SettingsChecked = { method: "SettingsChecked" };//SettingsCheckedParams
-    //Server asks client to transform a uri to a file path
-    static UriToPath = { method: "UriToPath" };//uri: string
-    //Server asks client to transform a file path to a uri
-    static PathToUri = { method: "PathToUri" };//path: string
     //The language server requests what version is required for the settings
     static RequestRequiredVersion = { method: "RequestRequiredVersion" };//void -> requiredVersionString: string
     //Server notifies client about a state change
@@ -456,4 +456,19 @@ export interface TimingInfo {
     total: number;
     //the intermediate timings in milliseconds
     timings: number[];
+}
+
+export class Common {
+    //URI helper Methods
+    public static uriToPath(uri: string): string {
+        let uriObject: Uri = Uri.parse(uri);
+        let platformIndependentPath = uriObject.fsPath;
+        return platformIndependentPath;
+    }
+
+    public static pathToUri(path: string): string {
+        let uriObject: Uri = Uri.file(path);
+        let platformIndependentUri = uriObject.toString();
+        return platformIndependentUri;
+    }
 }

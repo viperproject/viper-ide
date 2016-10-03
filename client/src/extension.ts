@@ -8,7 +8,7 @@ import {Timer} from './Timer';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
 import {VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success} from './ViperProtocol';
-import Uri from '../node_modules/vscode-uri/lib/index';
+import Uri from 'vscode-uri/lib/index';
 import {Log} from './Log';
 import {StateVisualizer} from './StateVisualizer';
 import {Helper} from './Helper';
@@ -194,9 +194,8 @@ function startVerificationController() {
                 let uri = editor.document.uri;
                 if (Helper.isViperSourceFile(uri.toString())) {
                     if (lastActiveTextEditor) {
-                        if (lastActiveTextEditor.toString() === uri.toString()) {
-                            Log.log("No change in active viper file", LogLevel.Debug);
-                        } else {
+                        //if the active editor changed, remove special characters from the previous one
+                        if (lastActiveTextEditor.toString() !== uri.toString()) {
                             let oldFileState = ExtensionState.viperFiles.get(lastActiveTextEditor.toString());
                             if (oldFileState) {
                                 oldFileState.decorationsShown = false;
@@ -511,7 +510,7 @@ function registerHandlers() {
     });
     state.client.onNotification(Commands.FileClosed, (uri: string) => {
         try {
-            let uriObject: vscode.Uri = vscode.Uri.parse(uri);
+            let uriObject: Uri = Uri.parse(uri);
             Log.log("File closed: " + path.basename(uriObject.path), LogLevel.Info);
             let fileState = ExtensionState.viperFiles.get(uri);
             fileState.open = false;
@@ -526,16 +525,6 @@ function registerHandlers() {
     });
     state.client.onRequest(Commands.RequestRequiredVersion, () => {
         return getRequiredVersion();
-    });
-    state.client.onRequest(Commands.UriToPath, (uri: string) => {
-        let uriObject: vscode.Uri = vscode.Uri.parse(uri);
-        let platformIndependentPath = uriObject.fsPath;
-        return platformIndependentPath;
-    });
-    state.client.onRequest(Commands.PathToUri, (path: string) => {
-        let uriObject: Uri = Uri.file(path);
-        let platformIndependentUri = uriObject.toString();
-        return platformIndependentUri;
     });
     state.context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
         try {

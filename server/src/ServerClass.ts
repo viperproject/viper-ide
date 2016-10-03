@@ -62,12 +62,6 @@ export class Server {
     static sendVerificationNotStartedNotification(uri: string) {
         this.connection.sendNotification(Commands.VerificationNotStarted, uri);
     }
-    static uriToPath(uri: string): Thenable<string> {
-        return this.connection.sendRequest(Commands.UriToPath, uri)
-    }
-    static pathToUri(path: string): Thenable<string> {
-        return this.connection.sendRequest(Commands.PathToUri, path)
-    }
     static sendFileOpenedNotification(uri: string) {
         this.connection.sendNotification(Commands.FileOpened, uri);
     }

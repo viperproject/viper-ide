@@ -12,7 +12,8 @@
         "node": "^4.1.1"
     },
     "dependencies": {
-        "vscode-languageserver": "^2.2.0"
+        "vscode-languageserver": "^2.2.0",
+        "vscode-uri": "^0.0.3"
     },
     "devDependencies": {
         "typescript": "^1.8.10"
