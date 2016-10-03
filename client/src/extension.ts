@@ -670,7 +670,7 @@ function registerHandlers() {
         }
     }));
 
-    //startDebugging
+    //start Debugging
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.startDebugging', () => {
         try {
             if (Helper.getConfiguration("advancedFeatures").enabled === true) {
@@ -711,7 +711,8 @@ function registerHandlers() {
                     type: "viper",
                     request: "launch",
                     program: openDoc,
-                    startInState: 0
+                    startInState: 0,
+                    externalConsole: true
                 }
                 if (ExtensionState.isDebugging) {
                     Log.hint("Don't debug " + filename + ", the file is already being debugged");
@@ -721,6 +722,7 @@ function registerHandlers() {
                     vscode.commands.executeCommand('vscode.startDebug', launchConfig).then(() => {
                         Log.log('Debug session started successfully', LogLevel.Info);
                         ExtensionState.isDebugging = true;
+                        vscode.commands.executeCommand("workbench.view.debug");
                     }, err => {
                         Log.error("Error starting debugger: " + err.message);
                     });
@@ -868,8 +870,11 @@ function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
     clearInterval(progressUpdater);
     progressUpdater = setInterval(() => {
         let progress = getProgress(lastProgress)
-        statusBarProgress.text = progressBarText(progress);
-        statusBarItem.text = progressLabel + " " + formatProgress(progress);
+        if (progress != lastProgress) {
+            Log.log("Progress: " + progress, LogLevel.Debug);
+            statusBarProgress.text = progressBarText(progress);
+            statusBarItem.text = progressLabel + " " + formatProgress(progress);
+        }
     }, 500);
 
     let uri = fileState.uri.toString();
@@ -900,7 +905,8 @@ function addTiming(paramProgress: number, color: string, hide: boolean = false) 
     let showProgressBar = Helper.getConfiguration('preferences').showProgress === true;
     timings.push(Date.now() - verificationStartTime);
     let progress = getProgress(paramProgress || 0);
-    lastProgress = lastProgress;
+    Log.log("Progress: " + progress, LogLevel.Debug);
+    lastProgress = progress;
     if (hide)
         statusBarProgress.hide();
     else {
@@ -931,7 +937,6 @@ function getProgress(progress: number): number {
             //don't show 100%, because otherwise people think it is done.
             if (progress > 99) progress = 99;
         }
-        Log.log("Progress: " + progress, LogLevel.Debug);
         return progress;
     } catch (e) {
         Log.error("Error computing progress: " + e);
