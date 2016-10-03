@@ -81,7 +81,7 @@ export class HeapVisualizer {
                 }
             });
 
-            //populate the store and add pointers from store to heap
+            //populate the store
             let vars: Map<string, DotNode> = new Map<string, DotNode>();
             if (state.store.length > 0) {
                 state.store.forEach((variable: Variable) => {
@@ -90,10 +90,6 @@ export class HeapVisualizer {
                     let variableNode = store.addNode(variable.name, variableLabel);
                     vars.set(variable.name, variableNode);
                     allNodes.push({ variable: variable, node: variableNode });
-                    //add pointer from local vars to heap if the heap chunk exists
-                    if (heapChunkFields.has(variable.value)) {
-                        store.addEdge(store, variable.name, heap, variable.value, "", null, "name");
-                    }
                 });
             }
 
@@ -155,16 +151,26 @@ export class HeapVisualizer {
                     if (heapChunk.name.type == NameType.FunctionApplicationName && heapChunk.value.type == ValueType.ObjectReferenceOrScalarValue) {
                         //let resultNode = cluster.addNode('result', "Result")
                         if (!heapChunkFields.has(heapChunk.value.raw)) {
+                            let resultNode: DotNode;
                             if (Settings.settings.advancedFeatures.simpleMode) {
-                                heap.addNode(heapChunk.value.raw, "");
+                                resultNode = heap.addNode(heapChunk.value.raw, "");
                             } else {
-                                heap.addNode(heapChunk.value.raw, "<name>|<fields>" + (heapChunk.name.field || ""));
+                                resultNode = heap.addNode(heapChunk.value.raw, "<name>|<fields>" + (heapChunk.name.field || ""));
                             }
+
                         }
                         let resultEdge = heap.addEdgeFromCluster(cluster, heap, heapChunk.value.raw, null, "name", null, null);
                     }
                 }
             })
+
+            //add pointers from the store to the heap
+            if (state.store.length > 0) {
+                state.store.forEach((variable: Variable) => {
+                    //add pointer from local vars to heap if the heap chunk exists
+                    store.addEdge(store, variable.name, heap, variable.value, "", null, "name");
+                });
+            }
 
             if (!Settings.settings.advancedFeatures.simpleMode) {
                 //add types for nodes with no outgoing arrows and no values

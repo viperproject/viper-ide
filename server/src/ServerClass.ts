@@ -1,7 +1,7 @@
 'use strict'
 
 import {IConnection, TextDocuments, PublishDiagnosticsParams} from 'vscode-languageserver';
-import {SettingsCheckParams, SettingsError, Position, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+import {Command, LogParams, SettingsCheckedParams, SettingsError, Position, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Log} from './Log';
@@ -49,7 +49,7 @@ export class Server {
     static sendBackendChangeNotification(name: string) {
         this.connection.sendNotification(Commands.BackendChange, name);
     }
-    static sendSettingsCheckedNotification(errors: SettingsCheckParams) {
+    static sendSettingsCheckedNotification(errors: SettingsCheckedParams) {
         this.connection.sendNotification(Commands.SettingsChecked, errors);
     }
     static sendDiagnostics(params: PublishDiagnosticsParams) {
@@ -73,6 +73,10 @@ export class Server {
     }
     static sendFileClosedNotification(uri: string) {
         this.connection.sendNotification(Commands.FileClosed, uri);
+    }
+
+    static sendLogMessage(command: Command, params: LogParams) {
+        this.connection.sendNotification(command, params);
     }
 
     static containsNumber(s: string): boolean {

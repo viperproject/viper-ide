@@ -74,10 +74,10 @@ export class ExtensionState {
     public dispose() {
         try {
             Log.log("Ask language server to shut down.", LogLevel.Info);
-            this.client.sendRequest(Commands.Dispose, (error) => {
+            this.client.sendRequest(Commands.Dispose, null).then(() => {
                 Log.log("Language server has shut down, terminate the connection", LogLevel.Info);
                 this.languageServerDisposable.dispose();
-            })
+            });
         } catch (e) {
             Log.log("Error disposing state: " + e);
         }

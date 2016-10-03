@@ -1,7 +1,7 @@
 'use strict';
 
 import {Log} from './Log';
-import {ExecutionTrace, TimingInfo, ShowHeapParams, StepsAsDecorationOptionsResult, MyProtocolDecorationOptions, StateColors, Position, HeapGraph, Commands, LogLevel} from './ViperProtocol';
+import {GetExecutionTraceParams, ExecutionTrace, TimingInfo, ShowHeapParams, StepsAsDecorationOptionsResult, MyProtocolDecorationOptions, StateColors, Position, HeapGraph, Commands, LogLevel} from './ViperProtocol';
 import * as fs from 'fs';
 import child_process = require('child_process');
 import {HeapProvider} from './HeapProvider';
@@ -290,7 +290,7 @@ export class StateVisualizer {
                     let errorStateFound = false;
 
                     //if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
-                        this.hide(option);
+                    this.hide(option);
                     //} else {
                     //    this.collapseOutsideMethod(option, currentMethodIdx);
                     //}
@@ -322,7 +322,8 @@ export class StateVisualizer {
                 if (StateVisualizer.showStates) {
                     //mark execution trace that led to the current state
                     Log.log("Request Execution Trace", LogLevel.Info);
-                    ExtensionState.instance.client.sendRequest(Commands.GetExecutionTrace, { uri: this.uri.toString(), clientState: this.currentState }).then((trace: ExecutionTrace[]) => {
+                    let params: GetExecutionTraceParams = { uri: this.uri.toString(), clientState: this.currentState };
+                    ExtensionState.instance.client.sendRequest(Commands.GetExecutionTrace, params).then((trace: ExecutionTrace[]) => {
                         Log.log("Mark Execution Trace", LogLevel.Debug);
                         trace.forEach(element => {
                             let option = this.decorationOptions[element.state];

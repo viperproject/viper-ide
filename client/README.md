@@ -170,3 +170,4 @@ All messages can have additional fields, however, they will not be regarded by t
 In order to use the advanced features of the IDE, the backend must create additional output.
 
 The symbolic execution log is expected to be stored in the file ```./.vscode/executionTreeData.js```
+

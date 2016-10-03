@@ -166,12 +166,11 @@ function registerHandlers() {
         }
     });
 
-    Server.connection.onRequest(Commands.Dispose, (lineNumber) => {
+    Server.connection.onRequest(Commands.Dispose, () => {
         try {
             //Server.nailgunService.stopNailgunServer();
             Server.nailgunService.killNailgunServer();
             Server.nailgunService.killNgDeamon();
-            return null;
         } catch (e) {
             Log.error("Error handling dispose request: " + e);
         }

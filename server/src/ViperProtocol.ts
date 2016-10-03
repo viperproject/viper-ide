@@ -2,55 +2,74 @@
 
 //These commands are used to distinguish the different message types
 export class Commands {
+    //SERVER TO CLIENT
     //Server notifies client about the result of the settings check
-    static SettingsChecked = { method: "SettingsChecked" };
+    static SettingsChecked = { method: "SettingsChecked" };//SettingsCheckedParams
     //Server asks client to transform a uri to a file path
-    static UriToPath = { method: "UriToPath" };
+    static UriToPath = { method: "UriToPath" };//uri: string
     //Server asks client to transform a file path to a uri
-    static PathToUri = { method: "PathToUri" };
-
-    static SelectBackend = { method: "SelectBackend" };
-    //Client asks server for the list of backend names
-    static RequestBackendNames = { method: "RequestBackendNames" };
-    //Server notifies client about a state change
-    static StateChange = { method: "StateChange" };
-    //Client tells server to dispose itself
-    static Dispose = { method: "Dispose" };
-    //Client requests verification for a file
-    static Verify = { method: "Verify" };
-    //Used for logging
-    static Log = { method: "Log" };
-    static Error = { method: "Error" };
-    static ToLogFile = { method: "ToLogFile" };
-    //Server tells client to show an information message to the user
-    static Hint = { method: "Hint" };
-    //Client tells server to abort the running verification
-    static StopVerification = { method: "StopVerification" };
-    //Server informs client about ongoing backend change
-    static BackendChange = { method: "BackendChange" };
-
-    static StepsAsDecorationOptions = { method: "StepsAsDecorationOptions" };
-    static ShowHeap = { method: "ShowHeap" };
-    static HeapGraph = { method: "HeapGraph" };
-    static StateSelected = { method: "StateSelected" };
-    //Server is informing client about opened file
-    static FileOpened = { method: "FileOpened" };
-    //Server is informing client about closed file
-    static FileClosed = { method: "FileClosed" };
-    //Server is notifying client that the verification could not be started
-    static VerificationNotStarted = { method: "VerificationNotStarted" };
-    //Either server or client request debugging to be stopped
-    static StopDebugging = { method: "StopDebugging" };
-    //Server informs client about started backend
-    static BackendReady = { method: "BackendReady" };
-    //Client tells Server to start backends
-    static StartBackend = { method: "StartBackend" };
-    //Request a list of all states that led to the current state
-    static GetExecutionTrace = { method: "GetExecutionTrace" };
-    //Request the path to the dot executable from the language server
-    static GetDotExecutable = { method: "GetDotExecutable" };
+    static PathToUri = { method: "PathToUri" };//path: string
     //The language server requests what version is required for the settings
-    static RequestRequiredVersion = { method: "RequestRequiredVersion" };
+    static RequestRequiredVersion = { method: "RequestRequiredVersion" };//void -> requiredVersionString: string
+    //Server notifies client about a state change
+    static StateChange = { method: "StateChange" };//StateChangeParams
+    //LOGGING
+    //Log a message to the output
+    static Log = { method: "Log" };//LogParams
+    //Log an error message to the output
+    static Error = { method: "Error" };//LogParams
+    //Log a message to the log file
+    static ToLogFile = { method: "ToLogFile" };//LogParams
+    //Server tells client to show an information message to the user
+    static Hint = { method: "Hint" };//message: string
+    //Server informs client about ongoing backend change
+    static BackendChange = { method: "BackendChange" };//name: string
+    //Server is informing client about opened file
+    static FileOpened = { method: "FileOpened" };//uri: string
+    //Server is informing client about closed file
+    static FileClosed = { method: "FileClosed" };//uri: string
+    //Server is notifying client that the verification could not be started
+    static VerificationNotStarted = { method: "VerificationNotStarted" };//uri: string
+    //Either server or client request debugging to be stopped
+    static StopDebugging = { method: "StopDebugging" };//void
+    //Server informs client about started backend
+    static BackendReady = { method: "BackendReady" };//BackendReadyParams
+    static StepsAsDecorationOptions = { method: "StepsAsDecorationOptions" };//StepsAsDecorationOptionsResult
+    static HeapGraph = { method: "HeapGraph" };//HeapGraph
+    //static StateSelected = { method: "StateSelected" };
+
+    //CLIENT TO SERVER
+    //static SelectBackend = { method: "SelectBackend" };
+    //Client asks server for the list of backend names
+    static RequestBackendNames = { method: "RequestBackendNames" };//void
+    //Client tells server to dispose itself
+    static Dispose = { method: "Dispose" };//void
+    //Client requests verification for a file
+    static Verify = { method: "Verify" };//VerifyParams
+    //Client tells server to abort the running verification
+    static StopVerification = { method: "StopVerification" };//filePath:string
+    static ShowHeap = { method: "ShowHeap" };//ShowHeapParams
+    //Client tells Server to start backends
+    static StartBackend = { method: "StartBackend" };//backendName:string
+    //Request a list of all states that led to the current state
+    static GetExecutionTrace = { method: "GetExecutionTrace" };//GetExecutionTraceParams -> trace:ExecutionTrace[]
+    //Request the path to the dot executable from the language server
+    static GetDotExecutable = { method: "GetDotExecutable" };//void -> dotExecutable:string
+}
+
+export interface GetExecutionTraceParams {
+    uri: string;
+    clientState: number;
+}
+
+export interface VerifyParams {
+    uri: string;
+    manuallyTriggered: boolean;
+    workspace: string;
+}
+
+export interface Command {
+    method: string;
 }
 
 //Communication between Language Client and Language Server:
@@ -209,10 +228,15 @@ export interface StepsAsDecorationOptionsResult {
     uri: string;
 }
 
-export interface SettingsCheckParams {
+export interface SettingsCheckedParams {
     ok: boolean;
     errors: SettingsError[];
     settings: ViperSettings;
+}
+
+export interface LogParams {
+    data: string;
+    logLevel: LogLevel;
 }
 
 export interface MyProtocolDecorationOptions {
