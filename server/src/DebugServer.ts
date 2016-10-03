@@ -2,7 +2,7 @@
 
 import {Server} from './ServerClass';
 import {Log} from './Log';
-import {LaunchRequestArguments, StatementType, Position, StepType, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+import {LaunchRequestArguments, StatementType, Position, StepType, VerificationState, LogLevel} from './ViperProtocol'
 import {VerificationTask} from './VerificationTask';
 import {Settings} from './Settings';
 let ipc = require('node-ipc');

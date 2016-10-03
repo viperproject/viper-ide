@@ -121,7 +121,7 @@ export class Log {
                 fs.unlinkSync(fileName);
             };
         } catch (e) {
-            Log.error("Error deleting file " + fileName + ": "+ e);
+            Log.error("Error deleting file " + fileName + ": " + e);
         }
     }
 

@@ -1,10 +1,9 @@
 'use strict';
 
 import child_process = require('child_process');
-
 import {Log} from './Log'
 import {Settings} from './Settings'
-import {Stage, Backend, ViperSettings, Commands, VerificationState, LogLevel} from './ViperProtocol'
+import {Stage, Backend, VerificationState, LogLevel} from './ViperProtocol'
 import {Server} from './ServerClass';
 import {VerificationTask} from './VerificationTask'
 
@@ -193,13 +192,13 @@ export class NailgunService {
         });
     }
 
-    
+
     public killNailgunServer() {
-         Log.log('killing nailgun server, this may leave its sub processes running', LogLevel.Debug);
-         process.kill(this.nailgunProcess.pid,'SIGTERM')
-         //this.nailgunProcess.kill('SIGINT');
-         this.nailgunProcess = null;
-     }
+        Log.log('killing nailgun server, this may leave its sub processes running', LogLevel.Debug);
+        process.kill(this.nailgunProcess.pid, 'SIGTERM')
+        //this.nailgunProcess.kill('SIGINT');
+        this.nailgunProcess = null;
+    }
 
     public startStageProcess(fileToVerify: string, stage: Stage, onData, onError, onClose): child_process.ChildProcess {
         let program = this.activeBackend.useNailgun ? ('"' + Settings.settings.nailgunSettings.clientExecutable + '"') : ('java ' + Settings.settings.javaSettings.customArguments);

@@ -1,10 +1,8 @@
 'use-strict'
 
 import * as vscode from 'vscode';
-import {MyDecorationOptions, StateVisualizer} from './StateVisualizer';
 import {Log} from './Log';
 import {LogLevel} from './ViperProtocol'
-import * as fs from 'fs';
 import {Helper} from './Helper'
 
 export class ViperFormatter {

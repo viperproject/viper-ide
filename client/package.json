@@ -30,11 +30,9 @@
         "vscode-languageserver": "^2.2.0",
         "vscode-debugprotocol": "^1.9.0",
         "vscode-debugadapter": "^1.9.0",
-        "ps-node": "^0.1.1",
         "vscode-uri": "^0.0.3",
         "node-ipc": "^7.0.0",
-        "command-exists": "^1.0.1",
-        "graphviz": "^0.0.8"
+        "command-exists": "^1.0.1"
     },
     "devDependencies": {
         "typescript": "^1.8.10",

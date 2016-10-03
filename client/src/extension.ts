@@ -2,20 +2,16 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 
-import * as debug from './debug';
 import * as fs from 'fs';
-var ps = require('ps-node');
 import * as path from 'path';
-import {LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind, NotificationType } from 'vscode-languageclient';
 import {Timer} from './Timer';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
-import {VerifyParams, TimingInfo, SettingsCheckedParams, ViperSettings, SettingsErrorType, SettingsError, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success} from './ViperProtocol';
+import {VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success} from './ViperProtocol';
 import Uri from '../node_modules/vscode-uri/lib/index';
 import {Log} from './Log';
 import {StateVisualizer} from './StateVisualizer';
 import {Helper} from './Helper';
-import {MyDecorationOptions} from './StateVisualizer';
 import {ViperFormatter} from './ViperFormatter';
 import {ViperFileState} from './ViperFileState';
 

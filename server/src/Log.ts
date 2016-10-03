@@ -1,6 +1,6 @@
 'use strict';
 
-import {LogParams,Commands, LogLevel} from './ViperProtocol';
+import {Commands, LogLevel} from './ViperProtocol';
 import child_process = require('child_process');
 import {Server} from './ServerClass';
 

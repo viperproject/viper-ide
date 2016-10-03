@@ -2,28 +2,15 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 
-import fs = require('fs');
-
-import {
-    IPCMessageReader, IPCMessageWriter,
-    createConnection, IConnection, TextDocumentSyncKind,
-    TextDocuments, TextDocument, TextDocumentIdentifier, Diagnostic, DiagnosticSeverity,
-    InitializeParams, InitializeResult, TextDocumentPositionParams,
-    CompletionItem, CompletionItemKind, NotificationType,
-    RequestType, RequestHandler
-} from 'vscode-languageserver';
-
-import {LogEntry, LogType} from './LogEntry';
+import {IPCMessageReader, IPCMessageWriter, createConnection, InitializeResult} from 'vscode-languageserver';
 import {Log} from './Log';
 import {Settings} from './Settings'
-import {StateColors, ExecutionTrace, BackendReadyParams, StatementType, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+import {StateColors, ExecutionTrace, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Statement} from './Statement';
-import {Model} from './Model';
 import {DebugServer} from './DebugServer';
 import {Server} from './ServerClass';
-var ipc = require('node-ipc');
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 Server.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));

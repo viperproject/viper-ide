@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import {Log} from './Log';
-import {HeapGraph, Position, LogLevel, StateColors} from './ViperProtocol';
+import {HeapGraph, LogLevel, StateColors} from './ViperProtocol';
 import {StateVisualizer} from './StateVisualizer';
 import * as fs from 'fs';
 import {Helper} from './Helper';

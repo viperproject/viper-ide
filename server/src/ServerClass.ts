@@ -1,7 +1,7 @@
 'use strict'
 
 import {IConnection, TextDocuments, PublishDiagnosticsParams} from 'vscode-languageserver';
-import {Command, LogParams, SettingsCheckedParams, SettingsError, Position, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, HeapGraph, Backend, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
+import {Command, LogParams, SettingsCheckedParams, Position, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Log} from './Log';

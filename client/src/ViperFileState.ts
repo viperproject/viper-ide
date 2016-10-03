@@ -3,7 +3,6 @@
 import {LogLevel, Success} from './ViperProtocol';
 import * as vscode from 'vscode';
 import {StateVisualizer} from './StateVisualizer';
-import {HeapProvider} from './HeapProvider';
 import {Log} from './Log';
 import * as path from 'path';
 

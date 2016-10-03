@@ -2,9 +2,8 @@
 
 import {Log} from './Log';
 import {Model} from './Model';
-import {Position, LogLevel} from './ViperProtocol';
-import {Variable, Statement, NameType, ValueType, PermissionType, ConditionType, HeapChunk} from './Statement';
-import {Server} from './ServerClass';
+import {LogLevel} from './ViperProtocol';
+import {Variable, Statement, NameType, ValueType, ConditionType, HeapChunk} from './Statement';
 import {DotNode, DotCluster, DotGraph} from './DotGraph';
 import {Settings} from './Settings';
 let graphviz = require("graphviz");

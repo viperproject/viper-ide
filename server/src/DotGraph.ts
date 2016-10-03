@@ -1,11 +1,7 @@
 'use strict';
 
 import {Log} from './Log';
-import {Model} from './Model';
-import {Position, LogLevel} from './ViperProtocol';
-import {Variable, Statement, NameType, ValueType, PermissionType, ConditionType, HeapChunk} from './Statement';
-import {Server} from './ServerClass';
-import {Settings} from './Settings';
+import {LogLevel} from './ViperProtocol';
 
 class DotAttribute {
     name: string;

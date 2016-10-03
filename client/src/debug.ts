@@ -4,19 +4,11 @@
 
 'use strict';
 
-import {
-	DebugSession,
-	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent, Event,
-	Thread, StackFrame, Scope, Source, Handles, Breakpoint
-} from 'vscode-debugadapter';
+import {DebugSession, InitializedEvent, TerminatedEvent, StoppedEvent, Thread, StackFrame, Scope, Source, Handles} from 'vscode-debugadapter';
 import {DebugProtocol} from 'vscode-debugprotocol';
 import {readFileSync} from 'fs';
 import {basename} from 'path';
-import {LanguageClient, RequestType} from 'vscode-languageclient';
-import * as vscode from 'vscode';
-import {ExtensionState} from './ExtensionState';
 import {LaunchRequestArguments, StepType} from './ViperProtocol'
-
 const ipc = require('node-ipc');
 
 /**
@@ -208,7 +200,7 @@ class ViperDebugSession extends DebugSession {
 		this._sourceFile = args.program;
 		this._currentState = args.startInState;
 
-		ViperDebugSession.log("LaunchRequestArguments: "+ JSON.stringify(args));
+		ViperDebugSession.log("LaunchRequestArguments: " + JSON.stringify(args));
 		//this._stopOnEntry = args.stopOnEntry;
 		this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
 		//notify Language server about started debugging session
@@ -347,7 +339,7 @@ class ViperDebugSession extends DebugSession {
 		ViperDebugSession.log("nextRequest");
 		this.requestFromLanguageServer("Move", JSON.stringify({ type: StepType.Continue, state: this._currentState }));
 		this.sendResponse(response);
-		
+
 		//ViperDebugSession.log("continueRequest does the same as next");
 		//this.nextRequest(response, args);
 		// // find the breakpoints for the current source file

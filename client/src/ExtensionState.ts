@@ -1,9 +1,9 @@
 'use strict';
-import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind, NotificationType } from 'vscode-languageclient';
+import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import {VerificationState, Commands, LogLevel} from './ViperProtocol';
+import {Commands, LogLevel} from './ViperProtocol';
 import {Log} from './Log';
 import {ViperFileState} from './ViperFileState';
 

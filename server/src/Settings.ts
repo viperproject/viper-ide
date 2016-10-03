@@ -2,9 +2,8 @@
 
 import fs = require('fs');
 import * as pathHelper from 'path';
-var commandExists = require('command-exists');
 import {Log} from './Log';
-import {JavaSettings, AdvancedFeatureSettings, UserPreferences, PathSettings, PlatformDependentPath, SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
+import {PlatformDependentPath, SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
 import {Server} from './ServerClass';
 const os = require('os');
 

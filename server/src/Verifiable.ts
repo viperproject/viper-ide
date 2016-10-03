@@ -1,9 +1,7 @@
 'use strict';
 
-//import {Position} from 'vscode';
 import {Log} from './Log';
-import {Model} from './Model';
-import {SymbExLogEntry, StatementType, Position, LogLevel} from './ViperProtocol';
+import {SymbExLogEntry, LogLevel} from './ViperProtocol';
 import {Statement} from './Statement';
 import {VerificationTask} from './VerificationTask';
 

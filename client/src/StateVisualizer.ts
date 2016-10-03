@@ -8,18 +8,17 @@ import {HeapProvider} from './HeapProvider';
 import * as vscode from 'vscode';
 import {Helper} from './Helper';
 import {ExtensionState} from './ExtensionState';
-import {ViperFormatter} from './ViperFormatter';
 import {ViperFileState} from './ViperFileState';
 import * as path from 'path';
 
 export interface MyDecorationOptions extends vscode.DecorationOptions {
     numberToDisplay: number;
     originalPosition: Position;
-    depth: number,
-    index: number,
-    parent: number,
-    methodIndex: number,
-    isErrorState: boolean,
+    depth: number;
+    index: number;
+    parent: number;
+    methodIndex: number;
+    isErrorState: boolean;
 }
 
 export class StateVisualizer {
