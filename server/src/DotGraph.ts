@@ -134,17 +134,17 @@ export class DotCluster {
         }
     }
 
-    addNode(name: string, label?: string, invisible: boolean = false): DotNode {
+    addNode(name: string, label?: string, invisible: boolean = false, style?: string): DotNode {
         //ensure uniqueness between nodes from different clusters
         name = name.trim();
         let node: DotNode;
         if (this.nodes.has(name)) {
             node = this.nodes.get(name);
             if (label) {
-                node.label = label
+                node.label = label;
             }
         } else {
-            node = new DotNode(this, name, label, invisible);
+            node = new DotNode(this, name, label, invisible, style);
             this.nodes.set(name, node);
         }
         return node;
@@ -175,19 +175,26 @@ export class DotNode {
     cluster: DotCluster;
     name: string;
     label: string;
-    invisible: boolean;
-    constructor(cluster: DotCluster, name: string, label?: string, invisible: boolean = false) {
+    private invisible: boolean;
+    private style: string;
+    hasOutEdge = false;
+
+    constructor(cluster: DotCluster, name: string, label?: string, invisible: boolean = false, style?: string) {
         this.cluster = cluster;
         this.name = name;
-        this.label = label;
         this.invisible = invisible;
+        this.style = style;
+        this.label = label;
     }
 
-    hasOutEdge = false;
+    public static escapeLabel(label: string): string {
+        if (!label) return label;
+        return label.replace(/([<>])/g, "\\$1");
+    }
 
     pretty(): string {
         let color = this.invisible ? ', color = "' + this.cluster.graph.bgColor + '", fontcolor = "' + this.cluster.graph.bgColor + '"' : '';
-        return `"${this.cluster.name}_${this.name}" [ label = "${(this.label || "")}"${color}];`;
+        return `"${this.cluster.name}_${this.name}" [ label = "${(this.label || "")}"${color}${(this.style ? ' style="' + this.style + '"' : "")}];`;
     }
 }
 

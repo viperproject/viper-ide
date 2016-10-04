@@ -169,6 +169,8 @@ export interface HeapGraph {
     heap: string,
     //dot representation of the old heap
     oldHeap: string,
+    //the partial execution tree around the current state
+    partialExecutionTree:string,
     //client index of represented state
     state: number,
     //information about verified file

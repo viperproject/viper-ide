@@ -6,6 +6,7 @@ import {SymbExLogStore, SymbExLogEntry, MyProtocolDecorationOptions, StatementTy
 import {Verifiable} from './Verifiable';
 import {VerificationTask} from './VerificationTask';
 import {Server} from './ServerClass';
+import {DotNode} from './DotGraph';
 
 export interface Variable { name: string; type: string, value: string; variablesReference: number; concreteValue?: string; }
 interface Name { raw: string; receiver?: string; field?: string; arguments?: string[]; type: NameType; }
@@ -326,6 +327,13 @@ export class Statement {
         let positionString = (this.position ? (this.position.line + 1) + ":" + (this.position.character + 1) : "<no position>");
         let res: string = (this.kind ? this.kind + ": " : "") + StatementType[this.type] + " " + positionString + " " + this.formula;
         return res;
+    }
+
+    public toDotLabel(): string {
+        return DotNode.escapeLabel((this.canBeShownAsDecoration ? this.decorationOptions.numberToDisplay + " " : "") +
+            (this.kind ? this.kind + ": " : "") +
+            (this.type != StatementType.UNKONWN ? StatementType[this.type] + " " : "") +
+            (this.formula ? this.formula : ""));
     }
 
     public pretty(): string {

@@ -138,7 +138,10 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
     ${conditions}
     <h3>Old Heap</h3>
     ${this.getSvgContent(Log.svgFilePath(index, true))}
-    ${Log.logLevel >= LogLevel.Debug ? debugInfo : ""}<br />`;
+    <h3>Partial Execution Tree</h3>
+    ${this.getSvgContent(Log.getPartialExecutionTreeSvgPath(index))}
+    ${Log.logLevel >= LogLevel.Debug ? debugInfo : ""}<br />
+    `;
         return content;
     }
 

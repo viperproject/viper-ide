@@ -83,6 +83,7 @@ export class VerificationTask {
         return isHeapNeeded ? {
             heap: HeapVisualizer.heapToDotUsingOwnDotGraph(step, false, step.isErrorState || Settings.settings.advancedFeatures.showSymbolicState, step.isErrorState, this.model),
             oldHeap: HeapVisualizer.heapToDotUsingOwnDotGraph(step, true, step.isErrorState || Settings.settings.advancedFeatures.showSymbolicState, step.isErrorState, this.model),
+            partialExecutionTree: HeapVisualizer.executionTreeAroundStateToDot(step),
             state: step.decorationOptions.index,
             fileName: this.filename,
             fileUri: this.fileUri,

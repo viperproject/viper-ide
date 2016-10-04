@@ -368,7 +368,7 @@ function handleStateChange(params: StateChangeParams) {
                             let symbexSvgFile = Log.getSymbExSvgPath();
                             if (Helper.getConfiguration("advancedFeatures").enabled === true && fs.existsSync(symbexDotFile)) {
                                 let fileState = ExtensionState.viperFiles.get(params.uri);
-                                fileState.stateVisualizer.generateSvg(symbexDotFile, symbexSvgFile, () => { });
+                                fileState.stateVisualizer.generateSvg(null, symbexDotFile, symbexSvgFile, () => { });
                             }
                             break;
                         case Success.ParsingFailed:
@@ -562,6 +562,7 @@ function registerHandlers() {
     });
     state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
         try {
+            if (!heapGraph) return;
             if (Helper.getConfiguration("advancedFeatures").enabled === true) {
                 let visualizer = ExtensionState.viperFiles.get(heapGraph.fileUri).stateVisualizer;
                 let state = visualizer.decorationOptions[heapGraph.state];
@@ -712,7 +713,8 @@ function registerHandlers() {
                     request: "launch",
                     program: openDoc,
                     startInState: 0,
-                    externalConsole: true
+                    //console:"externalConsole"
+                    internalConsoleOptions: "neverOpen"
                 }
                 if (ExtensionState.isDebugging) {
                     Log.hint("Don't debug " + filename + ", the file is already being debugged");

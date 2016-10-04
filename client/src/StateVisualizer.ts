@@ -125,8 +125,6 @@ export class StateVisualizer {
             Log.error("Error creating heap description: no heap");
             return;
         }
-        Log.writeToDotFile(heapGraph.heap, false, index);
-        Log.writeToDotFile(heapGraph.oldHeap, true, index);
 
         if (heapGraph.fileUri != this.uri.toString()) {
             Log.error("Uri mismatch in StateVisualizer: " + this.uri.toString() + " expected, " + heapGraph.fileUri + " found.")
@@ -134,11 +132,13 @@ export class StateVisualizer {
         }
 
         this.provider.setState(heapGraph, index);
-        this.generateSvg(Log.dotFilePath(index, false), Log.svgFilePath(index, false), () => {
-            this.generateSvg(Log.dotFilePath(index, true), Log.svgFilePath(index, true), () => {
-                this.showHeapGraph();
-            })
-        })
+        this.generateSvg(heapGraph.heap, Log.dotFilePath(index, false), Log.svgFilePath(index, false), () => {
+            this.generateSvg(heapGraph.oldHeap, Log.dotFilePath(index, true), Log.svgFilePath(index, true), () => {
+                this.generateSvg(heapGraph.partialExecutionTree, Log.getPartialExecutionTreeDotPath(index), Log.getPartialExecutionTreeSvgPath(index), () => {
+                    this.showHeapGraph();
+                });
+            });
+        });
     }
 
     public pushState(heapGraph: HeapGraph) {
@@ -168,8 +168,13 @@ export class StateVisualizer {
         this.requestState(heapGraph.state, false);
     }
 
-    public generateSvg(dotFilePath: string, svgFilePath: string, callback) {
+    public generateSvg(heapGraphAsDot: string, dotFilePath: string, svgFilePath: string, callback, writeGraphDescriptionToFile: boolean = true) {
         try {
+            //store graph description in file
+            if (writeGraphDescriptionToFile && heapGraphAsDot) {
+                Log.writeToDotFile(heapGraphAsDot, dotFilePath);
+            }
+            //get dot Executable
             ExtensionState.instance.client.sendRequest(Commands.GetDotExecutable, null).then((dotExecutable: string) => {
                 //the path should have already been checked by the server, but check again to be sure
                 if (!dotExecutable || !fs.existsSync(dotExecutable)) {

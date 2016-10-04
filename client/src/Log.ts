@@ -60,6 +60,21 @@ export class Log {
         return path.join(Log.tempDirectory, 'symbExLoggerOutput.svg');
     }
 
+    public static getPartialExecutionTreeDotPath(index: number): string {
+        let basePath = path.join(Log.tempDirectory, 'partialExecutionTree');
+        if (index < 0 || index >= this.MAX_DOT_FILES) {
+            return basePath + ".dot";
+        }
+        return basePath + index + ".dot";
+    }
+    public static getPartialExecutionTreeSvgPath(index: number): string {
+        let basePath = path.join(Log.tempDirectory, 'partialExecutionTree');
+        if (index < 0 || index >= this.MAX_DOT_FILES) {
+            return basePath + ".svg";
+        }
+        return basePath + index + ".svg";
+    }
+
     ///return the path to the indexth dot file
     ///creates non existing files
     public static dotFilePath(index: number, oldHeap: boolean): string {
@@ -97,9 +112,8 @@ export class Log {
         }
     }
 
-    public static writeToDotFile(graphDescription: string, oldHeap: boolean, index: number) {
+    public static writeToDotFile(graphDescription: string, dotFilePath:string) {
         //delete and recreate file to fix the problem of not being able to open the dot files      
-        let dotFilePath = this.dotFilePath(index, oldHeap);
         this.createFile(dotFilePath);
         let dotFile: fs.WriteStream = fs.createWriteStream(dotFilePath);
         dotFile.write(graphDescription);

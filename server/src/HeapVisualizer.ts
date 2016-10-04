@@ -29,10 +29,44 @@ export class HeapVisualizer {
         }
     }
 
-    // //TODO: show execution Tree Around State
-    // public static executionTreeAroundStateToDot(state: Statement) {
-    //     let graph = this.createEmptyGraph();
-    // }
+    //TODO: show execution Tree Around State
+    public static executionTreeAroundStateToDot(state: Statement): string {
+        try {
+            let graph = new DotGraph("G", this.getBgColor(), this.getForegroundColor(), "TB", "record");
+            let cluster = graph.addCluster("executionTree", "invis", "Partial Execution Trace");
+            //add current node
+            if (state.parent) {
+                this.addChildToExecutionTree(state.index, cluster, state.getClientParent());
+            } else {
+                this.addChildToExecutionTree(state.index, cluster, state);
+            }
+            return graph.toDot();
+        } catch (e) {
+            Log.error("Graphviz Error building ExecutionTree: " + e);
+        }
+    }
+
+    private static addChildToExecutionTree(currentState: number, cluster: DotCluster, state: Statement, parentNode?: DotNode, showChildren: boolean = true) {
+        //add node
+        if (!state) return;
+        let currentLabel = state.toDotLabel();
+        let isCurrentState = currentState == state.index;
+        let currentNode = cluster.addNode(currentLabel, currentLabel, false, (isCurrentState ? "bold" : (state.canBeShownAsDecoration ? null : "dotted")));
+
+        //addEdge
+        if (parentNode) {
+            cluster.addEdge(cluster, parentNode.name, cluster, currentNode.name);
+        }
+
+        //add children 
+        if (!state.canBeShownAsDecoration || showChildren || isCurrentState) {
+            state.children.forEach(child => {
+                this.addChildToExecutionTree(currentState, cluster, child, currentNode, false);
+            });
+        }
+    }
+
+
 
     public static heapToDotUsingOwnDotGraph(state: Statement, useOldHeap: boolean, showSymbolicValues: boolean, showConcreteValues: boolean, model: Model): string {
         let count = 0;
@@ -175,7 +209,7 @@ export class HeapVisualizer {
                 //add types for nodes with no outgoing arrows and no values
                 allNodes.forEach((value: { variable: Variable, node: DotNode }, key) => {
                     if (!value.node.hasOutEdge && value.node.label.indexOf("=") < 0) {
-                        value.node.label += value.variable.type ? ": " + value.variable.type : "";
+                        value.node.label += value.variable.type ? ": " + value.variable.type : ""
                     }
                 });
             }
