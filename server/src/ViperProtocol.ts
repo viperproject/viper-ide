@@ -170,7 +170,7 @@ export interface HeapGraph {
     //dot representation of the old heap
     oldHeap: string,
     //the partial execution tree around the current state
-    partialExecutionTree:string,
+    partialExecutionTree: string,
     //client index of represented state
     state: number,
     //information about verified file
@@ -380,6 +380,10 @@ export interface AdvancedFeatureSettings extends VersionedSettings {
     darkGraphs: boolean;
     //Useful for verifying programs. Disable when developing the backend
     simpleMode: boolean;
+    //Visualize also the oldHeap in the heap preview
+    showOldState: boolean;
+    //Show the part of the execution tree around the current state in the state visualization
+    showPartialExecutionTree: boolean;
     //Maximal buffer size for verification in KB
     verificationBufferSize: number;
 }

@@ -281,10 +281,12 @@
                     "type": "object",
                     "default": {
                         "v": "0.3.1",
-                        "enabled": false,
+                        "enabled": true,
                         "showSymbolicState": false,
                         "simpleMode": true,
                         "darkGraphs": true,
+                        "showOldState": true,
+                        "showPartialExecutionTree": true,
                         "verificationBufferSize": 102400
                     },
                     "description": "Settings concerning the advanced features."

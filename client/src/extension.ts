@@ -63,7 +63,7 @@ export function activate(context: vscode.ExtensionContext) {
         pathSettingsVersion: "0.2.15",
         userPreferencesVersion: "0.2.15",
         javaSettingsVersion: "0.2.15",
-        advancedFeaturesVersion: "0.2.15"
+        advancedFeaturesVersion: "0.3.1"
     }
     workList = [];
     ExtensionState.viperFiles = new Map<string, ViperFileState>();

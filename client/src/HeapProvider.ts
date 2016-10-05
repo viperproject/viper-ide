@@ -129,6 +129,11 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
             conditions = `<h3>No path conditions</h3>`;
         }
 
+        let oldHeap = Helper.getConfiguration("advancedFeatures").showOldState === true ? `<h3>Old Heap</h3>
+    ${this.getSvgContent(Log.svgFilePath(index, true))}` : "";
+        let partialExecutionTree = Helper.getConfiguration("advancedFeatures").showPartialExecutionTree === true ? `<h3>Partial Execution Tree</h3>
+    ${this.getSvgContent(Log.getPartialExecutionTreeSvgPath(index))}` : "";
+
         let state = this.stateVisualizer.decorationOptions[heapGraph.state];
         let debugInfo = `<p>${this.stringToHtml(heapGraph.stateInfos)}</p>`;
         let content = `
@@ -136,10 +141,8 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
     <h3${state.isErrorState ? ' class="ErrorState">Errorstate' : ">State"} ${state.numberToDisplay}</h3>
     ${this.getSvgContent(Log.svgFilePath(index, false))}
     ${conditions}
-    <h3>Old Heap</h3>
-    ${this.getSvgContent(Log.svgFilePath(index, true))}
-    <h3>Partial Execution Tree</h3>
-    ${this.getSvgContent(Log.getPartialExecutionTreeSvgPath(index))}
+    ${oldHeap}
+    ${partialExecutionTree}
     ${Log.logLevel >= LogLevel.Debug ? debugInfo : ""}<br />
     `;
         return content;
