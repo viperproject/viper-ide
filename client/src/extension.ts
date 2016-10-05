@@ -7,7 +7,7 @@ import * as path from 'path';
 import {Timer} from './Timer';
 import * as vscode from 'vscode';
 import {ExtensionState} from './ExtensionState';
-import {VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success} from './ViperProtocol';
+import {Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success} from './ViperProtocol';
 import Uri from 'vscode-uri/lib/index';
 import {Log} from './Log';
 import {StateVisualizer} from './StateVisualizer';
@@ -57,7 +57,14 @@ enum TaskType {
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-    lastVersionWithSettingsChange = "0.2.15"; //null means latest version
+    lastVersionWithSettingsChange = {
+        nailgunSettingsVersion: "0.2.15",
+        backendSettingsVersion: "0.2.15",
+        pathSettingsVersion: "0.2.15",
+        userPreferencesVersion: "0.2.15",
+        javaSettingsVersion: "0.2.15",
+        advancedFeaturesVersion: "0.2.15"
+    }
     workList = [];
     ExtensionState.viperFiles = new Map<string, ViperFileState>();
     Log.initialize();
@@ -76,16 +83,11 @@ export function activate(context: vscode.ExtensionContext) {
     startVerificationController();
 }
 
-let lastVersionWithSettingsChange: string;
+let lastVersionWithSettingsChange: Versions;
 
-function getRequiredVersion(): string {
+function getRequiredVersion(): Versions {
     try {
-        if (lastVersionWithSettingsChange)
-            return lastVersionWithSettingsChange;
-        else {
-            //TODO: is this still the name of the extension?
-            return vscode.extensions.getExtension("rukaelin.viper").packageJSON.version;
-        }
+        return lastVersionWithSettingsChange;
     } catch (e) {
         Log.error("Error checking settings version: " + e)
         return null;

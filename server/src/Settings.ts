@@ -3,7 +3,7 @@
 import fs = require('fs');
 import * as pathHelper from 'path';
 import {Log} from './Log';
-import {PlatformDependentPath, SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
+import {Versions, PlatformDependentPath, SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
 import {Server} from './ServerClass';
 const os = require('os');
 
@@ -192,31 +192,31 @@ export class Settings {
                 this._errors = [];
 
                 //check settings versions
-                Server.connection.sendRequest(Commands.RequestRequiredVersion).then((requiredVersionString: string) => {
+                Server.connection.sendRequest(Commands.RequestRequiredVersion).then((requiredVersions: Versions) => {
                     let settings = Settings.settings;
                     let oldSettings: string[] = [];
                     //check the settings versions
-                    if (!requiredVersionString) {
+                    if (!requiredVersions) {
                         Log.error("Getting required version failed.");
                     } else {
-                        let requiredVersion = new Version(requiredVersionString);
-                        if (requiredVersion.compare(new Version(settings.advancedFeatures.v)) > 0) {
+                        if (new Version(requiredVersions.advancedFeaturesVersion).compare(new Version(settings.advancedFeatures.v)) > 0) {
                             oldSettings.push("advancedFeatures");
                         }
-                        if (requiredVersion.compare(new Version(settings.javaSettings.v)) > 0) {
+                        if (new Version(requiredVersions.javaSettingsVersion).compare(new Version(settings.javaSettings.v)) > 0) {
                             oldSettings.push("javaSettings");
                         }
-                        if (requiredVersion.compare(new Version(settings.nailgunSettings.v)) > 0) {
+                        if (new Version(requiredVersions.nailgunSettingsVersion).compare(new Version(settings.nailgunSettings.v)) > 0) {
                             oldSettings.push("nailgunSettings");
                         }
-                        if (requiredVersion.compare(new Version(settings.paths.v)) > 0) {
+                        if (new Version(requiredVersions.pathSettingsVersion).compare(new Version(settings.paths.v)) > 0) {
                             oldSettings.push("paths");
                         }
-                        if (requiredVersion.compare(new Version(settings.preferences.v)) > 0) {
+                        if (new Version(requiredVersions.userPreferencesVersion).compare(new Version(settings.preferences.v)) > 0) {
                             oldSettings.push("preferences");
                         }
+                        let requiredBackendVersion = new Version(requiredVersions.backendSettingsVersion);
                         settings.verificationBackends.forEach(backend => {
-                            if (requiredVersion.compare(new Version(backend.v)) > 0) {
+                            if (requiredBackendVersion.compare(new Version(backend.v)) > 0) {
                                 oldSettings.push("backend " + backend.name);
                             }
                         });

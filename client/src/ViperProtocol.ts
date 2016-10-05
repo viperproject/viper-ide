@@ -10,7 +10,7 @@ export class Commands {
     //Server notifies client about the result of the settings check
     static SettingsChecked = { method: "SettingsChecked" };//SettingsCheckedParams
     //The language server requests what version is required for the settings
-    static RequestRequiredVersion = { method: "RequestRequiredVersion" };//void -> requiredVersionString: string
+    static RequestRequiredVersion = { method: "RequestRequiredVersion" };//void -> requiredVersions: Versions
     //Server notifies client about a state change
     static StateChange = { method: "StateChange" };//StateChangeParams
     //LOGGING
@@ -395,6 +395,15 @@ export enum SettingsErrorType { Error, Warning }
 export interface SettingsError {
     type: SettingsErrorType;
     msg: string;
+}
+
+export interface Versions {
+    nailgunSettingsVersion: string;
+    backendSettingsVersion: string;
+    pathSettingsVersion: string;
+    userPreferencesVersion: string;
+    javaSettingsVersion: string;
+    advancedFeaturesVersion: string;
 }
 
 ////////////////////////////////////////////////////
