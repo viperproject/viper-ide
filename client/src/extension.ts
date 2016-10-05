@@ -84,7 +84,7 @@ function getRequiredVersion(): string {
             return lastVersionWithSettingsChange;
         else {
             //TODO: is this still the name of the extension?
-            return vscode.extensions.getExtension("rukaelin.viper-advanced").packageJSON.version;
+            return vscode.extensions.getExtension("rukaelin.viper").packageJSON.version;
         }
     } catch (e) {
         Log.error("Error checking settings version: " + e)
@@ -655,7 +655,6 @@ function registerHandlers() {
                                 startBackend(selectedBackend);
                             } else {
                                 Log.log("No backend was selected, don't change the backend");
-
                             }
                         });
                     } else {
