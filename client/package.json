@@ -71,6 +71,10 @@
             {
                 "command": "extension.openLogFile",
                 "title": "Viper: open the current logFile"
+            },
+            {
+                "command": "extension.verifyAllFilesInWorkspace",
+                "title": "Viper: verify all files in the open Workspace"
             }
         ],
         "grammars": [{

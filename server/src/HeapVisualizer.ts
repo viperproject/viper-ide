@@ -6,7 +6,6 @@ import {LogLevel} from './ViperProtocol';
 import {Variable, Statement, NameType, ValueType, ConditionType, HeapChunk} from './Statement';
 import {DotNode, DotCluster, DotGraph} from './DotGraph';
 import {Settings} from './Settings';
-let graphviz = require("graphviz");
 
 let NULL = "Null";
 let TRUE = "True";

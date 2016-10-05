@@ -14,10 +14,6 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         this.heapGraphs[index] = heapGraph;
     }
 
-    // public getHeap(index: number): HeapGraph {
-    //     return this.heapGraphs[index];
-    // }
-
     public getCurrentHeap(): HeapGraph {
         return this.heapGraphs[1 - this.stateVisualizer.nextHeapIndex];
     }
@@ -29,14 +25,6 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
     public resetState() {
         this.heapGraphs = [];
     }
-
-    // public discardState(index: number) {
-    //     if (this.heapGraphs && this.heapGraphs.length > (1 - index)) {
-    //         let heap = this.heapGraphs[1 - index];
-    //         this.heapGraphs = []
-    //         this.heapGraphs.push(heap);
-    //     }
-    // }
 
     stateVisualizer: StateVisualizer;
 
@@ -81,8 +69,8 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
  }
  svg {
      width:100%;
-     height:500px;
-     max-height: 800px;
+     height:auto;
+     max-height: 500px;
  }
  .Hcurr {
      color:${StateColors.currentState(darkGraphs)}

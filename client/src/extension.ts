@@ -72,7 +72,7 @@ export function activate(context: vscode.ExtensionContext) {
     state = ExtensionState.createExtensionState();
     ExtensionState.checkOperatingSystem();
     context.subscriptions.push(state);
-    fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/*.sil, **/*.vpr');
+    fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/*.{sil,vpr}');
     state.startLanguageServer(context, fileSystemWatcher, false); //break?
     registerHandlers();
     startAutoSaver();
@@ -81,6 +81,43 @@ export function activate(context: vscode.ExtensionContext) {
     let uri = vscode.window.activeTextEditor.document.uri;
     lastActiveTextEditor = Helper.isViperSourceFile(uri.toString()) ? uri : null;
     startVerificationController();
+}
+
+let verifyingAllFiles = false;
+let allFilesToAutoVerify: Uri[];
+let nextFileToAutoVerify: number;
+
+function verifyAllFilesInWorkspace() {
+    verifyingAllFiles = true;
+    if (!isBackendReady) {
+        Log.error("The backend must be running before verifying all files in the workspace")
+        return;
+    }
+    vscode.workspace.findFiles('**/*.{sil,vpr}', '**/all/**').then((uris: Uri[]) => {
+        Log.log("Starting to verify " + uris.length + " viper files.", LogLevel.Info);
+        allFilesToAutoVerify = uris;
+        nextFileToAutoVerify = 0;
+        autoVerifyFile();
+    });
+}
+
+function autoVerifyFile(): Thenable<boolean> {
+    return new Promise((resolve, reject) => {
+        if (nextFileToAutoVerify < allFilesToAutoVerify.length && verifyingAllFiles) {
+            let currFile = allFilesToAutoVerify[nextFileToAutoVerify];
+            Log.log("AutoVerify " + path.basename(currFile.toString()));
+            nextFileToAutoVerify++;
+            vscode.workspace.openTextDocument(currFile).then((document) => {
+                vscode.window.showTextDocument(document).then(() => {
+                    verify(ExtensionState.viperFiles.get(currFile.toString()), false);
+                    resolve(true);
+                })
+            })
+        } else {
+            verifyingAllFiles = false;
+            resolve(false);
+        }
+    });
 }
 
 let lastVersionWithSettingsChange: Versions;
@@ -93,6 +130,7 @@ function getRequiredVersion(): Versions {
         return null;
     }
 }
+
 function resetViperFiles() {
     Log.log("Reset all viper files", LogLevel.Info);
     ExtensionState.viperFiles.forEach(element => {
@@ -400,6 +438,10 @@ function handleStateChange(params: StateChangeParams) {
                             Log.hint(msg + moreInfo);
                             break;
                     }
+
+                    if (verifyingAllFiles) {
+                        autoVerifyFile();
+                    }
                 }
                 break;
             case VerificationState.Stopping:
@@ -639,6 +681,11 @@ function registerHandlers() {
         workList.push({ type: TaskType.Verify, uri: vscode.window.activeTextEditor.document.uri, manuallyTriggered: true });
     }));
 
+    //verifyAllFilesInWorkspace
+    state.context.subscriptions.push(vscode.commands.registerCommand('extension.verifyAllFilesInWorkspace', () => {
+        verifyAllFilesInWorkspace();
+    }));
+
     //toggleAutoVerify
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.toggleAutoVerify', () => {
         toggleAutoVerify();
@@ -740,6 +787,7 @@ function registerHandlers() {
 
     //stopVerification
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.stopVerification', () => {
+        verifyingAllFiles = false;
         if (state.client) {
             clearInterval(progressUpdater);
             Log.log("Verification stop request", LogLevel.Debug);
