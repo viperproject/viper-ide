@@ -370,6 +370,7 @@ function handleStateChange(params: StateChangeParams) {
                 statusBarProgress.hide();
                 abortButton.hide();
                 clearInterval(progressUpdater);
+                lastProgress = 0;
 
                 ExtensionState.viperFiles.forEach(file => {
                     file.verifying = false;
@@ -911,22 +912,14 @@ function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
     //reset timing;
     verificationStartTime = Date.now();
     timings = [];
+    clearInterval(progressUpdater);
+    lastProgress = 0;
     //load expected timing
     let expectedTimings: TimingInfo = fileState.stateVisualizer.getLastTiming();
     if (expectedTimings && expectedTimings.total) {
         Log.log("Verification is expected to take " + formatSeconds(expectedTimings.total), LogLevel.Info);
         oldTimings = expectedTimings;
     }
-
-    clearInterval(progressUpdater);
-    progressUpdater = setInterval(() => {
-        let progress = getProgress(lastProgress)
-        if (progress != lastProgress) {
-            Log.log("Progress: " + progress, LogLevel.Debug);
-            statusBarProgress.text = progressBarText(progress);
-            statusBarItem.text = progressLabel + " " + formatProgress(progress);
-        }
-    }, 500);
 
     let uri = fileState.uri.toString();
     if (Helper.isViperSourceFile(uri)) {
@@ -944,11 +937,27 @@ function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
                 fileState.verified = false;
                 fileState.verifying = true;
 
+                //start progress updater
+                progressUpdater = setInterval(() => {
+                    let progress = getProgress(lastProgress)
+                    if (progress != lastProgress) {
+                        lastProgress = progress;
+                        Log.log("Progress: " + progress, LogLevel.Debug);
+                        statusBarProgress.text = progressBarText(progress);
+                        statusBarItem.text = progressLabel + " " + formatProgress(progress);
+                    }
+                }, 500);
+
+                Log.log("Request verification for " + path.basename(uri));
+
                 let workspace = vscode.workspace.rootPath ? vscode.workspace.rootPath : path.dirname(fileState.uri.fsPath);
                 let params: VerifyParams = { uri: uri, manuallyTriggered: manuallyTriggered, workspace: workspace };
                 state.client.sendNotification(Commands.Verify, params);
             }, visualizer);
         }
+        //in case a debugging session is still running, stop it
+        stopDebuggingOnServer();
+        stopDebuggingLocally();
     }
 }
 
@@ -968,12 +977,12 @@ function addTiming(paramProgress: number, color: string, hide: boolean = false) 
 
 function getProgress(progress: number): number {
     try {
-        let timeSpentUntilLastStep = timings[timings.length - 1];
+        let timeSpentUntilLastStep = timings.length > 0 ? timings[timings.length - 1] : 0;
         let timeAlreadySpent = Date.now() - verificationStartTime;
         if (oldTimings && oldTimings.timings) {
             let old = oldTimings.timings;
             if (old.length >= timings.length) {
-                let timeSpentLastTime = old[timings.length - 1];
+                let timeSpentLastTime = timings.length > 0 ? old[timings.length - 1] : 0;
                 let oldTotal = old[old.length - 1];
                 let timeSpent = timeSpentUntilLastStep;
                 if (old.length > timings.length && (timeAlreadySpent - timeSpentUntilLastStep) > (old[timings.length] - old[timings.length - 1])) {

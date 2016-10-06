@@ -268,7 +268,6 @@ export class VerificationTask {
         Log.log("verify " + pathHelper.basename(this.fileUri));
 
         Server.executedStages.push(stage);
-
         Log.log(Server.backend.name + ' verification started', LogLevel.Info);
 
         Server.sendStateChangeNotification({
@@ -330,7 +329,7 @@ export class VerificationTask {
 
             let isVerifyingStage = Server.stage().isVerification;
 
-            //do we need to start onError tasks?
+            //do we need to start a followUp Stage?
             if (!this.aborting) {
                 let lastStage: Stage = Server.stage();
                 let newStage: Stage;
@@ -405,6 +404,16 @@ export class VerificationTask {
                     uri: this.fileUri,
                     error: this.internalErrorMessage
                 }, this);
+
+                //is there the need to restart nailgun?
+                if (code != 0 && code != 1 && code != 899) {
+                    Log.log("Verification Backend Terminated Abnormaly: with code " + code + " Restart the backend.", LogLevel.Debug);
+                    if (Settings.isWin && code == null) {
+                        this.nailgunService.killNgDeamon().then(resolve => {
+                            this.nailgunService.startOrRestartNailgunServer(Server.backend, false);
+                        });
+                    }
+                }
             } else {
                 success = Success.Success;
                 Server.sendStateChangeNotification({
@@ -418,18 +427,6 @@ export class VerificationTask {
                     uri: this.fileUri,
                     error: this.internalErrorMessage
                 }, this);
-            }
-
-            //is there the need to restart nailgun?
-            if (isVerifyingStage) {
-                if (code != 0 && code != 1 && code != 899) {
-                    Log.log("Verification Backend Terminated Abnormaly: with code " + code + " Restart the backend.", LogLevel.Debug);
-                    if (Settings.isWin && code == null) {
-                        this.nailgunService.killNgDeamon().then(resolve => {
-                            this.nailgunService.startOrRestartNailgunServer(Server.backend, false);
-                        });
-                    }
-                }
             }
 
             //reset for next verification
@@ -879,6 +876,7 @@ export class VerificationTask {
                 }
             } catch (e) {
                 Log.error("Error stopping all running verifications: " + e);
+                reject();
             }
         });
     }

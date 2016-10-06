@@ -28,17 +28,21 @@ export class HeapVisualizer {
         }
     }
 
-    //TODO: show execution Tree Around State
     public static executionTreeAroundStateToDot(state: Statement): string {
         try {
             let graph = new DotGraph("G", this.getBgColor(), this.getForegroundColor(), "TB", "record");
             let cluster = graph.addCluster("executionTree", "invis", "Partial Execution Trace");
             //add current node
+            let parent: Statement;
             if (state.parent) {
-                this.addChildToExecutionTree(state.index, cluster, state.getClientParent());
+                parent = state.getClientParent();
+                if (!parent) {
+                    parent = state;
+                }
             } else {
-                this.addChildToExecutionTree(state.index, cluster, state);
+                parent = state;
             }
+            this.addChildToExecutionTree(state.index, cluster, parent);
             return graph.toDot();
         } catch (e) {
             Log.error("Graphviz Error building ExecutionTree: " + e);
@@ -47,7 +51,6 @@ export class HeapVisualizer {
 
     private static addChildToExecutionTree(currentState: number, cluster: DotCluster, state: Statement, parentNode?: DotNode, showChildren: boolean = true) {
         //add node
-        if (!state) return;
         let currentLabel = state.toDotLabel();
         let isCurrentState = currentState == state.index;
         let currentNode = cluster.addNode(currentLabel, currentLabel, false, (isCurrentState ? "bold" : (state.canBeShownAsDecoration ? null : "dotted")));

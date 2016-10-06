@@ -473,6 +473,10 @@ export interface TimingInfo {
     timings: number[];
 }
 
+////////////////////////////////////////////////////
+//COMMON FUNCTIONALITY
+////////////////////////////////////////////////////
+
 export class Common {
     //URI helper Methods
     public static uriToPath(uri: string): string {

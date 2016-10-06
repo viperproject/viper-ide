@@ -124,7 +124,7 @@ export class DotCluster {
             } else {
                 //addEdgeFromCluster
                 sourceNode = sourceCluster.nodes.values().next().value;
-                if (!source) {
+                if (!sourceNode) {
                     sourceNode = sourceCluster.addNode("dummy", "", true);
                 }
             }
@@ -189,7 +189,7 @@ export class DotNode {
 
     public static escapeLabel(label: string): string {
         if (!label) return label;
-        return label.replace(/([<>])/g, "\\$1");
+        return label.replace(/([<>\{\}|])/g, "\\$1");
     }
 
     pretty(): string {

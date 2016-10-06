@@ -537,6 +537,7 @@ export class StateVisualizer {
     }
 
     public removeSpecialCharacters(callback) {
+        this.removeSpecialCharacterCallbacks.push(callback);
         if (this.areSpecialCharsBeingModified("Don't remove special chars,")) return;
         try {
             if (!this.viperFile.editor || !this.viperFile.editor.document) {
@@ -571,7 +572,7 @@ export class StateVisualizer {
                             Log.log("Special Chars removed from file " + this.viperFile.name(), LogLevel.Info)
                             this.removingSpecialChars = false;
                             this.viperFile.specialCharsShown = false;
-                            callback();
+                            this.callTheRemoveSpecialCharCallbacks();
                         });
                     } else {
                         this.removingSpecialChars = false;
@@ -583,11 +584,20 @@ export class StateVisualizer {
             } else {
                 this.removingSpecialChars = false;
                 Log.log("No special chars to remove", LogLevel.Debug)
-                callback();
+                this.callTheRemoveSpecialCharCallbacks();
             }
         } catch (e) {
             this.removingSpecialChars = false;
             Log.error("Error removing special characters: " + e);
+        }
+    }
+
+    private removeSpecialCharacterCallbacks: any[] = [];
+
+    private callTheRemoveSpecialCharCallbacks() {
+        while (this.removeSpecialCharacterCallbacks.length > 0) {
+            let callback = this.removeSpecialCharacterCallbacks.shift();
+            callback();
         }
     }
 

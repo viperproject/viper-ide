@@ -8,7 +8,7 @@ import {LogLevel} from './ViperProtocol';
 
 export class Helper {
 
-    public static showFile(filePath: string, column: vscode.ViewColumn) {
+    /*public static showFile(filePath: string, column: vscode.ViewColumn) {
         let resource = vscode.Uri.file(filePath);
         let doc;
         //see if the document is already open
@@ -40,7 +40,7 @@ export class Helper {
                 Log.error("Show file error: " + reason);
             });
         }
-    }
+    }*/
 
     public static getConfiguration(setting: string): any {
         return vscode.workspace.getConfiguration("viperSettings").get(setting);
