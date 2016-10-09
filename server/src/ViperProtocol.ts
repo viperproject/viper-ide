@@ -119,7 +119,9 @@ export enum Success {
     //Manually aborted verification
     Aborted = 5,
     //Caused by internal error
-    Error = 6
+    Error = 6,
+    //Caused by veification taking too long
+    Timeout = 7
 }
 
 export interface StateChangeParams {

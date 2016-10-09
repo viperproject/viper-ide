@@ -306,6 +306,7 @@ export class VerificationTask {
                     Server.sendStateChangeNotification({
                         newState: VerificationState.Ready,
                         verificationCompleted: false,
+                        success: Success.Timeout,
                         verificationNeeded: false,
                         uri: this.fileUri
                     }, this);
@@ -409,7 +410,8 @@ export class VerificationTask {
                 if (code != 0 && code != 1 && code != 899) {
                     Log.log("Verification Backend Terminated Abnormaly: with code " + code + " Restart the backend.", LogLevel.Debug);
                     if (Settings.isWin && code == null) {
-                        this.nailgunService.killNgDeamon().then(resolve => {
+                        this.nailgunService.setStopping();
+                        this.nailgunService.killNgAndZ3DeamonWin().then(resolve => {
                             this.nailgunService.startOrRestartNailgunServer(Server.backend, false);
                         });
                     }
@@ -807,6 +809,9 @@ export class VerificationTask {
                 })
                 try {
                     this.verifierProcess.kill('SIGINT'); //TODO: not working on mac, linux?
+                    if (Settings.isWin) {
+                        Server.nailgunService.killNgAndZ3DeamonWin();
+                    }
                     process.kill(this.verifierProcess.pid, 'SIGINT');
                 } catch (e) {// if stopping does not work, there is nothing we can do about it.
                 }

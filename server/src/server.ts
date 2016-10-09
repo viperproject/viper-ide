@@ -186,7 +186,7 @@ function registerHandlers() {
         try {
             //Server.nailgunService.stopNailgunServer();
             Server.nailgunService.killNailgunServer();
-            Server.nailgunService.killNgDeamon();
+            Server.nailgunService.killNgAndZ3DeamonWin();
         } catch (e) {
             Log.error("Error handling dispose request: " + e);
         }

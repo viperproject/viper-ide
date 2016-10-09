@@ -179,19 +179,22 @@ export class NailgunService {
         });
     }
 
-    public killNgDeamon(): Thenable<boolean> {
+    public killNgAndZ3DeamonWin(): Thenable<boolean> {
         return new Promise((resolve, reject) => {
-            this.setStopping();
             Log.log("Killing ng deamon", LogLevel.Info);
             let ngKiller = child_process.exec("taskkill /F /im ng.exe");
             ngKiller.on("exit", (data) => {
                 Log.log("kill ng.exe: " + data, LogLevel.Debug);
-                return resolve(false);
+                let z3Killer = child_process.exec("taskkill /F /im z3.exe");
+                z3Killer.on("exit", (data) => {
+                    Log.log("kill z3.exe: " + data, LogLevel.Debug);
+                    return resolve(false);
+                })
+                Log.logOutput(z3Killer, "kill z3.exe");
             })
             Log.logOutput(ngKiller, "kill ng.exe");
         });
     }
-
 
     public killNailgunServer() {
         Log.log('killing nailgun server, this may leave its sub processes running', LogLevel.Debug);

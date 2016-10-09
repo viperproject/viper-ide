@@ -1,35 +1,48 @@
 // A launch configuration that compiles the extension and then opens it inside a new window
 {
-	"version": "0.1.0",
-	"configurations": [
-		{
-			"name": "Launch",
-			"type": "extensionHost",
-			"request": "launch",
-			"runtimeExecutable": "${execPath}",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceRoot}"
-			],
-			"stopOnEntry": false,
-			"sourceMaps": true,
-			"outDir": "${workspaceRoot}/out",
-			"preLaunchTask": "npm"
-		},
-		{
-			"name": "Run Server",
-			"type": "node",
-			"request": "launch",
-			"runtimeArgs": [
-				"--nolazy"
-			],
-			"program": "${workspaceRoot}/src/debug.ts",
-			"stopOnEntry": false,
-			"args": [
-				"--server=4711"
-			],
-			"sourceMaps": true,
-			"outDir": "${workspaceRoot}/out",
-			"cwd": "${workspaceRoot}"
-		}
-	]
+    "version": "0.1.0",
+    "configurations": [{
+            "name": "Launch",
+            "type": "extensionHost",
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceRoot}"
+            ],
+            "stopOnEntry": false,
+            "sourceMaps": true,
+            "outDir": "${workspaceRoot}/out",
+            "preLaunchTask": "npm"
+        },
+        {
+            "name": "Test",
+            "type": "extensionHost",
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceRoot}",
+                "--extensionTestsPath=${workspaceRoot}/out/test"
+            ],
+            "stopOnEntry": false,
+            "sourceMaps": true,
+            "outDir": "${workspaceRoot}/out/test",
+            "preLaunchTask": "npm"
+        },
+        {
+            "name": "Run Server",
+            "type": "node",
+            "request": "launch",
+            "runtimeArgs": [
+                "--nolazy"
+            ],
+            "program": "${workspaceRoot}/src/debug.ts",
+            "stopOnEntry": false,
+            "args": [
+                "--server=4711"
+            ],
+            "sourceMaps": true,
+            "outDir": "${workspaceRoot}/out",
+            "cwd": "${workspaceRoot}"
+        }
+    ]
 }

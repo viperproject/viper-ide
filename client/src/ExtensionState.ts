@@ -6,27 +6,96 @@ import * as path from 'path';
 import {Commands, LogLevel} from './ViperProtocol';
 import {Log} from './Log';
 import {ViperFileState} from './ViperFileState';
+import Uri from 'vscode-uri/lib/index';
+import {Helper} from './Helper';
+import {StateVisualizer} from './StateVisualizer';
 
-export class ExtensionState {
+export class State {
     public client: LanguageClient;
     public context: vscode.ExtensionContext;
-    public static instance: ExtensionState;
+    public static instance: State;
 
     public static viperFiles: Map<string, ViperFileState>;
-    public static isDebugging: boolean = false;
+    public static isBackendReady: boolean;
+    public static isDebugging: boolean;
+    public static isVerifying: boolean;
     private languageServerDisposable;
     public static isWin = /^win/.test(process.platform);
     public static isLinux = /^linux/.test(process.platform);
     public static isMac = /^darwin/.test(process.platform);
+    public static lastActiveFile: ViperFileState;
 
-    static createExtensionState(): ExtensionState {
-        if (ExtensionState.instance) {
-            return ExtensionState.instance;
+    public static createState(): State {
+        if (State.instance) {
+            return State.instance;
         } else {
-            let newState = new ExtensionState();
-            ExtensionState.instance = newState;
+            this.reset();
+            let newState = new State();
+            State.instance = newState;
             return newState;
         }
+    }
+
+    public static setLastActiveFile(uri: Uri | string | vscode.Uri, editor: vscode.TextEditor): ViperFileState {
+        this.lastActiveFile = this.getFileState(uri);
+        if (this.lastActiveFile) {
+            this.lastActiveFile.setEditor(editor);
+        }
+        return this.lastActiveFile;
+    }
+
+    public static resetViperFiles() {
+        Log.log("Reset all viper files", LogLevel.Info);
+        this.viperFiles.forEach(element => {
+            element.changed = true;
+            element.verified = false;
+            element.verifying = false;
+            element.decorationsShown = false;
+            element.stateVisualizer.completeReset();
+        });
+    }
+
+    public static reset() {
+        this.isBackendReady = false;
+        this.isDebugging = false;
+        this.isVerifying = false;
+        this.viperFiles = new Map<string, ViperFileState>();
+    }
+
+    public static checkBackendReady(prefix: string) {
+        if (!this.isBackendReady) {
+            Log.log(prefix + "Backend is not ready.", LogLevel.Debug);
+        }
+        return this.isBackendReady;
+    }
+
+    public static getVisualizer(uri: Uri | string | vscode.Uri): StateVisualizer {
+        let fileState = this.getFileState(uri);
+        return fileState ? fileState.stateVisualizer : null;
+    }
+
+    ///retrieves the requested file, creating it when needed
+    public static getFileState(uri: Uri | string | vscode.Uri): ViperFileState {
+        let uriObject: Uri | vscode.Uri;
+        let uriString: string;
+        if (typeof uri === "string") {
+            uriObject = Uri.parse(uri);
+            uriString = uri;
+        } else {
+            uriObject = uri
+            uriString = uri.toString();
+        }
+        if (!Helper.isViperSourceFile(uriString)) {
+            return null;
+        }
+        let result: ViperFileState;
+        if (!State.viperFiles.has(uriString)) {
+            result = new ViperFileState(uriObject)
+            State.viperFiles.set(uriString, result);
+        } else {
+            result = State.viperFiles.get(uriString);
+        }
+        return result;
     }
 
     public startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, brk: boolean) {

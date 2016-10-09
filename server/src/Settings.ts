@@ -363,11 +363,8 @@ export class Settings {
                             this.addError(backendAndStage + " Missing mainMethod");
                         //check customArguments
                         if (!stage.customArguments) {
-                            this.addError(backendAndStage + " Missing customArguments, try the default arguments");
+                            this.addError(backendAndStage + " Missing customArguments");
                             continue;
-                        }
-                        if (!backend.useNailgun && stage.customArguments.indexOf("nailgun") >= 0) {
-                            this.addWarning(backendAndStage + " customArguments should not contain nailgun arguments if useNailgun is false");
                         }
                         //check customArguments for compliance with advancedFeatures
                         let hasIdeModeAdvanced = stage.customArguments.indexOf("--ideModeAdvanced") >= 0;

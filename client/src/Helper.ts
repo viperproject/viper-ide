@@ -8,6 +8,8 @@ import {LogLevel} from './ViperProtocol';
 
 export class Helper {
 
+    public static viperFileEndings: string[] = [".vpr", ".sil"];
+
     /*public static showFile(filePath: string, column: vscode.ViewColumn) {
         let resource = vscode.Uri.file(filePath);
         let doc;
@@ -56,7 +58,13 @@ export class Helper {
         }
     }
 
-    public static isViperSourceFile(uri: string): boolean {
-        return uri.endsWith(".sil") || uri.endsWith(".vpr");
+    public static isViperSourceFile(uri: string | vscode.Uri): boolean {
+        let uriString: string;
+        if (typeof uri === "string") {
+            uriString = uri;
+        } else {
+            uriString = uri.toString();
+        }
+        return this.viperFileEndings.some(ending => uriString.endsWith(ending));
     }
 }

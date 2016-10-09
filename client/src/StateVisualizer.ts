@@ -7,7 +7,7 @@ import child_process = require('child_process');
 import {HeapProvider} from './HeapProvider';
 import * as vscode from 'vscode';
 import {Helper} from './Helper';
-import {ExtensionState} from './ExtensionState';
+import {State} from './ExtensionState';
 import {ViperFileState} from './ViperFileState';
 import * as path from 'path';
 
@@ -175,7 +175,7 @@ export class StateVisualizer {
                 Log.writeToDotFile(heapGraphAsDot, dotFilePath);
             }
             //get dot Executable
-            ExtensionState.instance.client.sendRequest(Commands.GetDotExecutable, null).then((dotExecutable: string) => {
+            State.instance.client.sendRequest(Commands.GetDotExecutable, null).then((dotExecutable: string) => {
                 //the path should have already been checked by the server, but check again to be sure
                 if (!dotExecutable || !fs.existsSync(dotExecutable)) {
                     Log.hint("Fix the path to the dotExecutable, no file found at: " + dotExecutable);
@@ -327,7 +327,7 @@ export class StateVisualizer {
                     //mark execution trace that led to the current state
                     Log.log("Request Execution Trace", LogLevel.Info);
                     let params: GetExecutionTraceParams = { uri: this.uri.toString(), clientState: this.currentState };
-                    ExtensionState.instance.client.sendRequest(Commands.GetExecutionTrace, params).then((trace: ExecutionTrace[]) => {
+                    State.instance.client.sendRequest(Commands.GetExecutionTrace, params).then((trace: ExecutionTrace[]) => {
                         Log.log("Mark Execution Trace", LogLevel.Debug);
                         trace.forEach(element => {
                             let option = this.decorationOptions[element.state];
@@ -353,7 +353,7 @@ export class StateVisualizer {
             clientIndex: state,
             isHeapNeeded: isHeapNeeded
         }
-        ExtensionState.instance.client.sendRequest(Commands.ShowHeap, params);
+        State.instance.client.sendRequest(Commands.ShowHeap, params);
     }
 
     //handle both selection change, or debugger movement notification

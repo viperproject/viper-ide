@@ -69,21 +69,21 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
             <dict>
                 <!-- Error token -->
                 <key>match</key>
-                <string>\b(?i:((Internal\s|Settings\s)?Error\:))(\:|\b|\s)</string>
+                <string>\b(?i:((Internal\s|Settings\s)?Error\:|((Typechecking|Parsing|Verification)Failed)))(\:|\b|\s)</string>
                 <key>name</key>
                 <string>error-token</string>
             </dict>
             <dict>
                 <!-- Info token -->
                 <key>match</key>
-                <string>\b(?i:(hint|info|information|stage))(\:|\b)</string>
+                <string>\b(?i:(hint|info|information|stage|success))(\:|\b)</string>
                 <key>name</key>
                 <string>info-token</string>
             </dict>
             <dict>
                 <!-- Warn token -->
                 <key>match</key>
-                <string>\b(?i:(warning|warn|test|debug|null|undefined))(\:|\b)</string>
+                <string>\b(?i:(warning|warn|test|debug|null|undefined|aborted))(\:|\b)</string>
                 <key>name</key>
                 <string>warn-token</string>
             </dict>
