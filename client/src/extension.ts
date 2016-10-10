@@ -51,12 +51,10 @@ enum TaskType {
 let isUnitTest = false;
 let unitTestResolve;
 
-export function unitTest(context: vscode.ExtensionContext): Thenable<boolean> {
-    return new Promise((resolve, reject) => {
-        isUnitTest = true;
-        unitTestResolve = resolve;
-        activate(context);
-    });
+export function initializeUnitTest(done) {
+    isUnitTest = true;
+    unitTestResolve = done;
+    //activate(context);
 }
 
 // this method is called when your extension is activated
@@ -438,10 +436,9 @@ function handleStateChange(params: StateChangeParams) {
                 Log.log("Run " + params.stage + " for " + params.filename);
                 updateStatusBarItem(statusBarItem, `File ${params.filename}: Stage ${params.stage}`, 'white');
             case VerificationState.Ready:
+                clearInterval(progressUpdater);
                 statusBarProgress.hide();
                 abortButton.hide();
-                clearInterval(progressUpdater);
-                lastProgress = 0;
 
                 State.viperFiles.forEach(file => {
                     file.verifying = false;
@@ -514,6 +511,11 @@ function handleStateChange(params: StateChangeParams) {
                             Log.log(`Verifying ${params.filename} timed out`, LogLevel.Info);
                             break;
                     }
+                    if (isUnitTest && unitTestResolve) {
+                        if (verificationCompleted(params.success)) {
+                            unitTestResolve("VerificationCompleted");
+                        }
+                    }
                 }
                 if (verifyingAllFiles) {
                     autoVerificationResults.push(`${Success[params.success]}: ${Uri.parse(params.uri).fsPath}`);
@@ -535,7 +537,12 @@ function handleStateChange(params: StateChangeParams) {
     }
 }
 
-
+function verificationCompleted(success: Success) {
+    return success == Success.Success
+        || success == Success.ParsingFailed
+        || success == Success.TypecheckingFailed
+        || success == Success.VerificationFailed;
+}
 
 function handleSettingsCheckResult(params: SettingsCheckedParams) {
     if (params.errors && params.errors.length > 0) {
@@ -843,16 +850,20 @@ function registerHandlers() {
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.stopVerification', () => {
         if (verifyingAllFiles) {
             printAllVerificationResults();
+            verifyingAllFiles = false;
         }
-        verifyingAllFiles = false;
         if (state.client) {
-            clearInterval(progressUpdater);
-            Log.log("Verification stop request", LogLevel.Debug);
-            abortButton.hide();
-            statusBarItem.color = 'orange';
-            statusBarItem.text = "aborting";
-            statusBarProgress.hide();
-            state.client.sendNotification(Commands.StopVerification, State.lastActiveFile.uri.toString());
+            if (State.isVerifying) {
+                clearInterval(progressUpdater);
+                Log.log("Verification stop request", LogLevel.Debug);
+                abortButton.hide();
+                statusBarItem.color = 'orange';
+                statusBarItem.text = "aborting";
+                statusBarProgress.hide();
+                state.client.sendNotification(Commands.StopVerification, State.lastActiveFile.uri.toString());
+            } else {
+                Log.hint("Cannot stop the verification, no verification is running.");
+            }
         } else {
             Log.hint("Extension not ready yet.");
         }
@@ -903,8 +914,8 @@ function handleBackendReadyNotification(params: BackendReadyParams) {
                 workList.push({ type: TaskType.Verify, uri: State.lastActiveFile.uri, manuallyTriggered: false });
             }
         }
-        if (isUnitTest) {
-            unitTestResolve(true);
+        if (isUnitTest && unitTestResolve) {
+            unitTestResolve("BackendReady");
         }
     } catch (e) {
         Log.error("Error handling backend started notification: " + e);

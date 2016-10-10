@@ -836,7 +836,7 @@ export class VerificationTask {
         return result;
     }
 
-    private loadSymbExLogFromFile() {
+    public loadSymbExLogFromFile() {
         try {
             let symbExLogPath = pathHelper.join(Server.tempDirectory, "executionTreeData.js");
             Log.log("Loading The symbexLog from: " + symbExLogPath, LogLevel.Debug);

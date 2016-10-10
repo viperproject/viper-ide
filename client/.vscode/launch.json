@@ -21,7 +21,8 @@
             "runtimeExecutable": "${execPath}",
             "args": [
                 "--extensionDevelopmentPath=${workspaceRoot}",
-                "--extensionTestsPath=${workspaceRoot}/out/test"
+                "--extensionTestsPath=${workspaceRoot}/out/test",
+                "--no-timeouts"
             ],
             "stopOnEntry": false,
             "sourceMaps": true,
