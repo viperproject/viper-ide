@@ -1,9 +1,100 @@
 {
-	"Precondition": {
-		"prefix": "precondition",
-		"body": [
-			"requires $1"
-		],
-		"description": "Add a precondition"
-	}
+    "Acc": {
+        "prefix": "acc",
+        "body": [
+            "acc($1)"
+        ],
+        "description": "Add an acc"
+    },
+    "Precondition": {
+        "prefix": "precondition",
+        "body": [
+            "requires $1"
+        ],
+        "description": "Add a precondition"
+    },
+    "Postcondition": {
+        "prefix": "postcondition",
+        "body": [
+            "ensures $1"
+        ],
+        "description": "Add a postcondition"
+    },
+    "Method": {
+        "prefix": "method",
+        "body": [
+            "method ${foo}($2)",
+            "requires ${pre:true}",
+            "ensures ${post:true}",
+            "{",
+            "\t$3",
+            "}"
+        ],
+        "description": "Add a method"
+    },
+    "Predicate": {
+        "prefix": "predicate",
+        "body": [
+            "predicate ${pred}($2)",
+            "{",
+            "\t$3",
+            "}"
+        ],
+        "description": "Add a predicate"
+    },
+    "Function": {
+        "prefix": "function",
+        "body": [
+            "function ${fun}($2):$3",
+            "requires ${pre:true}",
+            "ensures ${post:true}",
+            "{",
+            "\t$4",
+            "}"
+        ],
+        "description": "Add a function"
+    },
+    "Domain": {
+        "prefix": "domain",
+        "body": [
+            "domain ${Domain}{",
+            "\t$1",
+            "}"
+        ],
+        "description": "Add a domain"
+    },
+    "Axiom": {
+        "prefix": "axiom",
+        "body": [
+            "axiom ${ax}{",
+            "\t$1",
+            "}"
+        ],
+        "description": "Add an axiom"
+    },
+    "If": {
+        "prefix": "if",
+        "body": [
+            "if($1)",
+            "{",
+            "\t$2",
+            "}",
+            "else",
+            "{",
+            "\t$3",
+            "}"
+        ],
+        "description": "Add an if condition"
+    },
+    "While": {
+        "prefix": "while",
+        "body": [
+            "while(${cond:true})",
+            "invariant ${inv:true}",
+            "{",
+            "\t$3",
+            "}"
+        ],
+        "description": "Add a while loop"
+    }
 }
