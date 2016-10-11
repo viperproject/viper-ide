@@ -23,7 +23,7 @@ export class State {
     public static isWin = /^win/.test(process.platform);
     public static isLinux = /^linux/.test(process.platform);
     public static isMac = /^darwin/.test(process.platform);
-    public static lastActiveFile: ViperFileState;
+    private static lastActiveFileUri: string;
 
     public static createState(): State {
         if (State.instance) {
@@ -37,11 +37,16 @@ export class State {
     }
 
     public static setLastActiveFile(uri: Uri | string | vscode.Uri, editor: vscode.TextEditor): ViperFileState {
-        this.lastActiveFile = this.getFileState(uri);
-        if (this.lastActiveFile) {
-            this.lastActiveFile.setEditor(editor);
+        this.lastActiveFileUri = uri.toString();
+        let lastActiveFile = this.getFileState(uri);
+        if (lastActiveFile) {
+            lastActiveFile.setEditor(editor);
         }
-        return this.lastActiveFile;
+        return lastActiveFile;
+    }
+
+    public static getLastActiveFile(): ViperFileState {
+        return this.getFileState(this.lastActiveFileUri);
     }
 
     public static resetViperFiles() {

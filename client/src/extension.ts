@@ -109,7 +109,7 @@ function verifyAllFilesInWorkspace() {
 }
 
 function printAllVerificationResults() {
-    Log.log("Verified " + autoVerificationResults.length + " files in " + formatSeconds((Date.now() - autoVerificationStartTime) / 100), LogLevel.Info);
+    Log.log("Verified " + autoVerificationResults.length + " files in " + formatSeconds((Date.now() - autoVerificationStartTime) / 1000), LogLevel.Info);
     autoVerificationResults.forEach(res => {
         Log.log("Verification Result: " + res, LogLevel.Info);
     })
@@ -158,10 +158,10 @@ function canStartDebugging(): CheckResult {
         let reason: string;
         if (Helper.getConfiguration("advancedFeatures").enabled !== true) {
             reason = "Don't debug, You must first Enable the advanced features in the settings.";
-        } else if (!State.lastActiveFile) {
+        } else if (!State.getLastActiveFile()) {
             reason = "Don't debug, no viper file open.";
         } else {
-            let fileState = State.lastActiveFile;
+            let fileState = State.getLastActiveFile();
             let uri = fileState.uri;
             let filename = path.basename(uri.toString());
             let dontDebugString = `Don't debug ${filename}, `;
@@ -214,8 +214,8 @@ function canStartVerification(task: Task): CheckResult {
             }
             else if (!fileState.open) {
                 reason = dontVerify + "file is closed";
-            } else if (fileState.verifying) {
-                reason = dontVerify + `file is verifying`;
+            } else if (fileState.verifying && !fileState.changed) {
+                reason = dontVerify + `file has not changed, restarting the verification has no use`;
             } else if (!task.manuallyTriggered && fileState.verified) {
                 reason = dontVerify + `not manuallyTriggered and file is verified`;
             } else if (!activeFile) {
@@ -305,7 +305,7 @@ function startVerificationController() {
             if (editor) {
                 let uri = editor.document.uri;
                 if (Helper.isViperSourceFile(uri.toString())) {
-                    let oldViperFile: ViperFileState = State.lastActiveFile;
+                    let oldViperFile: ViperFileState = State.getLastActiveFile();
                     if (oldViperFile) {
                         //change in avtive viper file, remove special characters from the previous one
                         if (oldViperFile.uri.toString() !== uri.toString()) {
@@ -338,9 +338,9 @@ export function deactivate() {
     state.dispose();
     console.log("state disposed");
     //TODO: make sure no doc contains special chars any more
-    if (State.lastActiveFile) {
+    if (State.getLastActiveFile()) {
         console.log("Removing special chars of last opened file.");
-        State.lastActiveFile.stateVisualizer.removeSpecialCharacters(() => {
+        State.getLastActiveFile().stateVisualizer.removeSpecialCharacters(() => {
             console.log("deactivated");
         });
     }
@@ -452,7 +452,7 @@ function handleStateChange(params: StateChangeParams) {
                     let uri = vscode.Uri.parse(params.uri);
 
                     //since at most one file can be verified at a time, set all to non-verified before potentially setting one to verified 
-                    State.viperFiles.forEach(state => state.verified = false);
+                    State.viperFiles.forEach(file => file.verified = false);
 
                     let verifiedFile = State.getFileState(params.uri);
                     verifiedFile.success = params.success;
@@ -641,9 +641,6 @@ function registerHandlers() {
                 fileState.open = false;
                 fileState.verified = false;
             }
-            if (State.lastActiveFile == fileState) {
-                State.lastActiveFile = null;
-            }
             fileState.stateVisualizer.removeSpecialCharsFromClosedDocument(() => { });
         } catch (e) {
             Log.error("Error handling file closed notification: " + e);
@@ -810,7 +807,7 @@ function registerHandlers() {
             //check if all the requirements are met to start debugging
             let canDebug = canStartDebugging();
             if (canDebug.result) {
-                let uri = State.lastActiveFile.uri;
+                let uri = State.getLastActiveFile().uri;
                 let filename = path.basename(uri.toString());
                 let openDoc = uri.path;
                 if (State.isWin) {
@@ -860,7 +857,7 @@ function registerHandlers() {
                 statusBarItem.color = 'orange';
                 statusBarItem.text = "aborting";
                 statusBarProgress.hide();
-                state.client.sendNotification(Commands.StopVerification, State.lastActiveFile.uri.toString());
+                state.client.sendNotification(Commands.StopVerification, State.getLastActiveFile().uri.toString());
             } else {
                 Log.hint("Cannot stop the verification, no verification is running.");
             }
@@ -909,9 +906,9 @@ function handleBackendReadyNotification(params: BackendReadyParams) {
         if (params.restarted) {
             //no file is verifying
             State.resetViperFiles()
-            if (State.lastActiveFile && Helper.getConfiguration('preferences').autoVerifyAfterBackendChange === true) {
+            if (State.getLastActiveFile() && Helper.getConfiguration('preferences').autoVerifyAfterBackendChange === true) {
                 Log.log("autoVerify after backend change", LogLevel.Info);
-                workList.push({ type: TaskType.Verify, uri: State.lastActiveFile.uri, manuallyTriggered: false });
+                workList.push({ type: TaskType.Verify, uri: State.getLastActiveFile().uri, manuallyTriggered: false });
             }
         }
         if (isUnitTest && unitTestResolve) {
@@ -933,7 +930,7 @@ function stopDebuggingLocally() {
     try {
         if (State.isDebugging) {
             Log.log("Stop Debugging", LogLevel.Info);
-            let visualizer = State.lastActiveFile.stateVisualizer;
+            let visualizer = State.getLastActiveFile().stateVisualizer;
             hideStates(() => { }, visualizer);
         }
     } catch (e) {
@@ -945,7 +942,7 @@ function showStates(callback) {
     try {
         if (!StateVisualizer.showStates) {
             StateVisualizer.showStates = true;
-            let visualizer = State.lastActiveFile.stateVisualizer;
+            let visualizer = State.getLastActiveFile().stateVisualizer;
             visualizer.removeSpecialCharacters(() => {
                 visualizer.addCharacterToDecorationOptionLocations(() => {
                     visualizer.showDecorations();
@@ -962,6 +959,8 @@ function showStates(callback) {
 
 function hideStates(callback, visualizer: StateVisualizer) {
     try {
+        let editor = visualizer.viperFile.editor;
+        //vscode.window.showTextDocument(editor.document, editor.viewColumn).then(() => {  
         vscode.commands.executeCommand('workbench.action.focusFirstEditorGroup').then(success => { }, error => {
             Log.error("Error changing the focus to the first editorGroup");
         });
@@ -973,6 +972,7 @@ function hideStates(callback, visualizer: StateVisualizer) {
             visualizer.reset();
             callback();
         });
+        //});
     } catch (e) {
         Log.error("Error hiding States: " + e);
     }

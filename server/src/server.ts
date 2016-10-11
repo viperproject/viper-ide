@@ -141,8 +141,8 @@ function registerHandlers() {
         if (!task) {
             Log.error("No verification task found for file: " + uri);
             return false;
-        } else if (task.running) {
-            return false;
+            // } else if (task.running) {
+            //     return false;
         } else if (!Server.isViperSourceFile(uri)) {
             //only verify viper source code files
             Log.hint("Only viper source files can be verified.");
@@ -186,7 +186,7 @@ function registerHandlers() {
         try {
             //Server.nailgunService.stopNailgunServer();
             Server.nailgunService.killNailgunServer();
-            Server.nailgunService.killNgAndZ3DeamonWin();
+            Server.nailgunService.killNgAndZ3Deamon();
         } catch (e) {
             Log.error("Error handling dispose request: " + e);
         }

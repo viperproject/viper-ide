@@ -179,16 +179,31 @@ export class NailgunService {
         });
     }
 
-    public killNgAndZ3DeamonWin(): Thenable<boolean> {
+    public killNgAndZ3Deamon(): Thenable<boolean> {
         return new Promise((resolve, reject) => {
-            Log.log("Killing ng deamon", LogLevel.Info);
-            let ngKiller = child_process.exec("taskkill /F /im ng.exe");
+            let ngKillCommand: string;
+            let z3KillCommand: string;
+            if (Settings.isWin) {
+                ngKillCommand = "taskkill /F /im ng.exe";
+                z3KillCommand = "taskkill /F /im z3.exe";
+            } else if (Settings.isLinux) {
+                ngKillCommand = "pkill -c ng";
+                z3KillCommand = "pkill -c z3";
+            } else {
+                //TODO: implement killing ng deamon and z3 for mac
+                resolve(false);
+                return;
+            }
+            Log.log("Killing ng client", LogLevel.Info);
+            Log.log("Command: " + ngKillCommand, LogLevel.Debug);
+            let ngKiller = child_process.exec(ngKillCommand);
             ngKiller.on("exit", (data) => {
                 Log.log("kill ng.exe: " + data, LogLevel.Debug);
-                let z3Killer = child_process.exec("taskkill /F /im z3.exe");
+                let z3Killer = child_process.exec(z3KillCommand);
+                Log.log("Command: " + ngKillCommand, LogLevel.Debug);
                 z3Killer.on("exit", (data) => {
                     Log.log("kill z3.exe: " + data, LogLevel.Debug);
-                    return resolve(false);
+                    return resolve(true);
                 })
                 Log.logOutput(z3Killer, "kill z3.exe");
             })

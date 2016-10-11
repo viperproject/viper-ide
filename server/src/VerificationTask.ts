@@ -302,14 +302,16 @@ export class VerificationTask {
                 //Log.log("check for verification timeout", LogLevel.Debug);
                 if (this.running && this.verificationCount == verificationCount) {
                     Log.hint("The verification timed out after " + this.nailgunService.activeBackend.timeout + "ms");
-                    this.abortVerification();
-                    Server.sendStateChangeNotification({
-                        newState: VerificationState.Ready,
-                        verificationCompleted: false,
-                        success: Success.Timeout,
-                        verificationNeeded: false,
-                        uri: this.fileUri
-                    }, this);
+                    this.abortVerification().then(() => {
+                        //wait for verification to terminate
+                        Server.sendStateChangeNotification({
+                            newState: VerificationState.Ready,
+                            verificationCompleted: false,
+                            success: Success.Timeout,
+                            verificationNeeded: false,
+                            uri: this.fileUri
+                        }, this);
+                    });
                 }
                 this.running = false;
             }, this.nailgunService.activeBackend.timeout);
@@ -408,12 +410,13 @@ export class VerificationTask {
 
                 //is there the need to restart nailgun?
                 if (code != 0 && code != 1 && code != 899) {
-                    Log.log("Verification Backend Terminated Abnormaly: with code " + code + " Restart the backend.", LogLevel.Debug);
-                    if (Settings.isWin && code == null) {
-                        this.nailgunService.setStopping();
-                        this.nailgunService.killNgAndZ3DeamonWin().then(resolve => {
-                            this.nailgunService.startOrRestartNailgunServer(Server.backend, false);
-                        });
+                    Log.log("Verification Backend Terminated Abnormaly: with code " + code, LogLevel.Debug);
+                    if (code == null) {
+                        //this.nailgunService.setStopping();
+                        this.nailgunService.killNgAndZ3Deamon()
+                        // .then(resolve => {
+                        //     this.nailgunService.startOrRestartNailgunServer(Server.backend, false);
+                        // });
                     }
                 }
             } else {
@@ -803,18 +806,23 @@ export class VerificationTask {
                 this.verifierProcess.stdout.removeAllListeners('data');
                 this.verifierProcess.stderr.removeAllListeners('data');
                 //log the exit of the child_process to kill
-                this.verifierProcess.on('exit', (code, signal) => {
-                    Log.log(`Child process exited with code ${code} and signal ${signal}`, LogLevel.Debug);
+                let ngClientEndPromise = new Promise((res, rej) => {
+                    this.verifierProcess.on('exit', (code, signal) => {
+                        Log.log(`Child process exited with code ${code} and signal ${signal}`, LogLevel.Debug);
+                        res(true);
+                    })
+                });
+                //try {
+                this.verifierProcess.kill('SIGINT'); //TODO: not working on mac, linux?
+
+                let deamonKillerPromise = Server.nailgunService.killNgAndZ3Deamon();
+
+                //only after the verification really ended we can continue;
+                Promise.all([ngClientEndPromise, deamonKillerPromise]).then(() => {
                     resolve(true);
-                })
-                try {
-                    this.verifierProcess.kill('SIGINT'); //TODO: not working on mac, linux?
-                    if (Settings.isWin) {
-                        Server.nailgunService.killNgAndZ3DeamonWin();
-                    }
-                    process.kill(this.verifierProcess.pid, 'SIGINT');
-                } catch (e) {// if stopping does not work, there is nothing we can do about it.
-                }
+                });
+                //process.kill(this.verifierProcess.pid, 'SIGINT');
+                //} catch (e) {}// if stopping does not work, there is nothing we can do about it.
                 let l = this.verifierProcess.listeners;
                 this.verifierProcess = null;
                 this.running = false;
@@ -866,7 +874,7 @@ export class VerificationTask {
         return new Promise((resolve, reject) => {
             try {
                 if (Server.verificationTasks && Server.verificationTasks.size > 0) {
-                    Log.log("Stop all running verificationTasks before restarting backend", LogLevel.Debug)
+                    Log.log("Stop all running verificationTasks", LogLevel.Debug)
                     let promises: Promise<boolean>[] = [];
                     Server.verificationTasks.forEach(task => {
                         promises.push(new Promise((res, rej) => {
