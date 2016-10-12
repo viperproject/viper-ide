@@ -32,7 +32,7 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         let previousState = "Previous State";
         let currentState = "Current State";
         if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
-            previousState = "Selected State";
+            previousState = "Reference State";
             currentState = "Error State";
         }
 

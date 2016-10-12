@@ -175,7 +175,7 @@ function canStartDebugging(): CheckResult {
             } else if (!fileState.stateVisualizer.readyToDebug) {
                 reason = dontDebugString + "the verification provided no states";
             } else if (Helper.getConfiguration("advancedFeatures").simpleMode === true && !fileState.stateVisualizer.decorationOptions.some(option => option.isErrorState)) {
-                reason = `Don't debug ${filename}. In simple mode debugging can only be started when there is an no error state.`;
+                reason = `Don't debug ${filename}. In simple mode debugging can only be started when there is an error state.`;
             } else {
                 result = true;
             }
@@ -1021,7 +1021,7 @@ function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
                     }
                 }, 500);
 
-                Log.log("Request verification for " + path.basename(uri));
+                Log.log("Request verification for " + path.basename(uri), LogLevel.Verbose);
 
                 let workspace = vscode.workspace.rootPath ? vscode.workspace.rootPath : path.dirname(fileState.uri.fsPath);
                 let params: VerifyParams = { uri: uri, manuallyTriggered: manuallyTriggered, workspace: workspace };
