@@ -180,6 +180,11 @@ export class NailgunService {
     }
 
     public killNgAndZ3Deamon(): Thenable<boolean> {
+        // TODO: it would be much better to kill the processes by process group,
+        // unfortunaltey that did not work.
+        // Moreover, the nailgun client is not listening to the SIGINT signal, 
+        // thus, this mechanism cannot be used to gracefully shut down nailgun and its child processes.
+        // using the pID to kill the processes is also not an option, as we do not know the pID of z3
         return new Promise((resolve, reject) => {
             let ngKillCommand: string;
             let z3KillCommand: string;
@@ -190,9 +195,8 @@ export class NailgunService {
                 ngKillCommand = "pkill -c ng";
                 z3KillCommand = "pkill -c z3";
             } else {
-                //TODO: implement killing ng deamon and z3 for mac
-                resolve(false);
-                return;
+                ngKillCommand = "pkill ng";
+                z3KillCommand = "pkill z3";
             }
             Log.log("Killing ng client", LogLevel.Info);
             Log.log("Command: " + ngKillCommand, LogLevel.Debug);

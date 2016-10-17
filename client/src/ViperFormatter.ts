@@ -113,11 +113,11 @@ export class ViperFormatter {
 				res += curr + next + nextNext;
 				i += 2;
 				continue;
-			} else if ("([".indexOf(curr) >= 0 || "())]:,".indexOf(next) >= 0) {
+			} else if (curr != "returns" && ("([".indexOf(curr) >= 0 || "())]:,".indexOf(next) >= 0 || (next == "{") && curr.endsWith(")"))) {
 				space = "";
 			} else if (curr == "{") {
-				space = (next == "\n" ? "" : "\n") + this.getIndent(tab, indent, next);
 				indent++;
+				space = (next == "\n" ? "" : "\n") + this.getIndent(tab, indent, next);
 			} else if (next == "}") {
 				indent--;
 				space = (curr == "\n" ? "" : "\n") + this.getIndent(tab, indent, next);
