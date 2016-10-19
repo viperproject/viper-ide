@@ -2,6 +2,26 @@ Visual Sutio Code is a powerful GUI text editor which is a base for implementing
 
 This repository contains the source files of the VS Code Extension, installation instructions, and the needed files for installing it on OsX, Debian, and Windows.
 
+# Changelog:
+
+## v.0.3.5:
+Bug fixes:
+* issue 53:
+  *	enabled toggling comments
+  *	enabled bracket highlighting
+  *	automatically add closing bracket when typing opening bracket  
+* issue 54: extending syntax and theme
+  *	added Rational as an alias for Perm
+  *	added perm and forperm as verification keywords
+  *	added label as other keywords
+* issue 50:
+  *	the deactivate method returns a promise as soon as it is done cleaning up. this allows VS Code to wait for the extension, however, sometimes it is still hitting a timeout and failing to finish the cleanup.
+* issue 45:
+  *	fixed autosave during running verification
+* issue 35:
+  * implemented ng and z3 kill command for mac
+* auto formatter fix
+
 # Installation
 
 ## 1. Install VS Code

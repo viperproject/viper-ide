@@ -99,7 +99,7 @@
 				</dict>
 				<dict>
 					<key>match</key>
-					<string>\b(Bool|Int|Ref|Perm)\b</string>
+					<string>\b(Bool|Int|Ref|Perm|Rational)\b</string>
 					<key>name</key>
 					<string>storage.type.primitive.silver</string>
 				</dict>
@@ -292,13 +292,13 @@
 				</dict>
 				<dict>
 					<key>match</key>
-					<string>\b(in|inhale|exhale|assert|assume|fold|unfold|folding|unfolding|package|apply|packaging|applying|wand|forall|exists|forallrefs|old)\b</string>
+					<string>\b(in|inhale|exhale|assert|assume|fold|unfold|folding|unfolding|package|apply|packaging|applying|wand|forall|exists|forallrefs|old|perm|forperm)\b</string>
 					<key>name</key>
 					<string>keyword.other.verification.silver</string>
 				</dict>
 				<dict>
 					<key>match</key>
-					<string>\b(new|let|returns|statelabel)\b</string>
+					<string>\b(new|let|returns|statelabel|label)\b</string>
 					<key>name</key>
 					<string>keyword.other.other.silver</string>
 				</dict>

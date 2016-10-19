@@ -333,20 +333,28 @@ function startVerificationController() {
     }));
 }
 
-export function deactivate() {
-    console.log("deactivate");
-    state.dispose();
-    console.log("state disposed");
-    //TODO: make sure no doc contains special chars any more
-    if (State.getLastActiveFile()) {
-        console.log("Removing special chars of last opened file.");
-        State.getLastActiveFile().stateVisualizer.removeSpecialCharacters(() => {
-            console.log("deactivated");
+export function deactivate(): Promise<any> {
+    return new Promise((resolve, reject) => {
+        console.log("deactivate");
+        state.dispose().then(() => {
+            console.log("state disposed");
+            //TODO: make sure no doc contains special chars any more
+            if (State.getLastActiveFile()) {
+                console.log("Removing special chars of last opened file.");
+                State.getLastActiveFile().stateVisualizer.removeSpecialCharacters(() => {
+                    console.log("Close Log");
+                    Log.dispose();
+                    console.log("Deactivated")
+                    resolve();
+                });
+            } else {
+                console.log("Close Log");
+                Log.dispose();
+                console.log("Deactivated")
+                resolve();
+            }
         });
-    }
-    console.log("Close Log");
-    Log.dispose();
-    console.log("Deactivated")
+    });
 }
 
 function registerFormatter() {
@@ -404,7 +412,11 @@ function startAutoSaver() {
     state.context.subscriptions.push(autoSaver);
 
     let onActiveTextEditorChangeDisposable = vscode.window.onDidChangeActiveTextEditor(resetAutoSaver);
-    let onTextEditorSelectionChange = vscode.window.onDidChangeTextEditorSelection(resetAutoSaver);
+    let onTextEditorSelectionChange = vscode.window.onDidChangeTextEditorSelection(selectionChange => {
+        if (Helper.isViperSourceFile(selectionChange.textEditor.document.uri)) {
+            resetAutoSaver();
+        }
+    });
     state.context.subscriptions.push(onActiveTextEditorChangeDisposable);
     state.context.subscriptions.push(onTextEditorSelectionChange);
 }
