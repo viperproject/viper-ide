@@ -1,7 +1,7 @@
 {
     "name": "viper-advanced",
     "displayName": "Viper Advanced",
-    "version": "0.3.5",
+    "version": "0.3.6",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "license": "MIT",
@@ -164,18 +164,18 @@
                 "viperSettings.nailgunSettings": {
                     "type": "object",
                     "default": {
-                        "v": "0.3.5",
+                        "v": "0.3.6",
                         "serverJar": "$viperTools$/nailgun/nailgun.jar",
                         "clientExecutable": "$viperTools$/nailgun/ng",
                         "port": "7654",
                         "timeout": 3000
                     },
-                    "description": "All nailgun related settings. The nailgun port can be refered to by $nailgunPort$"
+                    "description": "All Nailgun related settings. The Nailgun port can be referred to by $nailgunPort$."
                 },
                 "viperSettings.verificationBackends": {
                     "type": "array",
                     "default": [{
-                            "v": "0.3.5",
+                            "v": "0.3.6",
                             "name": "silicon",
                             "paths": [
                                 "$viperTools$/backends/silicon.jar"
@@ -190,7 +190,7 @@
                             }]
                         },
                         {
-                            "v": "0.3.5",
+                            "v": "0.3.6",
                             "name": "silicon with infer",
                             "paths": [
                                 "$viperTools$/backends/silicon.jar",
@@ -221,7 +221,7 @@
                             ]
                         },
                         {
-                            "v": "0.3.5",
+                            "v": "0.3.6",
                             "name": "carbon",
                             "paths": [
                                 "$viperTools$/backends/carbon.jar"
@@ -241,7 +241,7 @@
                 "viperSettings.paths": {
                     "type": "object",
                     "default": {
-                        "v": "0.3.5",
+                        "v": "0.3.6",
                         "viperToolsPath": {
                             "windows": "%ProgramFiles%\\Viper\\",
                             "linux": "/usr/local/Viper",
@@ -262,31 +262,32 @@
                             "linux": "$viperTools$/graphviz/bin/dot",
                             "mac": "$viperTools$/graphviz/bin/dot"
                         }
-                    }
+                    },
+                    "description": "Paths to the dependencies."
                 },
                 "viperSettings.preferences": {
                     "type": "object",
                     "default": {
-                        "v": "0.3.5",
+                        "v": "0.3.6",
                         "autoSave": true,
                         "logLevel": 1,
                         "autoVerifyAfterBackendChange": true,
                         "showProgress": true
                     },
-                    "description": "General user preferences"
+                    "description": "General user preferences."
                 },
                 "viperSettings.javaSettings": {
                     "type": "object",
                     "default": {
-                        "v": "0.3.5",
+                        "v": "0.3.6",
                         "customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$"
                     },
-                    "description": "Settings used for running java command"
+                    "description": "Settings used for running Java commands."
                 },
                 "viperSettings.advancedFeatures": {
                     "type": "object",
                     "default": {
-                        "v": "0.3.5",
+                        "v": "0.3.6",
                         "enabled": true,
                         "showSymbolicState": false,
                         "simpleMode": true,

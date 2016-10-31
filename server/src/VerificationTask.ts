@@ -3,7 +3,7 @@
 import child_process = require('child_process');
 import {Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
 import {Settings} from './Settings'
-import {Common, ExecutionTrace, BackendOutput, BackendOutputType, SymbExLogEntry, Stage, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, HeapGraph, VerificationState, LogLevel, Success} from './ViperProtocol'
+import {Common, ExecutionTrace, BackendOutput, BackendOutputType, SymbExLogEntry, Stage, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, Range, HeapGraph, VerificationState, LogLevel, Success} from './ViperProtocol'
 import {Log} from './Log';
 import {NailgunService} from './NailgunService';
 import {Statement} from './Statement';
@@ -106,9 +106,15 @@ export class VerificationTask {
             let allBordersPrinted = false;
 
             let currentMethod;
+
+            let numberOfClientSteps = 0;
             this.steps.forEach((element, i) => {
 
                 let clientNumber = element.decorationOptions ? "" + element.decorationOptions.numberToDisplay : "";
+
+                if (element.canBeShownAsDecoration) {
+                    numberOfClientSteps++;
+                }
 
                 let parent = element.getClientParent();
                 if (parent && element.decorationOptions) {
@@ -120,6 +126,8 @@ export class VerificationTask {
                 spacesToPut = spacesToPut < 0 ? 0 : spacesToPut;
                 res += `\n\t${clientNumber} ${"\t".repeat(spacesToPut)}(${serverNumber})|${"\t".repeat(element.depthLevel())} ${element.firstLine()}`;
             });
+
+            res += '\nNumberOfClientSteps: ' + numberOfClientSteps
             //Log.log("Steps:\n" + res, LogLevel.LowLevelDebug);
             return res;
         } catch (e) {
@@ -628,7 +636,6 @@ export class VerificationTask {
                                             this.typeCheckingCompleted = false;
                                         }
                                         let range = Server.extractRange(err.start, err.end);
-
                                         Log.log(`Error: [${Server.backend.name}] ${err.tag ? "[" + err.tag + "] " : ""}${range.start.line + 1}:${range.start.character + 1} ${err.message}`, LogLevel.Default);
                                         this.diagnostics.push({
                                             range: range,
@@ -735,12 +742,17 @@ export class VerificationTask {
                     tag = tag ? "[" + tag + "] " : "";
                     let pos = parsedPosition.pos || { line: 0, character: 0 };
 
-                    Log.log(`Error: [${Server.backend.name}] ${tag}${pos.line + 1}:${pos.character + 1} ${message}`, LogLevel.Default);
+                    let posString = parsedPosition.range ? this.prettyRange(parsedPosition.range) : this.prettyPos(pos);
+
+                    //either pick range or pos to show diagnostics.
+                    let range = parsedPosition.range ? parsedPosition.range : {
+                        start: pos,
+                        end: { line: pos.line, character: 10000 }//Number.max does not work -> 10000 is an arbitrary large number that does the job
+                    };
+
+                    Log.log(`Error: [${Server.backend.name}] ${tag}${posString} ${message}`, LogLevel.Default);
                     this.diagnostics.push({
-                        range: {
-                            start: pos,
-                            end: { line: pos.line, character: 10000 }//Number.max does not work -> 10000 is an arbitrary large number that does the job
-                        },
+                        range: range,
                         source: null, //Server.backend.name
                         severity: DiagnosticSeverity.Error,
                         message: message
@@ -752,6 +764,14 @@ export class VerificationTask {
             case VerificationState.VerificationPrintingHelp:
                 return -1;
         }
+    }
+
+    private prettyRange(range: Range): string {
+        return `${this.prettyPos(range.start)}-${this.prettyPos(range.end)}`;
+    }
+
+    private prettyPos(pos: Position): string {
+        return `${pos.line + 1}:${pos.character + 1}`;
     }
 
     private completeVerificationState() {

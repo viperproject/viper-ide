@@ -10,7 +10,7 @@ import {State} from './ExtensionState';
 import {Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success} from './ViperProtocol';
 import Uri from 'vscode-uri/lib/index';
 import {Log} from './Log';
-import {StateVisualizer} from './StateVisualizer';
+import {StateVisualizer, MyDecorationOptions} from './StateVisualizer';
 import {Helper} from './Helper';
 import {ViperFormatter} from './ViperFormatter';
 import {ViperFileState} from './ViperFileState';
@@ -57,6 +57,22 @@ export function initializeUnitTest(done) {
     //activate(context);
 }
 
+function addTestDecoration() {
+
+    let options: vscode.DecorationOptions[] = []
+    options.push({
+        range: new vscode.Range(new vscode.Position(2, 1), new vscode.Position(2, 1)),
+        renderOptions: {
+            before: {
+                contentText: "Decoration",
+                color: "red"
+            }
+        }
+    });
+    let decoration = vscode.window.createTextEditorDecorationType(options);
+    vscode.window.activeTextEditor.setDecorations(decoration, options);
+}
+
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -83,6 +99,7 @@ export function activate(context: vscode.ExtensionContext) {
     let uri = vscode.window.activeTextEditor.document.uri;
     State.setLastActiveFile(uri, vscode.window.activeTextEditor);
     startVerificationController();
+    //addTestDecoration();
 }
 
 let verifyingAllFiles = false;
@@ -892,10 +909,16 @@ function registerHandlers() {
         try {
             Log.log("Open logFile located at: " + Log.logFilePath, LogLevel.Info);
             vscode.workspace.openTextDocument(Log.logFilePath).then(textDocument => {
-                vscode.window.showTextDocument(textDocument, vscode.ViewColumn.Two);
-            })
+                vscode.window.showTextDocument(textDocument, vscode.ViewColumn.Two).then(() => {
+                    Log.log("Showing logfile succeeded", LogLevel.Debug);
+                }, error => {
+                    Log.error("vscode.window.showTextDocument call failed while opening the logfile: " + error);
+                });
+            }, error => {
+                Log.error("vscode.window.openTextDocument call failed while opening the logfile: " + error);
+            });
         } catch (e) {
-            Log.error("Error opening log file: " + e);
+            Log.error("Error opening logFile: " + e);
         }
     }));
 }

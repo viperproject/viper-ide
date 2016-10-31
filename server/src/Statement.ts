@@ -48,7 +48,7 @@ export class Statement {
         let position = symbExLog.pos ? Server.extractPosition(symbExLog.pos).pos || { line: 0, character: 0 } : null;
         let formula = symbExLog.value;
         let statement: Statement;
-        if (symbExLog.prestate) {
+        if (symbExLog.prestate) { 
             let unpackedStore = symbExLog.prestate ? symbExLog.prestate.store : [];
             let unpackedHeap = symbExLog.prestate.heap;
             let unpackedOldHeap = symbExLog.prestate.oldHeap;
@@ -68,9 +68,9 @@ export class Statement {
         statement.canBeShownAsDecoration = !!position && !wellformednessCheck;
 
         //hide simple steps like eval this, eval read, eval write
-        if (type == StatementType.EVAL && formula && formula == "this" || formula == "write" || formula == "read") {
-            statement.canBeShownAsDecoration = false;
-        }
+        // if (type == StatementType.EVAL && formula && formula == "this" || formula == "write" || formula == "read") {
+        //     statement.canBeShownAsDecoration = false;
+        // }
 
         //add depth info
         statement._depth = depth;

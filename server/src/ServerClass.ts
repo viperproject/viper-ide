@@ -1,7 +1,7 @@
 'use strict'
 
 import {IConnection, TextDocuments, PublishDiagnosticsParams} from 'vscode-languageserver';
-import {Command, LogParams, SettingsCheckedParams, Position, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel} from './ViperProtocol'
+import {Command, LogParams, SettingsCheckedParams, Position, Range, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel} from './ViperProtocol'
 import {NailgunService} from './NailgunService';
 import {VerificationTask} from './VerificationTask';
 import {Log} from './Log';
@@ -95,15 +95,17 @@ export class Server {
         }
     }
 
-    public static extractPosition(s: string): { before: string, pos: Position, after: string } {
+    public static extractPosition(s: string): { before: string, pos: Position, range: Range, after: string } {
         let before = "";
         let after = "";
-        if (!s) return { before: before, pos: null, after: after };
+        if (!s) return { before: before, pos: null, range: null, after: after };
         let pos: Position;
+        let range: Range;
         try {
             if (s) {
 
-                let regex = /^(.*?)(\(.*?@(\d+)\.(\d+)\)|(\d+):(\d+)|<.*>):?(.*)$/.exec(s);
+                //parse position:
+                let regex = /^(.*?)(\([^ ]*?@(\d+)\.(\d+)\)|(\d+):(\d+)|<.*>):?(.*)$/.exec(s);
                 if (regex && regex[3] && regex[4]) {
                     //subtract 1 to confirm with VS Codes 0-based numbering
                     let lineNr = Math.max(0, +regex[3] - 1);
@@ -122,11 +124,34 @@ export class Server {
                 if (regex && regex[7]) {
                     after = regex[7].trim();
                 }
+
+                //parse range
+                regex = /@\[(\d+)\.(\d+)-(\d+)\.(\d+)]/.exec(s);
+                if (regex && regex[1] && regex[2] && regex[3] && regex[4]) {
+                    range = {
+                        start: {
+                            line: Math.max(0, +regex[1] - 1),
+                            character: Math.max(0, +regex[2] - 1)
+                        },
+                        end: {
+                            line: Math.max(0, +regex[3] - 1),
+                            character: Math.max(0, +regex[4] - 1)
+                        }
+                    }
+                    if (pos) {
+                        if (pos.line != range.start.line || pos.character != range.start.character) {
+                            Log.log("Warning: parsed message has contradicting position information", LogLevel.Debug);
+                        }
+                    }
+                    else {
+                        pos = range.start;
+                    }
+                }
             }
         } catch (e) {
             Log.error("Error extracting number out of: " + s);
         }
-        return { before: before, pos: pos, after: after };
+        return { before: before, pos: pos, range: range, after: after };
     }
 
     public static extractRange(startString: string, endString: string) {

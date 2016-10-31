@@ -41,7 +41,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
             <dict>
                 <!-- viper related file -->
                 <key>match</key>
-                <string>\w+\.(vpr|sil|dot|svg)\b</string>
+                <string>[\w-]+\.(vpr|sil|dot|svg)\b</string>
                 <key>name</key>
                 <string>info-token</string>
             </dict>
@@ -90,7 +90,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
             <dict>
                 <!-- Generic URI/URL -->
                 <key>match</key>
-                <string>\b(?i:([a-z]|[0-9])+\:((\/\/)|((\/\/)?[^\s;]))+)</string>
+                <string>\b(?i:(\w)+\:((\/\/)|((\/\/)?[^\s;]))+)</string>
                 <key>name</key>
                 <string>info-token</string>
             </dict>

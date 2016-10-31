@@ -37,9 +37,10 @@ export class HeapVisualizer {
             if (state.parent) {
                 parent = state.getClientParent();
                 if (!parent) {
-                    parent = state;
+                    parent = state.verifiable.root;
                 }
-            } else {
+            }
+            if (!parent) {
                 parent = state;
             }
             this.addChildToExecutionTree(state.index, cluster, parent);

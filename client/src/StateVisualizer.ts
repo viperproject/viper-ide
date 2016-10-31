@@ -146,9 +146,12 @@ export class StateVisualizer {
         let currHeapIndex = this.nextHeapIndex
         this.nextHeapIndex = 1 - this.nextHeapIndex;
         this.createAndShowHeap(heapGraph, currHeapIndex);
+        //only update previous state, if not already updated
+        if (this.currentState != heapGraph.state) {
+            this.previousState = this.currentState;
+            this.currentState = heapGraph.state;
+        }
         //highligh states
-        this.previousState = this.currentState;
-        this.currentState = heapGraph.state;
         this.markStateSelection(heapGraph.methodName, heapGraph.position);
     }
 
@@ -164,6 +167,7 @@ export class StateVisualizer {
         this.nextHeapIndex = 1;
         this.createAndShowHeap(heapGraph, 0);
         this.currentState = heapGraph.state;
+        this.previousState = -1;
         this.markStateSelection(heapGraph.methodName, heapGraph.position);
         this.requestState(heapGraph.state, false);
     }
@@ -282,6 +286,7 @@ export class StateVisualizer {
             //state should be visualized
             if (this.currentState >= 0 && this.currentState < this.decorationOptions.length) {
                 let selectedOption = this.decorationOptions[this.currentState];
+
                 //this.selectedPosition = this.decorationOptionsOrderedByState[selectedState].range.start;
                 this.currentDepth = selectedOption.depth;
                 let currentMethodIdx = selectedOption.methodIndex;
@@ -293,35 +298,23 @@ export class StateVisualizer {
                     let option = this.decorationOptions[i];
                     let errorStateFound = false;
 
-                    //if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
                     this.hide(option);
-                    //} else {
-                    //    this.collapseOutsideMethod(option, currentMethodIdx);
-                    //}
-
-                    //default is grey
                     this.color(option, StateColors.uninterestingState(darkGraphs), darkGraphs);
-                    if (option.isErrorState /*&& option.methodIndex === currentMethodIdx*/) {
+
+                    if (option.index == this.currentState) {
+                        //if it's the current step -> red
+                        this.expand(option);
+                        this.color(option, StateColors.currentState(darkGraphs), darkGraphs);
+                        continue;
+                    } else if (option.index == this.previousState) {
+                        this.expand(option);
+                        this.color(option, StateColors.previousState(darkGraphs), darkGraphs);
+                        continue;
+                    } else if (option.isErrorState /*&& option.methodIndex === currentMethodIdx*/) {
                         this.collapse(option);
                         this.color(option, StateColors.errorState(darkGraphs), darkGraphs);
                         errorStateFound = true;
                     }
-                    if (option.index == this.currentState) {
-                        //if it's the current step -> red
-                        this.color(option, StateColors.currentState(darkGraphs), darkGraphs);
-                        continue;
-                    }
-                    if (option.index == this.previousState) {
-                        this.color(option, StateColors.previousState(darkGraphs), darkGraphs);
-                        continue;
-                    }
-                    // else if (!errorStateFound &&
-                    //     option.depth <= option.depth
-                    //     && option.methodIndex === currentMethodIdx //&& option.state > selectedState
-                    // ) {
-                    //     //only interested in parent states
-                    //     option.renderOptions.before.color = StateColors.uninterestingState(darkGraphs);
-                    // }
                 }
                 if (StateVisualizer.showStates) {
                     //mark execution trace that led to the current state
@@ -331,12 +324,14 @@ export class StateVisualizer {
                         Log.log("Mark Execution Trace", LogLevel.Debug);
                         trace.forEach(element => {
                             let option = this.decorationOptions[element.state];
-                            if (element.showNumber) {
-                                this.expand(option);
-                            } else {
-                                this.collapse(option);
+                            if (element.state != this.previousState && element.state != this.currentState) {
+                                if (element.showNumber) {
+                                    this.expand(option);
+                                } else {
+                                    this.collapse(option);
+                                }
+                                this.color(option, element.color, darkGraphs);
                             }
-                            this.color(option, element.color, darkGraphs);
                         });
                         this.showDecorations();
                     })
@@ -379,6 +374,7 @@ export class StateVisualizer {
                 } else {
                     //Advanced Mode
                     if (this.currentState != selectedState) {
+                        this.previousState = this.currentState;
                         this.currentState = selectedState
                         this.requestState(this.currentState, true);
                     } else {
