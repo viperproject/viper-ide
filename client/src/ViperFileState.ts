@@ -1,6 +1,6 @@
 'use strict'
 
-import {LogLevel, Success} from './ViperProtocol';
+import {LogLevel, Success,TimingInfo} from './ViperProtocol';
 import * as vscode from 'vscode';
 import {StateVisualizer} from './StateVisualizer';
 import {Log} from './Log';
@@ -32,6 +32,8 @@ export class ViperFileState {
     onlySpecialCharsChanged: boolean;
     decorationsShown: boolean;
     specialCharsShown: boolean;
+
+    timingInfo:TimingInfo;
 
     editor: vscode.TextEditor;
 

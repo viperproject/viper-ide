@@ -492,7 +492,7 @@ function handleStateChange(params: StateChangeParams) {
                     //complete the timing measurement
                     addTiming(100, 'white', true);
                     if (Helper.getConfiguration("preferences").showProgress === true) {
-                        verifiedFile.stateVisualizer.addTimingInformationToFile({ total: params.time, timings: timings });
+                        verifiedFile.stateVisualizer.addTimingInformationToFileState({ total: params.time, timings: timings });
                     }
                     //workList.push({ type: TaskType.VerificationCompleted, uri: uri, success: params.success });
                     let msg: string = "";

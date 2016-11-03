@@ -420,6 +420,34 @@ export class StateVisualizer {
     private timingPrefix = '//@TIMING:';
 
     getLastTiming(): TimingInfo {
+        let uri = this.viperFile.editor.document.uri.toString();
+        let viperFile:ViperFileState =  State.viperFiles.get(uri);
+        let timingInfo: TimingInfo;
+        if(viperFile){
+            timingInfo = viperFile.timingInfo;
+        }
+        return timingInfo;
+    }
+
+    addTimingInformationToFileState(timingInfo: TimingInfo) {
+        if (this.areSpecialCharsBeingModified("Don't add timing to file, its being modified")) return;
+        try {
+            let editor:vscode.TextEditor = this.viperFile.editor;
+            if (Helper.getConfiguration("preferences").showProgress && this.viperFile.open && editor) {
+                //strangely editor is null here, even though I just checked
+                let uri = editor.document.uri.toString();
+                let viperFile:ViperFileState =  State.viperFiles.get(uri);
+                if(viperFile){
+                    viperFile.timingInfo = timingInfo;
+                }
+            }
+        } catch (e) {
+            Log.error("Error adding timing information: " + e);
+        }
+    }
+
+//TIMING IN FILE
+    getLastTimingFromFile(): TimingInfo {
         let content = this.viperFile.editor.document.getText();
         let timingStart = content.indexOf(this.timingPrefix);
         let timingEnd = content.indexOf('}', timingStart) + 1;
@@ -433,13 +461,11 @@ export class StateVisualizer {
         }
         return timingInfo;
     }
-
-    //TIMING IN FILE
     addTimingInformationToFile(time: TimingInfo) {
         if (this.areSpecialCharsBeingModified("Don't add timing to file, its being modified")) return;
         try {
             let editor = this.viperFile.editor;
-            if (Helper.getConfiguration("preferences").showProgress && editor) {
+            if (Helper.getConfiguration("preferences").showProgress && this.viperFile.open && editor) {
                 this.addingTimingInformation = true;
                 let openDoc = editor.document;
                 let edit = new vscode.WorkspaceEdit();
