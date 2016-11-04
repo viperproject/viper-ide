@@ -10,6 +10,10 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
     private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
 
     private heapGraphs: HeapGraph[];
+
+    public nofHeapGraphs(): number {
+        return this.heapGraphs.length;
+    }
     public setState(heapGraph: HeapGraph, index: number) {
         this.heapGraphs[index] = heapGraph;
     }

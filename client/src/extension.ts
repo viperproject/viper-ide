@@ -725,7 +725,7 @@ function registerHandlers() {
                         visualizer.focusOnState(heapGraph);
                     } else {
                         //replace the execution state
-                        visualizer.setState(heapGraph, 1);
+                        visualizer.setState(heapGraph);
                     }
                 } else {
                     //Advanced Mode

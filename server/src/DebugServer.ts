@@ -126,14 +126,16 @@ export class DebugServer {
 
                             if (Settings.settings.advancedFeatures.simpleMode && task.shownExecutionTrace) {
                                 //SIMPLE MODE
+                                let newExecutionTraceIndex = 0;
                                 let indexIntoExecutionTrace = 0;
                                 while (indexIntoExecutionTrace < task.shownExecutionTrace.length && task.shownExecutionTrace[indexIntoExecutionTrace].state != data.state) {
                                     indexIntoExecutionTrace++;
                                 }
                                 if (indexIntoExecutionTrace >= task.shownExecutionTrace.length) {
-                                    Log.error("the shown state must be in the execution trace in simple mode");
+                                    //Log.error("the shown state must be in the execution trace in simple mode");
+                                    newExecutionTraceIndex = 0;
                                 } else {
-                                    let newExecutionTraceIndex = indexIntoExecutionTrace;
+                                    newExecutionTraceIndex = indexIntoExecutionTrace;
                                     switch (data.type) {
                                         case StepType.Stay:
                                             //stay at the same executionTrace element
@@ -155,8 +157,8 @@ export class DebugServer {
                                             newExecutionTraceIndex = 0;
                                             break;
                                     }
-                                    newServerState = task.clientStepIndexToServerStep[task.shownExecutionTrace[newExecutionTraceIndex].state].index;
                                 }
+                                newServerState = task.clientStepIndexToServerStep[task.shownExecutionTrace[newExecutionTraceIndex].state].index;
                             } else {
                                 //ADVANCED MODE
                                 switch (data.type) {
@@ -335,7 +337,10 @@ export class DebugServer {
     static stopDebugging() {
         if (DebugServer.debuggerRunning) {
             try {
-                ipc.of.viperDebugger.emit("StopDebugging");
+                if (ipc.of.viperDebugger) {
+                    ipc.of.viperDebugger.emit("StopDebugging");
+                    Log.log("LanguageServer is telling Debugger to stop debugging", LogLevel.Debug)
+                }
                 ipc.disconnect();
                 Log.log("LanguageServer is telling Debugger to stop debugging", LogLevel.Debug)
             } catch (e) {

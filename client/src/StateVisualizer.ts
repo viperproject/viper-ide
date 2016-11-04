@@ -155,8 +155,11 @@ export class StateVisualizer {
         this.markStateSelection(heapGraph.methodName, heapGraph.position);
     }
 
-    public setState(heapGraph: HeapGraph, heapIndex: number) {
-        this.createAndShowHeap(heapGraph, 1);
+    public setState(heapGraph: HeapGraph) {
+        let currentIndex = this.provider.nofHeapGraphs() > 0 ? 1 : 0;
+        this.createAndShowHeap(heapGraph, currentIndex);
+        this.nextHeapIndex =  1;
+
         let currentHeap = this.provider.getCurrentHeap();
         this.previousState = this.provider.getPreviousHeap().state;
         this.markStateSelection(currentHeap.methodName, currentHeap.position);
@@ -421,9 +424,9 @@ export class StateVisualizer {
 
     getLastTiming(): TimingInfo {
         let uri = this.viperFile.editor.document.uri.toString();
-        let viperFile:ViperFileState =  State.viperFiles.get(uri);
+        let viperFile: ViperFileState = State.viperFiles.get(uri);
         let timingInfo: TimingInfo;
-        if(viperFile){
+        if (viperFile) {
             timingInfo = viperFile.timingInfo;
         }
         return timingInfo;
@@ -432,12 +435,12 @@ export class StateVisualizer {
     addTimingInformationToFileState(timingInfo: TimingInfo) {
         if (this.areSpecialCharsBeingModified("Don't add timing to file, its being modified")) return;
         try {
-            let editor:vscode.TextEditor = this.viperFile.editor;
+            let editor: vscode.TextEditor = this.viperFile.editor;
             if (Helper.getConfiguration("preferences").showProgress && this.viperFile.open && editor) {
                 //strangely editor is null here, even though I just checked
                 let uri = editor.document.uri.toString();
-                let viperFile:ViperFileState =  State.viperFiles.get(uri);
-                if(viperFile){
+                let viperFile: ViperFileState = State.viperFiles.get(uri);
+                if (viperFile) {
                     viperFile.timingInfo = timingInfo;
                 }
             }
@@ -446,7 +449,7 @@ export class StateVisualizer {
         }
     }
 
-//TIMING IN FILE
+    //TIMING IN FILE
     getLastTimingFromFile(): TimingInfo {
         let content = this.viperFile.editor.document.getText();
         let timingStart = content.indexOf(this.timingPrefix);
