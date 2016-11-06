@@ -82,7 +82,7 @@ export function activate(context: vscode.ExtensionContext) {
         pathSettingsVersion: "0.2.15",
         userPreferencesVersion: "0.2.15",
         javaSettingsVersion: "0.2.15",
-        advancedFeaturesVersion: "0.3.1"
+        advancedFeaturesVersion: "0.3.8"
     }
     workList = [];
     Log.initialize();

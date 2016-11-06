@@ -142,26 +142,39 @@ export class StateVisualizer {
     }
 
     public pushState(heapGraph: HeapGraph) {
-        //update heap preview
-        let currHeapIndex = this.nextHeapIndex
-        this.nextHeapIndex = 1 - this.nextHeapIndex;
-        this.createAndShowHeap(heapGraph, currHeapIndex);
-        //only update previous state, if not already updated
+        if (Helper.getConfiguration("advancedFeatures").compareStates === true) {
+            //update heap preview
+            let currHeapIndex = this.nextHeapIndex
+            this.nextHeapIndex = 1 - this.nextHeapIndex;
+            this.createAndShowHeap(heapGraph, currHeapIndex);
+            //only update previous state, if not already updated
+            if (this.currentState != heapGraph.state) {
+                this.previousState = this.currentState;
+                this.currentState = heapGraph.state;
+            }
+            //highligh states
+            this.markStateSelection(heapGraph.methodName, heapGraph.position);
+        } else {
+            this.setState(heapGraph);
+        }
+    }
+
+    public setState(heapGraph: HeapGraph) {
+        let currentIndex = 0;
+        if (Helper.getConfiguration("advancedFeatures").compareStates === true) {
+            currentIndex = this.provider.nofHeapGraphs() > 0 ? 1 : 0;
+        }
         if (this.currentState != heapGraph.state) {
             this.previousState = this.currentState;
             this.currentState = heapGraph.state;
         }
-        //highligh states
-        this.markStateSelection(heapGraph.methodName, heapGraph.position);
-    }
 
-    public setState(heapGraph: HeapGraph) {
-        let currentIndex = this.provider.nofHeapGraphs() > 0 ? 1 : 0;
         this.createAndShowHeap(heapGraph, currentIndex);
-        this.nextHeapIndex =  1;
+        this.nextHeapIndex = 1;
 
         let currentHeap = this.provider.getCurrentHeap();
-        this.previousState = this.provider.getPreviousHeap().state;
+        let previousHeap = this.provider.getPreviousHeap();
+        this.previousState = previousHeap ? previousHeap.state : -1;
         this.markStateSelection(currentHeap.methodName, currentHeap.position);
     }
 

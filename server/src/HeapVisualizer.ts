@@ -51,6 +51,7 @@ export class HeapVisualizer {
     }
 
     private static addChildToExecutionTree(currentState: number, cluster: DotCluster, state: Statement, parentNode?: DotNode, showChildren: boolean = true) {
+        if (!state) return;
         //add node
         let currentLabel = state.toDotLabel();
         let isCurrentState = currentState == state.index;
@@ -61,11 +62,38 @@ export class HeapVisualizer {
             cluster.addEdge(cluster, parentNode.name, cluster, currentNode.name);
         }
 
-        //add children 
-        if (!state.canBeShownAsDecoration || showChildren || isCurrentState) {
-            state.children.forEach(child => {
-                this.addChildToExecutionTree(currentState, cluster, child, currentNode, false);
-            });
+
+        if (state.children && state.children.length > 0 && (!state.canBeShownAsDecoration || showChildren || isCurrentState)) {
+            let firstChild = state.children[0];
+            let lastChild = state.children[state.children.length - 1];
+            if (firstChild.index > currentState) {
+                //only show firstChild
+                this.addChildToExecutionTree(currentState, cluster, firstChild, currentNode, false);
+            }
+            else if (lastChild.index < currentState) {
+                //only show lastChild
+                this.addChildToExecutionTree(currentState, cluster, lastChild, currentNode, false);
+            }
+            else {
+                let currentStateIndex = -1;
+                state.children.forEach((state, index) => {
+                    if (state.index == currentState) {
+                        currentStateIndex = index;
+                    }
+                });
+                if (currentStateIndex >= 0) {
+                    //current state is in children list
+                    this.addChildToExecutionTree(currentState, cluster, state.children[currentStateIndex - 1], currentNode, false);
+                    this.addChildToExecutionTree(currentState, cluster, state.children[currentStateIndex], currentNode, false);
+                    this.addChildToExecutionTree(currentState, cluster, state.children[currentStateIndex + 1], currentNode, false);
+                }
+                else {
+                    //show all children 
+                    state.children.forEach(child => {
+                        this.addChildToExecutionTree(currentState, cluster, child, currentNode, false);
+                    });
+                }
+            }
         }
     }
 

@@ -388,6 +388,8 @@ export interface AdvancedFeatureSettings extends VersionedSettings {
     showPartialExecutionTree: boolean;
     //Maximal buffer size for verification in KB
     verificationBufferSize: number;
+    //compare states
+    compareStates: boolean;
 }
 
 export interface PlatformDependentPath {

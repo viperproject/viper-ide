@@ -239,7 +239,7 @@ export class DebugServer {
                             );
                         }
                         catch (e) {
-                            Log.error("Error handling move request: " + e);
+                            Log.error("Error handling move request: " + dataString + ": " + e);
                         }
                     }
                 );
