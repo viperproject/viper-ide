@@ -36,8 +36,10 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         let previousState = "Previous State";
         let currentState = "Current State";
         if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
-            previousState = "Reference State";
-            currentState = "Error State";
+            if (Helper.getConfiguration("advancedFeatures").compareStates === true) {
+                previousState = "Reference State";
+                currentState = "Error State";
+            }
         }
 
         let table: string;
@@ -65,7 +67,7 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         let debugInfo = `<p><font face="courier">${this.stringToHtml(this.stateVisualizer.globalInfo)}</font></p>
  <a href='${uri}'>view source</a>`;
 
-return `<!DOCTYPE html>
+        return `<!DOCTYPE html>
 <html lang="en"><head>
 <style>
  table td, table td * {
@@ -92,7 +94,7 @@ return `<!DOCTYPE html>
  ${Log.logLevel >= LogLevel.Debug ? debugInfo : ""}
 </body>
 </html>`;
- }
+    }
 
     private heapGraphToContent(index: number, otherIndex?: number): string {
         let heapGraph = this.heapGraphs[index];
@@ -129,7 +131,7 @@ return `<!DOCTYPE html>
         let state = this.stateVisualizer.decorationOptions[heapGraph.state];
         let debugInfo = `<p>${this.stringToHtml(heapGraph.stateInfos)}</p>`;
 
-        
+
         let content = `
     <h2>${heapGraph.fileName}<br />${heapGraph.methodType}: ${heapGraph.methodName}<br />${state.hoverMessage}</h2>
     <h3${state.isErrorState ? ' class="ErrorState">Errorstate' : ">State"} ${state.numberToDisplay}</h3>

@@ -309,6 +309,8 @@ export class StateVisualizer {
                 this.debuggedMethodName = debuggedMethodName
 
                 let darkGraphs = <boolean>Helper.getConfiguration("advancedFeatures").darkGraphs === true;
+
+                let isCurrentStateErrorState = false;
                 //color labels
                 for (var i = 0; i < this.decorationOptions.length; i++) {
                     let option = this.decorationOptions[i];
@@ -321,6 +323,7 @@ export class StateVisualizer {
                         //if it's the current step -> red
                         this.expand(option);
                         this.color(option, StateColors.currentState(darkGraphs), darkGraphs);
+                        isCurrentStateErrorState = option.isErrorState;
                         continue;
                     } else if (option.index == this.previousState) {
                         this.expand(option);
@@ -335,26 +338,38 @@ export class StateVisualizer {
                 if (StateVisualizer.showStates) {
                     //mark execution trace that led to the current state
                     Log.log("Request Execution Trace", LogLevel.Info);
-                    let params: GetExecutionTraceParams = { uri: this.uri.toString(), clientState: this.currentState };
-                    State.instance.client.sendRequest(Commands.GetExecutionTrace, params).then((trace: ExecutionTrace[]) => {
-                        Log.log("Mark Execution Trace", LogLevel.Debug);
-                        trace.forEach(element => {
-                            let option = this.decorationOptions[element.state];
-                            if (element.state != this.previousState && element.state != this.currentState) {
-                                if (element.showNumber) {
-                                    this.expand(option);
-                                } else {
-                                    this.collapse(option);
-                                }
-                                this.color(option, element.color, darkGraphs);
-                            }
+                    let simpleMode = Helper.getConfiguration("advancedFeatures").simpleMode;
+                    if (!this.executionTrace || simpleMode !== true || (simpleMode === true && isCurrentStateErrorState)) {
+                        let params: GetExecutionTraceParams = { uri: this.uri.toString(), clientState: this.currentState };
+                        State.instance.client.sendRequest(Commands.GetExecutionTrace, params).then((trace: ExecutionTrace[]) => {
+                            this.executionTrace = trace;
+                            this.markExecutionTrace(darkGraphs);
                         });
-                        this.showDecorations();
-                    })
+                    }else{
+                        this.markExecutionTrace(darkGraphs);
+                    }
                 }
             }
         }
     }
+
+    private markExecutionTrace(darkGraphs: boolean) {
+        Log.log("Mark Execution Trace", LogLevel.Debug);
+        this.executionTrace.forEach(element => {
+            let option = this.decorationOptions[element.state];
+            if (element.state != this.previousState && element.state != this.currentState) {
+                if (element.showNumber) {
+                    this.expand(option);
+                } else {
+                    this.collapse(option);
+                }
+                this.color(option, element.color, darkGraphs);
+            }
+        });
+        this.showDecorations();
+    }
+
+    private executionTrace: ExecutionTrace[];
 
     //request the heap graph of state from the language server
     private requestState(state: number, isHeapNeeded: boolean) {

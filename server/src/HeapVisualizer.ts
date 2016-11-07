@@ -54,25 +54,22 @@ export class HeapVisualizer {
         if (!state) return;
         //add node
         let currentLabel = state.toDotLabel();
+        let currentNodeName = state.index + " " + currentLabel;
         let isCurrentState = currentState == state.index;
-        let currentNode = cluster.addNode(currentLabel, currentLabel, false, (isCurrentState ? "bold" : (state.canBeShownAsDecoration ? null : "dotted")));
+        let currentNode = cluster.addNode(currentNodeName, currentLabel, false, (isCurrentState ? "bold" : (state.canBeShownAsDecoration ? null : "dotted")));
 
         //addEdge
         if (parentNode) {
             cluster.addEdge(cluster, parentNode.name, cluster, currentNode.name);
         }
 
-
+        //add children
         if (state.children && state.children.length > 0 && (!state.canBeShownAsDecoration || showChildren || isCurrentState)) {
             let firstChild = state.children[0];
             let lastChild = state.children[state.children.length - 1];
-            if (firstChild.index > currentState) {
+            if (firstChild.index > currentState || lastChild.index < currentState) {
                 //only show firstChild
                 this.addChildToExecutionTree(currentState, cluster, firstChild, currentNode, false);
-            }
-            else if (lastChild.index < currentState) {
-                //only show lastChild
-                this.addChildToExecutionTree(currentState, cluster, lastChild, currentNode, false);
             }
             else {
                 let currentStateIndex = -1;

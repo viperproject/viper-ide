@@ -119,6 +119,7 @@ export class DebugServer {
 
                             let task = Server.debuggedVerificationTask;
                             //translate from client state to server state
+                            
                             let currentServerState = task.clientStepIndexToServerStep[data.state].index;
 
                             let steps = task.steps;
