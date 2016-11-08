@@ -132,7 +132,7 @@ export class Statement {
             }
             else {
                 //TODO: make sure this doesn't happen
-                Log.log("Warning: unexpected format in store: expeccted: a -> b, found: " + variable, LogLevel.Debug);
+                Log.log("Warning: unexpected format in store: expected: a -> b, found: " + variable, LogLevel.Debug);
                 result.push({ name: variable.value, type: variable.type, value: "unknown", variablesReference: 0 });
             }
         });

@@ -2,7 +2,7 @@
 
 import {Log} from './Log';
 import {Model} from './Model';
-import {LogLevel} from './ViperProtocol';
+import {LogLevel, StatementType} from './ViperProtocol';
 import {Variable, Statement, NameType, ValueType, ConditionType, HeapChunk} from './Statement';
 import {DotNode, DotCluster, DotGraph} from './DotGraph';
 import {Settings} from './Settings';
@@ -52,6 +52,7 @@ export class HeapVisualizer {
 
     private static addChildToExecutionTree(currentState: number, cluster: DotCluster, state: Statement, parentNode?: DotNode, showChildren: boolean = true) {
         if (!state) return;
+        if (state.kind == "WellformednessCheck") return;
         //add node
         let currentLabel = state.toDotLabel();
         let currentNodeName = state.index + " " + currentLabel;
@@ -70,6 +71,14 @@ export class HeapVisualizer {
             if (firstChild.index > currentState || lastChild.index < currentState) {
                 //only show firstChild
                 this.addChildToExecutionTree(currentState, cluster, firstChild, currentNode, false);
+
+                //add all structural nodes
+                for (let i = 1; i < state.children.length; i++) {
+                    let child = state.children[i];
+                    if (!child.canBeShownAsDecoration) {
+                        this.addChildToExecutionTree(currentState, cluster, child, currentNode, false);
+                    }
+                }
             }
             else {
                 let currentStateIndex = -1;

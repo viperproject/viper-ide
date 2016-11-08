@@ -345,7 +345,7 @@ export class StateVisualizer {
                             this.executionTrace = trace;
                             this.markExecutionTrace(darkGraphs);
                         });
-                    }else{
+                    } else {
                         this.markExecutionTrace(darkGraphs);
                     }
                 }
@@ -414,6 +414,32 @@ export class StateVisualizer {
                     }
                 }
             }
+        }
+    }
+
+    showAllDecorations() {
+        try {
+            if (StateVisualizer.showStates && this.decorationOptions) {
+                Log.log("Showing all state markers")
+                let darkGraphs = <boolean>Helper.getConfiguration("advancedFeatures").darkGraphs === true;
+                for (var i = 0; i < this.decorationOptions.length; i++) {
+                    let option = this.decorationOptions[i];
+                    
+                    //expand all states
+                    this.expand(option);
+                    if (option.index == this.currentState) {
+                        this.color(option, StateColors.currentState(darkGraphs), darkGraphs);
+                    } else if (option.index == this.previousState) {
+                        this.color(option, StateColors.previousState(darkGraphs), darkGraphs);
+                        continue;
+                    } else{
+                        this.color(option, StateColors.interestingState(darkGraphs), darkGraphs);
+                    }
+                }
+                this.showDecorations();
+            }
+        } catch (e) {
+            Log.error("Error showing all states: " + e)
         }
     }
 

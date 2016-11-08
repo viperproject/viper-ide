@@ -75,7 +75,11 @@
             },
             {
                 "command": "extension.verifyAllFilesInWorkspace",
-                "title": "Viper: verify all files in the open Workspace"
+                "title": "Viper: verify all files in the open workspace"
+            },
+            {
+                "command": "extension.showAllStates",
+                "title": "Viper: show all state markers"
             }
         ],
         "grammars": [{

@@ -802,6 +802,16 @@ function registerHandlers() {
         toggleAutoVerify();
     }));
 
+    //showAllStates
+    state.context.subscriptions.push(vscode.commands.registerCommand('extension.showAllStates', () => {
+        if (State.isDebugging) {
+            let viperFile = State.getLastActiveFile();
+            if ((!Helper.getConfiguration("advancedFeatures").simpleMode === true) && viperFile) {
+                viperFile.stateVisualizer.showAllDecorations();
+            }
+        }
+    }));
+
     //selectBackend
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.selectBackend', () => {
         try {
