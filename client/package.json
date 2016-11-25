@@ -8,7 +8,7 @@
     "repository": "https://bitbucket.org/viperproject/viper-ide",
     "bugs": "https://bitbucket.org/viperproject/viper-ide/issues?status=new&status=open",
     "author": {
-        "name": "Ruben KÃ¤lin",
+        "name": "Ruben Kälin",
         "email": "rukaelin@student.ethz.ch"
     },
     "engines": {
@@ -192,37 +192,6 @@
                                 "mainMethod": "viper.silicon.SiliconRunner",
                                 "customArguments": "--ideMode --ideModeAdvanced --z3Exe $z3Exe$ $fileToVerify$"
                             }]
-                        },
-                        {
-                            "v": "0.3.8",
-                            "name": "silicon with infer",
-                            "paths": [
-                                "$viperTools$/backends/silicon.jar",
-                                "$viperTools$/backends/infer.jar"
-                            ],
-                            "useNailgun": true,
-                            "timeout": 100000,
-                            "stages": [{
-                                    "name": "verify",
-                                    "isVerification": true,
-                                    "mainMethod": "viper.silicon.SiliconRunner",
-                                    "customArguments": "--ideMode --ideModeAdvanced --z3Exe $z3Exe$ $fileToVerify$",
-                                    "onParsingError": "",
-                                    "onTypeCheckingError": "",
-                                    "onVerificationError": "infer",
-                                    "onSuccess": ""
-                                },
-                                {
-                                    "name": "infer",
-                                    "isVerification": false,
-                                    "mainMethod": "ch.ethz.inf.pm.sample.permissionanalysis.Main",
-                                    "customArguments": "$fileToVerify$",
-                                    "onParsingError": "",
-                                    "onTypeCheckingError": "",
-                                    "onVerificationError": "",
-                                    "onSuccess": "verify"
-                                }
-                            ]
                         },
                         {
                             "v": "0.3.8",
