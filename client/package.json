@@ -286,7 +286,8 @@
                 }
             }
         },
-        "debuggers": [{
+        "debuggers": [
+           {
                 "type": "viper",
                 "label": "Viper Debug",
                 "enableBreakpointsFor": {
