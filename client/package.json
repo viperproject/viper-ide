@@ -8,8 +8,8 @@
     "repository": "https://bitbucket.org/viperproject/viper-ide",
     "bugs": "https://bitbucket.org/viperproject/viper-ide/issues?status=new&status=open",
     "author": {
-        "name": "Ruben K�lin",
-        "email": "rukaelin@student.ethz.ch"
+        "name": "Viper Team",
+        "email": "viper@inf.ethz.ch"
     },
     "engines": {
         "vscode": "^1.3.0",
