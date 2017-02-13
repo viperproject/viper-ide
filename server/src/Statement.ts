@@ -37,6 +37,7 @@ export class Statement {
     parent: Statement;
     children: Statement[];
     canBeShownAsDecoration: boolean;
+    isTrivialState: boolean;
     decorationOptions: MyProtocolDecorationOptions;
 
     static numberOfStatementsCreatedFromSymbExLog: number = 0;
@@ -48,7 +49,7 @@ export class Statement {
         let position = symbExLog.pos ? Server.extractPosition(symbExLog.pos).pos || { line: 0, character: 0 } : null;
         let formula = symbExLog.value;
         let statement: Statement;
-        if (symbExLog.prestate) { 
+        if (symbExLog.prestate) {
             let unpackedStore = symbExLog.prestate ? symbExLog.prestate.store : [];
             let unpackedHeap = symbExLog.prestate.heap;
             let unpackedOldHeap = symbExLog.prestate.oldHeap;
@@ -68,9 +69,10 @@ export class Statement {
         statement.canBeShownAsDecoration = !!position && !wellformednessCheck;
 
         //hide simple steps like eval this, eval read, eval write
-        // if (type == StatementType.EVAL && formula && formula == "this" || formula == "write" || formula == "read") {
-        //     statement.canBeShownAsDecoration = false;
-        // }
+        if (type == StatementType.EVAL && formula && /^[\w$]+(\.[\w$]+)*$/.test(formula) || /^\d+$/.test(formula)) {
+            statement.canBeShownAsDecoration = false;
+            statement.isTrivialState = true;
+        }
 
         //add depth info
         statement._depth = depth;
@@ -86,7 +88,22 @@ export class Statement {
         //add the parent information to complete the tree
         statement.parent = parent;
 
+        //collapse unreachable comments
+        if (statement.kind == "comment" && statement.formula == "Unreachable") {
+            if (statement.children.length == 0 && statement.parent) {
+                if (!statement.parent.formula || !statement.parent.formula.endsWith("Unreachable")) {
+                    statement.parent.formula = " Unreachable";
+                }
+                statement.isTrivialState = true;
+            }
+        }
+
         return statement;
+    }
+
+    public hasNonTrivialChildren(): boolean {
+        if (!this.children) return false;
+        return this.children.some(child => !child.isTrivialState);
     }
 
     constructor(index: number, formula: string, type: StatementType, kind: string, position: Position, store: SymbExLogStore[], heap: string[], oldHeap: string[], pcs: string[], verifiable: Verifiable) {
@@ -486,7 +503,7 @@ export class HeapChunk {
             }
         }
         else {
-            let match = /^(\$?\w+(@\d+))(\(=.+?\))?(\.(\w+))+$/.exec(name)
+            let match = /^(\$?\w+(@[\d$]+))(\(=.+?\))?(\.(\w+))+$/.exec(name)
             if (match && match[1] && match[5]) {
                 //it's a field reference
                 this.name.type = NameType.FieldReferenceName;
@@ -501,7 +518,7 @@ export class HeapChunk {
         if (!value) {
             this.value.type = ValueType.NoValue;
         }
-        else if (/^(\$?\w+(@\d+)?)(\(=.+?\))?$/.test(value)) {
+        else if (/^(\$?[\w:]+(@[\d$]+)?)(\(=.+?\))?$/.test(value)) {
             //it's an object reference or a scalar
             this.value.type = ValueType.ObjectReferenceOrScalarValue;
         } else {

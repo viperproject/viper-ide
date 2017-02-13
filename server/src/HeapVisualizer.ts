@@ -52,7 +52,7 @@ export class HeapVisualizer {
 
     private static addChildToExecutionTree(currentState: number, cluster: DotCluster, state: Statement, parentNode?: DotNode, showChildren: boolean = true) {
         if (!state) return;
-        if (state.kind == "WellformednessCheck") return;
+        if (state.kind == "WellformednessCheck" || state.isTrivialState) return;
         //add node
         let currentLabel = state.toDotLabel();
         let currentNodeName = state.index + " " + currentLabel;
@@ -103,8 +103,6 @@ export class HeapVisualizer {
         }
     }
 
-
-
     public static heapToDotUsingOwnDotGraph(state: Statement, useOldHeap: boolean, showSymbolicValues: boolean, showConcreteValues: boolean, model: Model): string {
         let count = 0;
         try {
@@ -125,7 +123,7 @@ export class HeapVisualizer {
             let heapChunkFields = new Map<string, HeapChunk[]>();
             heapChunks.forEach(heapChunk => {
                 if (!heapChunk.parsed) {
-                    Log.log("Warning, I don't know how to visualize the heap chunk " + JSON.stringify(heapChunk.name), LogLevel.Debug);
+                    Log.log("Warning, I don't know how to visualize the heap chunk " + JSON.stringify(heapChunk), LogLevel.Debug);
                 }
                 else if (heapChunk.name.type == NameType.FieldReferenceName && heapChunk.value.type == ValueType.ObjectReferenceOrScalarValue) {
                     let receiver = heapChunk.name.receiver;
@@ -194,7 +192,7 @@ export class HeapVisualizer {
                             parameter = parameter.substring(1, parameter.length);
                         }
 
-                        if (parameter === FALSE || parameter === TRUE || /^\d+(\.\d+)$/.test(parameter)) {
+                        if (parameter && (parameter.toLowerCase() === FALSE.toLowerCase() || parameter.toLowerCase() === TRUE.toLowerCase() || parameter === NULL.toLowerCase() || /^\d+(\.\d+)?$/.test(parameter))) {
                             //if its a scalar value, add it directly into the Predicate
                             let argumentNode = cluster.addNode(`arg${i}`, `arg${i} = ${negated ? "!" : ""}${parameter}`);
                         } else {
@@ -270,9 +268,12 @@ export class HeapVisualizer {
         if (Settings.settings.advancedFeatures.simpleMode) return result;
         //add symbolic and concrete values;
         let isValueNull = this.isKnownToBeNull(symbolicValue, state, showConcreteValues, model);
-        if (symbolicValue && (showSymbolicValues || isValueNull)) {
+
+        let isPrimitiveValue = symbolicValue && (symbolicValue.toLowerCase() === FALSE.toLowerCase() || symbolicValue.toLowerCase() === TRUE.toLowerCase() || symbolicValue === NULL.toLowerCase() || /^\d+(\.\d+)?$/.test(symbolicValue))
+
+        if (symbolicValue && (showSymbolicValues || isPrimitiveValue || isValueNull)) {
             result += " = " + (isValueNull ? NULL : symbolicValue);
-            if (showConcreteValues && concreteValue) {
+            if (showConcreteValues && showSymbolicValues && concreteValue) {
                 result += "(=" + concreteValue + ")";
             }
         }

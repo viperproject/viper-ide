@@ -298,7 +298,7 @@
 				</dict>
 				<dict>
 					<key>match</key>
-					<string>\b(new|let|returns|statelabel|label)\b</string>
+					<string>\b(new|let|returns|statelabel|label|Set|union)\b</string>
 					<key>name</key>
 					<string>keyword.other.other.silver</string>
 				</dict>

@@ -81,8 +81,8 @@ export class VerificationTask {
         DebugServer.moveDebuggerToPos(step.position, clientIndex);
 
         return isHeapNeeded ? {
-            heap: HeapVisualizer.heapToDotUsingOwnDotGraph(step, false, step.isErrorState || Settings.settings.advancedFeatures.showSymbolicState, step.isErrorState, this.model),
-            oldHeap: HeapVisualizer.heapToDotUsingOwnDotGraph(step, true, step.isErrorState || Settings.settings.advancedFeatures.showSymbolicState, step.isErrorState, this.model),
+            heap: HeapVisualizer.heapToDotUsingOwnDotGraph(step, false, Settings.settings.advancedFeatures.showSymbolicState, step.isErrorState, this.model),
+            oldHeap: HeapVisualizer.heapToDotUsingOwnDotGraph(step, true, Settings.settings.advancedFeatures.showSymbolicState, step.isErrorState, this.model),
             partialExecutionTree: HeapVisualizer.executionTreeAroundStateToDot(step),
             state: step.decorationOptions.index,
             fileName: this.filename,
@@ -783,8 +783,17 @@ export class VerificationTask {
         this.steps.forEach((element, i) => {
             if (element.canBeShownAsDecoration) {
                 this.stateIndicesOrderedByPosition.push({ index: element.index, position: element.position });
-                //determine if the state is an error state
+                let statement = element
             }
+
+            //check trivial states
+            if (element.isTrivialState) {
+                if (element.children && element.hasNonTrivialChildren()) {
+                    Log.log("Warning: server state " + element.index + " is a trivial state with a non trivial child");
+                }
+            }
+
+            //determine if the state is an error state
             //TODO: is the detection right?
             for (let j = 0; j < this.diagnostics.length; j++) {
                 let diagnostic = this.diagnostics[j];

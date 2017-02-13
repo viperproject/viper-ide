@@ -4,16 +4,16 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import {Timer} from './Timer';
+import { Timer } from './Timer';
 import * as vscode from 'vscode';
-import {State} from './ExtensionState';
-import {Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success} from './ViperProtocol';
+import { State } from './ExtensionState';
+import { Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success } from './ViperProtocol';
 import Uri from 'vscode-uri/lib/index';
-import {Log} from './Log';
-import {StateVisualizer, MyDecorationOptions} from './StateVisualizer';
-import {Helper} from './Helper';
-import {ViperFormatter} from './ViperFormatter';
-import {ViperFileState} from './ViperFileState';
+import { Log } from './Log';
+import { StateVisualizer, MyDecorationOptions } from './StateVisualizer';
+import { Helper } from './Helper';
+import { ViperFormatter } from './ViperFormatter';
+import { ViperFileState } from './ViperFileState';
 
 let statusBarItem;
 let statusBarProgress;
@@ -919,11 +919,15 @@ function registerHandlers() {
         try {
             Log.log("Open logFile located at: " + Log.logFilePath, LogLevel.Info);
             vscode.workspace.openTextDocument(Log.logFilePath).then(textDocument => {
-                vscode.window.showTextDocument(textDocument, vscode.ViewColumn.Two).then(() => {
-                    Log.log("Showing logfile succeeded", LogLevel.Debug);
-                }, error => {
-                    Log.error("vscode.window.showTextDocument call failed while opening the logfile: " + error);
-                });
+                if (!textDocument) {
+                    Log.hint("Cannot open the logFile, it is too large to be opened within VSCode.");
+                } else {
+                    vscode.window.showTextDocument(textDocument, vscode.ViewColumn.Two).then(() => {
+                        Log.log("Showing logfile succeeded", LogLevel.Debug);
+                    }, error => {
+                        Log.error("vscode.window.showTextDocument call failed while opening the logfile: " + error);
+                    });
+                }
             }, error => {
                 Log.error("vscode.window.openTextDocument call failed while opening the logfile: " + error);
             });
