@@ -1,7 +1,7 @@
 {
     "name": "viper-advanced",
     "displayName": "Viper Advanced",
-    "version": "0.5.70",
+    "version": "0.5.71",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "license": "MIT",
