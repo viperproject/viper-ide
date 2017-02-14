@@ -139,7 +139,6 @@ More Information on the Settings in VSCode can be found here: [User and Workspac
   * **viperToolsPath:** Path to the folder containing all the ViperTools
   * **z3Executable:** The path to the z3 executable
   * **boogieExecutable:** The path to the boogie executable
-  * **dotExecutable:** The path to the dot executable.
 * **preferences:** General user preferences
   * **autoSave:** Enable automatically saving modified viper files
   * **logLevel:** Verbosity of the output, all output is written to the logFile, regardless of the logLevel

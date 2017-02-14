@@ -286,9 +286,9 @@ function registerHandlers() {
         }
     });
 
-    Server.connection.onRequest(Commands.GetDotExecutable, params => {
-        return Settings.settings.paths.dotExecutable;
-    });
+    // Server.connection.onRequest(Commands.GetDotExecutable, params => {
+    //     return Settings.settings.paths.dotExecutable;
+    // });
 }
 
 function resetDiagnostics(uri: string) {

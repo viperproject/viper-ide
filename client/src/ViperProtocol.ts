@@ -54,7 +54,7 @@ export class Commands {
     //Request a list of all states that led to the current state
     static GetExecutionTrace = { method: "GetExecutionTrace" };//GetExecutionTraceParams -> trace:ExecutionTrace[]
     //Request the path to the dot executable from the language server
-    static GetDotExecutable = { method: "GetDotExecutable" };//void -> dotExecutable:string
+    //static GetDotExecutable = { method: "GetDotExecutable" };//void -> dotExecutable:string
 }
 
 export interface GetExecutionTraceParams {
@@ -171,7 +171,7 @@ export interface HeapGraph {
     heap: string,
     //dot representation of the old heap
     oldHeap: string,
-    //the partial execution tree around the current state
+    //dot representation of the partial execution tree around the current state
     partialExecutionTree: string,
     //client index of represented state
     state: number,
@@ -354,7 +354,7 @@ export interface PathSettings extends VersionedSettings {
     //The path to the boogie executable
     boogieExecutable: string | PlatformDependentPath;
     //The path to the dot executable.
-    dotExecutable: string;
+    //dotExecutable: string;
 }
 
 export interface UserPreferences extends VersionedSettings {

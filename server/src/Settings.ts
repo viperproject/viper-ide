@@ -241,10 +241,11 @@ export class Settings {
                     settings.paths.z3Executable = this.checkPath(settings.paths.z3Executable, "z3 Executable:", true, true).path;
                     //check boogie executable
                     settings.paths.boogieExecutable = this.checkPath(settings.paths.boogieExecutable, `Boogie Executable: (If you don't need boogie, set it to "")`, true, true).path;
+                    
                     //check dot executable
-                    if (Settings.settings.advancedFeatures.enabled) {
-                        settings.paths.dotExecutable = this.checkPath(settings.paths.dotExecutable, "dot executable:", true, true).path;
-                    }
+                    // if (Settings.settings.advancedFeatures.enabled) {
+                    //     settings.paths.dotExecutable = this.checkPath(settings.paths.dotExecutable, "dot executable:", true, true).path;
+                    // }
 
                     //check backends
                     Settings.checkBackends(settings.verificationBackends);

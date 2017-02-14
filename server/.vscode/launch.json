@@ -1,15 +1,15 @@
 // A launch configuration that compiles the extension and then opens it inside a new window
 {
-	"version": "0.1.0",
-	"configurations": [
-		{
-			"name": "Attach",
-			"type": "node",
-			"request": "attach",
-			"port": 5556,
-			"sourceMaps": true,
-			"outDir": "${workspaceRoot}/../client/server",
-			"preLaunchTask": "npm"
-		}
-	]
+    "version": "0.1.0",
+    "configurations": [{
+        "name": "Attach",
+        "type": "node",
+        "request": "attach",
+        //"processId": "${command.PickProcess}",
+        "port": 5556,
+        "address": "localhost",
+        "sourceMaps": true,
+        "outFiles": ["${workspaceRoot}/../client/server/**/*.js"],
+        "preLaunchTask": "npm"
+    }]
 }

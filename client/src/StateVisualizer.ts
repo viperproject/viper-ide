@@ -1,14 +1,14 @@
 'use strict';
 
-import {Log} from './Log';
-import {GetExecutionTraceParams, ExecutionTrace, TimingInfo, ShowHeapParams, StepsAsDecorationOptionsResult, MyProtocolDecorationOptions, StateColors, Position, HeapGraph, Commands, LogLevel} from './ViperProtocol';
+import { Log } from './Log';
+import { GetExecutionTraceParams, ExecutionTrace, TimingInfo, ShowHeapParams, StepsAsDecorationOptionsResult, MyProtocolDecorationOptions, StateColors, Position, HeapGraph, Commands, LogLevel } from './ViperProtocol';
 import * as fs from 'fs';
 import child_process = require('child_process');
-import {HeapProvider} from './HeapProvider';
+import { HeapProvider } from './HeapProvider';
 import * as vscode from 'vscode';
-import {Helper} from './Helper';
-import {State} from './ExtensionState';
-import {ViperFileState} from './ViperFileState';
+import { Helper } from './Helper';
+import { State } from './ExtensionState';
+import { ViperFileState } from './ViperFileState';
 import * as path from 'path';
 
 export interface MyDecorationOptions extends vscode.DecorationOptions {
@@ -132,13 +132,17 @@ export class StateVisualizer {
         }
 
         this.provider.setState(heapGraph, index);
-        this.generateSvg(heapGraph.heap, Log.dotFilePath(index, false), Log.svgFilePath(index, false), () => {
-            this.generateSvg(heapGraph.oldHeap, Log.dotFilePath(index, true), Log.svgFilePath(index, true), () => {
-                this.generateSvg(heapGraph.partialExecutionTree, Log.getPartialExecutionTreeDotPath(index), Log.getPartialExecutionTreeSvgPath(index), () => {
-                    this.showHeapGraph();
-                });
-            });
-        });
+
+        this.showHeapGraph();
+
+        //NO LONGER NEEDED: since we use viz.js now:
+        // this.generateSvg(heapGraph.heap, Log.dotFilePath(index, false), Log.svgFilePath(index, false), () => {
+        //     this.generateSvg(heapGraph.oldHeap, Log.dotFilePath(index, true), Log.svgFilePath(index, true), () => {
+        //         this.generateSvg(heapGraph.partialExecutionTree, Log.getPartialExecutionTreeDotPath(index), Log.getPartialExecutionTreeSvgPath(index), () => {
+        //             this.showHeapGraph();
+        //         });
+        //     });
+        // });
     }
 
     public pushState(heapGraph: HeapGraph) {
@@ -188,45 +192,46 @@ export class StateVisualizer {
         this.requestState(heapGraph.state, false);
     }
 
-    public generateSvg(heapGraphAsDot: string, dotFilePath: string, svgFilePath: string, callback, writeGraphDescriptionToFile: boolean = true) {
-        try {
-            //store graph description in file
-            if (writeGraphDescriptionToFile && heapGraphAsDot) {
-                Log.writeToDotFile(heapGraphAsDot, dotFilePath);
-            }
-            //get dot Executable
-            State.instance.client.sendRequest(Commands.GetDotExecutable, null).then((dotExecutable: string) => {
-                //the path should have already been checked by the server, but check again to be sure
-                if (!dotExecutable || !fs.existsSync(dotExecutable)) {
-                    Log.hint("Fix the path to the dotExecutable, no file found at: " + dotExecutable);
-                    return;
-                }
-                if (!fs.existsSync(dotFilePath)) {
-                    Log.error("Cannot generate svg, dot file not found at: " + dotFilePath);
-                }
-                //convert dot to svg
-                let command = `"${dotExecutable}" -Tsvg "${dotFilePath}" -o "${svgFilePath}"`;
-                Log.log("Dot Command: " + command, LogLevel.Debug);
-                this.graphvizProcess = child_process.exec(command);
-                this.graphvizProcess.on('exit', code => {
-                    //show svg
-                    if (code != 0) {
-                        Log.error("Could not convert dot to svg, exit code: " + code, LogLevel.Debug);
-                    }
-                    Log.log(`${path.basename(dotFilePath)} converted to ${path.basename(svgFilePath)}`, LogLevel.Debug);
-                    callback();
-                });
-                this.graphvizProcess.stdout.on('data', data => {
-                    Log.log("[Graphviz] " + data, LogLevel.Debug);
-                });
-                this.graphvizProcess.stderr.on('data', data => {
-                    Log.log("[Graphviz stderr] " + data, LogLevel.Debug);
-                });
-            });
-        } catch (e) {
-            Log.error("Error generating svg for: " + dotFilePath + ": " + e);
-        }
-    }
+//NO LONGER NEEDED: since we use viz.js now:
+    // public generateSvg(heapGraphAsDot: string, dotFilePath: string, svgFilePath: string, callback, writeGraphDescriptionToFile: boolean = true) {
+    //     try {
+    //         //store graph description in file
+    //         if (writeGraphDescriptionToFile && heapGraphAsDot) {
+    //             Log.writeToDotFile(heapGraphAsDot, dotFilePath);
+    //         }
+    //         //get dot Executable
+    //         State.instance.client.sendRequest(Commands.GetDotExecutable, null).then((dotExecutable: string) => {
+    //             //the path should have already been checked by the server, but check again to be sure
+    //             if (!dotExecutable || !fs.existsSync(dotExecutable)) {
+    //                 Log.hint("Fix the path to the dotExecutable, no file found at: " + dotExecutable);
+    //                 return;
+    //             }
+    //             if (!fs.existsSync(dotFilePath)) {
+    //                 Log.error("Cannot generate svg, dot file not found at: " + dotFilePath);
+    //             }
+    //             //convert dot to svg
+    //             let command = `"${dotExecutable}" -Tsvg "${dotFilePath}" -o "${svgFilePath}"`;
+    //             Log.log("Dot Command: " + command, LogLevel.Debug);
+    //             this.graphvizProcess = child_process.exec(command);
+    //             this.graphvizProcess.on('exit', code => {
+    //                 //show svg
+    //                 if (code != 0) {
+    //                     Log.error("Could not convert dot to svg, exit code: " + code, LogLevel.Debug);
+    //                 }
+    //                 Log.log(`${path.basename(dotFilePath)} converted to ${path.basename(svgFilePath)}`, LogLevel.Debug);
+    //                 callback();
+    //             });
+    //             this.graphvizProcess.stdout.on('data', data => {
+    //                 Log.log("[Graphviz] " + data, LogLevel.Debug);
+    //             });
+    //             this.graphvizProcess.stderr.on('data', data => {
+    //                 Log.log("[Graphviz stderr] " + data, LogLevel.Debug);
+    //             });
+    //         });
+    //     } catch (e) {
+    //         Log.error("Error generating svg for: " + dotFilePath + ": " + e);
+    //     }
+    // }
 
     private showHeapGraph() {
         this.provider.update(this.previewUri);
@@ -424,7 +429,7 @@ export class StateVisualizer {
                 let darkGraphs = <boolean>Helper.getConfiguration("advancedFeatures").darkGraphs === true;
                 for (var i = 0; i < this.decorationOptions.length; i++) {
                     let option = this.decorationOptions[i];
-                    
+
                     //expand all states
                     this.expand(option);
                     if (option.index == this.currentState) {
@@ -432,7 +437,7 @@ export class StateVisualizer {
                     } else if (option.index == this.previousState) {
                         this.color(option, StateColors.previousState(darkGraphs), darkGraphs);
                         continue;
-                    } else{
+                    } else {
                         this.color(option, StateColors.interestingState(darkGraphs), darkGraphs);
                     }
                 }

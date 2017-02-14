@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
-import {Log} from './Log';
-import {HeapGraph, LogLevel, StateColors} from './ViperProtocol';
-import {StateVisualizer} from './StateVisualizer';
+import { Log } from './Log';
+import { HeapGraph, LogLevel, StateColors } from './ViperProtocol';
+import { StateVisualizer } from './StateVisualizer';
 import * as fs from 'fs';
-import {Helper} from './Helper';
+import { Helper } from './Helper';
+import * as viz from 'viz.js';
 
 export class HeapProvider implements vscode.TextDocumentContentProvider {
 
@@ -123,10 +124,31 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
             conditions = `<h3>No path conditions</h3>`;
         }
 
-        let oldHeap = Helper.getConfiguration("advancedFeatures").showOldState === true ? `<h3>Old Heap</h3>
-    ${this.getSvgContent(Log.svgFilePath(index, true))}` : "";
-        let partialExecutionTree = Helper.getConfiguration("advancedFeatures").showPartialExecutionTree === true ? `<h3>Partial Execution Tree</h3>
-    ${this.getSvgContent(Log.getPartialExecutionTreeSvgPath(index))}` : "";
+        let currentHeap = "";
+        let oldHeap = "";
+        let partialExecutionTree = "";
+
+        //use viz.js
+        currentHeap = this.generateSvg(heapGraph.heap);
+        if (Helper.getConfiguration("advancedFeatures").showOldState === true) {
+            oldHeap = `<h3>Old Heap</h3>
+    ${this.generateSvg(heapGraph.oldHeap)}`;
+        }
+        if (Helper.getConfiguration("advancedFeatures").showPartialExecutionTree === true) {
+            partialExecutionTree = `<h3>Partial Execution Tree</h3>
+    ${this.generateSvg(heapGraph.partialExecutionTree)}`;
+        }
+
+        //use graphviz
+        //         currentHeap = this.getSvgContent(Log.svgFilePath(index, false));
+        //         if (Helper.getConfiguration("advancedFeatures").showOldState === true) {
+        //             oldHeap = `<h3>Old Heap</h3>
+        // ${this.getSvgContent(Log.svgFilePath(index, true))}`;
+        //         }
+        //         if (Helper.getConfiguration("advancedFeatures").showPartialExecutionTree === true) {
+        //             partialExecutionTree = `<h3>Partial Execution Tree</h3>
+        // ${this.getSvgContent(Log.getPartialExecutionTreeSvgPath(index))}`;
+        //         }
 
         let state = this.stateVisualizer.decorationOptions[heapGraph.state];
         let debugInfo = `<p>${this.stringToHtml(heapGraph.stateInfos)}</p>`;
@@ -135,7 +157,7 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
         let content = `
     <h2>${heapGraph.fileName}<br />${heapGraph.methodType}: ${heapGraph.methodName}<br />${state.hoverMessage}</h2>
     <h3${state.isErrorState ? ' class="ErrorState">Errorstate' : ">State"} ${state.numberToDisplay}</h3>
-    ${this.getSvgContent(Log.svgFilePath(index, false))}
+    ${currentHeap}
     ${conditions}
     ${oldHeap}
     ${partialExecutionTree}
@@ -169,6 +191,19 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
 
     private stringToHtml(s: string): string {
         return s.replace(/\n/g, "<br />\n    ").replace(/\t/g, "&nbsp;");
+    }
+
+    private generateSvg(data: string): string {
+        try {
+            let result = viz(data, { format: "svg", engine: "dot" });
+            if (!result) {
+                Log.error("cannot generate svg from data");
+                return "";
+            }
+            return result;
+        } catch (e) {
+            Log.error("error generating svg from data: " + e);
+        }
     }
 }
 

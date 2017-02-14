@@ -2,14 +2,12 @@
 {
     "files.exclude": {
         "out": true, // set this to true to hide the "out" folder with the compiled JS files
-        "server":true
+        "server": true
     },
     "search.exclude": {
         "out": true,
-        "server":true // set this to false to include "out" folder in search results
+        "server": true // set this to false to include "out" folder in search results
     },
-    "telemetry.enableCrashReporter": false,
-    "telemetry.enableTelemetry": false,
 
     //"files.trimTrailingWhitespace": true,
     //"editor.rulers": [80, 100],

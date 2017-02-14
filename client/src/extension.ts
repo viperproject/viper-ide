@@ -76,6 +76,7 @@ function addTestDecoration() {
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+    Log.log('The ViperIDE is starting up.', LogLevel.Info);
     lastVersionWithSettingsChange = {
         nailgunSettingsVersion: "0.2.15",
         backendSettingsVersion: "0.2.15",
@@ -86,7 +87,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
     workList = [];
     Log.initialize();
-    Log.log('Viper-Client is now active!', LogLevel.Info);
+    Log.log('Viper-Client is now active.', LogLevel.Info);
     state = State.createState();
     State.checkOperatingSystem();
     context.subscriptions.push(state);
@@ -442,8 +443,11 @@ function resetAutoSaver() {
     autoSaver.reset();
 }
 
+let lastState: VerificationState = VerificationState.Stopped;
+
 function handleStateChange(params: StateChangeParams) {
     try {
+        lastState = params.newState;
         if (!params.progress)
             Log.log("The new state is: " + VerificationState[params.newState], LogLevel.Debug);
         let window = vscode.window;
@@ -502,12 +506,13 @@ function handleStateChange(params: StateChangeParams) {
                             Log.log(msg, LogLevel.Default);
                             updateStatusBarItem(statusBarItem, "$(check) " + msg, 'lightgreen');
                             if (params.manuallyTriggered) Log.hint(msg);
-                            //for SymbexLogger
-                            let symbexDotFile = Log.getSymbExDotPath();
+                            // this was only used for generating the svg of the SymbexLogger's execution tree
+                            // as this file is unused we can safely remove its creation
+                            /*let symbexDotFile = Log.getSymbExDotPath();
                             let symbexSvgFile = Log.getSymbExSvgPath();
                             if (Helper.getConfiguration("advancedFeatures").enabled === true && fs.existsSync(symbexDotFile)) {
                                 verifiedFile.stateVisualizer.generateSvg(null, symbexDotFile, symbexSvgFile, () => { });
-                            }
+                            }*/
                             break;
                         case Success.ParsingFailed:
                             msg = `Parsing ${params.filename} failed after ${formatSeconds(params.time)}`;
@@ -789,7 +794,11 @@ function registerHandlers() {
     //Command Handlers
     //verify
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.verify', () => {
-        workList.push({ type: TaskType.Verify, uri: vscode.window.activeTextEditor.document.uri, manuallyTriggered: true });
+        if (!vscode.window.activeTextEditor) {
+            Log.log("Cannot verify, no document is open.");
+        } else {
+            workList.push({ type: TaskType.Verify, uri: vscode.window.activeTextEditor.document.uri, manuallyTriggered: true });
+        }
     }));
 
     //verifyAllFilesInWorkspace
@@ -1049,7 +1058,7 @@ function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
             visualizer.completeReset();
             hideStates(() => {
                 //delete old SymbExLog:
-                Log.deleteFile(Log.getSymbExLogPath());
+                //Log.deleteFile(Log.getSymbExLogPath());
 
                 //change fileState
                 fileState.changed = false;

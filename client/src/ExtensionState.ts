@@ -3,12 +3,12 @@ import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } f
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import {Commands, LogLevel} from './ViperProtocol';
-import {Log} from './Log';
-import {ViperFileState} from './ViperFileState';
+import { Commands, LogLevel } from './ViperProtocol';
+import { Log } from './Log';
+import { ViperFileState } from './ViperFileState';
 import Uri from 'vscode-uri/lib/index';
-import {Helper} from './Helper';
-import {StateVisualizer} from './StateVisualizer';
+import { Helper } from './Helper';
+import { StateVisualizer } from './StateVisualizer';
 
 export class State {
     public client: LanguageClient;
@@ -134,7 +134,7 @@ export class State {
             }
         }
 
-        this.client = new LanguageClient('languageServer', 'Language Server', serverOptions, clientOptions);
+        this.client = new LanguageClient('languageServer', 'Language Server', serverOptions, clientOptions, brk);
 
         Log.log("Start Language Server", LogLevel.Info);
         // Create the language client and start the client.

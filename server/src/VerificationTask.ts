@@ -1,20 +1,20 @@
 'use strict';
 
 import child_process = require('child_process');
-import {Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
-import {Settings} from './Settings'
-import {Common, ExecutionTrace, BackendOutput, BackendOutputType, SymbExLogEntry, Stage, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, Range, HeapGraph, VerificationState, LogLevel, Success} from './ViperProtocol'
-import {Log} from './Log';
-import {NailgunService} from './NailgunService';
-import {Statement} from './Statement';
-import {Model} from './Model';
+import { Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
+import { Settings } from './Settings'
+import { Common, ExecutionTrace, BackendOutput, BackendOutputType, SymbExLogEntry, Stage, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, Range, HeapGraph, VerificationState, LogLevel, Success } from './ViperProtocol'
+import { Log } from './Log';
+import { NailgunService } from './NailgunService';
+import { Statement } from './Statement';
+import { Model } from './Model';
 import * as pathHelper from 'path';
-import {HeapVisualizer} from './HeapVisualizer';
-import {Progress} from './TotalProgress';
-import {Server} from './ServerClass';
-import {DebugServer} from './DebugServer';
+import { HeapVisualizer } from './HeapVisualizer';
+import { Progress } from './TotalProgress';
+import { Server } from './ServerClass';
+import { DebugServer } from './DebugServer';
 import * as fs from 'fs';
-import {Verifiable} from './Verifiable';
+import { Verifiable } from './Verifiable';
 
 export class VerificationTask {
     //state that is valid across verifications
@@ -278,11 +278,6 @@ export class VerificationTask {
         Server.executedStages.push(stage);
         Log.log(Server.backend.name + ' verification started', LogLevel.Info);
 
-        Server.sendStateChangeNotification({
-            newState: VerificationState.VerificationRunning,
-            filename: this.filename
-        }, this);
-
         let path = Common.uriToPath(this.fileUri);
         //Request the debugger to terminate it's session
         DebugServer.stopDebugging();
@@ -290,8 +285,15 @@ export class VerificationTask {
         this.path = path
         this.filename = pathHelper.basename(path);
         this.verificationCount++;
+
+        //notify client
+        Server.sendStateChangeNotification({
+            newState: VerificationState.VerificationRunning,
+            filename: this.filename
+        }, this);
+        
         this.startVerificationTimeout(this.verificationCount);
-        this.verifierProcess = this.nailgunService.startStageProcess(path, stage, this.stdOutHandler.bind(this), this.stdErrHadler.bind(this), this.completionHandler.bind(this));
+        this.verifierProcess = this.nailgunService.startStageProcess(path, stage, this.stdOutHandler.bind(this), this.stdErrHandler.bind(this), this.completionHandler.bind(this));
         return true;
     }
 
@@ -365,7 +367,7 @@ export class VerificationTask {
                             Log.log("Start stage " + newStage.name + " after stage " + lastStage.name + " success was: " + successMessage, LogLevel.Info);
                             Server.executedStages.push(newStage);
                             let path = Common.uriToPath(this.fileUri);
-                            Server.nailgunService.startStageProcess(path, newStage, this.stdOutHandler.bind(this), this.stdErrHadler.bind(this), this.completionHandler.bind(this));
+                            Server.nailgunService.startStageProcess(path, newStage, this.stdOutHandler.bind(this), this.stdErrHandler.bind(this), this.completionHandler.bind(this));
                         }
                         return;
                     }
@@ -472,7 +474,7 @@ export class VerificationTask {
         return result;
     }
 
-    private stdErrHadler(data) {
+    private stdErrHandler(data) {
         try {
             data = data.trim();
             if (data.length == 0) return;

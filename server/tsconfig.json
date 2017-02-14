@@ -1,12 +1,16 @@
 {
-	"compilerOptions": {
-		"target": "es6",
-		"module": "commonjs",
-		"moduleResolution": "node",
-		"inlineSourceMap": true,
-		"outDir": "../client/server"
-	},
-	"exclude": [
-		"node_modules"
-	]
+    "compilerOptions": {
+        "target": "es6",
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "inlineSourceMap": true,
+        "outDir": "../client/server"
+    },
+    "exclude": [
+        "node_modules"
+    ],
+    "lib": [
+        "es6",
+        "es6-promise"
+    ]
 }
