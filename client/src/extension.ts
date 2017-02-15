@@ -944,6 +944,11 @@ function registerHandlers() {
             Log.error("Error opening logFile: " + e);
         }
     }));
+
+    //remove diagnostics of open file
+    state.context.subscriptions.push(vscode.commands.registerCommand('extension.removeDiagnostics', () => {
+        removeDiagnostics();
+    }));
 }
 
 function startBackend(backendName: string) {
@@ -1154,4 +1159,17 @@ function formatSeconds(time: number): string {
 function formatProgress(progress: number): string {
     if (!progress) return "0%";
     return progress.toFixed(0) + "%";
+}
+
+function removeDiagnostics() {
+    if (vscode.window.activeTextEditor) {
+        let file = vscode.window.activeTextEditor.document.uri.toString();
+        state.client.sendRequest(Commands.RemoveDiagnostics, file).then(success => {
+            if (success) {
+                Log.log("Diagnostics successfully removed");
+            } else {
+                Log.log("Removing diagnostics failed");
+            }
+        })
+    }
 }

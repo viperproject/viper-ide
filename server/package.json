@@ -20,6 +20,6 @@
     },
     "scripts": {
         "compile": "tsc -p .",
-        "watch": "tsc --watch -p ."
+        "watch": "tsc --watch -p . && npm run compile"
     }
 }

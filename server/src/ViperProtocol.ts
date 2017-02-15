@@ -55,6 +55,9 @@ export class Commands {
     static GetExecutionTrace = { method: "GetExecutionTrace" };//GetExecutionTraceParams -> trace:ExecutionTrace[]
     //Request the path to the dot executable from the language server
     //static GetDotExecutable = { method: "GetDotExecutable" };//void -> dotExecutable:string
+
+    //remove the diagnostics in the file specified by uri
+    static RemoveDiagnostics = { method: "RemoveDiagnostics" };
 }
 
 export interface GetExecutionTraceParams {

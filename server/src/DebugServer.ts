@@ -1,10 +1,10 @@
 'use strict';
 
-import {Server} from './ServerClass';
-import {Log} from './Log';
-import {Common, LaunchRequestArguments, StatementType, Position, StepType, VerificationState, LogLevel} from './ViperProtocol'
-import {VerificationTask} from './VerificationTask';
-import {Settings} from './Settings';
+import { Server } from './ServerClass';
+import { Log } from './Log';
+import { Common, LaunchRequestArguments, StatementType, Position, StepType, VerificationState, LogLevel } from './ViperProtocol'
+import { VerificationTask } from './VerificationTask';
+import { Settings } from './Settings';
 let ipc = require('node-ipc');
 
 export class DebugServer {
@@ -54,7 +54,11 @@ export class DebugServer {
                             ipc.of.viperDebugger.on(
                                 'disconnect', () => {
                                     this.debugClientConnected = false;
-                                    ipc.disconnect('viperDebugger');
+                                    try {
+                                        ipc.disconnect('viperDebugger');
+                                    } catch (e) {
+                                        Log.error("Error disconnecting from Debug server, is the server already stopped? "+ e);
+                                    }
                                     if (DebugServer.debuggerRunning) {
                                         Log.log('LanguageServer disconnected from Debugger', LogLevel.Debug);
                                         DebugServer.debuggerRunning = false;
@@ -119,7 +123,7 @@ export class DebugServer {
 
                             let task = Server.debuggedVerificationTask;
                             //translate from client state to server state
-                            
+
                             let currentServerState = task.clientStepIndexToServerStep[data.state].index;
 
                             let steps = task.steps;

@@ -14,20 +14,10 @@ export class Log {
     static logFile: fs.WriteStream;
     static outputChannel = vscode.window.createOutputChannel('Viper');
     static logLevel: LogLevel;
-    private static _nofFiles: number = 0;
-    //    static MAX_DOT_FILES: number = 2;
 
     public static initialize() {
         try {
             Log.updateSettings();
-            // Log.rootPath = vscode.workspace.rootPath;
-            // if (!Log.rootPath) {
-            //     Log.rootPath = path.dirname(vscode.window.activeTextEditor.document.fileName);
-            // }
-            // if (!Log.rootPath) {
-            //     Log.error("No rootPath found");
-            // }
-
             //create logfile if it wasn't created before
             if (!fs.existsSync(this.tempDirectory)) {
                 fs.mkdirSync(this.tempDirectory);
@@ -36,91 +26,44 @@ export class Log {
                 this.logFilePath = path.join(this.tempDirectory, "viper.log");
 
                 let logFilePath = path.join(this.tempDirectory, Log.logFileName);
-                Log.log('LogFilePath is: "' + logFilePath + '"', LogLevel.Info)
+                Log.log('The logFile is located at: "' + logFilePath + '"', LogLevel.Info)
                 try {
                     Log.createFile(logFilePath);
                     Log.logFile = fs.createWriteStream(logFilePath);
                     //make sure the logFile is closed when the extension is closed
                 } catch (e) {
-                    Log.error("cannot create logFile at: " + logFilePath + ", access denied. " + e)
+                    Log.error("Error creating logFile at: " + logFilePath + ", access denied. " + e)
                 }
             }
         } catch (e) {
             Log.error("Error initializing Log: " + e)
         }
+        this.selfCheck();
     }
 
-    //NO LONGER NEEDED: since we use viz.js now:
-    // static getSymbExLogPath(): string {
-    //     return path.join(Log.tempDirectory, 'executionTreeData.js');
-    // }
-    // static getSymbExDotPath(): string {
-    //     return path.join(Log.tempDirectory, 'dot_input.dot');
-    // }
-    // static getSymbExSvgPath(): string {
-    //     return path.join(Log.tempDirectory, 'symbExLoggerOutput.svg');
-    // }
-    // public static getPartialExecutionTreeDotPath(index: number): string {
-    //     let basePath = path.join(Log.tempDirectory, 'partialExecutionTree');
-    //     if (index < 0 || index >= this.MAX_DOT_FILES) {
-    //         return basePath + ".dot";
-    //     }
-    //     return basePath + index + ".dot";
-    // }
-    // public static getPartialExecutionTreeSvgPath(index: number): string {
-    //     let basePath = path.join(Log.tempDirectory, 'partialExecutionTree');
-    //     if (index < 0 || index >= this.MAX_DOT_FILES) {
-    //         return basePath + ".svg";
-    //     }
-    //     return basePath + index + ".svg";
-    // }
-
-    ///return the path to the indexth dot file
-    ///creates non existing files
-    // public static dotFilePath(index: number, oldHeap: boolean): string {
-    //     let basePath = path.join(Log.tempDirectory, 'heap');
-    //     let old = oldHeap ? "_old" : "";
-    //     if (index < 0) {
-    //         Log.error("don't use negative indices for dotFilePath");
-    //         return basePath + old + ".dot";
-    //     }
-    //     if (index >= this.MAX_DOT_FILES) {
-    //         Log.error("don't use more than " + this.MAX_DOT_FILES + " dotFiles");
-    //         return basePath + old + ".dot";
-    //     }
-    //     return basePath + index + old + ".dot";
-    // }
-
-    // public static svgFilePath(index: number, oldHeap: boolean): string {
-    //     let basePath = path.join(Log.tempDirectory, 'heap');
-    //     let old = oldHeap ? "_old" : "";
-    //     if (index < 0) {
-    //         Log.error("don't use negative indices for svgFilePath");
-    //         return basePath + old + ".svg";
-    //     }
-    //     if (index >= this.MAX_DOT_FILES) {
-    //         Log.error("don't use more than " + this.MAX_DOT_FILES + " svgFiles");
-    //         return basePath + old + ".svg";
-    //     }
-    //     return basePath + index + old + ".svg";
-    // }
-
-    // public static writeToDotFile(graphDescription: string, dotFilePath: string) {
-    //     //delete and recreate file to fix the problem of not being able to open the dot files      
-    //     this.createFile(dotFilePath);
-    //     let dotFile: fs.WriteStream = fs.createWriteStream(dotFilePath);
-    //     dotFile.write(graphDescription);
-    //     dotFile.close();
-    // }
-
-    // public static deleteDotFiles() {
-    //     //delete all dotFiles
-    //     for (let i = 0; i < this.MAX_DOT_FILES; i++) {
-    //         this.deleteFile(this.dotFilePath(i, true));
-    //         this.deleteFile(this.dotFilePath(i, false));
-    //     }
-    //     this._nofFiles = 0;
-    // }
+    public static selfCheck(logLevel: LogLevel = LogLevel.Debug): boolean {
+        let initialized = true;
+        if (!this.logFilePath) {
+            Log.log("The path to the logFile is not known.",logLevel);
+            initialized = false;
+        }
+        if (!this.logFile) {
+            Log.log("There is no logFile, no messages can be written to the file.",logLevel);
+            initialized = false;
+        }
+        if (!this.outputChannel) {
+            Log.log("The ouput channel was not set up correctly, no messages can be written to the output panel.",logLevel);
+            initialized = false;
+        }
+        if(!this.logLevel){
+            Log.log("The verbosity of the output is not set, all messages are output.",logLevel);
+            initialized = false;
+        }
+        if(!initialized){
+            Log.error("There were problems initializing the logging system.");
+        }
+        return initialized;
+    }
 
     private static createFile(filePath: string) {
         if (!fs.existsSync(filePath)) {
@@ -146,7 +89,7 @@ export class Log {
             if (oldLogLevel) {
                 Log.log(`The logLevel was changed from ${LogLevel[oldLogLevel]} to ${LogLevel[Log.logLevel]}`, LogLevel.LowLevelDebug);
             } else {
-                 Log.log(`The logLevel was set to ${LogLevel[Log.logLevel]}`, LogLevel.LowLevelDebug);
+                Log.log(`The logLevel was set to ${LogLevel[Log.logLevel]}`, LogLevel.LowLevelDebug);
             }
         }
     }

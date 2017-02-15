@@ -2,15 +2,15 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 
-import {IPCMessageReader, IPCMessageWriter, createConnection, InitializeResult} from 'vscode-languageserver';
-import {Log} from './Log';
-import {Settings} from './Settings'
-import {StateColors, ExecutionTrace, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams} from './ViperProtocol'
-import {NailgunService} from './NailgunService';
-import {VerificationTask} from './VerificationTask';
-import {Statement} from './Statement';
-import {DebugServer} from './DebugServer';
-import {Server} from './ServerClass';
+import { IPCMessageReader, IPCMessageWriter, createConnection, InitializeResult } from 'vscode-languageserver';
+import { Log } from './Log';
+import { Settings } from './Settings'
+import { StateColors, ExecutionTrace, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams } from './ViperProtocol'
+import { NailgunService } from './NailgunService';
+import { VerificationTask } from './VerificationTask';
+import { Statement } from './Statement';
+import { DebugServer } from './DebugServer';
+import { Server } from './ServerClass';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 Server.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
@@ -127,6 +127,7 @@ function registerHandlers() {
                 Server.sendFileClosedNotification(uri);
                 if (Server.verificationTasks.has(uri)) {
                     //remove no longer needed task
+                    Server.verificationTasks.get(uri).resetDiagnostics();
                     Server.verificationTasks.delete(uri);
                 }
             }
@@ -289,6 +290,18 @@ function registerHandlers() {
     // Server.connection.onRequest(Commands.GetDotExecutable, params => {
     //     return Settings.settings.paths.dotExecutable;
     // });
+
+    Server.connection.onRequest(Commands.RemoveDiagnostics, (uri: string) => {
+        //Log.log("Trying to remove diagnostics from "+ uri);
+        return new Promise((resolve, reject) => {
+            if (Server.verificationTasks.has(uri)) {
+                Server.verificationTasks.get(uri).resetDiagnostics();
+                resolve(true);
+            } else {
+                resolve(false);
+            }
+        });
+    });
 }
 
 function resetDiagnostics(uri: string) {
