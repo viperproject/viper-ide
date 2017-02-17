@@ -78,7 +78,7 @@ function addTestDecoration() {
 export function activate(context: vscode.ExtensionContext) {
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
     lastVersionWithSettingsChange = {
-        nailgunSettingsVersion: "0.2.15",
+        nailgunSettingsVersion: "0.5.402",
         backendSettingsVersion: "0.2.15",
         pathSettingsVersion: "0.2.15",
         userPreferencesVersion: "0.2.15",
@@ -353,24 +353,26 @@ function startVerificationController() {
 
 export function deactivate(): Promise<any> {
     return new Promise((resolve, reject) => {
-        console.log("deactivate");
+        Log.log("deactivate");
         state.dispose().then(() => {
-            console.log("state disposed");
+            Log.log("state disposed");
             //TODO: make sure no doc contains special chars any more
             if (State.getLastActiveFile()) {
-                console.log("Removing special chars of last opened file.");
+                Log.log("Removing special chars of last opened file.");
                 State.getLastActiveFile().stateVisualizer.removeSpecialCharacters(() => {
-                    console.log("Close Log");
+                    Log.log("Close Log");
                     Log.dispose();
-                    console.log("Deactivated")
+                    Log.log("Deactivated")
                     resolve();
                 });
             } else {
-                console.log("Close Log");
+                Log.log("Close Log");
                 Log.dispose();
-                console.log("Deactivated")
+                Log.log("Deactivated")
                 resolve();
             }
+        }).catch(e=>{
+            Log.error("error disposing: " + e);
         });
     });
 }

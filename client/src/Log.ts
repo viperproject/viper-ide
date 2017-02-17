@@ -6,9 +6,9 @@ import * as fs from 'fs';
 import { LogLevel } from './ViperProtocol';
 import { Helper } from './Helper';
 const os = require('os');
+const unusedFilename = require('unused-filename');
 
 export class Log {
-    static logFileName = "viper.log";
     static tempDirectory = path.join(os.tmpDir(), ".vscode");
     static logFilePath: string;
     static logFile: fs.WriteStream;
@@ -18,21 +18,19 @@ export class Log {
     public static initialize() {
         try {
             Log.updateSettings();
-            //create logfile if it wasn't created before
+            //create logfile's directory if it wasn't created before
             if (!fs.existsSync(this.tempDirectory)) {
                 fs.mkdirSync(this.tempDirectory);
             }
             if (!this.logFile) {
-                this.logFilePath = path.join(this.tempDirectory, "viper.log");
-
-                let logFilePath = path.join(this.tempDirectory, Log.logFileName);
-                Log.log('The logFile is located at: "' + logFilePath + '"', LogLevel.Info)
+                this.logFilePath = unusedFilename.sync(path.join(this.tempDirectory, "viper.log"));
+                Log.log('The logFile is located at: "' + this.logFilePath + '"', LogLevel.Info)
                 try {
-                    Log.createFile(logFilePath);
-                    Log.logFile = fs.createWriteStream(logFilePath);
-                    //make sure the logFile is closed when the extension is closed
+                    Log.createFile(this.logFilePath);
+                    Log.logFile = fs.createWriteStream(this.logFilePath);
+                    //the file is closed in dispose when the extension exits
                 } catch (e) {
-                    Log.error("Error creating logFile at: " + logFilePath + ", access denied. " + e)
+                    Log.error("Error creating logFile at: " + this.logFilePath + ", access denied. " + e)
                 }
             }
         } catch (e) {
@@ -44,22 +42,22 @@ export class Log {
     public static selfCheck(logLevel: LogLevel = LogLevel.Debug): boolean {
         let initialized = true;
         if (!this.logFilePath) {
-            Log.log("The path to the logFile is not known.",logLevel);
+            Log.log("The path to the logFile is not known.", logLevel);
             initialized = false;
         }
         if (!this.logFile) {
-            Log.log("There is no logFile, no messages can be written to the file.",logLevel);
+            Log.log("There is no logFile, no messages can be written to the file.", logLevel);
             initialized = false;
         }
         if (!this.outputChannel) {
-            Log.log("The ouput channel was not set up correctly, no messages can be written to the output panel.",logLevel);
+            Log.log("The ouput channel was not set up correctly, no messages can be written to the output panel.", logLevel);
             initialized = false;
         }
-        if(!this.logLevel){
-            Log.log("The verbosity of the output is not set, all messages are output.",logLevel);
+        if (!this.logLevel) {
+            Log.log("The verbosity of the output is not set, all messages are output.", logLevel);
             initialized = false;
         }
-        if(!initialized){
+        if (!initialized) {
             Log.error("There were problems initializing the logging system.");
         }
         return initialized;
@@ -139,6 +137,7 @@ export class Log {
 
     public static dispose() {
         Log.logFile.close();
+        Log.logFile = null;
     }
 
     public static hint(message: string) {

@@ -184,13 +184,25 @@ function registerHandlers() {
     });
 
     Server.connection.onRequest(Commands.Dispose, () => {
-        try {
-            //Server.nailgunService.stopNailgunServer();
-            Server.nailgunService.killNailgunServer();
-            Server.nailgunService.killNgAndZ3Deamon();
-        } catch (e) {
-            Log.error("Error handling dispose request: " + e);
-        }
+        return new Promise((resolve, reject) => {
+            try {
+                //if there are running verifications, stop related processes
+                Server.verificationTasks.forEach(task => {
+                    if (task.running && task.verifierProcess) {
+                        Log.log("stop verification of " + task.filename);
+                        task.nailgunService.killNGAndZ3(task.verifierProcess.pid);
+                    }
+                });
+
+                //Server.nailgunService.stopNailgunServer();
+                console.log("dispose language server");
+                Server.nailgunService.killNailgunServer();
+                resolve();
+            } catch (e) {
+                Log.error("Error handling dispose request: " + e);
+                reject();
+            }
+        });
     });
 
     Server.connection.onRequest(Commands.GetExecutionTrace, (params: { uri: string, clientState: number }) => {

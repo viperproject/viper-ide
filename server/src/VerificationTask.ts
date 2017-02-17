@@ -291,7 +291,7 @@ export class VerificationTask {
             newState: VerificationState.VerificationRunning,
             filename: this.filename
         }, this);
-        
+
         this.startVerificationTimeout(this.verificationCount);
         this.verifierProcess = this.nailgunService.startStageProcess(path, stage, this.stdOutHandler.bind(this), this.stdErrHandler.bind(this), this.completionHandler.bind(this));
         return true;
@@ -423,7 +423,7 @@ export class VerificationTask {
                     Log.log("Verification Backend Terminated Abnormaly: with code " + code, LogLevel.Debug);
                     if (code == null) {
                         //this.nailgunService.setStopping();
-                        this.nailgunService.killNgAndZ3Deamon()
+                        this.nailgunService.killNGAndZ3()
                         // .then(resolve => {
                         //     this.nailgunService.startOrRestartNailgunServer(Server.backend, false);
                         // });
@@ -448,8 +448,10 @@ export class VerificationTask {
             this.lastSuccess = success;
             this.time = 0;
             this.running = false;
+            this.verifierProcess = null;
         } catch (e) {
             this.running = false;
+            this.verifierProcess = null;
             Server.sendVerificationNotStartedNotification(this.fileUri);
             Log.error("Error handling verification completion: " + e);
         }
@@ -588,7 +590,6 @@ export class VerificationTask {
             let stage = Server.stage();
             if (this.aborting) return;
             if (stage.isVerification) {
-                Log.toLogFile(`[${Server.backend.name}: ${stage.name}: stdout]: ${data}`, LogLevel.LowLevelDebug);
                 let parts = data.split(/\r?\n/g);
                 parts[0] = this.partialData + parts[0];
                 for (var i = 0; i < parts.length; i++) {
@@ -598,6 +599,7 @@ export class VerificationTask {
 
                     //json message
                     if (line.startsWith("{\"") && line.endsWith("}")) {
+                        Log.toLogFile(`[${Server.backend.name}: ${stage.name}: stdout]: ${line}`, LogLevel.LowLevelDebug);
                         try {
                             let json: BackendOutput = JSON.parse(line);
                             if (!this.isMessageComplete(json)) {
@@ -674,18 +676,21 @@ export class VerificationTask {
                     //non json output handling:
                     //handle start and end of verification
                     if ((line.startsWith('Silicon') && !line.startsWith('Silicon finished')) || line.startsWith('carbon started')) {
+                        Log.toLogFile(`[${Server.backend.name}: ${stage.name}: stdout]: ${line}`, LogLevel.LowLevelDebug);
                         if (this.state != VerificationState.VerificationRunning)
                             Log.log("State -> Verification Running", LogLevel.Info);
                         this.state = VerificationState.VerificationRunning;
                         continue;
                     }
                     else if (line.startsWith('Silicon finished') || line.startsWith('carbon finished in')) {
+                        Log.toLogFile(`[${Server.backend.name}: ${stage.name}: stdout]: ${line}`, LogLevel.LowLevelDebug);
                         Log.log("State -> Error Reporting", LogLevel.Info);
                         this.state = VerificationState.VerificationReporting;
                         this.time = Server.extractNumber(line);
                     }
                     //handle other verification outputs and results
                     else if (line.trim().length > 0) {
+                        Log.toLogFile(`[${Server.backend.name}: ${stage.name}: stdout]: ${line}`, LogLevel.LowLevelDebug);
                         if (i < parts.length - 1 || (this.state != VerificationState.VerificationRunning)) {
                             //only in VerificationRunning state, the lines are nicley split by newLine characters
                             //therefore, the partialData construct is only enabled during the verification;
@@ -844,14 +849,27 @@ export class VerificationTask {
                     })
                 });
                 //try {
-                this.verifierProcess.kill('SIGINT'); //TODO: not working on mac, linux?
 
-                let deamonKillerPromise = Server.nailgunService.killNgAndZ3Deamon();
+                //HOW TO kill the verifier process and all its children?
 
+                //-> this worked so far: kill the process and all ng.exe and z3.exe instances
+                //this.verifierProcess.kill('SIGINT'); //TODO: not working on mac, linux?
+                //let deamonKillerPromise = Server.nailgunService.killNGAndZ3Deamon();
                 //only after the verification really ended we can continue;
+
+                //experiments:
+                //process.kill(this.verifierProcess.pid);
+                //let k = child_process.exec("pkill -TERM -P " +this.verifierProcess.pid);
+                let deamonKillerPromise = Server.nailgunService.killNGAndZ3(this.verifierProcess.pid);
+
                 Promise.all([ngClientEndPromise, deamonKillerPromise]).then(() => {
                     resolve(true);
                 });
+
+                //let killcommand = "taskkill /pid "+this.verifierProcess.pid+" /T /F";
+                //Log.log("kill command:" + killcommand);
+                //child_process.exec(killcommand);
+
                 //process.kill(this.verifierProcess.pid, 'SIGINT');
                 //} catch (e) {}// if stopping does not work, there is nothing we can do about it.
                 let l = this.verifierProcess.listeners;

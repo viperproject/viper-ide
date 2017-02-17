@@ -1,14 +1,16 @@
 'use strict';
 
 import child_process = require('child_process');
-import {Log} from './Log'
-import {Settings} from './Settings'
-import {Stage, Backend, VerificationState, LogLevel} from './ViperProtocol'
-import {Server} from './ServerClass';
-import {VerificationTask} from './VerificationTask'
+import { Log } from './Log'
+import { Settings } from './Settings'
+import { Stage, Backend, VerificationState, LogLevel } from './ViperProtocol'
+import { Server } from './ServerClass';
+import { VerificationTask } from './VerificationTask'
+var tree_kill = require('tree-kill');
 
 export class NailgunService {
     nailgunProcess: child_process.ChildProcess;
+    nailgunServerPid: number;
     instanceCount: number = 0;
 
     private _ready: boolean = false;
@@ -30,6 +32,13 @@ export class NailgunService {
         NailgunService.startingOrRestarting = false;
         Log.log("The backend is ready for verification", LogLevel.Info);
         Server.sendBackendReadyNotification({ name: this.activeBackend.name, restarted: this.reverifyWhenBackendReady });
+
+        if (Settings.isWin) {
+            this.getNailgunServerPid().then(pid => {
+                this.nailgunServerPid = pid;
+                Log.log("The nailgun server pid is " + pid);
+            });
+        }
     }
 
     public setStopping() {
@@ -179,48 +188,173 @@ export class NailgunService {
         });
     }
 
-    public killNgAndZ3Deamon(): Thenable<boolean> {
+    public killNGAndZ3(ngPid?: number): Thenable<boolean> {
+        //return this.killNgAndZ3Deamon();
+        // return new Promise((resolve, reject) => {
+        //     tree_kill(pid, 'SIGKILL', (err) => {
+        //         Log.log("tree-killer done: " + err);
+        //         resolve(true);
+        //     });
+        // });
+
+        if (Settings.isWin) {
+            //the backend related processes (e.g z3) are child processes of the nailgun server, 
+            //therefore, killing all childs of the nailgun server stops the right processes
+
+            return new Promise((resolve, reject) => {
+                if (Server.nailgunService.nailgunServerPid) {
+                    //let wmic = this.executer('wmic process where "ParentProcessId=' + Server.nailgunService.nailgunServerPid + (ngPid ? ' or ParentProcessId=' + ngPid : "") + '" call terminate');
+                    let wmic = this.spawner('wmic', ["process", "where", 'ParentProcessId=' + Server.nailgunService.nailgunServerPid + (ngPid ? ' or ParentProcessId=' + ngPid : ""), "call", "terminate"]);
+                    wmic.on('stop', (code) => {
+                        resolve(true);
+                    });
+                } else {
+                    this.getNailgunServerPid().then(serverPid => {
+                        Server.nailgunService.nailgunServerPid = serverPid;
+                        return this.killNGAndZ3(ngPid);
+                    });
+                }
+            })
+        } else if (Settings.isLinux) {
+            return this.killAllNgAndZ3Processes();
+            // return new Promise((resolve, reject) => {
+            //     let childfetcher = child_process.exec("pstree -p " + ngPid + " | grep -o '([0-9]\+)' | grep -o '[0-9]\+'"
+            //  });
+        } else {
+            return this.killAllNgAndZ3Processes();
+        }
+    }
+
+    private getNailgunServerPid(): Promise<number> {
+        return new Promise((resolve, reject) => {
+            if (Settings.isWin) {
+                //the backend related processes (e.g z3) are child processes of the nailgun server, 
+                //therefore, killing all childs of the nailgun server stops the right processes
+
+                child_process.exec('wmic process where "parentprocessId=' + this.nailgunProcess.pid + ' and name=\'java.exe\'" get ProcessId', (strerr, stdout, stderr) => {
+                    let regex = /.*?(\d+).*/.exec(stdout);
+                    if (regex[1]) {
+                        resolve(regex[1]);
+                    } else {
+                        Log.log("error getting Nilgun Pid");
+                        reject();
+                    }
+                });
+            } else if (Settings.isLinux) {
+                Log.error("unsupported");
+                reject();
+            } else {
+                Log.error("unsupported");
+                reject();
+            }
+        });
+    }
+
+    private executer(command: string): child_process.ChildProcess {
+        Log.log("executer: " + command)
+        try {
+            let child = child_process.exec(command, function (error, stdout, stderr) {
+                Log.log('stdout: ' + stdout);
+                Log.log('stderr: ' + stderr);
+                if (error !== null) {
+                    Log.log('exec error: ' + error);
+                }
+            });
+            return child;
+        } catch (e) {
+            Log.error("Error executing " + command + ": " + e);
+        }
+    }
+
+    private spawner(command: string, args: string[]): child_process.ChildProcess {
+        Log.log("spawner: " + command + " " + args.join(" "));
+        try {
+            let child = child_process.spawn(command, args,{detached:true});
+            child.on('stdout', data => {
+                Log.log('spawner stdout: ' + data);
+            });
+            child.on('stderr', data => {
+                Log.log('spawner stderr: ' + data);
+            });
+            child.on('exit', data => {
+                Log.log('spawner done: ' + data);
+            });
+            return child;
+        } catch (e) {
+            Log.error("Error spawning command: " + e);
+        }
+    }
+
+    public killAllNgAndZ3Processes(): Thenable<boolean> {
         // TODO: it would be much better to kill the processes by process group,
         // unfortunaltey that did not work.
         // Moreover, the nailgun client is not listening to the SIGINT signal, 
         // thus, this mechanism cannot be used to gracefully shut down nailgun and its child processes.
         // using the pID to kill the processes is also not an option, as we do not know the pID of z3
+
+        Log.log("kill all ng and z3 processes");
         return new Promise((resolve, reject) => {
-            let ngKillCommand: string;
-            let z3KillCommand: string;
+            let killCommand: string;
             if (Settings.isWin) {
-                ngKillCommand = "taskkill /F /im ng.exe";
-                z3KillCommand = "taskkill /F /im z3.exe";
+                killCommand = "taskkill /F /T /im ng.exe & taskkill /F /T /im z3.exe";
             } else if (Settings.isLinux) {
-                ngKillCommand = "pkill -c ng";
-                z3KillCommand = "pkill -c z3";
+                killCommand = "pkill -c ng; pkill -c z3";
             } else {
-                ngKillCommand = "pkill ng";
-                z3KillCommand = "pkill z3";
+                killCommand = "pkill ng; pkill z3";
             }
-            Log.log("Killing ng client", LogLevel.Info);
-            Log.log("Command: " + ngKillCommand, LogLevel.Debug);
-            let ngKiller = child_process.exec(ngKillCommand);
-            ngKiller.on("exit", (data) => {
-                Log.log("kill ng.exe: " + data, LogLevel.Debug);
-                let z3Killer = child_process.exec(z3KillCommand);
-                Log.log("Command: " + ngKillCommand, LogLevel.Debug);
-                z3Killer.on("exit", (data) => {
-                    Log.log("kill z3.exe: " + data, LogLevel.Debug);
-                    return resolve(true);
-                })
-                Log.logOutput(z3Killer, "kill z3.exe");
-            })
-            Log.logOutput(ngKiller, "kill ng.exe");
+            Log.log("Command: " + killCommand, LogLevel.Debug);
+            let killer = child_process.exec(killCommand);
+            killer.on("exit", (data) => {
+                Log.log("ng client and z3 killer: " + data, LogLevel.Debug);
+                return resolve(true);
+            });
+            Log.logOutput(killer, "kill ng.exe");
         });
     }
 
     public killNailgunServer() {
-        Log.log('killing nailgun server, this may leave its sub processes running', LogLevel.Debug);
-        process.kill(this.nailgunProcess.pid, 'SIGTERM')
+        // Log.log('killing nailgun server, this may leave its sub processes running', LogLevel.Debug);
+        // process.kill(this.nailgunProcess.pid, 'SIGTERM')
+        Log.log('recursively killing nailgun server', LogLevel.Debug);
+        this.killRecursive(this.nailgunProcess.pid);
+
+        if (Settings.isWin) {
+             let wmic = this.spawner('wmic', ["process", "where", 'ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid, "call", "terminate"]);
+            //let wmic = this.executer('wmic process where "ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid + '" call terminate');
+        }
+
         //this.nailgunProcess.kill('SIGINT');
         this.nailgunProcess = null;
     }
+
+    private killRecursive(pid): Promise<boolean> {
+        return new Promise((resolve, reject) => {
+            tree_kill(pid, 'SIGKILL', (err) => {
+                Log.log("tree-killer done: " + err);
+                resolve(true);
+            });
+        });
+    }
+
+    // public startStageProcessUsingSpawn(fileToVerify: string, stage: Stage, onData, onError, onClose): child_process.ChildProcess {
+    //     let command = "";
+    //     if (this.activeBackend.useNailgun) {
+    //         //command = '"' + Settings.settings.nailgunSettings.clientExecutable + '"';
+    //         command = Settings.settings.nailgunSettings.clientExecutable.toString();
+    //     } else {
+    //         command = 'java';
+    //     }
+    //     let args: string[] = Settings.splitArguments(Settings.settings.javaSettings.customArguments); //TODO: what if the argument contains spaces?
+    //     args = Settings.expandCustomArgumentsForSpawn(args, stage, fileToVerify, this.activeBackend);
+
+    //     Log.log(command + ' ' + args.join(' '), LogLevel.Debug);
+
+    //     let verifyProcess = child_process.spawn(command, args, { cwd: Server.backendOutputDirectory });
+    //     verifyProcess.stdout.on('data', onData);
+    //     verifyProcess.stderr.on('data', onError);
+    //     verifyProcess.on('close', onClose);
+    //     return verifyProcess;
+    // }
 
     public startStageProcess(fileToVerify: string, stage: Stage, onData, onError, onClose): child_process.ChildProcess {
         let program = this.activeBackend.useNailgun ? ('"' + Settings.settings.nailgunSettings.clientExecutable + '"') : ('java ' + Settings.settings.javaSettings.customArguments);

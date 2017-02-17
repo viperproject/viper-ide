@@ -2,10 +2,12 @@
 
 import fs = require('fs');
 import * as pathHelper from 'path';
-import {Log} from './Log';
-import {Versions, PlatformDependentPath, SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel} from './ViperProtocol';
-import {Server} from './ServerClass';
+import { Log } from './Log';
+import { Versions, PlatformDependentPath, SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel } from './ViperProtocol';
+import { Server } from './ServerClass';
 const os = require('os');
+var portfinder = require('portfinder');
+
 
 export interface ResolvedPath {
     path: string,
@@ -101,6 +103,47 @@ export class Settings {
         return args;
     }
 
+    // static splitArguments(str: string): string[] {
+    //     //reduce multiple spaces
+    //     str = str.replace(/\s+/g, ' ');
+    //     var args = [];
+    //     var readingPart = false;
+    //     var part = '';
+    //     for (var i = 0; i < str.length; i++) {
+    //         if (str.charAt(i) === ' ' && !readingPart) {
+    //             args.push(part);
+    //             part = '';
+    //         } else {
+    //             if (str.charAt(i) === '\"') {
+    //                 readingPart = !readingPart;
+    //             } else {
+    //                 part += str.charAt(i);
+    //             }
+    //         }
+    //     }
+    //     args.push(part);
+    //     return args;
+    // }
+
+    // static expandCustomArgumentsForSpawn(args: string[], stage: Stage, fileToVerify: string, backend: Backend): string[] {
+    //     args.push(stage.mainMethod);
+    //     if (backend.useNailgun) {
+    //         args.push("--nailgun-port");
+    //         args.push("$nailgunPort$");
+    //     }
+    //     Settings.splitArguments(stage.customArguments).forEach(arg => { args.push(arg) });//TODO: what if the argument contains spaces?
+
+    //     for (let i = 0; i < args.length; i++) {
+    //         args[i] = args[i].replace(/\$z3Exe\$/g, '"' + this.settings.paths.z3Executable + '"');
+    //         args[i] = args[i].replace(/\$boogieExe\$/g, '"' + this.settings.paths.boogieExecutable + '"');
+    //         args[i] = args[i].replace(/\$mainMethod\$/g, stage.mainMethod);
+    //         args[i] = args[i].replace(/\$nailgunPort\$/g, this.settings.nailgunSettings.port);
+    //         args[i] = args[i].replace(/\$fileToVerify\$/g, '"' + fileToVerify + '"');
+    //         args[i] = args[i].replace(/\$backendPaths\$/g, Settings.backendJars(backend))
+    //     }
+    //     return args;
+    // }
+
     static expandViperToolsPath(path: string): string {
         if (!path) return path;
         if (typeof Settings.settings.paths.viperToolsPath !== "string") {
@@ -147,8 +190,12 @@ export class Settings {
         }
 
         //check nailgun port
-        if (!nailgunSettings.port) {
-            this.addError("NailgunPort is missing");
+        if (!nailgunSettings.port || nailgunSettings.port == "*") {
+            //use a random port
+            portfinder.getPort(function (err, port) {
+                Log.log("nailgun port is chosen as: " + port);
+                nailgunSettings.port = port;
+            });
         } else if (!/\d+/.test(nailgunSettings.port)) {
             this.addError("Invalid NailgunPort: " + nailgunSettings.port);
         } else {
@@ -241,7 +288,7 @@ export class Settings {
                     settings.paths.z3Executable = this.checkPath(settings.paths.z3Executable, "z3 Executable:", true, true).path;
                     //check boogie executable
                     settings.paths.boogieExecutable = this.checkPath(settings.paths.boogieExecutable, `Boogie Executable: (If you don't need boogie, set it to "")`, true, true).path;
-                    
+
                     //check dot executable
                     // if (Settings.settings.advancedFeatures.enabled) {
                     //     settings.paths.dotExecutable = this.checkPath(settings.paths.dotExecutable, "dot executable:", true, true).path;
