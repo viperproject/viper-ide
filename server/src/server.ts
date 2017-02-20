@@ -263,19 +263,24 @@ function registerHandlers() {
         });
     });
 
-    Server.connection.onNotification(Commands.StopVerification, (uri: string) => {
-        try {
-            let task = Server.verificationTasks.get(uri);
-            task.abortVerification();
-            Server.sendStateChangeNotification({
-                newState: VerificationState.Ready,
-                verificationCompleted: false,
-                verificationNeeded: false,
-                uri: uri
-            }, task);
-        } catch (e) {
-            Log.error("Error handling stop verification request: " + e);
-        }
+    Server.connection.onRequest(Commands.StopVerification, (uri: string) => {
+        return new Promise((resolve, reject) => {
+            try {
+                let task = Server.verificationTasks.get(uri);
+                task.abortVerification().then((success) => {
+                    Server.sendStateChangeNotification({
+                        newState: VerificationState.Ready,
+                        verificationCompleted: false,
+                        verificationNeeded: false,
+                        uri: uri
+                    }, task);
+                    resolve(success);
+                })
+            } catch (e) {
+                Log.error("Error handling stop verification request (critical): " + e);
+                resolve(false);
+            }
+        });
     });
 
     Server.connection.onNotification(Commands.StopDebugging, () => {

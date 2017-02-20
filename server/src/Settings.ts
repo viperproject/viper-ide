@@ -184,10 +184,10 @@ export class Settings {
     }
 
     private static checkNailgunSettings(nailgunSettings: NailgunSettings): string {
-        if (!nailgunSettings) {
+        /*if (!nailgunSettings) {
             this.addError("viperSettings.nailgunSettings is missing");
             return;
-        }
+        }*/
 
         //check nailgun port
         if (!nailgunSettings.port || nailgunSettings.port == "*") {
@@ -242,6 +242,9 @@ export class Settings {
                 Server.connection.sendRequest(Commands.RequestRequiredVersion).then((requiredVersions: Versions) => {
                     let settings = Settings.settings;
                     let oldSettings: string[] = [];
+
+                    let defaultSettings = requiredVersions.defaultSettings;
+
                     //check the settings versions
                     if (!requiredVersions) {
                         Log.error("Getting required version failed.");
@@ -283,21 +286,19 @@ export class Settings {
                     if (!resolvedPath.exists) {
                         resolve(false); return;
                     }
-
                     //check z3 Executable
                     settings.paths.z3Executable = this.checkPath(settings.paths.z3Executable, "z3 Executable:", true, true).path;
                     //check boogie executable
                     settings.paths.boogieExecutable = this.checkPath(settings.paths.boogieExecutable, `Boogie Executable: (If you don't need boogie, set it to "")`, true, true).path;
 
-                    //check dot executable
-                    // if (Settings.settings.advancedFeatures.enabled) {
-                    //     settings.paths.dotExecutable = this.checkPath(settings.paths.dotExecutable, "dot executable:", true, true).path;
-                    // }
-
                     //check backends
-                    Settings.checkBackends(settings.verificationBackends);
+                    if (!settings.verificationBackends || settings.verificationBackends.length == 0) {
+                        settings.verificationBackends = defaultSettings["viperSettings.verificationBackends"].default;
+                    }
+                    Settings.checkBackends(defaultSettings["viperSettings.verificationBackends"].default, settings.verificationBackends);
                     //check nailgun settings
                     let useNailgun = settings.verificationBackends.some(elem => elem.useNailgun);
+
                     if (useNailgun) {
                         this.checkNailgunSettings(settings.nailgunSettings);
                     }
@@ -305,7 +306,10 @@ export class Settings {
                     //no need to check preferences
                     //check java settings
                     if (!settings.javaSettings.customArguments) {
-                        this.addError("The customArguments are missing in the java settings");
+                        settings.javaSettings.customArguments = defaultSettings["viperSettings.javaSettings"].default.customArguments;
+                        if (!settings.javaSettings.customArguments) {
+                            this.addError("The customArguments are missing in the java settings");
+                        }
                     }
 
                     //checks done
@@ -364,7 +368,7 @@ export class Settings {
         return resolvedPath;
     }
 
-    private static checkBackends(backends: Backend[]) {
+    private static checkBackends(defaultBackends: Backend[], backends: Backend[]) {
         //Log.log("Checking backends...", LogLevel.Debug);
         if (!backends || backends.length == 0) {
             this.addError("No backend detected, specify at least one backend");
@@ -379,85 +383,85 @@ export class Settings {
                 this.addError("Empty backend detected");
             }
             else if (!backend.name || backend.name.length == 0) {//name there?
-                this.addError("Every backend setting needs a name.");
-            } else {
-                let backendName = "Backend " + backend.name + ":";
-                //check for dublicate backends
-                if (backendNames.has(backend.name)) this.addError("Dublicated backend name: " + backend.name);
-                backendNames.add(backend.name);
+                this.addWarning("Every backend setting should have a name.");
+                backend.name = "backend" + (i + 1);
+            }
+            let backendName = "Backend " + backend.name + ":";
+            //check for dublicate backends
+            if (backendNames.has(backend.name)) this.addError("Dublicated backend name: " + backend.name);
+            backendNames.add(backend.name);
 
-                //check stages
-                if (!backend.stages || backend.stages.length == 0) {
-                    this.addError(backendName + " The backend setting needs at least one stage");
-                    continue;
+            //check stages
+            if (!backend.stages || backend.stages.length == 0) {
+                this.addError(backendName + " The backend setting needs at least one stage");
+                continue;
+            }
+            let stages: Set<string> = new Set<string>();
+            let verifyStageFound = false;
+            for (let i = 0; i < backend.stages.length; i++) {
+                let stage: Stage = backend.stages[i];
+                if (!stage) {
+                    this.addError(backendName + " Empty stage detected");
                 }
-                let stages: Set<string> = new Set<string>();
-                let verifyStageFound = false;
-                for (let i = 0; i < backend.stages.length; i++) {
-                    let stage: Stage = backend.stages[i];
-                    if (!stage) {
-                        this.addError(backendName + " Empty stage detected");
-                    }
-                    else if (!stage.name || stage.name.length == 0) {
-                        this.addError(backendName + " Every stage needs a name.");
-                    } else {
-                        let backendAndStage = backendName + " Stage: " + stage.name + ":";
-                        //check for duplicated stage names
-                        if (stages.has(stage.name))
-                            this.addError(backendName + " Duplicated stage name: " + stage.name);
-                        stages.add(stage.name);
-                        //check mainMethod
-                        if (!stage.mainMethod || stage.mainMethod.length == 0)
-                            this.addError(backendAndStage + " Missing mainMethod");
-                        //check customArguments
-                        if (!stage.customArguments) {
-                            this.addError(backendAndStage + " Missing customArguments");
-                            continue;
-                        }
-                        //check customArguments for compliance with advancedFeatures
-                        let hasIdeModeAdvanced = stage.customArguments.indexOf("--ideModeAdvanced") >= 0;
-                        let hasIdeMode = stage.customArguments.indexOf("--ideMode ") >= 0;
-                        if (hasIdeModeAdvanced && !hasIdeMode) {
-                            this.addError(backendAndStage + " the --ideModeAdvanced depends on --ideMode, for the Advanced Mode you need to specify both.");
-                        }
-                        if (Settings.settings.advancedFeatures && hasIdeMode && !hasIdeModeAdvanced) {
-                            this.addWarning(backendAndStage + " the advanced features only work when --ideModeAdvanced is specified.");
-                        }
-                        if (!Settings.settings.advancedFeatures && hasIdeModeAdvanced) {
-                            this.addWarning(backendAndStage + " when the advanced features are disabled, you can speed up the verification by removing the --ideModeAdvanced flag from the customArguments.");
-                        }
-                    }
-                }
-                for (let i = 0; i < backend.stages.length; i++) {
-                    let stage: Stage = backend.stages[i];
-                    let BackendMissingStage = backendName + ": Cannot find stage " + stage.name;
-                    if (stage.onParsingError && stage.onParsingError.length > 0 && !stages.has(stage.onParsingError))
-                        this.addError(BackendMissingStage + "'s onParsingError stage " + stage.onParsingError);
-                    if (stage.onTypeCheckingError && stage.onTypeCheckingError.length > 0 && !stages.has(stage.onTypeCheckingError))
-                        this.addError(BackendMissingStage + "'s onTypeCheckingError stage " + stage.onTypeCheckingError);
-                    if (stage.onVerificationError && stage.onVerificationError.length > 0 && !stages.has(stage.onVerificationError))
-                        this.addError(BackendMissingStage + "'s onVerificationError stage " + stage.onVerificationError);
-                    if (stage.onSuccess && stage.onSuccess.length > 0 && !stages.has(stage.onSuccess))
-                        this.addError(BackendMissingStage + "'s onSuccess stage " + stage.onSuccess);
-                }
-
-                //check paths
-                if (!backend.paths || backend.paths.length == 0) {
-                    this.addError(backendName + " The backend setting needs at least one path");
+                else if (!stage.name || stage.name.length == 0) {
+                    this.addError(backendName + " Every stage needs a name.");
                 } else {
-                    for (let i = 0; i < backend.paths.length; i++) {
-                        //extract environment variable or leave unchanged
-                        backend.paths[i] = Settings.checkPath(backend.paths[i], backendName, false, false).path;
+                    let backendAndStage = backendName + " Stage: " + stage.name + ":";
+                    //check for duplicated stage names
+                    if (stages.has(stage.name))
+                        this.addError(backendName + " Duplicated stage name: " + stage.name);
+                    stages.add(stage.name);
+                    //check mainMethod
+                    if (!stage.mainMethod || stage.mainMethod.length == 0)
+                        this.addError(backendAndStage + " Missing mainMethod");
+                    //check customArguments
+                    if (!stage.customArguments) {
+                        this.addError(backendAndStage + " Missing customArguments");
+                        continue;
+                    }
+                    //check customArguments for compliance with advancedFeatures
+                    let hasIdeModeAdvanced = stage.customArguments.indexOf("--ideModeAdvanced") >= 0;
+                    let hasIdeMode = stage.customArguments.indexOf("--ideMode ") >= 0;
+                    if (hasIdeModeAdvanced && !hasIdeMode) {
+                        this.addError(backendAndStage + " the --ideModeAdvanced depends on --ideMode, for the Advanced Mode you need to specify both.");
+                    }
+                    if (Settings.settings.advancedFeatures && hasIdeMode && !hasIdeModeAdvanced) {
+                        this.addWarning(backendAndStage + " the advanced features only work when --ideModeAdvanced is specified.");
+                    }
+                    if (!Settings.settings.advancedFeatures && hasIdeModeAdvanced) {
+                        this.addWarning(backendAndStage + " when the advanced features are disabled, you can speed up the verification by removing the --ideModeAdvanced flag from the customArguments.");
                     }
                 }
+            }
+            for (let i = 0; i < backend.stages.length; i++) {
+                let stage: Stage = backend.stages[i];
+                let BackendMissingStage = backendName + ": Cannot find stage " + stage.name;
+                if (stage.onParsingError && stage.onParsingError.length > 0 && !stages.has(stage.onParsingError))
+                    this.addError(BackendMissingStage + "'s onParsingError stage " + stage.onParsingError);
+                if (stage.onTypeCheckingError && stage.onTypeCheckingError.length > 0 && !stages.has(stage.onTypeCheckingError))
+                    this.addError(BackendMissingStage + "'s onTypeCheckingError stage " + stage.onTypeCheckingError);
+                if (stage.onVerificationError && stage.onVerificationError.length > 0 && !stages.has(stage.onVerificationError))
+                    this.addError(BackendMissingStage + "'s onVerificationError stage " + stage.onVerificationError);
+                if (stage.onSuccess && stage.onSuccess.length > 0 && !stages.has(stage.onSuccess))
+                    this.addError(BackendMissingStage + "'s onSuccess stage " + stage.onSuccess);
+            }
 
-                //check verification timeout
-                if (!backend.timeout || (backend.timeout && backend.timeout <= 0)) {
-                    if (backend.timeout && backend.timeout < 0) {
-                        this.addWarning(backendName + " The timeout of " + backend.timeout + " is interpreted as no timeout.");
-                    }
-                    backend.timeout = null;
+            //check paths
+            if (!backend.paths || backend.paths.length == 0) {
+                this.addError(backendName + " The backend setting needs at least one path");
+            } else {
+                for (let i = 0; i < backend.paths.length; i++) {
+                    //extract environment variable or leave unchanged
+                    backend.paths[i] = Settings.checkPath(backend.paths[i], backendName, false, false).path;
                 }
+            }
+
+            //check verification timeout
+            if (!backend.timeout || (backend.timeout && backend.timeout <= 0)) {
+                if (backend.timeout && backend.timeout < 0) {
+                    this.addWarning(backendName + " The timeout of " + backend.timeout + " is interpreted as no timeout.");
+                }
+                backend.timeout = null;
             }
         }
         return null;

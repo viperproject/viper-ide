@@ -45,7 +45,10 @@ interface Task {
 }
 
 enum TaskType {
-    Save, Verify, NoOp
+    NoOp = 0,
+    Save = 1, Verify = 2, Stop = 3, Clear = 4,
+    Verifying = 20, Stopping = 30,
+    StoppingComplete = 300, VerificationComplete = 200, VerificationFailed = 201
 }
 
 let isUnitTest = false;
@@ -77,13 +80,18 @@ function addTestDecoration() {
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
+
+    let ownPackageJson = vscode.extensions.getExtension("rukaelin.viper-advanced").packageJSON;
+    let defaultConfiguration = ownPackageJson.contributes.configuration.properties;
+
     lastVersionWithSettingsChange = {
         nailgunSettingsVersion: "0.5.402",
         backendSettingsVersion: "0.2.15",
         pathSettingsVersion: "0.2.15",
         userPreferencesVersion: "0.2.15",
         javaSettingsVersion: "0.2.15",
-        advancedFeaturesVersion: "0.3.8"
+        advancedFeaturesVersion: "0.3.8",
+        defaultSettings: defaultConfiguration
     }
     workList = [];
     Log.initialize();
@@ -217,31 +225,34 @@ function canStartDebugging(): CheckResult {
 function canStartVerification(task: Task): CheckResult {
     try {
         let result = false;
-        let reason: string;
-        let dontVerify = `Don't verify ${path.basename(task.uri.toString())}: `;
-        if (!State.isBackendReady) {
-            reason = "Backend is not ready, wait for backend to start.";
-        } else {
-            let activeFile;
-            let fileState = State.getFileState(task.uri);
-            if (vscode.window.activeTextEditor) {
-                activeFile = vscode.window.activeTextEditor.document.uri.toString();
-            }
-            if (!task.manuallyTriggered && !autoVerify) {
-                reason = dontVerify + "autoVerify is disabled.";
-            }
-            else if (!fileState.open) {
-                reason = dontVerify + "file is closed";
-            } else if (fileState.verifying && !fileState.changed) {
-                reason = dontVerify + `file has not changed, restarting the verification has no use`;
-            } else if (!task.manuallyTriggered && fileState.verified) {
-                reason = dontVerify + `not manuallyTriggered and file is verified`;
-            } else if (!activeFile) {
-                reason = dontVerify + `no file is active`;
-            } else if (activeFile !== task.uri.toString()) {
-                reason = dontVerify + `another file is active`;
+        let reason: string = "Cannot Verify, unknown file uri";
+        if (task.uri) {
+            let dontVerify = `Don't verify ${path.basename(task.uri.toString())}: `;
+            if (!State.isBackendReady) {
+                reason = "Backend is not ready, wait for backend to start.";
             } else {
-                result = true;
+                let fileState = State.getFileState(task.uri);
+                if (!fileState) {
+                    reason = "it's not a viper file";
+                } else {
+                    let activeFile = activeFileUri();
+                    if (!task.manuallyTriggered && !autoVerify) {
+                        reason = dontVerify + "autoVerify is disabled.";
+                    }
+                    else if (!fileState.open) {
+                        reason = dontVerify + "file is closed";
+                    } else if (fileState.verified && fileState.verifying && !fileState.changed) {
+                        reason = dontVerify + `file has not changed, restarting the verification has no use`;
+                    } else if (!task.manuallyTriggered && fileState.verified) {
+                        reason = dontVerify + `not manuallyTriggered and file is verified`;
+                    } else if (!activeFile) {
+                        reason = dontVerify + `no file is active`;
+                    } else if (activeFile.toString() !== task.uri.toString()) {
+                        reason = dontVerify + `another file is active`;
+                    } else {
+                        result = true;
+                    }
+                }
             }
         }
         return {
@@ -250,7 +261,7 @@ function canStartVerification(task: Task): CheckResult {
             error: null
         };
     } catch (e) {
-        let error = "Error checking if Verification can be started " + e;
+        let error = "Error checking if verification can be started " + e;
         Log.error(error);
         return {
             result: false,
@@ -260,57 +271,141 @@ function canStartVerification(task: Task): CheckResult {
     }
 }
 
+let lastCanStartVerificationReason: string;
+let lastCanStartVerificationUri: vscode.Uri;
+
+let NoOp: TaskType = TaskType.NoOp;
+
 function startVerificationController() {
     let verificationTimeout = 100;//ms
     verificationController = new Timer(() => {
         try {
-            let done = false;
-            let i = 0;
+            //only keep most recent verify request
+            let verifyFound = false;
+            let stopFound = false;
+            let clearFound = false;
+            let verificationComplete = false;
+            let stoppingComplete = false;
+            let verificationFailed = false;
+            let completedOrFailedFileUri: vscode.Uri;
+            let uriOfFoundVerfy: vscode.Uri;
+            for (let i = workList.length - 1; i >= 0; i--) {
+                if (clearFound) {
+                    //clear the workList
+                    workList[i].type = NoOp;
+                }
+                if (workList[i].type == TaskType.Verify) {
+                    if (verifyFound) {
+                        //remove all older verify
+                        workList[i].type = NoOp;
+                    } else {
+                        verifyFound = true;
+                        uriOfFoundVerfy = workList[i].uri;
+                    }
+                    if (verificationComplete || verificationFailed && Helper.uriEquals(completedOrFailedFileUri, workList[i].uri)) {
+                        //remove verification requests that make no sense
+                        workList[i].type = NoOp;
+                    }
+                }
+                else if (workList[i].type == TaskType.Stop) {
+                    workList[i].type = NoOp;
+                    stopFound = true;
+                }
+                else if (workList[i].type == TaskType.Clear) {
+                    workList[i].type = NoOp;
+                    clearFound = true;
+                }
+                else if (workList[i].type == TaskType.VerificationComplete) {
+                    workList[i].type = NoOp;
+                    verificationComplete = true;
+                    completedOrFailedFileUri = workList[i].uri;
+                }
+                else if (workList[i].type == TaskType.StoppingComplete) {
+                    workList[i].type = NoOp;
+                    stoppingComplete = true;
+                }
+                else if (workList[i].type == TaskType.VerificationFailed) {
+                    workList[i].type = NoOp;
+                    verificationFailed = true;
+                    completedOrFailedFileUri = workList[i].uri;
+                }
+                if (stopFound && workList[i].type != TaskType.Verifying && workList[i].type != TaskType.Stopping) {
+                    //remove all older non-bocking actions
+                    workList[i].type = NoOp;
+                }
+            }
 
             //remove leading NoOps
-            while (workList.length > 0 && workList[0].type == TaskType.NoOp) {
+            while (workList.length > 0 && workList[0].type == NoOp) {
                 workList.shift();
             }
 
-            while (!done && workList.length > i) {
-                let task = workList[i++];
-                if (!Helper.isViperSourceFile(task.uri)) {
-                    task.type = TaskType.NoOp;
-                    Log.log("Warning: Only handle viper files, not file: " + path.basename(task.uri.toString()), LogLevel.Info);
-                    continue;
-                }
-                let fileState = State.getFileState(task.uri);
-                if (!fileState) {
-                    Log.error("The file is unknown to the verification controller: " + path.basename(task.uri.toString()), LogLevel.Debug);
-                    continue;
-                }
+            let done = false;
+            while (!done && workList.length > 0) {
+                let task = workList[0];
+
+                let fileState = State.getFileState(task.uri); //might be null
                 switch (task.type) {
                     case TaskType.Verify:
                         let canVerify = canStartVerification(task);
                         if (canVerify.result) {
                             verify(fileState, task.manuallyTriggered);
-                        } else if (canVerify.reason) {
+                            task.type = TaskType.Verifying;
+                        } else if (canVerify.reason && (canVerify.reason != lastCanStartVerificationReason || !Helper.uriEquals(task.uri, lastCanStartVerificationUri))) {
                             Log.log(canVerify.reason, LogLevel.Info);
+                            lastCanStartVerificationReason = canVerify.reason;
                         }
-                        task.type = TaskType.NoOp;
+                        lastCanStartVerificationUri = task.uri;
+                        break;
+                    case TaskType.Verifying:
+                        //if another verification is requested, the current one must be stopped
+                        if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri)) || stopFound) {
+                            task.type = TaskType.Stopping;
+                            doStopVerification(task.uri.toString());
+                        }
+                        //block until verification is complete or failed
+                        if (verificationComplete || verificationFailed) {
+                            if (!Helper.uriEquals(completedOrFailedFileUri, task.uri)) {
+                                Log.error("WARNING: the " + (verificationComplete ? "completed" : "failed") + " verification uri does not correspond to the uri of the started verification.");
+                            }
+                            task.type = NoOp;
+                        }
+                        break;
+                    case TaskType.Stopping:
+                        //block until verification is stoped;
+                        if (stoppingComplete) {
+                            task.type = NoOp;
+                        }
                         break;
                     case TaskType.Save:
-                        if (fileState.onlySpecialCharsChanged) {
-                            fileState.onlySpecialCharsChanged = false;
-                        } else {
-                            //Log.log("Save " + path.basename(task.uri.toString()) + " is handled", LogLevel.Info);
-                            fileState.changed = true;
-                            fileState.verified = false;
-                            stopDebuggingOnServer();
-                            stopDebuggingLocally();
-                            workList.push({ type: TaskType.Verify, uri: task.uri, manuallyTriggered: false });
+                        task.type = NoOp;
+                        if (fileState) {
+                            if (fileState.onlySpecialCharsChanged) {
+                                fileState.onlySpecialCharsChanged = false;
+                            } else {
+                                //Log.log("Save " + path.basename(task.uri.toString()) + " is handled", LogLevel.Info);
+                                fileState.changed = true;
+                                fileState.verified = false;
+                                stopDebuggingOnServer();
+                                stopDebuggingLocally();
+                                workList.push({ type: TaskType.Verify, uri: task.uri, manuallyTriggered: false });
+                            }
                         }
-                        task.type = TaskType.NoOp;
                         break;
+                    default:
+                        //in case a completion event reaches the bottom of the worklist, ignore it.
+                        task.type = NoOp;
+                }
+
+                //in case the leading element is now a NoOp, remove it, otherwise block.
+                if (task.type == NoOp) {
+                    workList.shift();
+                } else {
+                    done = true;
                 }
             }
         } catch (e) {
-            Log.error("Error in verification controller: " + e);
+            Log.error("Error in verification controller (critical): " + e);
             workList.shift();
         }
     }, verificationTimeout);
@@ -322,26 +417,28 @@ function startVerificationController() {
             let editor = vscode.window.activeTextEditor;
             if (editor) {
                 let uri = editor.document.uri;
-                if (Helper.isViperSourceFile(uri.toString())) {
+                if (Helper.isViperSourceFile(uri)) {
                     let oldViperFile: ViperFileState = State.getLastActiveFile();
                     if (oldViperFile) {
-                        //change in avtive viper file, remove special characters from the previous one
+                        //change in active viper file, remove special characters from the previous one
                         if (oldViperFile.uri.toString() !== uri.toString()) {
                             oldViperFile.decorationsShown = false;
-                            oldViperFile.stateVisualizer.removeSpecialCharsFromClosedDocument(() => { });
-                            stopDebuggingOnServer();
-                            stopDebuggingLocally();
+                            if (State.isDebugging) {
+                                oldViperFile.stateVisualizer.removeSpecialCharsFromClosedDocument(() => { });
+                                stopDebuggingOnServer();
+                                stopDebuggingLocally();
+                            }
                         }
                     }
                     let fileState = State.setLastActiveFile(uri, editor);
                     if (fileState) {
                         if (!fileState.verified) {
-                            Log.log("reverify because the active text editor changed", LogLevel.Debug);
+                            Log.log("The active text editor changed, consider reverification of " + fileState.name(), LogLevel.Debug);
                             workList.push({ type: TaskType.Verify, uri: uri, manuallyTriggered: false })
                         } else {
-                            Log.log("don't reverify, the file is already verified", LogLevel.Debug);
+                            Log.log("Don't reverify, the file is already verified", LogLevel.Debug);
                         }
-                        Log.log("Active viper file changed to " + path.basename(uri.toString()), LogLevel.Info);
+                        Log.log("Active viper file changed to " + fileState.name(), LogLevel.Info);
                     }
                 }
             }
@@ -371,7 +468,7 @@ export function deactivate(): Promise<any> {
                 Log.log("Deactivated")
                 resolve();
             }
-        }).catch(e=>{
+        }).catch(e => {
             Log.error("error disposing: " + e);
         });
     });
@@ -500,7 +597,7 @@ function handleStateChange(params: StateChangeParams) {
                     if (Helper.getConfiguration("preferences").showProgress === true) {
                         verifiedFile.stateVisualizer.addTimingInformationToFileState({ total: params.time, timings: timings });
                     }
-                    //workList.push({ type: TaskType.VerificationCompleted, uri: uri, success: params.success });
+
                     let msg: string = "";
                     switch (params.success) {
                         case Success.Success:
@@ -552,6 +649,7 @@ function handleStateChange(params: StateChangeParams) {
                             unitTestResolve("VerificationCompleted");
                         }
                     }
+                    workList.push({ type: TaskType.VerificationComplete, uri: uri, manuallyTriggered: false });
                 }
                 if (verifyingAllFiles) {
                     autoVerificationResults.push(`${Success[params.success]}: ${Uri.parse(params.uri).fsPath}`);
@@ -569,10 +667,11 @@ function handleStateChange(params: StateChangeParams) {
                 break;
         }
     } catch (e) {
-        Log.error("Error handling state change: " + e);
+        Log.error("Error handling state change (critical): " + e);
     }
 }
 
+//for unittest
 function verificationCompleted(success: Success) {
     return success == Success.Success
         || success == Success.ParsingFailed
@@ -662,8 +761,8 @@ function registerHandlers() {
             if (fileState) {
                 fileState.open = true;
                 fileState.verifying = false;
+                workList.push({ type: TaskType.Verify, uri: uriObject, manuallyTriggered: false });
             }
-            workList.push({ type: TaskType.Verify, uri: uriObject, manuallyTriggered: false });
         } catch (e) {
             Log.error("Error handling file opened notification: " + e);
         }
@@ -784,6 +883,7 @@ function registerHandlers() {
                 file.verifying = false;
             });
             State.isVerifying = false;
+            workList.push({ type: TaskType.VerificationFailed, uri: Uri.parse(<string>uri), manuallyTriggered: true });
         } catch (e) {
             Log.error("Error handling verification not started request: " + e);
         }
@@ -796,10 +896,13 @@ function registerHandlers() {
     //Command Handlers
     //verify
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.verify', () => {
-        if (!vscode.window.activeTextEditor) {
+        let fileUri = activeFileUri();
+        if (!fileUri) {
             Log.log("Cannot verify, no document is open.");
+        } else if (!Helper.isViperSourceFile(fileUri)) {
+            Log.log("Cannot verify the active file, its not a viper file.");
         } else {
-            workList.push({ type: TaskType.Verify, uri: vscode.window.activeTextEditor.document.uri, manuallyTriggered: true });
+            workList.push({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: true });
         }
     }));
 
@@ -895,25 +998,7 @@ function registerHandlers() {
 
     //stopVerification
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.stopVerification', () => {
-        if (verifyingAllFiles) {
-            printAllVerificationResults();
-            verifyingAllFiles = false;
-        }
-        if (state.client) {
-            if (State.isVerifying) {
-                clearInterval(progressUpdater);
-                Log.log("Verification stop request", LogLevel.Debug);
-                abortButton.hide();
-                statusBarItem.color = 'orange';
-                statusBarItem.text = "aborting";
-                statusBarProgress.hide();
-                state.client.sendNotification(Commands.StopVerification, State.getLastActiveFile().uri.toString());
-            } else {
-                Log.hint("Cannot stop the verification, no verification is running.");
-            }
-        } else {
-            Log.hint("Extension not ready yet.");
-        }
+        workList.push({ type: TaskType.Stop, uri: null, manuallyTriggered: true });
     }));
 
     //format
@@ -953,6 +1038,33 @@ function registerHandlers() {
     }));
 }
 
+//TODO: used to be called when the stop verification command was handled
+function doStopVerification(uriToStop: string) {
+    if (verifyingAllFiles) {
+        printAllVerificationResults();
+        verifyingAllFiles = false;
+    }
+    if (state.client) {
+        if (State.isVerifying) {
+            clearInterval(progressUpdater);
+            Log.log("Verification stop request", LogLevel.Debug);
+            abortButton.hide();
+            statusBarItem.color = 'orange';
+            statusBarItem.text = "aborting";
+            statusBarProgress.hide();
+            state.client.sendRequest(Commands.StopVerification, uriToStop).then((success) => {
+                workList.push({ type: TaskType.StoppingComplete, uri: null, manuallyTriggered: false });
+            });
+        } else {
+            Log.hint("Cannot stop the verification, no verification is running.");
+            workList.push({ type: TaskType.StoppingComplete, uri: null, manuallyTriggered: false });
+        }
+    } else {
+        Log.hint("Extension not ready yet.");
+        workList.push({ type: TaskType.StoppingComplete, uri: null, manuallyTriggered: false });
+    }
+}
+
 function startBackend(backendName: string) {
     try {
         State.isBackendReady = false;
@@ -964,23 +1076,36 @@ function startBackend(backendName: string) {
 
 function handleBackendReadyNotification(params: BackendReadyParams) {
     try {
-        State.isBackendReady = true;
-        Log.log("Backend ready: " + params.name, LogLevel.Info);
         updateStatusBarItem(statusBarItem, "ready", 'white');
-        //automatically trigger the first verification
         if (params.restarted) {
             //no file is verifying
             State.resetViperFiles()
-            if (State.getLastActiveFile() && Helper.getConfiguration('preferences').autoVerifyAfterBackendChange === true) {
+            if (Helper.getConfiguration('preferences').autoVerifyAfterBackendChange === true) {
                 Log.log("autoVerify after backend change", LogLevel.Info);
-                workList.push({ type: TaskType.Verify, uri: State.getLastActiveFile().uri, manuallyTriggered: false });
+                workList.push({ type: TaskType.Verify, uri: activeFileUri(), manuallyTriggered: false });
+            } else {
+                //is the automatic verification is not wanted, prevent it
+                workList.push({ type: TaskType.Clear, uri: activeFileUri(), manuallyTriggered: false });
             }
         }
+        //for unit testing
         if (isUnitTest && unitTestResolve) {
             unitTestResolve("BackendReady");
         }
+
+        Log.log("Backend ready: " + params.name, LogLevel.Info);
+        State.isBackendReady = true;
     } catch (e) {
         Log.error("Error handling backend started notification: " + e);
+    }
+}
+
+///might be null
+function activeFileUri(): vscode.Uri {
+    if (vscode.window.activeTextEditor) {
+        return vscode.window.activeTextEditor.document.uri;
+    } else {
+        return null;
     }
 }
 
@@ -1044,58 +1169,68 @@ function hideStates(callback, visualizer: StateVisualizer) {
 }
 
 function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
-    //reset timing;
-    verificationStartTime = Date.now();
-    timings = [];
-    clearInterval(progressUpdater);
-    lastProgress = 0;
-    //load expected timing
-    let expectedTimings: TimingInfo = fileState.stateVisualizer.getLastTiming();
-    if (expectedTimings && expectedTimings.total) {
-        Log.log("Verification is expected to take " + formatSeconds(expectedTimings.total), LogLevel.Info);
-        oldTimings = expectedTimings;
-    }
-
-    let uri = fileState.uri.toString();
-    if (Helper.isViperSourceFile(uri)) {
-        if (!state.client) {
-            Log.hint("Extension not ready yet.");
-        } else {
-            let visualizer = State.getVisualizer(uri);
-            visualizer.completeReset();
-            hideStates(() => {
-                //delete old SymbExLog:
-                //Log.deleteFile(Log.getSymbExLogPath());
-
-                //change fileState
-                fileState.changed = false;
-                fileState.verified = false;
-                fileState.verifying = true;
-                State.isVerifying = true;
-
-                //start progress updater
-                clearInterval(progressUpdater);
-                progressUpdater = setInterval(() => {
-                    let progress = getProgress(lastProgress)
-                    if (progress != lastProgress) {
-                        lastProgress = progress;
-                        let totalProgress = verifyingAllFiles ? ` (${nextFileToAutoVerify + 1}/${allFilesToAutoVerify.length})` : "";
-                        Log.log("Progress: " + progress, LogLevel.Debug);
-                        statusBarProgress.text = progressBarText(progress);
-                        statusBarItem.text = progressLabel + " " + formatProgress(progress) + totalProgress;
-                    }
-                }, 500);
-
-                Log.log("Request verification for " + path.basename(uri), LogLevel.Verbose);
-
-                let workspace = vscode.workspace.rootPath ? vscode.workspace.rootPath : path.dirname(fileState.uri.fsPath);
-                let params: VerifyParams = { uri: uri, manuallyTriggered: manuallyTriggered, workspace: workspace };
-                state.client.sendNotification(Commands.Verify, params);
-            }, visualizer);
+    try {
+        //reset timing;
+        verificationStartTime = Date.now();
+        timings = [];
+        clearInterval(progressUpdater);
+        lastProgress = 0;
+        //load expected timing
+        let expectedTimings: TimingInfo = fileState.stateVisualizer.getLastTiming();
+        if (expectedTimings && expectedTimings.total) {
+            Log.log("Verification is expected to take " + formatSeconds(expectedTimings.total), LogLevel.Info);
+            oldTimings = expectedTimings;
         }
-        //in case a debugging session is still running, stop it
-        stopDebuggingOnServer();
-        stopDebuggingLocally();
+
+        let uri = fileState.uri.toString();
+        if (Helper.isViperSourceFile(uri)) {
+            if (!state.client) {
+                Log.hint("Extension not ready yet.");
+            } else {
+                let visualizer = State.getVisualizer(uri);
+                visualizer.completeReset();
+                hideStates(() => {
+                    //delete old SymbExLog:
+                    //Log.deleteFile(Log.getSymbExLogPath());
+
+                    //change fileState
+                    fileState.changed = false;
+                    fileState.verified = false;
+                    fileState.verifying = true;
+
+                    //start progress updater
+                    clearInterval(progressUpdater);
+                    progressUpdater = setInterval(() => {
+                        let progress = getProgress(lastProgress)
+                        if (progress != lastProgress) {
+                            lastProgress = progress;
+                            let totalProgress = verifyingAllFiles ? ` (${nextFileToAutoVerify + 1}/${allFilesToAutoVerify.length})` : "";
+                            Log.log("Progress: " + progress + " (" + fileState.name() + ")", LogLevel.Debug);
+                            statusBarProgress.text = progressBarText(progress);
+                            statusBarItem.text = progressLabel + " " + formatProgress(progress) + totalProgress;
+                        }
+                    }, 500);
+
+                    Log.log("Request verification for " + path.basename(uri), LogLevel.Verbose);
+
+                    let workspace = vscode.workspace.rootPath ? vscode.workspace.rootPath : path.dirname(fileState.uri.fsPath);
+                    let params: VerifyParams = { uri: uri, manuallyTriggered: manuallyTriggered, workspace: workspace };
+                    //request verification from Server
+                    state.client.sendNotification(Commands.Verify, params);
+
+                    State.isVerifying = true;
+                }, visualizer);
+            }
+            //in case a debugging session is still running, stop it
+            stopDebuggingOnServer();
+            stopDebuggingLocally();
+        }
+    } catch (e) {
+        if (!State.isVerifying) {
+            //make sure the worklist is not blocked
+            workList.push({ type: TaskType.VerificationFailed, uri: fileState.uri });
+        }
+        Log.error("Error requesting verification of " + fileState.name);
     }
 }
 

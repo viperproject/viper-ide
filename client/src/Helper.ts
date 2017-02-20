@@ -2,9 +2,9 @@
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import {Log} from './Log';
+import { Log } from './Log';
 import * as path from 'path';
-import {LogLevel} from './ViperProtocol';
+import { LogLevel } from './ViperProtocol';
 
 export class Helper {
 
@@ -59,12 +59,31 @@ export class Helper {
     }
 
     public static isViperSourceFile(uri: string | vscode.Uri): boolean {
-        let uriString: string;
-        if (typeof uri === "string") {
-            uriString = uri;
-        } else {
-            uriString = uri.toString();
-        }
+        if (!uri) return false;
+        let uriString = this.uriToString(uri);
         return this.viperFileEndings.some(ending => uriString.endsWith(ending));
+    }
+
+    public static uriEquals(a: string | vscode.Uri, b: string | vscode.Uri) {
+        if (!a || !b) return false;
+        return this.uriToString(a) == this.uriToString(b);
+    }
+
+    public static uriToString(uri: string | vscode.Uri): string {
+        if (!uri) return null;
+        if (typeof uri === "string") {
+            return uri;
+        } else {
+            return uri.toString();
+        }
+    }
+
+    public static uriToObject(uri: string | vscode.Uri): vscode.Uri {
+        if (!uri) return null;
+        if (typeof uri === "string") {
+            return vscode.Uri.parse(uri);
+        } else {
+            return uri;
+        }
     }
 }

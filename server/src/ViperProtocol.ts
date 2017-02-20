@@ -415,6 +415,7 @@ export interface Versions {
     userPreferencesVersion: string;
     javaSettingsVersion: string;
     advancedFeaturesVersion: string;
+    defaultSettings:any;
 }
 
 ////////////////////////////////////////////////////

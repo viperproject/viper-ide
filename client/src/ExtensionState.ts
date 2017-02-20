@@ -81,15 +81,10 @@ export class State {
 
     ///retrieves the requested file, creating it when needed
     public static getFileState(uri: Uri | string | vscode.Uri): ViperFileState {
-        let uriObject: Uri | vscode.Uri;
-        let uriString: string;
-        if (typeof uri === "string") {
-            uriObject = Uri.parse(uri);
-            uriString = uri;
-        } else {
-            uriObject = uri
-            uriString = uri.toString();
-        }
+        if (!uri) return null;
+        let uriObject: vscode.Uri = Helper.uriToObject(uri);
+        let uriString: string = Helper.uriToString(uri);
+
         if (!Helper.isViperSourceFile(uriString)) {
             return null;
         }

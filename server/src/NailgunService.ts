@@ -200,18 +200,19 @@ export class NailgunService {
         if (Settings.isWin) {
             //the backend related processes (e.g z3) are child processes of the nailgun server, 
             //therefore, killing all childs of the nailgun server stops the right processes
-
             return new Promise((resolve, reject) => {
                 if (Server.nailgunService.nailgunServerPid) {
                     //let wmic = this.executer('wmic process where "ParentProcessId=' + Server.nailgunService.nailgunServerPid + (ngPid ? ' or ParentProcessId=' + ngPid : "") + '" call terminate');
                     let wmic = this.spawner('wmic', ["process", "where", 'ParentProcessId=' + Server.nailgunService.nailgunServerPid + (ngPid ? ' or ParentProcessId=' + ngPid : ""), "call", "terminate"]);
-                    wmic.on('stop', (code) => {
+                    wmic.on('exit', (code) => {
                         resolve(true);
                     });
                 } else {
                     this.getNailgunServerPid().then(serverPid => {
                         Server.nailgunService.nailgunServerPid = serverPid;
-                        return this.killNGAndZ3(ngPid);
+                        this.killNGAndZ3(ngPid).then(()=>{
+                            resolve(true);
+                        })
                     });
                 }
             })

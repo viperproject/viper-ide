@@ -635,7 +635,7 @@ class StateVisualizer {
                         this.viperFile.onlySpecialCharsChanged = true;
                         fs.writeFileSync(this.uri.fsPath, newData);
                     }
-                    Log_1.Log.log("Special Chars removed from closed file " + this.viperFile.name(), ViperProtocol_1.LogLevel.Info);
+                    Log_1.Log.log("Special chars removed from closed file " + this.viperFile.name(), ViperProtocol_1.LogLevel.Info);
                     this.removingSpecialChars = false;
                     this.viperFile.specialCharsShown = false;
                     callback();
