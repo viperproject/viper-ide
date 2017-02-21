@@ -15,7 +15,9 @@
         "vscode-languageserver": "^2.2.0",
         "vscode-uri": "^0.0.3",
         "tree-kill": "^1.1.0",
-        "portfinder": "1.0.13"
+        "portfinder": "1.0.13",
+        "mkdirp": "0.5.1",
+        "adm-zip": "^0.4.7"
     },
     "devDependencies": {
         "typescript": "^1.8.10"

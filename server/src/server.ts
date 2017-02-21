@@ -11,6 +11,11 @@ import { VerificationTask } from './VerificationTask';
 import { Statement } from './Statement';
 import { DebugServer } from './DebugServer';
 import { Server } from './ServerClass';
+var AdmZip = require('adm-zip');
+import * as fs from 'fs';
+import * as http from 'http';
+import * as pathHelper from 'path';
+let mkdirp = require('mkdirp');
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 Server.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
@@ -183,6 +188,57 @@ function registerHandlers() {
         }
     });
 
+    Server.connection.onNotification(Commands.UpdateViperTools, () => {
+        Log.log("Updating Viper Tools", LogLevel.Info);
+        try {
+            let filename: string;
+            if (Settings.isWin) {
+                filename = "ViperToolsWin.zip"
+            } else {
+                filename = Settings.isLinux ? "ViperToolsLinux.zip" : "ViperToolsMac.zip";
+            }
+            //check access to download location
+            let dir = Settings.settings.paths.viperToolsPath;
+            let viperToolsPath = pathHelper.join(dir, filename);
+            makeSureFileExistsAndCheckForWritePermission(viperToolsPath).then(error => {
+                if (error) {
+                    Log.error("The Viper Tools Update failed, change the ViperTools directory to a folder in which you have permission to create files.");
+                    Log.error(error, LogLevel.Debug);
+                } else {
+                    //download Viper Tools
+                    let url = <string>Settings.settings.preferences.viperToolsProvider;
+                    Log.log("Downloading ViperTools from " + url, LogLevel.Info)
+                    Log.log("This might take a while as the ViperTools are about 100MB", LogLevel.Info)
+                    download(url, viperToolsPath).then(success => {
+                        Log.log("Downloading ViperTools finished " + (success ? "" : "un") + "successfully", LogLevel.Info);
+                        if (success) {
+                            try {
+                                //extract files
+                                Log.log("Extracting files...", LogLevel.Info)
+                                let zip = new AdmZip(viperToolsPath);
+                                zip.extractAllTo(dir, true);
+                                Log.log("ViperTools Update completed");
+
+                                //chmod to allow the execution of ng and zg files
+                                if (Settings.isLinux || Settings.isMac) {
+                                    fs.chmodSync(pathHelper.join(dir,"nailgun","ng"), 755) //755 is for (read, write, execute)
+                                    fs.chmodSync(pathHelper.join(dir,"z3","bin","z3"), 755) //755 is for (read, write, execute)
+                                }
+                                //trigger a restart of the backend
+                                restartBackendIfNeeded(Settings.settings, true);
+                            } catch (e) {
+                                Log.error("Error extracting the ViperTools: " + e);
+                            }
+                        }
+                    });
+                }
+            });
+
+        } catch (e) {
+            Log.error("Error updating viper tools: " + e);
+        }
+    });
+
     Server.connection.onRequest(Commands.Dispose, () => {
         return new Promise((resolve, reject) => {
             try {
@@ -321,6 +377,63 @@ function registerHandlers() {
     });
 }
 
+function download(url, filePath): Thenable<boolean> {
+    return new Promise((resolve, reject) => {
+        try {
+            let file = fs.createWriteStream(filePath);
+            let request = http.get(url, function (response) {
+                response.pipe(file);
+                file.on('finish', function () {
+                    file.close();
+                    resolve(true);
+                });
+            });
+            request.on('error', function (err) {
+                fs.unlink(filePath);
+                Log.log("Error downloading viper tools: " + err.message);
+                resolve(false);
+            });
+        } catch (e) {
+            Log.error("Error downloading viper tools: " + e);
+        }
+    });
+};
+
+function makeSureFileExistsAndCheckForWritePermission(filePath: string): Thenable<string> {
+    return new Promise((resolve, reject) => {
+        try {
+            let folder = pathHelper.dirname(filePath);
+            mkdirp(folder, (err) => {
+                if (err && err.code != 'EEXIST') {
+                    resolve("Error creating " + folder + " " + err.message);
+                } else {
+                    fs.open(filePath, 'a', (err, file) => {
+                        if (err) {
+                            resolve("Error opening " + filePath + " " + err.message)
+                        } else {
+                            fs.close(file, err => {
+                                if (err) {
+                                    resolve("Error closing " + filePath + " " + err.message)
+                                } else {
+                                    fs.access(filePath, 2, (e) => { //fs.constants.W_OK is 2
+                                        if (e) {
+                                            resolve("Error accessing " + filePath + " " + e.message)
+                                        } else {
+                                            resolve(null);
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        } catch (e) {
+            resolve(e);
+        }
+    });
+}
+
 function resetDiagnostics(uri: string) {
     let task = Server.verificationTasks.get(uri);
     if (!task) {
@@ -331,13 +444,14 @@ function resetDiagnostics(uri: string) {
 }
 
 //tries to restart backend, 
-function restartBackendIfNeeded(oldSettings: ViperSettings) {
+function restartBackendIfNeeded(oldSettings: ViperSettings, viperToolsUpdated: boolean = false) {
     let newBackend = Settings.autoselectBackend(Settings.settings);
     if (newBackend) {
         //only restart the backend after settings changed if the active backend was affected
         let restartBackend = !Server.nailgunService.isReady() //backend is not ready -> restart
             || !Settings.backendEquals(Server.backend, newBackend) //change in backend
-            || (oldSettings && (newBackend.useNailgun && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings)))); //backend needs nailgun and nailgun settings changed
+            || (oldSettings && (newBackend.useNailgun && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings))))
+            || viperToolsUpdated; //backend needs nailgun and nailgun settings changed
         if (restartBackend) {
             Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info);
             Server.backend = newBackend;

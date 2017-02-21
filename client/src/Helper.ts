@@ -48,13 +48,15 @@ export class Helper {
         return vscode.workspace.getConfiguration("viperSettings").get(setting);
     }
 
+    //unused
     public static makeSureFileExists(fileName: string) {
         try {
             if (!fs.existsSync(fileName)) {
                 fs.createWriteStream(fileName).close();
             }
+            fs.accessSync(fileName);
         } catch (e) {
-            Log.error("Cannot create file: " + e);
+            Log.error("Error making sure " + fileName + " exists. Are you missing access permission? " + e);
         }
     }
 

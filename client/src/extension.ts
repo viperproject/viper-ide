@@ -15,6 +15,7 @@ import { Helper } from './Helper';
 import { ViperFormatter } from './ViperFormatter';
 import { ViperFileState } from './ViperFileState';
 
+
 let statusBarItem;
 let statusBarProgress;
 let backendStatusBar;
@@ -88,7 +89,7 @@ export function activate(context: vscode.ExtensionContext) {
         nailgunSettingsVersion: "0.5.402",
         backendSettingsVersion: "0.2.15",
         pathSettingsVersion: "0.2.15",
-        userPreferencesVersion: "0.2.15",
+        userPreferencesVersion: "0.5.406",
         javaSettingsVersion: "0.2.15",
         advancedFeaturesVersion: "0.3.8",
         defaultSettings: defaultConfiguration
@@ -225,8 +226,10 @@ function canStartDebugging(): CheckResult {
 function canStartVerification(task: Task): CheckResult {
     try {
         let result = false;
-        let reason: string = "Cannot Verify, unknown file uri";
-        if (task.uri) {
+        let reason: string;
+        if (!task.uri) {
+            reason = "Cannot Verify, unknown file uri";
+        } else {
             let dontVerify = `Don't verify ${path.basename(task.uri.toString())}: `;
             if (!State.isBackendReady) {
                 reason = "Backend is not ready, wait for backend to start.";
@@ -351,7 +354,7 @@ function startVerificationController() {
                         if (canVerify.result) {
                             verify(fileState, task.manuallyTriggered);
                             task.type = TaskType.Verifying;
-                        } else if (canVerify.reason && (canVerify.reason != lastCanStartVerificationReason || !Helper.uriEquals(task.uri, lastCanStartVerificationUri))) {
+                        } else if (canVerify.reason && (canVerify.reason != lastCanStartVerificationReason || (task.uri && !Helper.uriEquals(task.uri, lastCanStartVerificationUri)))) {
                             Log.log(canVerify.reason, LogLevel.Info);
                             lastCanStartVerificationReason = canVerify.reason;
                         }
@@ -438,7 +441,7 @@ function startVerificationController() {
                         } else {
                             Log.log("Don't reverify, the file is already verified", LogLevel.Debug);
                         }
-                        Log.log("Active viper file changed to " + fileState.name(), LogLevel.Info);
+                        //Log.log("Active viper file changed to " + fileState.name(), LogLevel.Info);
                     }
                 }
             }
@@ -712,14 +715,14 @@ function handleSettingsCheckResult(params: SettingsCheckedParams) {
 
         if (nofErrors + nofWarnings > 1) message = "see View->Output->Viper";
 
-        let userSettingsButton: vscode.MessageItem = { title: "Open User Settings" };
-        let workspaceSettingsButton: vscode.MessageItem = { title: "Open Workspace Settings" };
-        vscode.window.showInformationMessage("Viper Settings: " + errorCounts + ": " + message, userSettingsButton, workspaceSettingsButton).then((choice) => {
+        let settingsButton: vscode.MessageItem = { title: "Open Settings" };
+        let updateButton: vscode.MessageItem = { title: "Update ViperTools" };
+        vscode.window.showInformationMessage("Viper Settings: " + errorCounts + ": " + message, settingsButton, updateButton).then((choice) => {
             try {
-                if (choice && choice.title === workspaceSettingsButton.title) {
+                if (choice && choice.title === settingsButton.title) {
                     vscode.commands.executeCommand("workbench.action.openWorkspaceSettings")
-                } else if (choice && choice.title === userSettingsButton.title) {
-                    vscode.commands.executeCommand("workbench.action.openGlobalSettings")
+                } else if (choice && choice.title === updateButton.title) {
+                    vscode.commands.executeCommand("extension.updateViperTools")
                 }
             } catch (e) {
                 Log.error("Error accessing " + choice.title + " settings: " + e)
@@ -1035,6 +1038,11 @@ function registerHandlers() {
     //remove diagnostics of open file
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.removeDiagnostics', () => {
         removeDiagnostics();
+    }));
+
+    //automatic installation and updating of viper tools
+    state.context.subscriptions.push(vscode.commands.registerCommand('extension.updateViperTools', () => {
+        state.client.sendNotification(Commands.UpdateViperTools);
     }));
 }
 

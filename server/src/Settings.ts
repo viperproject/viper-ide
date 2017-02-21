@@ -3,7 +3,7 @@
 import fs = require('fs');
 import * as pathHelper from 'path';
 import { Log } from './Log';
-import { Versions, PlatformDependentPath, SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel } from './ViperProtocol';
+import { Versions, PlatformDependentURL, PlatformDependentPath, SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel } from './ViperProtocol';
 import { Server } from './ServerClass';
 const os = require('os');
 var portfinder = require('portfinder');
@@ -97,7 +97,7 @@ export class Settings {
         args = args.replace(/\$z3Exe\$/g, '"' + this.settings.paths.z3Executable + '"');
         args = args.replace(/\$boogieExe\$/g, '"' + this.settings.paths.boogieExecutable + '"');
         args = args.replace(/\$mainMethod\$/g, stage.mainMethod);
-        args = args.replace(/\$nailgunPort\$/g, this.settings.nailgunSettings.port);
+        args = args.replace(/\$nailgunPort\$/g, Server.usedNailgunPort);
         args = args.replace(/\$fileToVerify\$/g, '"' + fileToVerify + '"');
         args = args.replace(/\$backendPaths\$/g, Settings.backendJars(backend))
         return args;
@@ -279,6 +279,9 @@ export class Settings {
                         resolve(false); return;
                     }
 
+                    //Check viperToolsProvider
+                    settings.preferences.viperToolsProvider = this.checkPlatformDependentUrl(settings.preferences.viperToolsProvider);
+
                     //Check Paths
                     //check viperToolsPath
                     let resolvedPath = this.checkPath(settings.paths.viperToolsPath, "Path to Viper Tools:", false, true, true);
@@ -326,6 +329,30 @@ export class Settings {
                 resolve(false);
             }
         });
+    }
+
+    private static checkPlatformDependentUrl(url: string | PlatformDependentURL): string {
+        let stringURL = null;
+        if (url) {
+            if (typeof url === "string") {
+                stringURL = url;
+            } else {
+                if (Settings.isLinux) {
+                    stringURL = url.linux;
+                } else if (Settings.isMac) {
+                    stringURL = url.mac;
+                } else if (Settings.isWin) {
+                    stringURL = url.windows;
+                } else {
+                    Log.error("Operation System detection failed, Its not Mac, Windows or Linux");
+                }
+            }
+        }
+        if (!stringURL || stringURL.length == 0) {
+            this.addError("The viperToolsProvider is missing in the preferences");
+        }
+        //TODO: check url format
+        return stringURL;
     }
 
     private static checkPath(path: (string | PlatformDependentPath), prefix: string, executable: boolean, allowPlatformDependentPath: boolean, allowStringPath: boolean = true): ResolvedPath {

@@ -496,7 +496,7 @@ export class VerificationTask {
                 Log.hint(hintMessage);
             }
             else if (data.startsWith("connect: No error")) {
-                let hintMessage = "No Nailgun server is running on port " + Settings.settings.nailgunSettings.port + ": is your nailgun correctly linked in the settings?";
+                let hintMessage = "No Nailgun server is running on port " + Server.usedNailgunPort + ": is your nailgun correctly linked in the settings?";
                 Log.hint(hintMessage);
             }
             if (data.startsWith("java.lang.NullPointerException")) {

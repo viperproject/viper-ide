@@ -85,6 +85,9 @@ export class NailgunService {
 
 
                         let command = 'java ' + Settings.settings.javaSettings.customArguments + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + Settings.settings.nailgunSettings.port;
+                        //store the port of the running nailgun server
+                        Server.usedNailgunPort = Settings.settings.nailgunSettings.port;
+
                         let backendJars = Settings.backendJars(backend);
                         command = command.replace(/\$backendPaths\$/g, '"' + Settings.settings.nailgunSettings.serverJar + '"' + backendJars);
                         Log.log(command, LogLevel.Debug)
@@ -172,8 +175,8 @@ export class NailgunService {
         return new Promise((resolve, reject) => {
             try {
                 this.setStopping();
-                Log.log("gracefully shutting down nailgun server on port: " + Settings.settings.nailgunSettings.port, LogLevel.Info);
-                let shutDownNailgunProcess = child_process.exec('"' + Settings.settings.nailgunSettings.clientExecutable + '" --nailgun-port ' + Settings.settings.nailgunSettings.port + ' ng-stop');
+                Log.log("gracefully shutting down nailgun server on port: " + Server.usedNailgunPort, LogLevel.Info);
+                let shutDownNailgunProcess = child_process.exec('"' + Settings.settings.nailgunSettings.clientExecutable + '" --nailgun-port ' + Server.usedNailgunPort + ' ng-stop');
                 shutDownNailgunProcess.on('exit', (code, signal) => {
                     Log.log("nailgun server is stopped", LogLevel.Info);
                     this.setStopped();
@@ -210,7 +213,7 @@ export class NailgunService {
                 } else {
                     this.getNailgunServerPid().then(serverPid => {
                         Server.nailgunService.nailgunServerPid = serverPid;
-                        this.killNGAndZ3(ngPid).then(()=>{
+                        this.killNGAndZ3(ngPid).then(() => {
                             resolve(true);
                         })
                     });
@@ -270,7 +273,7 @@ export class NailgunService {
     private spawner(command: string, args: string[]): child_process.ChildProcess {
         Log.log("spawner: " + command + " " + args.join(" "));
         try {
-            let child = child_process.spawn(command, args,{detached:true});
+            let child = child_process.spawn(command, args, { detached: true });
             child.on('stdout', data => {
                 Log.log('spawner stdout: ' + data);
             });
@@ -320,7 +323,7 @@ export class NailgunService {
         this.killRecursive(this.nailgunProcess.pid);
 
         if (Settings.isWin) {
-             let wmic = this.spawner('wmic', ["process", "where", 'ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid, "call", "terminate"]);
+            let wmic = this.spawner('wmic', ["process", "where", 'ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid, "call", "terminate"]);
             //let wmic = this.executer('wmic process where "ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid + '" call terminate');
         }
 
@@ -373,7 +376,7 @@ export class NailgunService {
             if (!this.nailgunProcess) {
                 return resolve(false);
             }
-            let command = '"' + Settings.settings.nailgunSettings.clientExecutable + '" --nailgun-port ' + Settings.settings.nailgunSettings.port + " NOT_USED_CLASS_NAME";
+            let command = '"' + Settings.settings.nailgunSettings.clientExecutable + '" --nailgun-port ' + Server.usedNailgunPort + " NOT_USED_CLASS_NAME";
             Log.log(command, LogLevel.Debug);
             let nailgunServerTester = child_process.exec(command);
             nailgunServerTester.stderr.on('data', data => {

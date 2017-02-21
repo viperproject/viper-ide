@@ -58,6 +58,9 @@ export class Commands {
 
     //remove the diagnostics in the file specified by uri
     static RemoveDiagnostics = { method: "RemoveDiagnostics" };
+
+    //update the viper tools
+    static UpdateViperTools = { method: "UpdateViperTools" };
 }
 
 export interface GetExecutionTraceParams {
@@ -369,6 +372,8 @@ export interface UserPreferences extends VersionedSettings {
     autoVerifyAfterBackendChange: boolean;
     //Display the verification progress in the status bar. Only useful if the backend supports progress reporting.
     showProgress: boolean;
+    //The URL for downloading the ViperTools from
+    viperToolsProvider: string | PlatformDependentURL;
 }
 
 export interface JavaSettings extends VersionedSettings {
@@ -401,6 +406,12 @@ export interface PlatformDependentPath {
     linux?: string;
 }
 
+export interface PlatformDependentURL {
+    windows?: string;
+    mac?: string;
+    linux?: string;
+}
+
 export enum SettingsErrorType { Error, Warning }
 
 export interface SettingsError {
@@ -415,7 +426,7 @@ export interface Versions {
     userPreferencesVersion: string;
     javaSettingsVersion: string;
     advancedFeaturesVersion: string;
-    defaultSettings:any;
+    defaultSettings: any;
 }
 
 ////////////////////////////////////////////////////

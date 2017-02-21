@@ -1,10 +1,10 @@
 'use strict'
 
-import {IConnection, TextDocuments, PublishDiagnosticsParams} from 'vscode-languageserver';
-import {Command, LogParams, SettingsCheckedParams, Position, Range, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel} from './ViperProtocol'
-import {NailgunService} from './NailgunService';
-import {VerificationTask} from './VerificationTask';
-import {Log} from './Log';
+import { IConnection, TextDocuments, PublishDiagnosticsParams } from 'vscode-languageserver';
+import { Command, LogParams, SettingsCheckedParams, Position, Range, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel } from './ViperProtocol'
+import { NailgunService } from './NailgunService';
+import { VerificationTask } from './VerificationTask';
+import { Log } from './Log';
 import * as pathHelper from 'path';
 const os = require('os');
 
@@ -24,6 +24,7 @@ export class Server {
     static verificationTasks: Map<string, VerificationTask> = new Map();
     static nailgunService: NailgunService;
     static debuggedVerificationTask: VerificationTask;
+    static usedNailgunPort: string;
 
     static isViperSourceFile(uri: string): boolean {
         return uri.endsWith(".sil") || uri.endsWith(".vpr");
