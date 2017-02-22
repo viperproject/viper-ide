@@ -58,13 +58,7 @@ function registerHandlers() {
             Log.logLevel = Settings.settings.preferences.logLevel; //after this line, Logging works
 
             Log.log('Configuration changed', LogLevel.Info);
-            Settings.checkSettings().then(() => {
-                if (Settings.valid()) {
-                    restartBackendIfNeeded(oldSettings);
-                } else {
-                    Server.nailgunService.stopNailgunServer();
-                }
-            });
+            checkSettingsAndRestartBackendIfNeeded(oldSettings);
         } catch (e) {
             Log.error("Error handling configuration change: " + e);
         }
@@ -76,14 +70,7 @@ function registerHandlers() {
                 Log.log("No backend was chosen, don't restart backend", LogLevel.Debug);
             } else {
                 //recheck settings upon backend change
-                Settings.checkSettings().then(() => {
-                    if (Settings.valid()) {
-                        Settings.selectedBackend = selectedBackend;
-                        restartBackendIfNeeded(null);
-                    } else {
-                        Server.nailgunService.stopNailgunServer();
-                    }
-                });
+                checkSettingsAndRestartBackendIfNeeded(null, selectedBackend);
             }
         } catch (e) {
             Log.error("Error handling select backend request: " + e);
@@ -189,7 +176,7 @@ function registerHandlers() {
     });
 
     Server.connection.onNotification(Commands.UpdateViperTools, () => {
-        Log.log("Updating Viper Tools", LogLevel.Info);
+        Log.log("Updating Viper Tools ...", LogLevel.Default);
         try {
             let filename: string;
             if (Settings.isWin) {
@@ -207,8 +194,8 @@ function registerHandlers() {
                 } else {
                     //download Viper Tools
                     let url = <string>Settings.settings.preferences.viperToolsProvider;
-                    Log.log("Downloading ViperTools from " + url, LogLevel.Info)
-                    Log.log("This might take a while as the ViperTools are about 100MB", LogLevel.Info)
+                    Log.log("Downloading ViperTools from " + url + " ...", LogLevel.Default)
+                    Log.log("This might take a while as the ViperTools are about 100MB in size.", LogLevel.Info)
                     download(url, viperToolsPath).then(success => {
                         Log.log("Downloading ViperTools finished " + (success ? "" : "un") + "successfully", LogLevel.Info);
                         if (success) {
@@ -217,15 +204,17 @@ function registerHandlers() {
                                 Log.log("Extracting files...", LogLevel.Info)
                                 let zip = new AdmZip(viperToolsPath);
                                 zip.extractAllTo(dir, true);
-                                Log.log("ViperTools Update completed");
 
                                 //chmod to allow the execution of ng and zg files
                                 if (Settings.isLinux || Settings.isMac) {
-                                    fs.chmodSync(pathHelper.join(dir,"nailgun","ng"), 755) //755 is for (read, write, execute)
-                                    fs.chmodSync(pathHelper.join(dir,"z3","bin","z3"), 755) //755 is for (read, write, execute)
+                                    fs.chmodSync(pathHelper.join(dir, "nailgun", "ng"), 755) //755 is for (read, write, execute)
+                                    fs.chmodSync(pathHelper.join(dir, "z3", "bin", "z3"), 755) //755 is for (read, write, execute)
                                 }
+
+                                Log.log("ViperTools Update completed", LogLevel.Default);
+
                                 //trigger a restart of the backend
-                                restartBackendIfNeeded(Settings.settings, true);
+                                checkSettingsAndRestartBackendIfNeeded(null, null, true);
                             } catch (e) {
                                 Log.error("Error extracting the ViperTools: " + e);
                             }
@@ -444,25 +433,34 @@ function resetDiagnostics(uri: string) {
 }
 
 //tries to restart backend, 
-function restartBackendIfNeeded(oldSettings: ViperSettings, viperToolsUpdated: boolean = false) {
-    let newBackend = Settings.autoselectBackend(Settings.settings);
-    if (newBackend) {
-        //only restart the backend after settings changed if the active backend was affected
-        let restartBackend = !Server.nailgunService.isReady() //backend is not ready -> restart
-            || !Settings.backendEquals(Server.backend, newBackend) //change in backend
-            || (oldSettings && (newBackend.useNailgun && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings))))
-            || viperToolsUpdated; //backend needs nailgun and nailgun settings changed
-        if (restartBackend) {
-            Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info);
-            Server.backend = newBackend;
-            Server.verificationTasks.forEach(task => task.resetLastSuccess());
-            Server.nailgunService.startOrRestartNailgunServer(Server.backend, true);
+function checkSettingsAndRestartBackendIfNeeded(oldSettings: ViperSettings, selectedBackend?: string, viperToolsUpdated: boolean = false) {
+    Settings.checkSettings().then(() => {
+        if (Settings.valid()) {
+            if (selectedBackend) {
+                Settings.selectedBackend = selectedBackend;
+            }
+            let newBackend = Settings.autoselectBackend(Settings.settings);
+            if (newBackend) {
+                //only restart the backend after settings changed if the active backend was affected
+                let restartBackend = !Server.nailgunService.isReady() //backend is not ready -> restart
+                    || !Settings.backendEquals(Server.backend, newBackend) //change in backend
+                    || (oldSettings && (newBackend.useNailgun && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings))))
+                    || viperToolsUpdated; //backend needs nailgun and nailgun settings changed
+                if (restartBackend) {
+                    Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info);
+                    Server.backend = newBackend;
+                    Server.verificationTasks.forEach(task => task.resetLastSuccess());
+                    Server.nailgunService.startOrRestartNailgunServer(Server.backend, true);
+                } else {
+                    Log.log("No need to restart backend. It is still the same", LogLevel.Debug)
+                    Server.backend = newBackend;
+                    Server.sendBackendReadyNotification({ name: Server.backend.name, restarted: false });
+                }
+            } else {
+                Log.error("No backend, even though the setting check succeeded.");
+            }
         } else {
-            Log.log("No need to restart backend. It is still the same", LogLevel.Debug)
-            Server.backend = newBackend;
-            Server.sendBackendReadyNotification({ name: Server.backend.name, restarted: false });
+            Server.nailgunService.stopNailgunServer();
         }
-    } else {
-        Log.error("No backend, even though the setting check succeeded.");
-    }
+    });
 }

@@ -752,6 +752,8 @@ function registerHandlers() {
         try {
             updateStatusBarItem(backendStatusBar, newBackend, "white");
             State.reset();
+            statusBarProgress.hide();
+            abortButton.hide();
         } catch (e) {
             Log.error("Error handling backend change: " + e);
         }

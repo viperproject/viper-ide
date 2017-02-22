@@ -32,13 +32,10 @@ export class NailgunService {
         NailgunService.startingOrRestarting = false;
         Log.log("The backend is ready for verification", LogLevel.Info);
         Server.sendBackendReadyNotification({ name: this.activeBackend.name, restarted: this.reverifyWhenBackendReady });
-
-        if (Settings.isWin) {
-            this.getNailgunServerPid().then(pid => {
-                this.nailgunServerPid = pid;
-                Log.log("The nailgun server pid is " + pid);
-            });
-        }
+        this.getNailgunServerPid().then(pid => {
+            this.nailgunServerPid = pid;
+            Log.log("The nailgun server pid is " + pid);
+        });
     }
 
     public setStopping() {
@@ -82,7 +79,6 @@ export class NailgunService {
                         //notify client
                         Server.sendBackendChangeNotification(backend.name);
                         Server.sendStateChangeNotification({ newState: VerificationState.Starting, backendName: backend.name });
-
 
                         let command = 'java ' + Settings.settings.javaSettings.customArguments + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + Settings.settings.nailgunSettings.port;
                         //store the port of the running nailgun server
@@ -191,66 +187,59 @@ export class NailgunService {
         });
     }
 
-    public killNGAndZ3(ngPid?: number): Thenable<boolean> {
-        //return this.killNgAndZ3Deamon();
-        // return new Promise((resolve, reject) => {
-        //     tree_kill(pid, 'SIGKILL', (err) => {
-        //         Log.log("tree-killer done: " + err);
-        //         resolve(true);
-        //     });
-        // });
+    //the backend related processes (e.g z3) are child processes of the nailgun server, 
+    //therefore, killing all childs of the nailgun server stops the right processes
+    public killNGAndZ3(ngPid?: number, secondTry: boolean = false): Thenable<boolean> {
+        return new Promise((resolve, reject) => {
 
-        if (Settings.isWin) {
-            //the backend related processes (e.g z3) are child processes of the nailgun server, 
-            //therefore, killing all childs of the nailgun server stops the right processes
-            return new Promise((resolve, reject) => {
-                if (Server.nailgunService.nailgunServerPid) {
-                    //let wmic = this.executer('wmic process where "ParentProcessId=' + Server.nailgunService.nailgunServerPid + (ngPid ? ' or ParentProcessId=' + ngPid : "") + '" call terminate');
+            if (Server.nailgunService.nailgunServerPid) {
+                if (Settings.isWin) {
                     let wmic = this.spawner('wmic', ["process", "where", 'ParentProcessId=' + Server.nailgunService.nailgunServerPid + (ngPid ? ' or ParentProcessId=' + ngPid : ""), "call", "terminate"]);
                     wmic.on('exit', (code) => {
                         resolve(true);
                     });
                 } else {
+                    let wmic = this.spawner('pkill', ["-P", "" + Server.nailgunService.nailgunServerPid + (ngPid ? "," + ngPid : "")]);
+                    wmic.on('exit', (code) => {
+                        resolve(true);
+                    });
+                }/* else {
+                    this.killAllNgAndZ3Processes().then(success => {
+                        resolve(success);
+                    })
+                }*/
+            } else {
+                if (!secondTry) {
                     this.getNailgunServerPid().then(serverPid => {
                         Server.nailgunService.nailgunServerPid = serverPid;
-                        this.killNGAndZ3(ngPid).then(() => {
+                        this.killNGAndZ3(ngPid, true).then(() => {
                             resolve(true);
                         })
                     });
+                } else {
+                    Log.error("Cannot kill the ng and z3 processes, because the nailgun server PID is unknown.");
                 }
-            })
-        } else if (Settings.isLinux) {
-            return this.killAllNgAndZ3Processes();
-            // return new Promise((resolve, reject) => {
-            //     let childfetcher = child_process.exec("pstree -p " + ngPid + " | grep -o '([0-9]\+)' | grep -o '[0-9]\+'"
-            //  });
-        } else {
-            return this.killAllNgAndZ3Processes();
-        }
+            }
+        });
     }
 
     private getNailgunServerPid(): Promise<number> {
         return new Promise((resolve, reject) => {
+            let command: string;
             if (Settings.isWin) {
-                //the backend related processes (e.g z3) are child processes of the nailgun server, 
-                //therefore, killing all childs of the nailgun server stops the right processes
-
-                child_process.exec('wmic process where "parentprocessId=' + this.nailgunProcess.pid + ' and name=\'java.exe\'" get ProcessId', (strerr, stdout, stderr) => {
-                    let regex = /.*?(\d+).*/.exec(stdout);
-                    if (regex[1]) {
-                        resolve(regex[1]);
-                    } else {
-                        Log.log("error getting Nilgun Pid");
-                        reject();
-                    }
-                });
-            } else if (Settings.isLinux) {
-                Log.error("unsupported");
-                reject();
+                command = 'wmic process where "parentprocessId=' + this.nailgunProcess.pid + ' and name=\'java.exe\'" get ProcessId';
             } else {
-                Log.error("unsupported");
-                reject();
+                command = 'pgrep -P ' + this.nailgunProcess.pid;
             }
+            child_process.exec(command, (strerr, stdout, stderr) => {
+                let regex = /.*?(\d+).*/.exec(stdout);
+                if (regex[1]) {
+                    resolve(regex[1]);
+                } else {
+                    Log.log("Error getting Nailgun Pid");
+                    reject();
+                }
+            });
         });
     }
 
@@ -325,6 +314,9 @@ export class NailgunService {
         if (Settings.isWin) {
             let wmic = this.spawner('wmic', ["process", "where", 'ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid, "call", "terminate"]);
             //let wmic = this.executer('wmic process where "ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid + '" call terminate');
+        }else{
+            //TODO: consider also killing the parent (its actually the shell process)
+            this.spawner('pkill', ["-P", ""+this.nailgunProcess.pid]);
         }
 
         //this.nailgunProcess.kill('SIGINT');
