@@ -193,7 +193,7 @@ export class Settings {
         if (!nailgunSettings.port || nailgunSettings.port == "*") {
             //use a random port
             portfinder.getPort(function (err, port) {
-                Log.log("nailgun port is chosen as: " + port);
+                Log.log("nailgun port is chosen as: " + port,LogLevel.Debug);
                 nailgunSettings.port = port;
             });
         } else if (!/\d+/.test(nailgunSettings.port)) {

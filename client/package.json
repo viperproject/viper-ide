@@ -1,7 +1,7 @@
 {
     "name": "viper-advanced",
     "displayName": "Viper Advanced",
-    "version": "0.5.407",
+    "version": "0.5.409",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "license": "MIT",
@@ -36,19 +36,20 @@
         "portfinder": "1.0.13",
         "unused-filename": "0.1.0",
         "mkdirp": "0.5.1",
-        "adm-zip": "^0.4.7"
+        "adm-zip": "^0.4.7",
+        "glob-to-regexp": "^0.3.0"
     },
     "devDependencies": {
         "@types/mocha": "^2.2.33",
-        "@types/node": "^6.0.52",
+        "@types/node": "^7.0.5",
         "typescript": "^1.8.10",
         "vscode": "^0.11.13",
         "vscode-debugadapter-testsupport": "^1.9.0"
     },
     "scripts": {
-        "compile": "tsc -p ./ && cd ../server && npm run compile && cd ../client",
+        "compile": "tsc -p ./ && cd ../server && npm install && cd ../client",
         "watch": "node ./node_modules/typescript/bin/tsc -w -p ./",
-        "postinstall": "node ./node_modules/vscode/bin/install && cd ../server && npm run compile && cd ../client",
+        "postinstall": "node ./node_modules/vscode/bin/install && cd ../server && npm install && cd ../client",
         "test": "node ./node_modules/vscode/bin/test",
         "update-vscode": "node ./node_modules/vscode/bin/install"
     },
@@ -57,8 +58,7 @@
         "onLanguage:viper"
     ],
     "contributes": {
-        "commands": [
-            {
+        "commands": [{
                 "command": "extension.verify",
                 "title": "Viper: verify the open document"
             },
@@ -99,8 +99,7 @@
                 "title": "Viper: Install the newest version of Viper Tools."
             }
         ],
-        "grammars": [
-            {
+        "grammars": [{
                 "language": "viper",
                 "scopeName": "source.silver",
                 "path": "./syntaxes/Viper.tmLanguage"
@@ -111,8 +110,7 @@
                 "path": "./syntaxes/log.tmLanguage"
             }
         ],
-        "languages": [
-            {
+        "languages": [{
                 "id": "viper",
                 "extensions": [
                     ".sil",
@@ -134,8 +132,7 @@
                 ]
             }
         ],
-        "themes": [
-            {
+        "themes": [{
                 "label": "Viper-Dark",
                 "uiTheme": "vs-dark",
                 "path": "./themes/Viper (Dark).tmTheme"
@@ -146,14 +143,11 @@
                 "path": "./themes/Viper (Light).tmTheme"
             }
         ],
-        "snippets": [
-            {
-                "language": "viper",
-                "path": "./snippets/viper.json"
-            }
-        ],
-        "keybindings": [
-            {
+        "snippets": [{
+            "language": "viper",
+            "path": "./snippets/viper.json"
+        }],
+        "keybindings": [{
                 "command": "extension.selectBackend",
                 "key": "ctrl+l",
                 "mac": "cmd+l",
@@ -201,8 +195,7 @@
                 },
                 "viperSettings.verificationBackends": {
                     "type": "array",
-                    "default": [
-                        {
+                    "default": [{
                             "v": "0.5.406",
                             "name": "silicon",
                             "paths": [
@@ -210,14 +203,12 @@
                             ],
                             "useNailgun": true,
                             "timeout": 100000,
-                            "stages": [
-                                {
-                                    "name": "verify",
-                                    "isVerification": true,
-                                    "mainMethod": "viper.silicon.SiliconRunner",
-                                    "customArguments": "--ideMode --ideModeAdvanced --z3Exe $z3Exe$ $fileToVerify$"
-                                }
-                            ]
+                            "stages": [{
+                                "name": "verify",
+                                "isVerification": true,
+                                "mainMethod": "viper.silicon.SiliconRunner",
+                                "customArguments": "--ideMode --ideModeAdvanced --z3Exe $z3Exe$ $fileToVerify$"
+                            }]
                         },
                         {
                             "v": "0.5.406",
@@ -227,14 +218,12 @@
                             ],
                             "useNailgun": true,
                             "timeout": 100000,
-                            "stages": [
-                                {
-                                    "name": "verify",
-                                    "isVerification": true,
-                                    "mainMethod": "viper.carbon.Carbon",
-                                    "customArguments": "--z3Exe $z3Exe$ --boogieExe $boogieExe$ $fileToVerify$"
-                                }
-                            ]
+                            "stages": [{
+                                "name": "verify",
+                                "isVerification": true,
+                                "mainMethod": "viper.carbon.Carbon",
+                                "customArguments": "--z3Exe $z3Exe$ --boogieExe $boogieExe$ $fileToVerify$"
+                            }]
                         }
                     ],
                     "description": "You can add your backends here."
@@ -302,37 +291,35 @@
                 }
             }
         },
-        "debuggers": [
-            {
-                "type": "viper",
-                "label": "Viper Debug",
-                "enableBreakpointsFor": {
-                    "languageIds": [
-                        "viper"
-                    ]
-                },
-                "program": "./out/debug.js",
-                "runtime": "node",
-                "configurationAttributes": {
-                    "launch": {
-                        "required": [
-                            "program"
-                        ],
-                        "properties": {
-                            "program": {
-                                "type": "string",
-                                "description": "Path to a viper source file.",
-                                "default": "${workspaceRoot}/sum.sil"
-                            },
-                            "startInState": {
-                                "type": "int",
-                                "description": "",
-                                "default": true
-                            }
+        "debuggers": [{
+            "type": "viper",
+            "label": "Viper Debug",
+            "enableBreakpointsFor": {
+                "languageIds": [
+                    "viper"
+                ]
+            },
+            "program": "./out/debug.js",
+            "runtime": "node",
+            "configurationAttributes": {
+                "launch": {
+                    "required": [
+                        "program"
+                    ],
+                    "properties": {
+                        "program": {
+                            "type": "string",
+                            "description": "Path to a viper source file.",
+                            "default": "${workspaceRoot}/sum.sil"
+                        },
+                        "startInState": {
+                            "type": "int",
+                            "description": "",
+                            "default": true
                         }
                     }
                 }
             }
-        ]
+        }]
     }
 }

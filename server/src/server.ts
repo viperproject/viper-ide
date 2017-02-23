@@ -32,6 +32,8 @@ function registerHandlers() {
         try {
             DebugServer.initialize();
 
+            Server.refreshEndings();
+
             //Server.workspaceRoot = params.rootPath;
             Server.nailgunService = new NailgunService();
             return {
@@ -56,8 +58,8 @@ function registerHandlers() {
             let oldSettings = Settings.settings;
             Settings.settings = <ViperSettings>change.settings.viperSettings;
             Log.logLevel = Settings.settings.preferences.logLevel; //after this line, Logging works
-
             Log.log('Configuration changed', LogLevel.Info);
+            Server.refreshEndings();
             checkSettingsAndRestartBackendIfNeeded(oldSettings);
         } catch (e) {
             Log.error("Error handling configuration change: " + e);
@@ -96,16 +98,18 @@ function registerHandlers() {
 
     Server.connection.onDidOpenTextDocument((params) => {
         try {
-            if (Server.isViperSourceFile(params.textDocument.uri)) {
-                let uri = params.textDocument.uri;
-                //notify client;
-                Server.sendFileOpenedNotification(params.textDocument.uri);
-                if (!Server.verificationTasks.has(uri)) {
-                    //create new task for opened file
-                    let task = new VerificationTask(uri, Server.nailgunService);
-                    Server.verificationTasks.set(uri, task);
+            Server.isViperSourceFile(params.textDocument.uri).then(res => {
+                if (res) {
+                    let uri = params.textDocument.uri;
+                    //notify client;
+                    Server.sendFileOpenedNotification(params.textDocument.uri);
+                    if (!Server.verificationTasks.has(uri)) {
+                        //create new task for opened file
+                        let task = new VerificationTask(uri, Server.nailgunService);
+                        Server.verificationTasks.set(uri, task);
+                    }
                 }
-            }
+            });
         } catch (e) {
             Log.error("Error handling TextDocument openend");
         }
@@ -113,16 +117,18 @@ function registerHandlers() {
 
     Server.connection.onDidCloseTextDocument((params) => {
         try {
-            if (Server.isViperSourceFile(params.textDocument.uri)) {
-                let uri = params.textDocument.uri;
-                //notify client;
-                Server.sendFileClosedNotification(uri);
-                if (Server.verificationTasks.has(uri)) {
-                    //remove no longer needed task
-                    Server.verificationTasks.get(uri).resetDiagnostics();
-                    Server.verificationTasks.delete(uri);
+            Server.isViperSourceFile(params.textDocument.uri).then(res => {
+                if (res) {
+                    let uri = params.textDocument.uri;
+                    //notify client;
+                    Server.sendFileClosedNotification(uri);
+                    if (Server.verificationTasks.has(uri)) {
+                        //remove no longer needed task
+                        Server.verificationTasks.get(uri).resetDiagnostics();
+                        Server.verificationTasks.delete(uri);
+                    }
                 }
-            }
+            });
         } catch (e) {
             Log.error("Error handling TextDocument closed");
         }
@@ -133,13 +139,6 @@ function registerHandlers() {
         let task = Server.verificationTasks.get(uri);
         if (!task) {
             Log.error("No verification task found for file: " + uri);
-            return false;
-            // } else if (task.running) {
-            //     return false;
-        } else if (!Server.isViperSourceFile(uri)) {
-            //only verify viper source code files
-            Log.hint("Only viper source files can be verified.");
-            Log.error("Only viper source files can be verified.");
             return false;
         } else if (!Server.nailgunService.isReady()) {
             if (manuallyTriggered)

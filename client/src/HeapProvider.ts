@@ -4,7 +4,7 @@ import { HeapGraph, LogLevel, StateColors } from './ViperProtocol';
 import { StateVisualizer } from './StateVisualizer';
 import * as fs from 'fs';
 import { Helper } from './Helper';
-import * as viz from 'viz.js';
+const viz = require('viz.js');
 
 export class HeapProvider implements vscode.TextDocumentContentProvider {
 

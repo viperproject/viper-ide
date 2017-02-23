@@ -5,10 +5,23 @@ import * as fs from 'fs';
 import { Log } from './Log';
 import * as path from 'path';
 import { LogLevel } from './ViperProtocol';
+import * as globToRexep from 'glob-to-regexp';
 
 export class Helper {
 
-    public static viperFileEndings: string[] = [".vpr", ".sil"];
+    public static viperFileEndings: string[];
+
+    public static loadViperFileExtensions() {
+        this.viperFileEndings = ["*.vpr", "*.sil"];
+        let fileAssociations = vscode.workspace.getConfiguration("files").get("associations");
+        for (var pattern in fileAssociations) {
+            let language = fileAssociations[pattern];
+            if (language == 'viper') {
+                Log.log("Additional file associations detected: " + language + " -> " + pattern);
+                this.viperFileEndings.push(pattern);
+            }
+        }
+    }
 
     /*public static showFile(filePath: string, column: vscode.ViewColumn) {
         let resource = vscode.Uri.file(filePath);
@@ -63,7 +76,10 @@ export class Helper {
     public static isViperSourceFile(uri: string | vscode.Uri): boolean {
         if (!uri) return false;
         let uriString = this.uriToString(uri);
-        return this.viperFileEndings.some(ending => uriString.endsWith(ending));
+        return this.viperFileEndings.some(globPattern => {
+            let regex = globToRexep(globPattern);
+            return regex.test(uriString);
+        });
     }
 
     public static uriEquals(a: string | vscode.Uri, b: string | vscode.Uri) {
@@ -86,6 +102,15 @@ export class Helper {
             return vscode.Uri.parse(uri);
         } else {
             return uri;
+        }
+    }
+
+    ///might be null
+    public static getActiveFileUri(): vscode.Uri {
+        if (vscode.window.activeTextEditor) {
+            return vscode.window.activeTextEditor.document.uri;
+        } else {
+            return null;
         }
     }
 }

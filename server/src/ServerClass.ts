@@ -7,6 +7,7 @@ import { VerificationTask } from './VerificationTask';
 import { Log } from './Log';
 import * as pathHelper from 'path';
 const os = require('os');
+const globToRexep = require ('glob-to-regexp');
 
 export class Server {
     static backend: Backend;
@@ -26,8 +27,37 @@ export class Server {
     static debuggedVerificationTask: VerificationTask;
     static usedNailgunPort: string;
 
-    static isViperSourceFile(uri: string): boolean {
-        return uri.endsWith(".sil") || uri.endsWith(".vpr");
+    static viperFileEndings: string[];
+
+    static refreshEndings(): Thenable<boolean> {
+        return new Promise((resolve, reject) => {
+            Server.connection.sendRequest(Commands.GetViperFileEndings).then((endings: string[]) => {
+                this.viperFileEndings = endings;
+                resolve(true);
+            });
+        });
+    }
+
+    static isViperSourceFile(uri: string, firstTry: boolean = true): Thenable<boolean> {
+        return new Promise((resolve, reject) => {
+            if (!this.viperFileEndings) {
+                if (firstTry) {
+                    Log.log("Refresh the viper file endings.");
+                    this.refreshEndings().then(() => {
+                        this.isViperSourceFile(uri, false).then(success => {
+                            resolve(success)
+                        });
+                    })
+                } else {
+                    resolve(false);
+                }
+            } else {
+                resolve(this.viperFileEndings.some(globPattern => {
+                    let regex = globToRexep(globPattern);
+                    return regex.test(uri);
+                }));
+            }
+        });
     }
 
     static showHeap(task: VerificationTask, clientIndex: number, isHeapNeeded: boolean) {
@@ -106,7 +136,7 @@ export class Server {
             if (s) {
 
                 //parse position:
-                let regex = /^(.*?)(\([^ ]*?@(\d+)\.(\d+)\)|(\d+):(\d+)|<.*>):?(.*)$/.exec(s);
+                let regex = /^(.*?)(\([^ ]*?@(\d+)\.(\d+)\)|(\d+):(\d+)|<un.*>):?(.*)$/.exec(s);
                 if (regex && regex[3] && regex[4]) {
                     //subtract 1 to confirm with VS Codes 0-based numbering
                     let lineNr = Math.max(0, +regex[3] - 1);

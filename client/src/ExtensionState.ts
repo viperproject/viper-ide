@@ -138,7 +138,7 @@ export class State {
         if (!this.client || !this.languageServerDisposable) {
             Log.error("LanguageClient is undefined");
         }
-    }
+  }
 
     public dispose(): Promise<any> {
         try {

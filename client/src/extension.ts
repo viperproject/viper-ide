@@ -15,7 +15,6 @@ import { Helper } from './Helper';
 import { ViperFormatter } from './ViperFormatter';
 import { ViperFileState } from './ViperFileState';
 
-
 let statusBarItem;
 let statusBarProgress;
 let backendStatusBar;
@@ -80,6 +79,8 @@ function addTestDecoration() {
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+    Helper.loadViperFileExtensions();
+
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
 
     let ownPackageJson = vscode.extensions.getExtension("rukaelin.viper-advanced").packageJSON;
@@ -100,7 +101,7 @@ export function activate(context: vscode.ExtensionContext) {
     state = State.createState();
     State.checkOperatingSystem();
     context.subscriptions.push(state);
-    fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/*{' + Helper.viperFileEndings.join(",") + "}");
+    fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/{' + Helper.viperFileEndings.join(",") + "}");
     state.startLanguageServer(context, fileSystemWatcher, false); //break?
     registerHandlers();
     startAutoSaver();
@@ -127,7 +128,7 @@ function verifyAllFilesInWorkspace() {
         return;
     }
     let endings = "{" + Helper.viperFileEndings.join(",") + "}";
-    vscode.workspace.findFiles('**/*' + endings, '').then((uris: Uri[]) => {
+    vscode.workspace.findFiles('**/' + endings, '').then((uris: Uri[]) => {
         Log.log("Starting to verify " + uris.length + " viper files.", LogLevel.Info);
         allFilesToAutoVerify = uris;
         nextFileToAutoVerify = 0;
@@ -238,7 +239,7 @@ function canStartVerification(task: Task): CheckResult {
                 if (!fileState) {
                     reason = "it's not a viper file";
                 } else {
-                    let activeFile = activeFileUri();
+                    let activeFile = Helper.getActiveFileUri();
                     if (!task.manuallyTriggered && !autoVerify) {
                         reason = dontVerify + "autoVerify is disabled.";
                     }
@@ -286,6 +287,7 @@ function startVerificationController() {
             //only keep most recent verify request
             let verifyFound = false;
             let stopFound = false;
+            let isStopManuallyTriggered = false;
             let clearFound = false;
             let verificationComplete = false;
             let stoppingComplete = false;
@@ -313,6 +315,7 @@ function startVerificationController() {
                 else if (workList[i].type == TaskType.Stop) {
                     workList[i].type = NoOp;
                     stopFound = true;
+                    isStopManuallyTriggered = isStopManuallyTriggered || workList[i].manuallyTriggered;
                 }
                 else if (workList[i].type == TaskType.Clear) {
                     workList[i].type = NoOp;
@@ -364,7 +367,7 @@ function startVerificationController() {
                         //if another verification is requested, the current one must be stopped
                         if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri)) || stopFound) {
                             task.type = TaskType.Stopping;
-                            doStopVerification(task.uri.toString());
+                            doStopVerification(task.uri.toString(), isStopManuallyTriggered);
                         }
                         //block until verification is complete or failed
                         if (verificationComplete || verificationFailed) {
@@ -789,6 +792,10 @@ function registerHandlers() {
     state.client.onRequest(Commands.RequestRequiredVersion, () => {
         return getRequiredVersion();
     });
+    state.client.onRequest(Commands.GetViperFileEndings, () => {
+        Helper.loadViperFileExtensions();
+        return Helper.viperFileEndings;
+    });
     state.context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
         try {
             workList.push({ type: TaskType.Save, uri: params.uri });
@@ -823,6 +830,7 @@ function registerHandlers() {
             Log.error("Error handling steps as decoration options notification: " + e);
         }
     });
+
     state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
         try {
             if (!heapGraph) return;
@@ -851,6 +859,7 @@ function registerHandlers() {
             Log.error("Error displaying HeapGraph: " + e);
         }
     });
+
     vscode.window.onDidChangeTextEditorSelection((change) => {
         try {
             if (!change.textEditor.document) {
@@ -901,7 +910,7 @@ function registerHandlers() {
     //Command Handlers
     //verify
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.verify', () => {
-        let fileUri = activeFileUri();
+        let fileUri = Helper.getActiveFileUri();
         if (!fileUri) {
             Log.log("Cannot verify, no document is open.");
         } else if (!Helper.isViperSourceFile(fileUri)) {
@@ -961,44 +970,7 @@ function registerHandlers() {
 
     //start Debugging
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.startDebugging', () => {
-        try {
-            //check if all the requirements are met to start debugging
-            let canDebug = canStartDebugging();
-            if (canDebug.result) {
-                let uri = State.getLastActiveFile().uri;
-                let filename = path.basename(uri.toString());
-                let openDoc = uri.path;
-                if (State.isWin) {
-                    openDoc = openDoc.substring(1, openDoc.length);
-                }
-                let launchConfig = {
-                    name: "Viper Debug",
-                    type: "viper",
-                    request: "launch",
-                    program: openDoc,
-                    startInState: 0,
-                    //console:"externalConsole"
-                    internalConsoleOptions: "neverOpen"
-                }
-                if (State.isDebugging) {
-                    Log.hint("Don't debug " + filename + ", the file is already being debugged");
-                    return;
-                }
-                showStates(() => {
-                    vscode.commands.executeCommand('vscode.startDebug', launchConfig).then(() => {
-                        Log.log('Debug session started successfully', LogLevel.Info);
-                        State.isDebugging = true;
-                        vscode.commands.executeCommand("workbench.view.debug");
-                    }, err => {
-                        Log.error("Error starting debugger: " + err.message);
-                    });
-                });
-            } else if (canDebug.reason) {
-                Log.hint(canDebug.reason);
-            }
-        } catch (e) {
-            Log.error("Error starting debug session: " + e);
-        }
+        startDebugging();
     }));
 
     //stopVerification
@@ -1017,24 +989,7 @@ function registerHandlers() {
 
     //open logFile
     state.context.subscriptions.push(vscode.commands.registerCommand('extension.openLogFile', () => {
-        try {
-            Log.log("Open logFile located at: " + Log.logFilePath, LogLevel.Info);
-            vscode.workspace.openTextDocument(Log.logFilePath).then(textDocument => {
-                if (!textDocument) {
-                    Log.hint("Cannot open the logFile, it is too large to be opened within VSCode.");
-                } else {
-                    vscode.window.showTextDocument(textDocument, vscode.ViewColumn.Two).then(() => {
-                        Log.log("Showing logfile succeeded", LogLevel.Debug);
-                    }, error => {
-                        Log.error("vscode.window.showTextDocument call failed while opening the logfile: " + error);
-                    });
-                }
-            }, error => {
-                Log.error("vscode.window.openTextDocument call failed while opening the logfile: " + error);
-            });
-        } catch (e) {
-            Log.error("Error opening logFile: " + e);
-        }
+        openLogFile();
     }));
 
     //remove diagnostics of open file
@@ -1048,8 +1003,69 @@ function registerHandlers() {
     }));
 }
 
-//TODO: used to be called when the stop verification command was handled
-function doStopVerification(uriToStop: string) {
+function openLogFile() {
+    try {
+        Log.log("Open logFile located at: " + Log.logFilePath, LogLevel.Info);
+        vscode.workspace.openTextDocument(Log.logFilePath).then(textDocument => {
+            if (!textDocument) {
+                Log.hint("Cannot open the logFile, it is too large to be opened within VSCode.");
+            } else {
+                vscode.window.showTextDocument(textDocument, vscode.ViewColumn.Two).then(() => {
+                    Log.log("Showing logfile succeeded", LogLevel.Debug);
+                }, error => {
+                    Log.error("vscode.window.showTextDocument call failed while opening the logfile: " + error);
+                });
+            }
+        }, error => {
+            Log.error("vscode.window.openTextDocument command failed while opening the logfile: " + error);
+        });
+    } catch (e) {
+        Log.error("Error opening logFile: " + e);
+    }
+}
+
+function startDebugging() {
+    try {
+        //check if all the requirements are met to start debugging
+        let canDebug = canStartDebugging();
+        if (canDebug.result) {
+            let uri = State.getLastActiveFile().uri;
+            let filename = path.basename(uri.toString());
+            let openDoc = uri.path;
+            if (State.isWin) {
+                openDoc = openDoc.substring(1, openDoc.length);
+            }
+            let launchConfig = {
+                name: "Viper Debug",
+                type: "viper",
+                request: "launch",
+                program: openDoc,
+                startInState: 0,
+                //console:"externalConsole"
+                internalConsoleOptions: "neverOpen"
+            }
+            if (State.isDebugging) {
+                Log.hint("Don't debug " + filename + ", the file is already being debugged");
+                return;
+            }
+            showStates(() => {
+                vscode.commands.executeCommand('vscode.startDebug', launchConfig).then(() => {
+                    Log.log('Debug session started successfully', LogLevel.Info);
+                    State.isDebugging = true;
+                    vscode.commands.executeCommand("workbench.view.debug");
+                }, err => {
+                    Log.error("Error starting debugger: " + err.message);
+                });
+            });
+        } else if (canDebug.reason) {
+            Log.hint(canDebug.reason);
+        }
+    } catch (e) {
+        Log.error("Error starting debug session: " + e);
+    }
+}
+
+function doStopVerification(uriToStop: string, manuallyTriggered: boolean) {
     if (verifyingAllFiles) {
         printAllVerificationResults();
         verifyingAllFiles = false;
@@ -1066,11 +1082,21 @@ function doStopVerification(uriToStop: string) {
                 workList.push({ type: TaskType.StoppingComplete, uri: null, manuallyTriggered: false });
             });
         } else {
-            Log.hint("Cannot stop the verification, no verification is running.");
+            let msg = "Cannot stop the verification, no verification is running.";
+            if (manuallyTriggered) {
+                Log.hint(msg);
+            } else {
+                Log.log(msg, LogLevel.Debug);
+            }
             workList.push({ type: TaskType.StoppingComplete, uri: null, manuallyTriggered: false });
         }
     } else {
-        Log.hint("Extension not ready yet.");
+        let msg = "Cannot stop the verification, the extension not ready yet.";
+        if (manuallyTriggered) {
+            Log.hint(msg);
+        } else {
+            Log.log(msg, LogLevel.Debug);
+        }
         workList.push({ type: TaskType.StoppingComplete, uri: null, manuallyTriggered: false });
     }
 }
@@ -1090,12 +1116,10 @@ function handleBackendReadyNotification(params: BackendReadyParams) {
         if (params.restarted) {
             //no file is verifying
             State.resetViperFiles()
+            workList.push({ type: TaskType.Clear, uri: Helper.getActiveFileUri(), manuallyTriggered: false });
             if (Helper.getConfiguration('preferences').autoVerifyAfterBackendChange === true) {
                 Log.log("autoVerify after backend change", LogLevel.Info);
-                workList.push({ type: TaskType.Verify, uri: activeFileUri(), manuallyTriggered: false });
-            } else {
-                //is the automatic verification is not wanted, prevent it
-                workList.push({ type: TaskType.Clear, uri: activeFileUri(), manuallyTriggered: false });
+                workList.push({ type: TaskType.Verify, uri: Helper.getActiveFileUri(), manuallyTriggered: false });
             }
         }
         //for unit testing
@@ -1107,15 +1131,6 @@ function handleBackendReadyNotification(params: BackendReadyParams) {
         State.isBackendReady = true;
     } catch (e) {
         Log.error("Error handling backend started notification: " + e);
-    }
-}
-
-///might be null
-function activeFileUri(): vscode.Uri {
-    if (vscode.window.activeTextEditor) {
-        return vscode.window.activeTextEditor.document.uri;
-    } else {
-        return null;
     }
 }
 

@@ -727,10 +727,8 @@ export class VerificationTask {
                 }
                 break;
             case VerificationState.VerificationReporting:
-                if (line == 'No errors found.') {
-                }
-                else if (line.startsWith('The following errors were found')) {
-                }
+                if (line == 'No errors found.') {}
+                else if (line.startsWith('The following errors were found')) {}
                 else if (line.startsWith('  ')) {
                     let parsedPosition = Server.extractPosition(line);
                     let message = parsedPosition.after.length > 0 ? parsedPosition.after : parsedPosition.before;
