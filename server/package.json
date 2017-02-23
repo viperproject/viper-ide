@@ -24,7 +24,7 @@
         "typescript": "^1.8.10"
     },
     "scripts": {
-        "compile": "tsc -p . && npm run compile",
+        "compile": "tsc -p .",
         "watch": "tsc -w -p . && npm run compile"
     }
 }

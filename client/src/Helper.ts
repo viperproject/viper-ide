@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import { Log } from './Log';
 import * as path from 'path';
 import { LogLevel } from './ViperProtocol';
-import * as globToRexep from 'glob-to-regexp';
+const globToRexep = require('glob-to-regexp');
 
 export class Helper {
 
