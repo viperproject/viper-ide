@@ -167,6 +167,8 @@ function registerHandlers() {
                 }, () => {
                     Server.sendVerificationNotStartedNotification(data.uri);
                 });
+            }else{
+                Server.sendVerificationNotStartedNotification(data.uri);
             }
         } catch (e) {
             Log.error("Error handling verify request: " + e);
