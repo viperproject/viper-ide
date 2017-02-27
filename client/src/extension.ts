@@ -54,9 +54,9 @@ enum TaskType {
 let isUnitTest = false;
 let unitTestResolve;
 
-export function initializeUnitTest(done) {
+export function initializeUnitTest(resolve) {
     isUnitTest = true;
-    unitTestResolve = done;
+    unitTestResolve = resolve;
     //activate(context);
 }
 
@@ -381,6 +381,8 @@ function startVerificationController() {
                         //block until verification is stoped;
                         if (stoppingComplete) {
                             task.type = NoOp;
+                            //for unitTest
+                            unitTestResolve({event:'VerificationStopped'});
                         }
                         break;
                     case TaskType.Save:
@@ -652,7 +654,7 @@ function handleStateChange(params: StateChangeParams) {
                     }
                     if (isUnitTest && unitTestResolve) {
                         if (verificationCompleted(params.success)) {
-                            unitTestResolve("VerificationCompleted");
+                            unitTestResolve({ event: "VerificationComplete", fileName: params.filename, backend: State.activeBackend });
                         }
                     }
                     workList.push({ type: TaskType.VerificationComplete, uri: uri, manuallyTriggered: false });
@@ -753,6 +755,7 @@ function registerHandlers() {
 
     state.client.onNotification(Commands.BackendChange, (newBackend: string) => {
         try {
+            State.activeBackend = newBackend;
             updateStatusBarItem(backendStatusBar, newBackend, "white");
             State.reset();
             statusBarProgress.hide();
@@ -941,20 +944,28 @@ function registerHandlers() {
     }));
 
     //selectBackend
-    state.context.subscriptions.push(vscode.commands.registerCommand('extension.selectBackend', () => {
+    state.context.subscriptions.push(vscode.commands.registerCommand('extension.selectBackend', (selectBackend) => {
         try {
             if (!state.client) {
                 Log.hint("Extension not ready yet.");
             } else {
                 state.client.sendRequest(Commands.RequestBackendNames, null).then((backendNames: string[]) => {
                     if (backendNames.length > 1) {
-                        vscode.window.showQuickPick(backendNames).then(selectedBackend => {
-                            if (selectedBackend && selectedBackend.length > 0) {
-                                startBackend(selectedBackend);
+                        if (!selectBackend) {
+                            vscode.window.showQuickPick(backendNames).then(selectedBackend => {
+                                if (selectedBackend && selectedBackend.length > 0) {
+                                    startBackend(selectedBackend);
+                                } else {
+                                    Log.log("No backend was selected, don't change the backend");
+                                }
+                            });
+                        } else {
+                            if (backendNames.some(x => x == selectBackend)) {
+                                startBackend(selectBackend);
                             } else {
-                                Log.log("No backend was selected, don't change the backend");
+                                Log.log("Cannot start unknown backend " + selectBackend);
                             }
-                        });
+                        }
                     } else {
                         Log.log("No need to ask user, since there is only one backend.", LogLevel.Debug);
                         startBackend(backendNames[0]);
@@ -1124,7 +1135,8 @@ function handleBackendReadyNotification(params: BackendReadyParams) {
         }
         //for unit testing
         if (isUnitTest && unitTestResolve) {
-            unitTestResolve("BackendReady");
+
+            unitTestResolve({ event: "BackendReady" });
         }
 
         Log.log("Backend ready: " + params.name, LogLevel.Info);

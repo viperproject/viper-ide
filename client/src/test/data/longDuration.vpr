@@ -1,0 +1,149 @@
+domain Comp {
+
+	function comp(type: Int, a: Seq[Int], lo: Int, hi: Int): Int
+	function    c(type: Int, a: Seq[Int], lo: Int, hi: Int): Int
+
+	function __filter__(type: Int, a: Seq[Int], k: Int): Bool
+	function   __term__(type: Int, a: Seq[Int], k: Int): Int
+
+	unique function __comp_type_sum__(): Int
+	unique function __comp_type_count__(): Int
+ 
+	function __is_sum__(type: Int): Bool
+	function __is_count__(type: Int): Bool
+
+	axiom comp_type {
+		true
+		&& ( forall t: Int :: __is_sum__(t)   <==> t == __comp_type_sum__() )
+		&& ( forall t: Int :: __is_count__(t) <==> t == __comp_type_count__() )
+	}
+
+	axiom comp_synonim {
+		forall t: Int, a: Seq[Int], lo: Int, hi: Int :: { comp(t, a, lo, hi) } comp(t, a, lo, hi) == c(t, a, lo, hi)
+	}
+
+	axiom comp_unit {
+		forall t: Int, a: Seq[Int], lo: Int, hi: Int :: { c(t, a, lo, hi) }
+			(forall k: Int :: lo <= k && k < hi && __filter__(t, a, k) ==> __term__(t, a, k) == 0) ==>
+				c(t, a, lo, hi) == 0
+	}
+
+	axiom comp_induction_below {
+		true
+		&& ( forall t: Int, a: Seq[Int], lo: Int, hi: Int :: { comp(t, a, lo, hi) } lo < hi &&  __filter__(t, a, lo) ==> c(t, a, lo, hi) == c(t, a, lo+1, hi) + __term__(t, a, lo) )
+		&& ( forall t: Int, a: Seq[Int], lo: Int, hi: Int :: { comp(t, a, lo, hi) } lo < hi && !__filter__(t, a, lo) ==> c(t, a, lo, hi) == c(t, a, lo+1, hi) )
+	}
+
+	axiom comp_induction_above {
+		true
+		&& ( forall t: Int, a: Seq[Int], lo: Int, hi: Int :: { comp(t, a, lo, hi) } lo < hi &&  __filter__(t, a, hi-1) ==> c(t, a, lo, hi) == c(t, a, lo, hi-1) + __term__(t, a, hi-1) )
+		&& ( forall t: Int, a: Seq[Int], lo: Int, hi: Int :: { comp(t, a, lo, hi) } lo < hi && !__filter__(t, a, hi-1) ==> c(t, a, lo, hi) == c(t, a, lo, hi-1) )
+	}
+
+	axiom comp_split_range {
+		forall t: Int, a: Seq[Int], lo: Int, mid: Int, hi: Int ::
+			{ comp(t, a, lo, mid), comp(t, a, mid, hi) }
+			{ comp(t, a, lo, mid), comp(t, a, lo,  hi) }
+				lo <= mid && mid <= hi ==>
+					c(t, a, lo, mid) + c(t, a, mid, hi) == c(t, a, lo, hi)
+	}
+
+	axiom comp_same_term {
+		forall t: Int, a: Seq[Int], b: Seq[Int], lo: Int, hi: Int ::
+			{ comp(t, a, lo, hi), c(t, b, lo, hi) }
+				forall k: Int :: lo <= k && k < hi ==>
+				   __filter__(t, a, k) == __filter__(t, b, k) &&
+				 ( __filter__(t, a, k) ==> __term__(t, a, k) == __term__(t, b, k) )
+					==> c(t, a, lo, hi) == c(t, b, lo, hi)
+	}
+}
+
+domain Count {
+	function count(a: Seq[Int], lo: Int, hi: Int): Int
+
+	/* Generates a Seq[Bool] (elements satisfy the custom term). Usable with the count comprehension. */
+	function __count_custom_term__(f_i: Int, g: Seq[Int]): Seq[Int]
+
+	/* Generate a Seq[Int] (elements equal count for the current index). Usable with the sum comprehension. */
+	function countSeq(f: Seq[Int], g: Seq[Int], lo_g: Int, hi_g: Int): Seq[Int]
+
+	axiom count_term {
+		forall t: Int, a: Seq[Int], k: Int :: { __term__(t, a, k) } __is_count__(t) ==> __term__(t, a, k) == 1
+	}
+
+	axiom count_filter {
+		forall t: Int, a: Seq[Int], k: Int :: { __filter__(t, a, k) } __is_count__(t) ==> __filter__(t, a, k) == (a[k] != 0)
+	}
+
+	axiom count_comp {
+		forall a: Seq[Int], lo: Int, hi: Int :: { count(a, lo, hi) } count(a, lo, hi) == comp(__comp_type_count__(), a, lo, hi)
+	}
+
+	axiom count_custom_term {
+		forall f_i: Int, g: Seq[Int], j: Int ::
+	 		{ __count_custom_term__(f_i, g)[j] }
+				(__count_custom_term__(f_i, g)[j] != 0) <==> f_i == g[j] /* RHS represents the nested custom term. */
+	}
+
+	axiom count_seq {
+		forall f: Seq[Int], g: Seq[Int], i: Int, lo_g: Int, hi_g: Int ::
+			{ countSeq(f, g, lo_g, hi_g)[i] }
+				countSeq(f, g, lo_g, hi_g)[i] == count( __count_custom_term__(f[i], g), lo_g, hi_g) /* RHS represents the embracing custom term. */
+	}
+}
+
+domain Sum {
+	function sum(a: Seq[Int], lo: Int, hi: Int): Int
+
+	axiom sum_term {
+		forall t: Int, a: Seq[Int], k: Int :: { __term__(t, a, k) } __is_sum__(t) ==> __term__(t, a, k) == a[k]
+	}
+
+	axiom sum_filter {
+		forall t: Int, a: Seq[Int], k: Int :: { __filter__(t, a, k) } __is_sum__(t) ==> __filter__(t, a, k) == true
+	}
+
+	axiom sum_comp {
+		forall a: Seq[Int], lo: Int, hi: Int :: { sum(a, lo, hi) } sum(a, lo, hi) == comp(__comp_type_sum__(), a, lo, hi)
+	}
+}
+
+method CoincedenceCount0(f: Seq[Int], g: Seq[Int]) returns (res: Int)
+	requires forall i: Int, j: Int :: { f[i], f[j] } 0<=i && i<j && j<|f| ==> f[i] < f[j]
+	requires forall i: Int, j: Int :: { g[i], g[j] } 0<=i && i<j && j<|g| ==> g[i] < g[j]
+ 
+	ensures res == sum(countSeq(f, g, 0, |g|), 0, |f|)
+{ 
+	res := 0  
+	var m: Int := 0
+	var n: Int := 0
+
+	while ( m < |f| && n < |g| )
+		invariant forall i: Int, j: Int :: { f[i], f[j] } 0<=i && i<j && j<|f| ==> f[i] < f[j]
+		invariant forall i: Int, j: Int :: { g[i], g[j] } 0<=i && i<j && j<|g| ==> g[i] < g[j]
+
+		invariant 0 <= m && m <= |f| && 0 <= n && n <= |g|
+		invariant m == |f| || forall j: Int :: 0 <= j && j < n ==> g[j] < f[m]
+		invariant n == |g| || forall i: Int :: 0 <= i && i < m ==> f[i] < g[n]
+
+		invariant res == sum(countSeq(f, g, 0, n), 0, m) /* (IO) */
+		//comment that in to take even longer
+		//invariant res + sum(countSeq(f, g, n, |g|), m, |f|) == sum(countSeq(f, g, 0, |g|), 0, |f|) /* The alternative to (IO) */
+	{
+		if ( f[m] < g[n] )
+		{
+			m := m+1
+		}
+		elseif ( g[n] < f[m] )
+		{
+			n := n+1
+		}
+		else
+		{
+			res := res+1
+			m := m+1
+			n := n+1
+		}
+	}
+}
+//@TIMING:{"total":11.444,"timings":[12,5748,11520,11891,12140]}

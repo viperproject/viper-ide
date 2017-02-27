@@ -312,7 +312,7 @@ export class VerificationTask {
                 //Log.log("check for verification timeout", LogLevel.Debug);
                 if (this.running && this.verificationCount == verificationCount) {
                     Log.hint("The verification timed out after " + this.nailgunService.activeBackend.timeout + "ms");
-                    this.abortVerification().then(() => {
+                    this.abortVerificationIfRunning().then(() => {
                         //wait for verification to terminate
                         Server.sendStateChangeNotification({
                             newState: VerificationState.Ready,
@@ -824,7 +824,7 @@ export class VerificationTask {
         }
     }
 
-    public abortVerification(): Thenable<boolean> {
+    public abortVerificationIfRunning(): Thenable<boolean> {
         return new Promise((resolve, reject) => {
             try {
                 if (!this.running) {
@@ -925,13 +925,14 @@ export class VerificationTask {
                     let promises: Promise<boolean>[] = [];
                     Server.verificationTasks.forEach(task => {
                         promises.push(new Promise((res, rej) => {
-                            task.abortVerification().then(() => { res(true) });
+                            task.abortVerificationIfRunning().then(() => { res(true) });
                         }));
                     });
                     Promise.all(promises).then(() => {
                         resolve(true);
                     })
                 } else {
+                    //nothing to stop
                     resolve(true);
                 }
             } catch (e) {

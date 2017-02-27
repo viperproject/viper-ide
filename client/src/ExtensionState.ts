@@ -25,6 +25,8 @@ export class State {
     public static isMac = /^darwin/.test(process.platform);
     private static lastActiveFileUri: string;
 
+    public static activeBackend: string;
+
     public static createState(): State {
         if (State.instance) {
             return State.instance;
@@ -138,7 +140,7 @@ export class State {
         if (!this.client || !this.languageServerDisposable) {
             Log.error("LanguageClient is undefined");
         }
-  }
+    }
 
     public dispose(): Promise<any> {
         try {

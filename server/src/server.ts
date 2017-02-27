@@ -167,7 +167,8 @@ function registerHandlers() {
                 }, () => {
                     Server.sendVerificationNotStartedNotification(data.uri);
                 });
-            }else{
+            } else {
+                Log.log("The verification cannot be started.");
                 Server.sendVerificationNotStartedNotification(data.uri);
             }
         } catch (e) {
@@ -313,7 +314,7 @@ function registerHandlers() {
         return new Promise((resolve, reject) => {
             try {
                 let task = Server.verificationTasks.get(uri);
-                task.abortVerification().then((success) => {
+                task.abortVerificationIfRunning().then((success) => {
                     Server.sendStateChangeNotification({
                         newState: VerificationState.Ready,
                         verificationCompleted: false,
