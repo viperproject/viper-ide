@@ -382,7 +382,9 @@ function startVerificationController() {
                         if (stoppingComplete) {
                             task.type = NoOp;
                             //for unitTest
-                            unitTestResolve({event:'VerificationStopped'});
+                            if (isUnitTest && unitTestResolve) {
+                                unitTestResolve({ event: 'VerificationStopped' });
+                            }
                         }
                         break;
                     case TaskType.Save:
@@ -725,7 +727,7 @@ function handleSettingsCheckResult(params: SettingsCheckedParams) {
         vscode.window.showInformationMessage("Viper Settings: " + errorCounts + ": " + message, settingsButton, updateButton).then((choice) => {
             try {
                 if (choice && choice.title === settingsButton.title) {
-                    vscode.commands.executeCommand("workbench.action.openWorkspaceSettings")
+                    vscode.commands.executeCommand("workbench.action.openGlobalSettings")
                 } else if (choice && choice.title === updateButton.title) {
                     vscode.commands.executeCommand("extension.updateViperTools")
                 }
@@ -951,7 +953,7 @@ function registerHandlers() {
             } else {
                 state.client.sendRequest(Commands.RequestBackendNames, null).then((backendNames: string[]) => {
                     if (backendNames.length > 1) {
-                        if (!selectBackend) {
+                        if (!selectBackend || !backendNames.some(x => x == selectBackend)) {
                             vscode.window.showQuickPick(backendNames).then(selectedBackend => {
                                 if (selectedBackend && selectedBackend.length > 0) {
                                     startBackend(selectedBackend);
@@ -960,11 +962,7 @@ function registerHandlers() {
                                 }
                             });
                         } else {
-                            if (backendNames.some(x => x == selectBackend)) {
-                                startBackend(selectBackend);
-                            } else {
-                                Log.log("Cannot start unknown backend " + selectBackend);
-                            }
+                            startBackend(selectBackend);
                         }
                     } else {
                         Log.log("No need to ask user, since there is only one backend.", LogLevel.Debug);

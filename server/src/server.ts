@@ -30,6 +30,7 @@ function registerHandlers() {
     //starting point (executed once)
     Server.connection.onInitialize((params): InitializeResult => {
         try {
+            Log.log("Debug Server is initializing", LogLevel.LowLevelDebug);
             DebugServer.initialize();
 
             Server.refreshEndings();
@@ -55,10 +56,10 @@ function registerHandlers() {
 
     Server.connection.onDidChangeConfiguration((change) => {
         try {
+            Log.log('Configuration changed', LogLevel.Info);
             let oldSettings = Settings.settings;
             Settings.settings = <ViperSettings>change.settings.viperSettings;
             Log.logLevel = Settings.settings.preferences.logLevel; //after this line, Logging works
-            Log.log('Configuration changed', LogLevel.Info);
             Server.refreshEndings();
             checkSettingsAndRestartBackendIfNeeded(oldSettings);
         } catch (e) {
@@ -211,6 +212,7 @@ function registerHandlers() {
                                 if (Settings.isLinux || Settings.isMac) {
                                     fs.chmodSync(pathHelper.join(dir, "nailgun", "ng"), 755) //755 is for (read, write, execute)
                                     fs.chmodSync(pathHelper.join(dir, "z3", "bin", "z3"), 755) //755 is for (read, write, execute)
+                                    fs.chmodSync(pathHelper.join(dir, "boogie", "Binaries", "Boogie"), 755);
                                 }
 
                                 Log.log("ViperTools Update completed", LogLevel.Default);
