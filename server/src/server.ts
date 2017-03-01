@@ -217,10 +217,17 @@ function registerHandlers() {
 
                                 Log.log("ViperTools Update completed", LogLevel.Default);
 
+                                Server.connection.sendNotification(Commands.ViperUpdateComplete, true);//success
+
                                 //trigger a restart of the backend
                                 checkSettingsAndRestartBackendIfNeeded(null, null, true);
                             } catch (e) {
-                                Log.error("Error extracting the ViperTools: " + e);
+                                if (e.code && e.code == 'ENOENT') {
+                                    Log.error("Error updating the Viper Tools, missing create file permission in the viper tools directory: "+ e);
+                                } else {
+                                    Log.error("Error extracting the ViperTools: " + e);
+                                }
+                                Server.connection.sendNotification(Commands.ViperUpdateComplete, false);//update failed
                             }
                         }
                     });
@@ -391,6 +398,39 @@ function download(url, filePath): Thenable<boolean> {
         }
     });
 };
+
+function checkForCreateAndWriteAccess(folderPath: string): Thenable<string> {
+    return new Promise((resolve, reject) => {
+        fs.stat((folderPath), (err, stats) => {
+            if (err) {
+                if (err.code == 'ENOENT') {
+                    //no such file or directory
+                    let path = pathHelper.parse(folderPath).dir;
+                    let match = path.match(/(^.*)[\/\\].+$/) //the regex retrieves the parent directory
+                    if (match && match[1]) {
+                        checkForCreateAndWriteAccess(match[1]).then(err => {
+                            //pass along the error
+                            resolve(err);
+                        });
+                    } else {
+                        resolve("No access"); //TODO: when does that happens?
+                    }
+                }
+                else if (err.code == 'EACCES') {
+                    resolve("No read permission");
+                } else {
+                    resolve(err.message);
+                }
+            }
+            let writePermissions = stats.mode & 0x92;
+            if (writePermissions) {
+                resolve(null);
+            } else {
+                resolve("No write permission");
+            }
+        });
+    });
+}
 
 function makeSureFileExistsAndCheckForWritePermission(filePath: string): Thenable<string> {
     return new Promise((resolve, reject) => {

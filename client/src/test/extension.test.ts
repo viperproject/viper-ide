@@ -24,34 +24,68 @@ let executionStates = [];
 let context;
 
 let backendReadyCallback;
-let simpleSiliconVerifiedCallback;
+let verificationCompletionCallback;
 let abortCallback;
-let longSiliconVerifiedCallback;
-let carbonVerifiedCallback;
+let updateViperToolsCallback;
 
+const SILICON = 'silicon';
+const CARBON = 'carbon';
+const SIMPLE = 'simple.sil';
+const LONG = 'longDuration.vpr';
+
+function waitForBackendReady(): Thenable<boolean> {
+    return new Promise((resolve, reject) => {
+        backendReadyCallback = () => { resolve(true); }
+    });
+}
+
+function waitForVerification(backend: string, fileName: string): Thenable<boolean> {
+    return new Promise((resolve, reject) => {
+        verificationCompletionCallback = (b, f) => {
+            if (b === backend && f === fileName) {
+                resolve(true);
+            }
+        }
+    });
+}
+
+function waitForViperToolsUpdate(): Thenable<boolean> {
+    return new Promise((resolve, reject) => {
+        updateViperToolsCallback = () => { resolve(true); }
+    });
+}
+
+function waitForAbort(): Thenable<boolean> {
+    return new Promise((resolve, reject) => {
+        abortCallback = () => { resolve(true); }
+    });
+}
+
+function wait(timeout): Thenable<boolean> {
+    return new Promise((resolve, reject) => {
+        setTimeout(function () {
+            resolve(true);
+        }, timeout);
+    });
+}
 
 // Defines a Mocha test suite to group tests of similar kind together
 describe("Viper IDE Tests", function () {
-    this.timeout(30000);
-
     before(() => {
         context = new TestContext();
         myExtension.initializeUnitTest(function (state) {
             executionStates.push(state);
             if (state.event == "BackendReady") {
-                backendReadyCallback();
+                backendReadyCallback(state.backend);
                 ready = true;
             }
+            else if (state.event == "ViperUpdateComplete") {
+                updateViperToolsCallback();
+            }
+            else if (state.event == "ViperUpdateFailed") {
+            }
             else if (ready && state.event == "VerificationComplete") {
-                if (state.backend == "silicon") {
-                    if (state.fileName == "simple.sil") {
-                        simpleSiliconVerifiedCallback();
-                    } else if (state.fileName == "longDuration.vpr") {
-                        longSiliconVerifiedCallback();
-                    }
-                } else if (state.backend = "carbon" && state.fileName == "simple.sil") {
-                    carbonVerifiedCallback();
-                }
+                verificationCompletionCallback(state.backend, state.fileName);
                 console.log("UnitTest: " + state.fileName + " verified with " + state.backend);
             }
             else if (state.event == 'VerificationStopped') {
@@ -62,57 +96,112 @@ describe("Viper IDE Tests", function () {
 
 
     it("Language Detection and Backend Ready Test", function (done) {
-        //1. Open simple.sil
-        openViperFile(context, "simple.sil").then(document => {
+        this.timeout(10000);
+
+        openFile(context, SIMPLE).then(document => {
             if (document.languageId != 'viper') {
-                throw new Error("The language of simple.sil was not detected correctly: should: viper, is: " + document.languageId);
+                throw new Error("The language of viper file was not detected correctly: should: viper, is: " + document.languageId);
             }
-        });
-        //2. the backend shoud start up
-        backendReadyCallback = () => {
-            backendReadyCallback = () => { };
+            return waitForBackendReady();
+        }).then(() => {
             console.log("UnitTest: BackendReady");
             done();
-        }
+        });
     });
 
     it("Test simple verification with silicon", function (done) {
-        //3. simple.sil should verify with silicon 
-        simpleSiliconVerifiedCallback = () => {
+        this.timeout(10000);
+        //3. viper file should verify with silicon 
+        waitForVerification(SILICON, SIMPLE).then(() => {
+            //verified
             console.log("UnitTest: silicon verification complete");
             done();
-        };
+        });
     });
 
+
     it("Test Abort", function (done) {
-        //4. open a file that takes longer
-        openViperFile(context, "longDuration.vpr");
-        //5. stop the verification after 1000ms
+        this.timeout(10000);
+
+        //open a file that takes longer
+        openFile(context, LONG);
+        //stop the verification after 1000ms
         setTimeout(() => {
             vscode.commands.executeCommand('extension.stopVerification');
         }, 1000)
 
-        abortCallback = () => {
-            abortCallback = () => { };
-            //reverify longDuration.vpr
+        waitForAbort().then(() => {
+            //aborted
+            //wait before reverifying
+            return wait(500);
+        }).then(() => {
+            //reverify longDuration viper file
             vscode.commands.executeCommand('extension.verify');
-            //the verification should succeed
-            longSiliconVerifiedCallback = () => {
+            return waitForVerification(SILICON, LONG);
+        }).then(() => {
+            //verified
+            done();
+        })
+    });
+
+    it("Test not verifying verified files", function (done) {
+
+        this.timeout(10000);
+
+        let timer;
+        let simpleAlreadyOpen = path.basename(vscode.window.activeTextEditor.document.fileName) == SIMPLE
+
+        //reopen simple silicon file
+        openFile(context, SIMPLE).then(() => {
+            if (simpleAlreadyOpen) return true;
+            return waitForVerification(SILICON, SIMPLE);
+        }).then(() => {
+            //simulate context switch by opening non-viper file
+            return openFile(context, 'empty.txt');
+        }).then(() => {
+            return openFile(context, SIMPLE);
+        }).then(() => {
+            //wait 5000ms for verification
+            timer = setTimeout(() => {
                 done();
-            }
-        }
+            }, 5000);
+
+            return waitForVerification(SILICON, SIMPLE);
+        }).then(() => {
+            //verified
+            clearTimeout(timer);
+        });
+    });
+
+
+    it("Test Viper Tools Update", function (done) {
+        this.timeout(40000);
+        vscode.commands.executeCommand('extension.updateViperTools');
+        //wait until viper tools update done
+        waitForViperToolsUpdate().then(() => {
+            //viper tools update done
+            return waitForBackendReady();
+        }).then(() => {
+            //backend ready
+            return waitForVerification(SILICON, SIMPLE);
+        }).then(() => {
+            //verified
+            done();
+        });
     });
 
     it("Test simple verification with carbon", function (done) {
-        //reopen simple silicon file
-        openViperFile(context, "simple.sil");
+        this.timeout(10000);
         //change backend to carbon
         vscode.commands.executeCommand('extension.selectBackend', 'carbon');
 
-        carbonVerifiedCallback = () => {
-            console.log("UnitTest: carbon verification complete");
+        waitForBackendReady().then(() => {
+            //backend ready
+            return waitForVerification(CARBON, SIMPLE);
+        }).then(() => {
+            //verified
             done();
-        };
+        })
     });
 
     after(() => {
@@ -141,24 +230,6 @@ describe("Viper IDE Tests", function () {
     //         });
     //     }, 1000)
     // }
-
-    /*test("Verification Test", (done) => {
-        let context: any = new TestContext();
-        let unitTestPromise = myExtension.initializeUnitTest(state => {
-            executionStates.push(state);
-            if (!ready && state == "BackendReady") {
-                ready = true;
-            }
-            if (ready && !verified && state == "VerificationCompleted") {
-                verified = true;
-                done();
-                context.dispose();
-            }
-        });
-    });
-    */
-
-
 
     // test("Tautology Test", (done) => {
     //     assert (true);
@@ -197,10 +268,11 @@ describe("Viper IDE Tests", function () {
     // });
 });
 
-function openViperFile(context, fileName): Thenable<vscode.TextDocument> {
+function openFile(context, fileName): Thenable<vscode.TextDocument> {
     return new Promise((resolve, reject) => {
-        let viperFile = path.join(context.DATA_ROOT, fileName);
-        vscode.workspace.openTextDocument(viperFile).then(document => {
+        let filePath = path.join(context.DATA_ROOT, fileName);
+        console.log("UNIT TEST: open " + filePath);
+        vscode.workspace.openTextDocument(filePath).then(document => {
             vscode.window.showTextDocument(document).then((editor) => {
                 resolve(document);
             });

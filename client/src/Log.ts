@@ -140,8 +140,25 @@ export class Log {
         Log.logFile = null;
     }
 
-    public static hint(message: string) {
+    public static hint(message: string, showSettingsButton = false, showViperToolsUpdateButton = false) {
         Log.log("H: " + message, LogLevel.Debug);
-        vscode.window.showInformationMessage("Viper: " + message);
+
+        let settingsButton: vscode.MessageItem = { title: "Open Settings" };
+        let updateButton: vscode.MessageItem = { title: "Update ViperTools" };
+        let buttons: vscode.MessageItem[] = [];
+        if (showSettingsButton) buttons.push(settingsButton);
+        if (showViperToolsUpdateButton) buttons.push(updateButton);
+        vscode.window.showInformationMessage("Viper: " + message, ...buttons).then((choice) => {
+            try {
+                if (choice && choice.title === settingsButton.title) {
+                    vscode.commands.executeCommand("workbench.action.openGlobalSettings")
+                } else if (choice && choice.title === updateButton.title) {
+                    vscode.commands.executeCommand("extension.updateViperTools")
+                }
+            } catch (e) {
+                Log.error("Error accessing " + choice.title + " settings: " + e)
+            }
+        });
+
     }
 }

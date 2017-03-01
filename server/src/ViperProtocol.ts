@@ -63,6 +63,8 @@ export class Commands {
     static UpdateViperTools = { method: "UpdateViperTools" };
 
     static GetViperFileEndings = {method: "GetViperFileEndings"};
+    
+    static ViperUpdateComplete = {method: "ViperUpdateComplete"};
 }
 
 export interface GetExecutionTraceParams {

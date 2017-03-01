@@ -727,8 +727,8 @@ export class VerificationTask {
                 }
                 break;
             case VerificationState.VerificationReporting:
-                if (line == 'No errors found.') {}
-                else if (line.startsWith('The following errors were found')) {}
+                if (line == 'No errors found.') { }
+                else if (line.startsWith('The following errors were found')) { }
                 else if (line.startsWith('  ')) {
                     let parsedPosition = Server.extractPosition(line);
                     let message = parsedPosition.after.length > 0 ? parsedPosition.after : parsedPosition.before;
@@ -860,10 +860,6 @@ export class VerificationTask {
                 //let k = child_process.exec("pkill -TERM -P " +this.verifierProcess.pid);
                 let deamonKillerPromise = Server.nailgunService.killNGAndZ3(this.verifierProcess.pid);
 
-                Promise.all([ngClientEndPromise, deamonKillerPromise]).then(() => {
-                    resolve(true);
-                });
-
                 //let killcommand = "taskkill /pid "+this.verifierProcess.pid+" /T /F";
                 //Log.log("kill command:" + killcommand);
                 //child_process.exec(killcommand);
@@ -874,6 +870,10 @@ export class VerificationTask {
                 this.verifierProcess = null;
                 this.running = false;
                 this.lastSuccess = Success.Aborted;
+
+                Promise.all([ngClientEndPromise, deamonKillerPromise]).then(() => {
+                    resolve(true);
+                });
             } catch (e) {
                 Log.error("Error aborting verification of " + this.filename + ": " + e);
                 resolve(false);

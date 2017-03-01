@@ -51,12 +51,10 @@ enum TaskType {
     StoppingComplete = 300, VerificationComplete = 200, VerificationFailed = 201
 }
 
-let isUnitTest = false;
-let unitTestResolve;
+let unitTest;
 
 export function initializeUnitTest(resolve) {
-    isUnitTest = true;
-    unitTestResolve = resolve;
+    unitTest = resolve;
     //activate(context);
 }
 
@@ -107,8 +105,12 @@ export function activate(context: vscode.ExtensionContext) {
     startAutoSaver();
     initializeStatusBar();
     registerFormatter();
-    let uri = vscode.window.activeTextEditor.document.uri;
-    State.setLastActiveFile(uri, vscode.window.activeTextEditor);
+    if (vscode.window.activeTextEditor) {
+        let uri = vscode.window.activeTextEditor.document.uri;
+        State.setLastActiveFile(uri, vscode.window.activeTextEditor);
+    } else {
+        Log.log("No active text editor found");
+    }
     startVerificationController();
     //addTestDecoration();
 }
@@ -184,12 +186,12 @@ function canStartDebugging(): CheckResult {
     try {
         let result = false;
         let reason: string;
+        let fileState = State.getLastActiveFile();
         if (Helper.getConfiguration("advancedFeatures").enabled !== true) {
             reason = "Don't debug, You must first Enable the advanced features in the settings.";
-        } else if (!State.getLastActiveFile()) {
+        } else if (!fileState) {
             reason = "Don't debug, no viper file open.";
         } else {
-            let fileState = State.getLastActiveFile();
             let uri = fileState.uri;
             let filename = path.basename(uri.toString());
             let dontDebugString = `Don't debug ${filename}, `;
@@ -382,8 +384,8 @@ function startVerificationController() {
                         if (stoppingComplete) {
                             task.type = NoOp;
                             //for unitTest
-                            if (isUnitTest && unitTestResolve) {
-                                unitTestResolve({ event: 'VerificationStopped' });
+                            if (unitTest) {
+                                unitTest({ event: 'VerificationStopped' });
                             }
                         }
                         break;
@@ -464,9 +466,10 @@ export function deactivate(): Promise<any> {
         state.dispose().then(() => {
             Log.log("state disposed");
             //TODO: make sure no doc contains special chars any more
-            if (State.getLastActiveFile()) {
+            let oldFile = State.getLastActiveFile();
+            if (oldFile) {
                 Log.log("Removing special chars of last opened file.");
-                State.getLastActiveFile().stateVisualizer.removeSpecialCharacters(() => {
+                oldFile.stateVisualizer.removeSpecialCharacters(() => {
                     Log.log("Close Log");
                     Log.dispose();
                     Log.log("Deactivated")
@@ -654,9 +657,9 @@ function handleStateChange(params: StateChangeParams) {
                             Log.log(`Verifying ${params.filename} timed out`, LogLevel.Info);
                             break;
                     }
-                    if (isUnitTest && unitTestResolve) {
+                    if (unitTest) {
                         if (verificationCompleted(params.success)) {
-                            unitTestResolve({ event: "VerificationComplete", fileName: params.filename, backend: State.activeBackend });
+                            unitTest({ event: "VerificationComplete", fileName: params.filename, backend: State.activeBackend });
                         }
                     }
                     workList.push({ type: TaskType.VerificationComplete, uri: uri, manuallyTriggered: false });
@@ -720,21 +723,10 @@ function handleSettingsCheckResult(params: SettingsCheckedParams) {
             statusBarItem.color = 'orange';
         }
 
-        if (nofErrors + nofWarnings > 1) message = "see View->Output->Viper";
+        if (nofErrors + nofWarnings > 1)
+            message = "see View->Output->Viper";
 
-        let settingsButton: vscode.MessageItem = { title: "Open Settings" };
-        let updateButton: vscode.MessageItem = { title: "Update ViperTools" };
-        vscode.window.showInformationMessage("Viper Settings: " + errorCounts + ": " + message, settingsButton, updateButton).then((choice) => {
-            try {
-                if (choice && choice.title === settingsButton.title) {
-                    vscode.commands.executeCommand("workbench.action.openGlobalSettings")
-                } else if (choice && choice.title === updateButton.title) {
-                    vscode.commands.executeCommand("extension.updateViperTools")
-                }
-            } catch (e) {
-                Log.error("Error accessing " + choice.title + " settings: " + e)
-            }
-        });
+        Log.hint("Viper Settings: " + errorCounts + ": " + message, true, true);
     }
 }
 
@@ -764,6 +756,19 @@ function registerHandlers() {
             abortButton.hide();
         } catch (e) {
             Log.error("Error handling backend change: " + e);
+        }
+    });
+    state.client.onNotification(Commands.ViperUpdateComplete, (success) => {
+        if (success) {
+            Log.log("The ViperTools update is complete.", LogLevel.Debug);
+            if (unitTest) {
+                unitTest({ event: "ViperUpdateComplete" });
+            }
+        } else {
+            Log.hint("The ViperTools update failed. Missing permission: change the ViperTools path in the Settings or manually install the ViperTools.");
+            if (unitTest) {
+                unitTest({ event: "ViperUpdateFailed" });
+            }
         }
     });
     state.client.onNotification(Commands.FileOpened, (uri: string) => {
@@ -1038,7 +1043,12 @@ function startDebugging() {
         //check if all the requirements are met to start debugging
         let canDebug = canStartDebugging();
         if (canDebug.result) {
-            let uri = State.getLastActiveFile().uri;
+            let lastActiveFile = State.getLastActiveFile();
+            if (!lastActiveFile) {
+                Log.hint("Don't debug there is no file to debug.");
+                return;
+            }
+            let uri = lastActiveFile.uri;
             let filename = path.basename(uri.toString());
             let openDoc = uri.path;
             if (State.isWin) {
@@ -1132,9 +1142,8 @@ function handleBackendReadyNotification(params: BackendReadyParams) {
             }
         }
         //for unit testing
-        if (isUnitTest && unitTestResolve) {
-
-            unitTestResolve({ event: "BackendReady" });
+        if (unitTest) {
+            unitTest({ event: "BackendReady", backend: params.name });
         }
 
         Log.log("Backend ready: " + params.name, LogLevel.Info);

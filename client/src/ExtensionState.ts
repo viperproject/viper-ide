@@ -48,7 +48,12 @@ export class State {
     }
 
     public static getLastActiveFile(): ViperFileState {
-        return this.getFileState(this.lastActiveFileUri);
+        if (this.lastActiveFileUri) {
+            return this.getFileState(this.lastActiveFileUri);
+        } else {
+            Log.log("WARNING, No file uri of the last active file.")
+            return null;
+        }
     }
 
     public static resetViperFiles() {
