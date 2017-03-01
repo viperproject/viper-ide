@@ -119,7 +119,7 @@ describe("Viper IDE Tests", function () {
         });
     });
 
-
+/*
     it("Test Abort", function (done) {
         this.timeout(10000);
 
@@ -203,7 +203,7 @@ describe("Viper IDE Tests", function () {
             done();
         })
     });
-
+*/
     after(() => {
         context.dispose();
     })

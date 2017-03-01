@@ -237,9 +237,14 @@ export class NailgunService {
                 let command: string;
                 if (Settings.isWin) {
                     command = 'wmic process where "parentprocessId=' + this.nailgunProcess.pid + ' and name=\'java.exe\'" get ProcessId';
-                } else {
+                } else if (Settings.isLinux){
                     command = 'pgrep -P ' + this.nailgunProcess.pid;
+                }else{
+                    //No need to get the childProcess
+                    resolve(this.nailgunProcess.pid);
+                    return;
                 }
+                Log.log("Getting nailgun PID: "+command,LogLevel.Debug)
                 child_process.exec(command, (strerr, stdout, stderr) => {
                     let regex = /.*?(\d+).*/.exec(stdout);
                     if (regex[1]) {
@@ -365,14 +370,19 @@ export class NailgunService {
     // }
 
     public startStageProcess(fileToVerify: string, stage: Stage, onData, onError, onClose): child_process.ChildProcess {
-        let program = this.activeBackend.useNailgun ? ('"' + Settings.settings.nailgunSettings.clientExecutable + '"') : ('java ' + Settings.settings.javaSettings.customArguments);
-        let command = Settings.expandCustomArguments(program, stage, fileToVerify, this.activeBackend);
-        Log.log(command, LogLevel.Debug);
-        let verifyProcess = child_process.exec(command, { maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, cwd: Server.backendOutputDirectory });
-        verifyProcess.stdout.on('data', onData);
-        verifyProcess.stderr.on('data', onError);
-        verifyProcess.on('close', onClose);
-        return verifyProcess;
+        try {
+            Log.log("Start Stage Process",LogLevel.LowLevelDebug);
+            let program = this.activeBackend.useNailgun ? ('"' + Settings.settings.nailgunSettings.clientExecutable + '"') : ('java ' + Settings.settings.javaSettings.customArguments);
+            let command = Settings.expandCustomArguments(program, stage, fileToVerify, this.activeBackend);
+            Log.log(command, LogLevel.Debug);
+            let verifyProcess = child_process.exec(command, { maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, cwd: Server.backendOutputDirectory });
+            verifyProcess.stdout.on('data', onData);
+            verifyProcess.stderr.on('data', onError);
+            verifyProcess.on('close', onClose);
+            return verifyProcess;
+        } catch (e) {
+            Log.error("Error starting stage process: "+e);
+        }
     }
 
     private isNailgunServerReallyRunning(): Thenable<boolean> {
