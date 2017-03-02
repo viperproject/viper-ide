@@ -1,7 +1,7 @@
 {
     "name": "viper-advanced",
     "displayName": "Viper Advanced",
-    "version": "0.5.415",
+    "version": "0.5.416",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "license": "MIT",
@@ -43,7 +43,7 @@
     },
     "devDependencies": {
         "@types/node": "^6.0.52",
-        "@types/mocha":"^2.2.39",
+        "@types/mocha": "^2.2.39",
         "mocha": "^3.2.0",
         "typescript": "^2.2.1",
         "vscode": "^1.0.5",
