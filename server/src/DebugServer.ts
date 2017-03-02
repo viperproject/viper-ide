@@ -19,7 +19,7 @@ export class DebugServer {
     }
 
     public static registerHandlers() {
-        Server.connection.onRequest({ method: 'variablesInLine' }, (lineNumber) => {
+        Server.connection.onRequest('variablesInLine', (lineNumber) => {
             let variables = [];
             if (Server.debuggedVerificationTask) {
                 Server.debuggedVerificationTask.steps.forEach(element => {

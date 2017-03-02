@@ -100,7 +100,7 @@ export class Server {
         this.connection.sendNotification(Commands.FileClosed, uri);
     }
 
-    static sendLogMessage(command: Command, params: LogParams) {
+    static sendLogMessage(command: string, params: LogParams) {
         this.connection.sendNotification(command, params);
     }
 

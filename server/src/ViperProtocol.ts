@@ -8,63 +8,63 @@ import Uri from 'vscode-uri/lib/index';
 export class Commands {
     //SERVER TO CLIENT
     //Server notifies client about the result of the settings check
-    static SettingsChecked = { method: "SettingsChecked" };//SettingsCheckedParams
+    static SettingsChecked = "SettingsChecked";//SettingsCheckedParams
     //The language server requests what version is required for the settings
-    static RequestRequiredVersion = { method: "RequestRequiredVersion" };//void -> requiredVersions: Versions
+    static RequestRequiredVersion = "RequestRequiredVersion";//void -> requiredVersions: Versions
     //Server notifies client about a state change
-    static StateChange = { method: "StateChange" };//StateChangeParams
+    static StateChange = "StateChange";//StateChangeParams
     //LOGGING
     //Log a message to the output
-    static Log = { method: "Log" };//LogParams
+    static Log = "Log";//LogParams
     //Log an error message to the output
-    static Error = { method: "Error" };//LogParams
+    static Error = "Error";//LogParams
     //Log a message to the log file
-    static ToLogFile = { method: "ToLogFile" };//LogParams
+    static ToLogFile = "ToLogFile";//LogParams
     //Server tells client to show an information message to the user
-    static Hint = { method: "Hint" };//message: string
+    static Hint = "Hint";//message: string
     //Server informs client about ongoing backend change
-    static BackendChange = { method: "BackendChange" };//name: string
+    static BackendChange = "BackendChange";//name: string
     //Server is informing client about opened file
-    static FileOpened = { method: "FileOpened" };//uri: string
+    static FileOpened = "FileOpened";//uri: string
     //Server is informing client about closed file
-    static FileClosed = { method: "FileClosed" };//uri: string
+    static FileClosed = "FileClosed";//uri: string
     //Server is notifying client that the verification could not be started
-    static VerificationNotStarted = { method: "VerificationNotStarted" };//uri: string
+    static VerificationNotStarted = "VerificationNotStarted";//uri: string
     //Either server or client request debugging to be stopped
-    static StopDebugging = { method: "StopDebugging" };//void
+    static StopDebugging = "StopDebugging";//void
     //Server informs client about started backend
-    static BackendReady = { method: "BackendReady" };//BackendReadyParams
-    static StepsAsDecorationOptions = { method: "StepsAsDecorationOptions" };//StepsAsDecorationOptionsResult
-    static HeapGraph = { method: "HeapGraph" };//HeapGraph
-    //static StateSelected = { method: "StateSelected" };
+    static BackendReady = "BackendReady";//BackendReadyParams
+    static StepsAsDecorationOptions = "StepsAsDecorationOptions";//StepsAsDecorationOptionsResult
+    static HeapGraph = "HeapGraph";//HeapGraph
+    //static StateSelected = "StateSelected";
 
     //CLIENT TO SERVER
-    //static SelectBackend = { method: "SelectBackend" };
+    //static SelectBackend = "SelectBackend";
     //Client asks server for the list of backend names
-    static RequestBackendNames = { method: "RequestBackendNames" };//void
+    static RequestBackendNames = "RequestBackendNames";//void
     //Client tells server to dispose itself
-    static Dispose = { method: "Dispose" };//void
+    static Dispose = "Dispose";//void
     //Client requests verification for a file
-    static Verify = { method: "Verify" };//VerifyParams
+    static Verify = "Verify";//VerifyParams
     //Client tells server to abort the running verification
-    static StopVerification = { method: "StopVerification" };//filePath:string
-    static ShowHeap = { method: "ShowHeap" };//ShowHeapParams
+    static StopVerification = "StopVerification";//filePath:string
+    static ShowHeap = "ShowHeap";//ShowHeapParams
     //Client tells Server to start backends
-    static StartBackend = { method: "StartBackend" };//backendName:string
+    static StartBackend = "StartBackend" ;//backendName:string
     //Request a list of all states that led to the current state
-    static GetExecutionTrace = { method: "GetExecutionTrace" };//GetExecutionTraceParams -> trace:ExecutionTrace[]
+    static GetExecutionTrace = "GetExecutionTrace";//GetExecutionTraceParams -> trace:ExecutionTrace[]
     //Request the path to the dot executable from the language server
-    //static GetDotExecutable = { method: "GetDotExecutable" };//void -> dotExecutable:string
+    //static GetDotExecutable = "GetDotExecutable";//void -> dotExecutable:string
 
     //remove the diagnostics in the file specified by uri
-    static RemoveDiagnostics = { method: "RemoveDiagnostics" };
+    static RemoveDiagnostics = "RemoveDiagnostics";
 
     //update the viper tools
-    static UpdateViperTools = { method: "UpdateViperTools" };
+    static UpdateViperTools = "UpdateViperTools";
 
-    static GetViperFileEndings = {method: "GetViperFileEndings"};
+    static GetViperFileEndings = "GetViperFileEndings";
     
-    static ViperUpdateComplete = {method: "ViperUpdateComplete"};
+    static ViperUpdateComplete = "ViperUpdateComplete";
 }
 
 export interface GetExecutionTraceParams {

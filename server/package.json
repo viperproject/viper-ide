@@ -9,19 +9,21 @@
     "version": "0.0.1",
     "publisher": "rukaelin",
     "engines": {
-        "node": "^4.1.1"
+        "node": "*"
     },
     "dependencies": {
-        "vscode-languageserver": "^2.2.0",
-        "vscode-uri": "^0.0.3",
+        "vscode-languageserver": "^3.0.4",
+        "vscode-uri": "^1.0.0",
         "tree-kill": "^1.1.0",
-        "portfinder": "1.0.13",
-        "mkdirp": "0.5.1",
+        "portfinder": "^1.0.13",
+        "mkdirp": "^0.5.1",
         "adm-zip": "^0.4.7",
         "glob-to-regexp": "^0.3.0"
     },
     "devDependencies": {
-        "typescript": "^2.2.1"
+        "@types/node": "^6.0.52",
+        "typescript": "^2.2.1",
+        "vscode":"^1.0.5"
     },
     "scripts": {
         "compile": "tsc -p .",

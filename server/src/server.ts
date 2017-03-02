@@ -188,7 +188,7 @@ function registerHandlers() {
                 filename = Settings.isLinux ? "ViperToolsLinux.zip" : "ViperToolsMac.zip";
             }
             //check access to download location
-            let dir = Settings.settings.paths.viperToolsPath;
+            let dir = <string>Settings.settings.paths.viperToolsPath;
             let viperToolsPath = pathHelper.join(dir, filename);
             makeSureFileExistsAndCheckForWritePermission(viperToolsPath).then(error => {
                 if (error) {

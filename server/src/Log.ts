@@ -28,10 +28,10 @@ export class Log {
     }
 
     static logOutput(process: child_process.ChildProcess, label: string) {
-        process.stdout.on('data', (data) => {
+        process.stdout.on('data', (data:string) => {
             Log.logWithOrigin(label, data, LogLevel.LowLevelDebug);
         });
-        process.stdout.on('data', (data) => {
+        process.stdout.on('data', (data:string) => {
             Log.logWithOrigin(label + " error", data, LogLevel.LowLevelDebug);
         });
     }

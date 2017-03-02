@@ -16,6 +16,7 @@ import { VerificationState } from '../ViperProtocol';
 import { Event } from 'typescript.events';
 import { State } from '../ExtensionState';
 import * as child_process from 'child_process';
+import * as mocha from 'mocha';
 
 let ready = false;
 //let verified = false;

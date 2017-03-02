@@ -393,7 +393,7 @@ export class NailgunService {
             let command = '"' + Settings.settings.nailgunSettings.clientExecutable + '" --nailgun-port ' + Server.usedNailgunPort + " NOT_USED_CLASS_NAME";
             Log.log(command, LogLevel.Debug);
             let nailgunServerTester = child_process.exec(command);
-            nailgunServerTester.stderr.on('data', data => {
+            nailgunServerTester.stderr.on('data', (data:string) => {
                 if (data.startsWith("java.lang.ClassNotFoundException:")) {
                     return resolve(true);
                 } else {
