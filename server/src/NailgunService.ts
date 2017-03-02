@@ -3,7 +3,7 @@
 import child_process = require('child_process');
 import { Log } from './Log'
 import { Settings } from './Settings'
-import { Stage, Backend, VerificationState, LogLevel } from './ViperProtocol'
+import { Common, Stage, Backend, VerificationState, LogLevel } from './ViperProtocol'
 import { Server } from './ServerClass';
 import { VerificationTask } from './VerificationTask'
 var tree_kill = require('tree-kill');
@@ -197,12 +197,13 @@ export class NailgunService {
             try {
                 if (Server.nailgunService.nailgunServerPid) {
                     if (Settings.isWin) {
-                        let wmic = this.spawner('wmic', ["process", "where", 'ParentProcessId=' + Server.nailgunService.nailgunServerPid + (ngPid ? ' or ParentProcessId=' + ngPid : ""), "call", "terminate"]);
+                        let wmic = Common.spawner('wmic', ["process", "where", 'ParentProcessId=' + Server.nailgunService.nailgunServerPid + (ngPid ? ' or ParentProcessId=' + ngPid : ""), "call", "terminate"]);
                         wmic.on('exit', (code) => {
                             resolve(true);
                         });
                     } else {
-                        let wmic = this.spawner('pkill', ["-P", "" + Server.nailgunService.nailgunServerPid + (ngPid ? "," + ngPid : "")]);
+                        //since z3 appears as the child process of the nailgun server, it suffices to kill all children of the nailgun server process
+                        let wmic = Common.spawner('pkill', ["-P", "" + Server.nailgunService.nailgunServerPid + (ngPid ? "," + ngPid : "")]);
                         wmic.on('exit', (code) => {
                             resolve(true);
                         });
@@ -237,14 +238,14 @@ export class NailgunService {
                 let command: string;
                 if (Settings.isWin) {
                     command = 'wmic process where "parentprocessId=' + this.nailgunProcess.pid + ' and name=\'java.exe\'" get ProcessId';
-                } else if (Settings.isLinux){
+                } else if (Settings.isLinux) {
                     command = 'pgrep -P ' + this.nailgunProcess.pid;
-                }else{
+                } else {
                     //No need to get the childProcess
                     resolve(this.nailgunProcess.pid);
                     return;
                 }
-                Log.log("Getting nailgun PID: "+command,LogLevel.Debug)
+                Log.log("Getting nailgun PID: " + command, LogLevel.Debug)
                 child_process.exec(command, (strerr, stdout, stderr) => {
                     let regex = /.*?(\d+).*/.exec(stdout);
                     if (regex[1]) {
@@ -260,41 +261,6 @@ export class NailgunService {
         });
     }
 
-    private executer(command: string): child_process.ChildProcess {
-        Log.log("executer: " + command)
-        try {
-            let child = child_process.exec(command, function (error, stdout, stderr) {
-                Log.log('stdout: ' + stdout);
-                Log.log('stderr: ' + stderr);
-                if (error !== null) {
-                    Log.log('exec error: ' + error);
-                }
-            });
-            return child;
-        } catch (e) {
-            Log.error("Error executing " + command + ": " + e);
-        }
-    }
-
-    private spawner(command: string, args: string[]): child_process.ChildProcess {
-        Log.log("spawner: " + command + " " + args.join(" "));
-        try {
-            let child = child_process.spawn(command, args, { detached: true });
-            child.on('stdout', data => {
-                Log.log('spawner stdout: ' + data);
-            });
-            child.on('stderr', data => {
-                Log.log('spawner stderr: ' + data);
-            });
-            child.on('exit', data => {
-                Log.log('spawner done: ' + data);
-            });
-            return child;
-        } catch (e) {
-            Log.error("Error spawning command: " + e);
-        }
-    }
-
     public killAllNgAndZ3Processes(): Thenable<boolean> {
         // TODO: it would be much better to kill the processes by process group,
         // unfortunaltey that did not work.
@@ -308,12 +274,11 @@ export class NailgunService {
             if (Settings.isWin) {
                 killCommand = "taskkill /F /T /im ng.exe & taskkill /F /T /im z3.exe";
             } else if (Settings.isLinux) {
-                killCommand = "pkill -c ng; pkill -c z3";
+                killCommand = "pkill -x ng; pkill -x z3";
             } else {
-                killCommand = "pkill ng; pkill z3";
+                killCommand = "pkill -x ng; pkill -x z3";
             }
-            Log.log("Command: " + killCommand, LogLevel.Debug);
-            let killer = child_process.exec(killCommand);
+            let killer = Common.executer(killCommand);
             killer.on("exit", (data) => {
                 Log.log("ng client and z3 killer: " + data, LogLevel.Debug);
                 return resolve(true);
@@ -329,11 +294,11 @@ export class NailgunService {
         this.killRecursive(this.nailgunProcess.pid);
 
         if (Settings.isWin) {
-            let wmic = this.spawner('wmic', ["process", "where", 'ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid, "call", "terminate"]);
+            let wmic = Common.spawner('wmic', ["process", "where", 'ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid, "call", "terminate"]);
             //let wmic = this.executer('wmic process where "ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid + '" call terminate');
         } else {
             //TODO: consider also killing the parent (its actually the shell process)
-            this.spawner('pkill', ["-P", "" + this.nailgunProcess.pid]);
+            Common.spawner('pkill', ["-P", "" + this.nailgunProcess.pid]);
         }
 
         //this.nailgunProcess.kill('SIGINT');
@@ -371,7 +336,7 @@ export class NailgunService {
 
     public startStageProcess(fileToVerify: string, stage: Stage, onData, onError, onClose): child_process.ChildProcess {
         try {
-            Log.log("Start Stage Process",LogLevel.LowLevelDebug);
+            Log.log("Start Stage Process", LogLevel.LowLevelDebug);
             let program = this.activeBackend.useNailgun ? ('"' + Settings.settings.nailgunSettings.clientExecutable + '"') : ('java ' + Settings.settings.javaSettings.customArguments);
             let command = Settings.expandCustomArguments(program, stage, fileToVerify, this.activeBackend);
             Log.log(command, LogLevel.Debug);
@@ -381,7 +346,7 @@ export class NailgunService {
             verifyProcess.on('close', onClose);
             return verifyProcess;
         } catch (e) {
-            Log.error("Error starting stage process: "+e);
+            Log.error("Error starting stage process: " + e);
         }
     }
 
@@ -393,7 +358,7 @@ export class NailgunService {
             let command = '"' + Settings.settings.nailgunSettings.clientExecutable + '" --nailgun-port ' + Server.usedNailgunPort + " NOT_USED_CLASS_NAME";
             Log.log(command, LogLevel.Debug);
             let nailgunServerTester = child_process.exec(command);
-            nailgunServerTester.stderr.on('data', (data:string) => {
+            nailgunServerTester.stderr.on('data', (data: string) => {
                 if (data.startsWith("java.lang.ClassNotFoundException:")) {
                     return resolve(true);
                 } else {

@@ -1,0 +1,9 @@
+field f: Ref
+
+method foo()
+{
+    var i: Int
+    var x: Ref
+    inhale acc(x.f, 0)
+    assert i == true
+}

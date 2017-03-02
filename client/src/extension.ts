@@ -761,7 +761,7 @@ function registerHandlers() {
         });
         state.client.onNotification(Commands.ViperUpdateComplete, (success) => {
             if (success) {
-                Log.log("The ViperTools update is complete.", LogLevel.Debug);
+                Log.hint("The ViperTools update is complete.");
                 if (unitTest) {
                     unitTest({ event: "ViperUpdateComplete" });
                 }

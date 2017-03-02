@@ -1,6 +1,8 @@
 'use strict';
 
 import Uri from 'vscode-uri/lib/index';
+import child_process = require('child_process');
+import { Log } from './Log';
 
 //Global interfaces:
 
@@ -508,5 +510,41 @@ export class Common {
         let uriObject: Uri = Uri.file(path);
         let platformIndependentUri = uriObject.toString();
         return platformIndependentUri;
+    }
+
+    //Helper methods for child processes
+    public static executer(command: string): child_process.ChildProcess {
+        Log.log("executer: " + command,LogLevel.Debug)
+        try {
+            let child = child_process.exec(command, function (error, stdout, stderr) {
+                Log.log('stdout: ' + stdout,LogLevel.LowLevelDebug);
+                Log.log('stderr: ' + stderr,LogLevel.LowLevelDebug);
+                if (error !== null) {
+                    Log.error('exec error: ' + error);
+                }
+            });
+            return child;
+        } catch (e) {
+            Log.error("Error executing " + command + ": " + e);
+        }
+    }
+
+    public static spawner(command: string, args: string[]): child_process.ChildProcess {
+        Log.log("spawner: " + command + " " + args.join(" "),LogLevel.Debug);
+        try {
+            let child = child_process.spawn(command, args, { detached: true });
+            child.on('stdout', data => {
+                Log.log('spawner stdout: ' + data,LogLevel.LowLevelDebug);
+            });
+            child.on('stderr', data => {
+                Log.log('spawner stderr: ' + data,LogLevel.LowLevelDebug);
+            });
+            child.on('exit', data => {
+                Log.log('spawner done: ' + data,LogLevel.LowLevelDebug);
+            });
+            return child;
+        } catch (e) {
+            Log.error("Error spawning command: " + e);
+        }
     }
 }
