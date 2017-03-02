@@ -731,290 +731,292 @@ function handleSettingsCheckResult(params: SettingsCheckedParams) {
 }
 
 function registerHandlers() {
+    state.client.onReady().then(ready => {
 
-    state.client.onNotification(Commands.StateChange, (params: StateChangeParams) => handleStateChange(params));
-    state.client.onNotification(Commands.SettingsChecked, (data: SettingsCheckedParams) => handleSettingsCheckResult(data));
-    state.client.onNotification(Commands.Hint, (data: string) => {
-        Log.hint(data);
-    });
-    state.client.onNotification(Commands.Log, (msg: { data: string, logLevel: LogLevel }) => {
-        Log.log((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
-    });
-    state.client.onNotification(Commands.ToLogFile, (msg: { data: string, logLevel: LogLevel }) => {
-        Log.toLogFile((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
-    });
-    state.client.onNotification(Commands.Error, (msg: { data: string, logLevel: LogLevel }) => {
-        Log.error((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
-    });
+        state.client.onNotification(Commands.StateChange, (params: StateChangeParams) => handleStateChange(params));
+        state.client.onNotification(Commands.SettingsChecked, (data: SettingsCheckedParams) => handleSettingsCheckResult(data));
+        state.client.onNotification(Commands.Hint, (data: string) => {
+            Log.hint(data);
+        });
+        state.client.onNotification(Commands.Log, (msg: { data: string, logLevel: LogLevel }) => {
+            Log.log((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
+        });
+        state.client.onNotification(Commands.ToLogFile, (msg: { data: string, logLevel: LogLevel }) => {
+            Log.toLogFile((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
+        });
+        state.client.onNotification(Commands.Error, (msg: { data: string, logLevel: LogLevel }) => {
+            Log.error((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
+        });
 
-    state.client.onNotification(Commands.BackendChange, (newBackend: string) => {
-        try {
-            State.activeBackend = newBackend;
-            updateStatusBarItem(backendStatusBar, newBackend, "white");
-            State.reset();
-            statusBarProgress.hide();
-            abortButton.hide();
-        } catch (e) {
-            Log.error("Error handling backend change: " + e);
-        }
-    });
-    state.client.onNotification(Commands.ViperUpdateComplete, (success) => {
-        if (success) {
-            Log.log("The ViperTools update is complete.", LogLevel.Debug);
-            if (unitTest) {
-                unitTest({ event: "ViperUpdateComplete" });
+        state.client.onNotification(Commands.BackendChange, (newBackend: string) => {
+            try {
+                State.activeBackend = newBackend;
+                updateStatusBarItem(backendStatusBar, newBackend, "white");
+                State.reset();
+                statusBarProgress.hide();
+                abortButton.hide();
+            } catch (e) {
+                Log.error("Error handling backend change: " + e);
             }
-        } else {
-            Log.hint("The ViperTools update failed. Missing permission: change the ViperTools path in the Settings or manually install the ViperTools.");
-            if (unitTest) {
-                unitTest({ event: "ViperUpdateFailed" });
-            }
-        }
-    });
-    state.client.onNotification(Commands.FileOpened, (uri: string) => {
-        try {
-            Log.log("File openend: " + path.basename(uri), LogLevel.Info);
-            let uriObject: Uri = Uri.parse(uri);
-            let fileState = State.getFileState(uri);
-            if (fileState) {
-                fileState.open = true;
-                fileState.verifying = false;
-                workList.push({ type: TaskType.Verify, uri: uriObject, manuallyTriggered: false });
-            }
-        } catch (e) {
-            Log.error("Error handling file opened notification: " + e);
-        }
-    });
-    state.client.onNotification(Commands.FileClosed, (uri: string) => {
-        try {
-            let uriObject: Uri = Uri.parse(uri);
-            Log.log("File closed: " + path.basename(uriObject.path), LogLevel.Info);
-            let fileState = State.getFileState(uri);
-            if (fileState) {
-                fileState.open = false;
-                fileState.verified = false;
-            }
-            fileState.stateVisualizer.removeSpecialCharsFromClosedDocument(() => { });
-        } catch (e) {
-            Log.error("Error handling file closed notification: " + e);
-        }
-    });
-    state.client.onRequest(Commands.RequestRequiredVersion, () => {
-        return getRequiredVersion();
-    });
-    state.client.onRequest(Commands.GetViperFileEndings, () => {
-        Helper.loadViperFileExtensions();
-        return Helper.viperFileEndings;
-    });
-    state.context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
-        try {
-            workList.push({ type: TaskType.Save, uri: params.uri });
-        } catch (e) {
-            Log.error("Error handling saved document: " + e);
-        }
-    }));
-    state.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
-        try {
-            Log.updateSettings();
-            stopDebuggingOnServer();
-            stopDebuggingLocally();
-        } catch (e) {
-            Log.error("Error handling configuration change: " + e);
-        }
-    }));
-
-    state.client.onNotification(Commands.BackendReady, (params: BackendReadyParams) => {
-        handleBackendReadyNotification(params);
-    });
-
-    //Heap visualization
-    state.client.onNotification(Commands.StepsAsDecorationOptions, params => {
-        try {
-            let castParams = <StepsAsDecorationOptionsResult>params;
-            if (!castParams) {
-                Log.error("Invalid Params for StepsAdDecorationOptions");
-            }
-            let visualizer = State.getVisualizer(castParams.uri);
-            visualizer.storeNewStates(castParams);
-        } catch (e) {
-            Log.error("Error handling steps as decoration options notification: " + e);
-        }
-    });
-
-    state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
-        try {
-            if (!heapGraph) return;
-            if (Helper.getConfiguration("advancedFeatures").enabled === true) {
-                let visualizer = State.getVisualizer(heapGraph.fileUri);
-                let state = visualizer.decorationOptions[heapGraph.state];
-                if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
-                    //Simple Mode
-                    if (state.isErrorState) {
-                        //replace the error state
-                        visualizer.focusOnState(heapGraph);
-                    } else {
-                        //replace the execution state
-                        visualizer.setState(heapGraph);
-                    }
-                } else {
-                    //Advanced Mode
-                    if (heapGraph.state != visualizer.previousState) {
-                        visualizer.pushState(heapGraph);
-                    }
+        });
+        state.client.onNotification(Commands.ViperUpdateComplete, (success) => {
+            if (success) {
+                Log.log("The ViperTools update is complete.", LogLevel.Debug);
+                if (unitTest) {
+                    unitTest({ event: "ViperUpdateComplete" });
                 }
             } else {
-                Log.log("WARNING: Heap Graph is generated, even though the advancedFeatures are disabled.", LogLevel.Debug);
+                Log.hint("The ViperTools update failed. Missing permission: change the ViperTools path in the Settings or manually install the ViperTools.");
+                if (unitTest) {
+                    unitTest({ event: "ViperUpdateFailed" });
+                }
             }
-        } catch (e) {
-            Log.error("Error displaying HeapGraph: " + e);
-        }
-    });
-
-    vscode.window.onDidChangeTextEditorSelection((change) => {
-        try {
-            if (!change.textEditor.document) {
-                Log.error("document is undefined in onDidChangeTextEditorSelection");
-                return;
+        });
+        state.client.onNotification(Commands.FileOpened, (uri: string) => {
+            try {
+                Log.log("File openend: " + path.basename(uri), LogLevel.Info);
+                let uriObject: Uri = Uri.parse(uri);
+                let fileState = State.getFileState(uri);
+                if (fileState) {
+                    fileState.open = true;
+                    fileState.verifying = false;
+                    workList.push({ type: TaskType.Verify, uri: uriObject, manuallyTriggered: false });
+                }
+            } catch (e) {
+                Log.error("Error handling file opened notification: " + e);
             }
-            let uri = change.textEditor.document.uri.toString();
-            let start = change.textEditor.selection.start;
-            let visualizer = State.getVisualizer(uri);
-            if (visualizer) {
-                visualizer.showStateSelection(start);
+        });
+        state.client.onNotification(Commands.FileClosed, (uri: string) => {
+            try {
+                let uriObject: Uri = Uri.parse(uri);
+                Log.log("File closed: " + path.basename(uriObject.path), LogLevel.Info);
+                let fileState = State.getFileState(uri);
+                if (fileState) {
+                    fileState.open = false;
+                    fileState.verified = false;
+                }
+                fileState.stateVisualizer.removeSpecialCharsFromClosedDocument(() => { });
+            } catch (e) {
+                Log.error("Error handling file closed notification: " + e);
             }
-        } catch (e) {
-            Log.error("Error handling text editor selection change: " + e);
-        }
-    });
-    /*state.client.onRequest(Commands.StateSelected, change => {
-        try {
-            let castChange = <{ uri: string, line: number, character: number }>change;
-            if (!castChange) {
-                Log.error("error casting stateSelected Request data");
+        });
+        state.client.onRequest(Commands.RequestRequiredVersion, () => {
+            return getRequiredVersion();
+        });
+        state.client.onRequest(Commands.GetViperFileEndings, () => {
+            Helper.loadViperFileExtensions();
+            return Helper.viperFileEndings;
+        });
+        state.context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
+            try {
+                workList.push({ type: TaskType.Save, uri: params.uri });
+            } catch (e) {
+                Log.error("Error handling saved document: " + e);
             }
-            let visualizer = State.viperFiles.get(castChange.uri).stateVisualizer;
-            visualizer.showStateSelection({ line: castChange.line, character: castChange.character });
-        } catch (e) {
-            Log.error("Error handling state selected request: " + e);
-        }
-    });*/
-
-    state.client.onNotification(Commands.VerificationNotStarted, uri => {
-        try {
-            Log.log("Verification not started for " + path.basename(<string>uri), LogLevel.Debug);
-            //reset the verifying flag if it is not beeing verified
-            State.viperFiles.forEach(file => {
-                file.verifying = false;
-            });
-            State.isVerifying = false;
-            workList.push({ type: TaskType.VerificationFailed, uri: Uri.parse(<string>uri), manuallyTriggered: true });
-        } catch (e) {
-            Log.error("Error handling verification not started request: " + e);
-        }
-    });
-
-    state.client.onNotification(Commands.StopDebugging, () => {
-        stopDebuggingLocally();
-    });
-
-    //Command Handlers
-    //verify
-    state.context.subscriptions.push(vscode.commands.registerCommand('extension.verify', () => {
-        let fileUri = Helper.getActiveFileUri();
-        if (!fileUri) {
-            Log.log("Cannot verify, no document is open.");
-        } else if (!Helper.isViperSourceFile(fileUri)) {
-            Log.log("Cannot verify the active file, its not a viper file.");
-        } else {
-            workList.push({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: true });
-        }
-    }));
-
-    //verifyAllFilesInWorkspace
-    state.context.subscriptions.push(vscode.commands.registerCommand('extension.verifyAllFilesInWorkspace', () => {
-        verifyAllFilesInWorkspace();
-    }));
-
-    //toggleAutoVerify
-    state.context.subscriptions.push(vscode.commands.registerCommand('extension.toggleAutoVerify', () => {
-        toggleAutoVerify();
-    }));
-
-    //showAllStates
-    state.context.subscriptions.push(vscode.commands.registerCommand('extension.showAllStates', () => {
-        if (State.isDebugging) {
-            let viperFile = State.getLastActiveFile();
-            if ((!Helper.getConfiguration("advancedFeatures").simpleMode === true) && viperFile) {
-                viperFile.stateVisualizer.showAllDecorations();
+        }));
+        state.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
+            try {
+                Log.updateSettings();
+                stopDebuggingOnServer();
+                stopDebuggingLocally();
+            } catch (e) {
+                Log.error("Error handling configuration change: " + e);
             }
-        }
-    }));
+        }));
 
-    //selectBackend
-    state.context.subscriptions.push(vscode.commands.registerCommand('extension.selectBackend', (selectBackend) => {
-        try {
-            if (!state.client) {
-                Log.hint("Extension not ready yet.");
-            } else {
-                state.client.sendRequest(Commands.RequestBackendNames, null).then((backendNames: string[]) => {
-                    if (backendNames.length > 1) {
-                        if (!selectBackend || !backendNames.some(x => x == selectBackend)) {
-                            vscode.window.showQuickPick(backendNames).then(selectedBackend => {
-                                if (selectedBackend && selectedBackend.length > 0) {
-                                    startBackend(selectedBackend);
-                                } else {
-                                    Log.log("No backend was selected, don't change the backend");
-                                }
-                            });
+        state.client.onNotification(Commands.BackendReady, (params: BackendReadyParams) => {
+            handleBackendReadyNotification(params);
+        });
+
+        //Heap visualization
+        state.client.onNotification(Commands.StepsAsDecorationOptions, params => {
+            try {
+                let castParams = <StepsAsDecorationOptionsResult>params;
+                if (!castParams) {
+                    Log.error("Invalid Params for StepsAdDecorationOptions");
+                }
+                let visualizer = State.getVisualizer(castParams.uri);
+                visualizer.storeNewStates(castParams);
+            } catch (e) {
+                Log.error("Error handling steps as decoration options notification: " + e);
+            }
+        });
+
+        state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
+            try {
+                if (!heapGraph) return;
+                if (Helper.getConfiguration("advancedFeatures").enabled === true) {
+                    let visualizer = State.getVisualizer(heapGraph.fileUri);
+                    let state = visualizer.decorationOptions[heapGraph.state];
+                    if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
+                        //Simple Mode
+                        if (state.isErrorState) {
+                            //replace the error state
+                            visualizer.focusOnState(heapGraph);
                         } else {
-                            startBackend(selectBackend);
+                            //replace the execution state
+                            visualizer.setState(heapGraph);
                         }
                     } else {
-                        Log.log("No need to ask user, since there is only one backend.", LogLevel.Debug);
-                        startBackend(backendNames[0]);
+                        //Advanced Mode
+                        if (heapGraph.state != visualizer.previousState) {
+                            visualizer.pushState(heapGraph);
+                        }
                     }
-                }, (reason) => {
-                    Log.error("Backend change request was rejected: reason: " + reason.toString());
-                });
+                } else {
+                    Log.log("WARNING: Heap Graph is generated, even though the advancedFeatures are disabled.", LogLevel.Debug);
+                }
+            } catch (e) {
+                Log.error("Error displaying HeapGraph: " + e);
             }
-        } catch (e) {
-            Log.error("Error selecting backend: " + e);
-        }
-    }));
+        });
 
-    //start Debugging
-    state.context.subscriptions.push(vscode.commands.registerCommand('extension.startDebugging', () => {
-        startDebugging();
-    }));
+        vscode.window.onDidChangeTextEditorSelection((change) => {
+            try {
+                if (!change.textEditor.document) {
+                    Log.error("document is undefined in onDidChangeTextEditorSelection");
+                    return;
+                }
+                let uri = change.textEditor.document.uri.toString();
+                let start = change.textEditor.selection.start;
+                let visualizer = State.getVisualizer(uri);
+                if (visualizer) {
+                    visualizer.showStateSelection(start);
+                }
+            } catch (e) {
+                Log.error("Error handling text editor selection change: " + e);
+            }
+        });
+        /*state.client.onRequest(Commands.StateSelected, change => {
+            try {
+                let castChange = <{ uri: string, line: number, character: number }>change;
+                if (!castChange) {
+                    Log.error("error casting stateSelected Request data");
+                }
+                let visualizer = State.viperFiles.get(castChange.uri).stateVisualizer;
+                visualizer.showStateSelection({ line: castChange.line, character: castChange.character });
+            } catch (e) {
+                Log.error("Error handling state selected request: " + e);
+            }
+        });*/
 
-    //stopVerification
-    state.context.subscriptions.push(vscode.commands.registerCommand('extension.stopVerification', () => {
-        workList.push({ type: TaskType.Stop, uri: null, manuallyTriggered: true });
-    }));
+        state.client.onNotification(Commands.VerificationNotStarted, uri => {
+            try {
+                Log.log("Verification not started for " + path.basename(<string>uri), LogLevel.Debug);
+                //reset the verifying flag if it is not beeing verified
+                State.viperFiles.forEach(file => {
+                    file.verifying = false;
+                });
+                State.isVerifying = false;
+                workList.push({ type: TaskType.VerificationFailed, uri: Uri.parse(<string>uri), manuallyTriggered: true });
+            } catch (e) {
+                Log.error("Error handling verification not started request: " + e);
+            }
+        });
 
-    //format
-    state.context.subscriptions.push(vscode.commands.registerCommand('extension.format', () => {
-        try {
-            formatter.formatOpenDoc();
-        } catch (e) {
-            Log.error("Error handling formating request: " + e);
-        }
-    }));
+        state.client.onNotification(Commands.StopDebugging, () => {
+            stopDebuggingLocally();
+        });
 
-    //open logFile
-    state.context.subscriptions.push(vscode.commands.registerCommand('extension.openLogFile', () => {
-        openLogFile();
-    }));
+        //Command Handlers
+        //verify
+        state.context.subscriptions.push(vscode.commands.registerCommand('extension.verify', () => {
+            let fileUri = Helper.getActiveFileUri();
+            if (!fileUri) {
+                Log.log("Cannot verify, no document is open.");
+            } else if (!Helper.isViperSourceFile(fileUri)) {
+                Log.log("Cannot verify the active file, its not a viper file.");
+            } else {
+                workList.push({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: true });
+            }
+        }));
 
-    //remove diagnostics of open file
-    state.context.subscriptions.push(vscode.commands.registerCommand('extension.removeDiagnostics', () => {
-        removeDiagnostics();
-    }));
+        //verifyAllFilesInWorkspace
+        state.context.subscriptions.push(vscode.commands.registerCommand('extension.verifyAllFilesInWorkspace', () => {
+            verifyAllFilesInWorkspace();
+        }));
 
-    //automatic installation and updating of viper tools
-    state.context.subscriptions.push(vscode.commands.registerCommand('extension.updateViperTools', () => {
-        state.client.sendNotification(Commands.UpdateViperTools);
-    }));
+        //toggleAutoVerify
+        state.context.subscriptions.push(vscode.commands.registerCommand('extension.toggleAutoVerify', () => {
+            toggleAutoVerify();
+        }));
+
+        //showAllStates
+        state.context.subscriptions.push(vscode.commands.registerCommand('extension.showAllStates', () => {
+            if (State.isDebugging) {
+                let viperFile = State.getLastActiveFile();
+                if ((!Helper.getConfiguration("advancedFeatures").simpleMode === true) && viperFile) {
+                    viperFile.stateVisualizer.showAllDecorations();
+                }
+            }
+        }));
+
+        //selectBackend
+        state.context.subscriptions.push(vscode.commands.registerCommand('extension.selectBackend', (selectBackend) => {
+            try {
+                if (!state.client) {
+                    Log.hint("Extension not ready yet.");
+                } else {
+                    state.client.sendRequest(Commands.RequestBackendNames, null).then((backendNames: string[]) => {
+                        if (backendNames.length > 1) {
+                            if (!selectBackend || !backendNames.some(x => x == selectBackend)) {
+                                vscode.window.showQuickPick(backendNames).then(selectedBackend => {
+                                    if (selectedBackend && selectedBackend.length > 0) {
+                                        startBackend(selectedBackend);
+                                    } else {
+                                        Log.log("No backend was selected, don't change the backend");
+                                    }
+                                });
+                            } else {
+                                startBackend(selectBackend);
+                            }
+                        } else {
+                            Log.log("No need to ask user, since there is only one backend.", LogLevel.Debug);
+                            startBackend(backendNames[0]);
+                        }
+                    }, (reason) => {
+                        Log.error("Backend change request was rejected: reason: " + reason.toString());
+                    });
+                }
+            } catch (e) {
+                Log.error("Error selecting backend: " + e);
+            }
+        }));
+
+        //start Debugging
+        state.context.subscriptions.push(vscode.commands.registerCommand('extension.startDebugging', () => {
+            startDebugging();
+        }));
+
+        //stopVerification
+        state.context.subscriptions.push(vscode.commands.registerCommand('extension.stopVerification', () => {
+            workList.push({ type: TaskType.Stop, uri: null, manuallyTriggered: true });
+        }));
+
+        //format
+        state.context.subscriptions.push(vscode.commands.registerCommand('extension.format', () => {
+            try {
+                formatter.formatOpenDoc();
+            } catch (e) {
+                Log.error("Error handling formating request: " + e);
+            }
+        }));
+
+        //open logFile
+        state.context.subscriptions.push(vscode.commands.registerCommand('extension.openLogFile', () => {
+            openLogFile();
+        }));
+
+        //remove diagnostics of open file
+        state.context.subscriptions.push(vscode.commands.registerCommand('extension.removeDiagnostics', () => {
+            removeDiagnostics();
+        }));
+
+        //automatic installation and updating of viper tools
+        state.context.subscriptions.push(vscode.commands.registerCommand('extension.updateViperTools', () => {
+            state.client.sendNotification(Commands.UpdateViperTools);
+        }));
+    });
 }
 
 function openLogFile() {
