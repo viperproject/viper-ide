@@ -211,8 +211,7 @@ describe("Viper IDE Tests", function () {
         setTimeout(() => {
             let command: string;
             if (State.isWin) {
-                //TODO: implement for windows
-                command = 'echo TODO'
+                command = `wmic process where 'name="ng.exe" or name="java.exe" or name="Boogie.exe" or name="z3.exe"' get processid`
             } else if (State.isLinux) {
                 command = 'pgrep -x -l ng; pgrep -x -l z3; pgrep -x -l java; pgrep -x -l boogie'
             } else {
@@ -220,7 +219,12 @@ describe("Viper IDE Tests", function () {
             }
             let processesFound = false;
             let pgrep = Common.executer(command);
-            pgrep.stdout.on('data', data => { processesFound = true; });
+            pgrep.stdout.on('data', data => {
+                let stringData = <string> data;
+                if (/^.*?(\d+).*$/.test(stringData)) {
+                    processesFound = true;
+                }
+            });
             pgrep.on('exit', data => {
                 if (!processesFound) {
                     done();
