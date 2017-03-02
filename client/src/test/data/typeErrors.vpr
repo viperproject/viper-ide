@@ -5,5 +5,8 @@ method foo()
     var i: Int
     var x: Ref
     inhale acc(x.f, 0)
+    assume false
     assert i == true
+    test
 }
+

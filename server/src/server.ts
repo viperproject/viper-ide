@@ -210,9 +210,9 @@ function registerHandlers() {
 
                                 //chmod to allow the execution of ng and zg files
                                 if (Settings.isLinux || Settings.isMac) {
-                                    fs.chmodSync(pathHelper.join(dir, "nailgun", "ng"), 755) //755 is for (read, write, execute)
-                                    fs.chmodSync(pathHelper.join(dir, "z3", "bin", "z3"), 755) //755 is for (read, write, execute)
-                                    fs.chmodSync(pathHelper.join(dir, "boogie", "Binaries", "Boogie"), 755);
+                                    fs.chmodSync(pathHelper.join(dir, "nailgun", "ng"), '755') //755 is for (read, write, execute)
+                                    fs.chmodSync(pathHelper.join(dir, "z3", "bin", "z3"), '755') //755 is for (read, write, execute)
+                                    fs.chmodSync(pathHelper.join(dir, "boogie", "Binaries", "Boogie"), '755');
                                 }
 
                                 Log.log("ViperTools Update completed", LogLevel.Default);

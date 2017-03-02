@@ -87,7 +87,7 @@
 			<array>
 				<dict>
 					<key>match</key>
-					<string>\b(false|true|null|write|none|wildcard|result)\b</string>
+					<string>\b(false|true|null|write|none|wildcard)\b</string>
 					<key>name</key>
 					<string>constant.language.silver</string>
 				</dict>
@@ -99,7 +99,7 @@
 				</dict>
 				<dict>
 					<key>match</key>
-					<string>\b(Bool|Int|Ref|Perm|Rational)\b</string>
+					<string>\b(Bool|Int|Ref|Perm|Rational|Set|Seq|Multiset)\b</string>
 					<key>name</key>
 					<string>storage.type.primitive.silver</string>
 				</dict>
@@ -256,13 +256,7 @@
 			<array>
 				<dict>
 					<key>match</key>
-					<string>\b(field)\b</string>
-					<key>name</key>
-					<string>keyword.declaration.fields.silver</string>
-				</dict>
-				<dict>
-					<key>match</key>
-					<string>\b(var)\b</string>
+					<string>\b(var|returns|field)\b</string>
 					<key>name</key>
 					<string>keyword.declaration.variables.silver</string>
 				</dict>
@@ -274,33 +268,45 @@
 				</dict>
 				<dict>
 					<key>match</key>
-					<string>\b(if|else|elseif|while)\b</string>
+					<string>\b(if|else|elseif|while|statelabel|label|goto)\b</string>
 					<key>name</key>
 					<string>keyword.control.flow.silver</string>
 				</dict>
 				<dict>
 					<key>match</key>
+					<string>\b(acc|forperm|forall|exists|folding|unfolding|packaging|applying|old|perm|result|let)\b</string>
+					<key>name</key>
+					<string>keyword.other.verification.expression.silver</string>
+				</dict>
+				<dict>
+					<key>match</key>
+					<string>\b(assert|inhale|exhale|assume|fold|unfold|package|apply|wand|fresh|constraining)\b</string>
+					<key>name</key>
+					<string>keyword.other.verification.statement.silver</string>
+				</dict>
+				<dict>
+					<key>match</key>
 					<string>\b(requires|ensures|invariant)\b</string>
 					<key>name</key>
-					<string>keyword.other.contracts.silver</string>
+					<string>keyword.other.verification.contracts.silver</string>
 				</dict>
 				<dict>
 					<key>match</key>
-					<string>\b(acc|fresh|constraining)\b</string>
-					<key>name</key>
-					<string>keyword.other.permissions.silver</string>
-				</dict>
-				<dict>
-					<key>match</key>
-					<string>\b(in|inhale|exhale|assert|assume|fold|unfold|folding|unfolding|package|apply|packaging|applying|wand|forall|exists|forallrefs|old|perm|forperm)\b</string>
-					<key>name</key>
-					<string>keyword.other.verification.silver</string>
-				</dict>
-				<dict>
-					<key>match</key>
-					<string>\b(new|let|returns|statelabel|label|Set|union)\b</string>
+					<string>\b(new)\b</string>
 					<key>name</key>
 					<string>keyword.other.other.silver</string>
+				</dict>
+				<dict>
+					<key>match</key>
+					<string>\b((assume|inhale)\s+false)\b</string>
+					<key>name</key>
+					<string>keyword.warning.silver</string>
+				</dict>
+				<dict>
+					<key>match</key>
+					<string>\b(union|in|intersection|setminus|\+\+|subset)\b</string>
+					<key>name</key>
+					<string>keyword.other.operations.silver</string>
 				</dict>
 			</array>
 		</dict>

@@ -415,6 +415,15 @@
 		</dict>
 		<dict>
 			<key>scope</key>
+			<string>keyword.warning.silver</string>
+			<key>settings</key>
+			<dict>
+				<key>background</key>
+				<string>#990000</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>scope</key>
 			<string>highlight-lines.yellow</string>
 			<key>settings</key>
 			<dict>
