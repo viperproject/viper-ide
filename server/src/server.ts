@@ -223,7 +223,7 @@ function registerHandlers() {
                                 checkSettingsAndRestartBackendIfNeeded(null, null, true);
                             } catch (e) {
                                 if (e.code && e.code == 'ENOENT') {
-                                    Log.error("Error updating the Viper Tools, missing create file permission in the viper tools directory: "+ e);
+                                    Log.error("Error updating the Viper Tools, missing create file permission in the viper tools directory: " + e);
                                 } else {
                                     Log.error("Error extracting the ViperTools: " + e);
                                 }
@@ -485,6 +485,16 @@ function checkSettingsAndRestartBackendIfNeeded(oldSettings: ViperSettings, sele
             }
             let newBackend = Settings.autoselectBackend(Settings.settings);
             if (newBackend) {
+
+                // Log.log("no nailgun ready: " + !Server.nailgunService.isReady());
+                // Log.log("backends changed: " + !Settings.backendEquals(Server.backend, newBackend));
+                // Log.log("nailgunSettings changed: " + (oldSettings && (newBackend.useNailgun && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings)))));
+                // if (oldSettings) {
+                //     Log.log("old:" + JSON.stringify(oldSettings.nailgunSettings));
+                //     Log.log("new:" + JSON.stringify(Settings.settings.nailgunSettings));
+                // }
+                // Log.log("viperToolsUpdated " + viperToolsUpdated);
+
                 //only restart the backend after settings changed if the active backend was affected
                 let restartBackend = !Server.nailgunService.isReady() //backend is not ready -> restart
                     || !Settings.backendEquals(Server.backend, newBackend) //change in backend
@@ -496,6 +506,8 @@ function checkSettingsAndRestartBackendIfNeeded(oldSettings: ViperSettings, sele
                     Server.verificationTasks.forEach(task => task.resetLastSuccess());
                     Server.nailgunService.startOrRestartNailgunServer(Server.backend, true);
                 } else {
+                    //In case the backend does not need to be restarted, retain the port
+                    Settings.settings.nailgunSettings.port = oldSettings.nailgunSettings.port;
                     Log.log("No need to restart backend. It is still the same", LogLevel.Debug)
                     Server.backend = newBackend;
                     Server.sendBackendReadyNotification({ name: Server.backend.name, restarted: false });

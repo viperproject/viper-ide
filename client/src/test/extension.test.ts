@@ -110,97 +110,115 @@ describe("Viper IDE Tests", function () {
         });
     });
 
-    /*
-        it("Test simple verification with silicon", function (done) {
-            this.timeout(10000);
-            //3. viper file should verify with silicon 
-            waitForVerification(SILICON, SIMPLE).then(() => {
-                //verified
-                console.log("UnitTest: silicon verification complete");
-                done();
-            });
+
+    it("Test simple verification with silicon", function (done) {
+        this.timeout(15000);
+        //3. viper file should verify with silicon 
+        waitForVerification(SILICON, SIMPLE).then(() => {
+            //verified
+            console.log("UnitTest: silicon verification complete");
+            done();
         });
-    
-        it("Test Abort", function (done) {
-            this.timeout(10000);
-    
-            //open a file that takes longer
-            openFile(context, LONG);
-            //stop the verification after 1000ms
-            setTimeout(() => {
-                vscode.commands.executeCommand('extension.stopVerification');
-            }, 1000)
-    
-            waitForAbort().then(() => {
-                //aborted
-                //wait before reverifying
-                return wait(500);
-            }).then(() => {
-                //reverify longDuration viper file
-                vscode.commands.executeCommand('extension.verify');
-                return waitForVerification(SILICON, LONG);
-            }).then(() => {
-                //verified
-                done();
-            })
+    });
+
+    it("Test Abort", function (done) {
+        this.timeout(15000);
+
+        //open a file that takes longer
+        openFile(context, LONG);
+        //stop the verification after 1000ms
+        setTimeout(() => {
+            vscode.commands.executeCommand('extension.stopVerification');
+        }, 1000)
+
+        waitForAbort().then(() => {
+            //aborted
+            //wait before reverifying
+            return wait(500);
+        }).then(() => {
+            //reverify longDuration viper file
+            vscode.commands.executeCommand('extension.verify');
+            return waitForVerification(SILICON, LONG);
+        }).then(() => {
+            //verified
+            done();
+        })
+    });
+
+    it("Test not verifying verified files", function (done) {
+
+        this.timeout(6000);
+
+        let simpleAlreadyOpen = path.basename(vscode.window.activeTextEditor.document.fileName) == SIMPLE
+
+        let timer = setTimeout(() => {
+            done();
+        }, 5000);
+
+        //reopen simple silicon file
+        openFile(context, SIMPLE).then(() => {
+            if (simpleAlreadyOpen) return true;
+            return waitForVerification(SILICON, SIMPLE);
+        }).then(() => {
+            //simulate context switch by opening non-viper file
+            return openFile(context, 'empty.txt');
+        }).then(() => {
+            return openFile(context, SIMPLE);
+        }).then(() => {
+            //wait 5000ms for verification
+            return waitForVerification(SILICON, SIMPLE);
+        }).then(() => {
+            //verified
+            clearTimeout(timer);
         });
-    
-        it("Test not verifying verified files", function (done) {
-    
-            this.timeout(10000);
-    
-            let timer;
-            let simpleAlreadyOpen = path.basename(vscode.window.activeTextEditor.document.fileName) == SIMPLE
-    
-            //reopen simple silicon file
-            openFile(context, SIMPLE).then(() => {
-                if (simpleAlreadyOpen) return true;
-                return waitForVerification(SILICON, SIMPLE);
-            }).then(() => {
-                //simulate context switch by opening non-viper file
-                return openFile(context, 'empty.txt');
-            }).then(() => {
-                return openFile(context, SIMPLE);
-            }).then(() => {
-                //wait 5000ms for verification
-                timer = setTimeout(() => {
-                    done();
-                }, 5000);
-    
-                return waitForVerification(SILICON, SIMPLE);
-            }).then(() => {
-                //verified
-                clearTimeout(timer);
-            });
+    });
+
+    it("Test zooming", function (done) {
+
+        this.timeout(11000);
+        let timer = setTimeout(() => {
+            done();
+        }, 10000);
+        console.log('UnitTest: zoom in')
+        vscode.commands.executeCommand("workbench.action.zoomIn").then(() => {
+            return wait(500);
+        }).then(() => {
+            console.log('UnitTest: zoom out')
+            return vscode.commands.executeCommand("workbench.action.zoomOut");
+        }).then(() => {
+            return waitForVerification(SILICON, SIMPLE);
+        }).then(() => {
+            //verified
+            clearTimeout(timer);
         });
-    
-        it("Test Viper Tools Update", function (done) {
-            this.timeout(40000);
-            vscode.commands.executeCommand('extension.updateViperTools');
-            //wait until viper tools update done
-            waitForViperToolsUpdate().then(() => {
-                //viper tools update done
-                return waitForBackendReady();
-            }).then(() => {
-                //backend ready
-                done();
-            });
+    });
+
+    it("Test Viper Tools Update", function (done) {
+        this.timeout(60000);
+        vscode.commands.executeCommand('extension.updateViperTools');
+        //wait until viper tools update done
+        waitForViperToolsUpdate().then(() => {
+            //viper tools update done
+            return waitForBackendReady();
+        }).then(() => {
+            //backend ready
+            done();
         });
-    
-        it("Test simple verification with carbon", function (done) {
-            this.timeout(10000);
-            //change backend to carbon
-            vscode.commands.executeCommand('extension.selectBackend', 'carbon');
-    
-            waitForBackendReady().then(() => {
-                //backend ready
-                return waitForVerification(CARBON, SIMPLE);
-            }).then(() => {
-                //verified
-                done();
-            })
-        });
-        */
+    });
+
+    it("Test simple verification with carbon", function (done) {
+        this.timeout(20000);
+        //change backend to carbon
+        vscode.commands.executeCommand('extension.selectBackend', 'carbon');
+
+        waitForBackendReady().then(() => {
+            //backend ready
+            return waitForVerification(CARBON, SIMPLE);
+        }).then(() => {
+            //verified
+            done();
+        })
+    });
 
     //must be last test
     it("Test closing all auxilary processes", function (done) {
@@ -213,14 +231,14 @@ describe("Viper IDE Tests", function () {
             if (State.isWin) {
                 command = `wmic process where 'name="ng.exe" or name="java.exe" or name="Boogie.exe" or name="z3.exe"' get processid`
             } else if (State.isLinux) {
-                command = 'pgrep -x -l ng; pgrep -x -l z3; pgrep -x -l java; pgrep -x -l boogie'
+                command = 'pgrep -x -l ng; pgrep -x -l z3; pgrep -x -l java; pgrep -x -l Boogie'
             } else {
-                command = 'pgrep -x -l ng; pgrep -x -l z3; pgrep -x -l java; pgrep -x -l boogie'
+                command = 'pgrep -x -l ng; pgrep -x -l z3; pgrep -x -l java; pgrep -x -l Boogie'
             }
             let processesFound = false;
             let pgrep = Common.executer(command);
             pgrep.stdout.on('data', data => {
-                let stringData = <string> data;
+                let stringData = <string>data;
                 if (/^.*?(\d+).*$/.test(stringData)) {
                     processesFound = true;
                 }

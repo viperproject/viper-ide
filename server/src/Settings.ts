@@ -82,11 +82,11 @@ export class Settings {
         return same;
     }
 
-    public static nailgunEquals(a: NailgunSettings, b: NailgunSettings): boolean {
-        let same = a.clientExecutable == b.clientExecutable;
-        same = same && a.port == b.port;
-        same = same && a.serverJar == b.serverJar;
-        same = same && a.timeout == b.timeout;
+    public static nailgunEquals(newSettings: NailgunSettings, oldSettings: NailgunSettings): boolean {
+        let same = oldSettings.clientExecutable == newSettings.clientExecutable;
+        same = same && oldSettings.port == newSettings.port || newSettings.port == '*';
+        same = same && oldSettings.serverJar == newSettings.serverJar;
+        same = same && oldSettings.timeout == newSettings.timeout;
         return same;
     }
 
@@ -97,7 +97,7 @@ export class Settings {
         args = args.replace(/\$z3Exe\$/g, '"' + this.settings.paths.z3Executable + '"');
         args = args.replace(/\$boogieExe\$/g, '"' + this.settings.paths.boogieExecutable + '"');
         args = args.replace(/\$mainMethod\$/g, stage.mainMethod);
-        args = args.replace(/\$nailgunPort\$/g, Server.usedNailgunPort);
+        args = args.replace(/\$nailgunPort\$/g, this.settings.nailgunSettings.port);
         args = args.replace(/\$fileToVerify\$/g, '"' + fileToVerify + '"');
         args = args.replace(/\$backendPaths\$/g, Settings.backendJars(backend))
         return args;
@@ -183,20 +183,24 @@ export class Settings {
         return this._valid;
     }
 
-    private static checkNailgunSettings(nailgunSettings: NailgunSettings): string {
-        /*if (!nailgunSettings) {
-            this.addError("viperSettings.nailgunSettings is missing");
-            return;
-        }*/
+    public static setNailgunPort(nailgunSettings: NailgunSettings): Thenable<boolean> {
+        return new Promise((resolve, reject) => {
+            if (!nailgunSettings.port || nailgunSettings.port == "*") {
+                //use a random port
+                portfinder.getPort(function (err, port) {
+                    Log.log("nailgun port is chosen as: " + port, LogLevel.Debug);
+                    nailgunSettings.port = port;
+                    resolve(true);
+                });
+            }else{
+                resolve(true);
+            }
+        });
+    }
 
+    private static checkNailgunSettings(nailgunSettings: NailgunSettings): string {
         //check nailgun port
-        if (!nailgunSettings.port || nailgunSettings.port == "*") {
-            //use a random port
-            portfinder.getPort(function (err, port) {
-                Log.log("nailgun port is chosen as: " + port,LogLevel.Debug);
-                nailgunSettings.port = port;
-            });
-        } else if (!/\d+/.test(nailgunSettings.port)) {
+        if (!/^(\*|\d+)$/.test(nailgunSettings.port)) {
             this.addError("Invalid NailgunPort: " + nailgunSettings.port);
         } else {
             try {
@@ -205,7 +209,7 @@ export class Settings {
                     this.addError("Invalid NailgunPort: please use a port in the range of 1024 - 65535");
                 }
             } catch (e) {
-                this.addError("viperSettings.nailgunSettings.port needs to be an integer");
+                this.addError("viperSettings.nailgunSettings.port needs to be an integer or *");
             }
         }
         //check nailgun jar

@@ -192,7 +192,7 @@ export class StateVisualizer {
         this.requestState(heapGraph.state, false);
     }
 
-//NO LONGER NEEDED: since we use viz.js now:
+    //NO LONGER NEEDED: since we use viz.js now:
     // public generateSvg(heapGraphAsDot: string, dotFilePath: string, svgFilePath: string, callback, writeGraphDescriptionToFile: boolean = true) {
     //     try {
     //         //store graph description in file
@@ -449,8 +449,10 @@ export class StateVisualizer {
     }
 
     hideDecorations() {
-        Log.log("Hide decorations", LogLevel.Debug);
-        this.doHideDecorations();
+        if (this.decoration) {
+            Log.log("Hide decorations", LogLevel.Debug);
+            this.doHideDecorations();
+        }
         this.viperFile.decorationsShown = false;
     }
 
@@ -667,7 +669,7 @@ export class StateVisualizer {
                 });
             } else {
                 this.removingSpecialChars = false;
-                Log.log("No special chars to remove", LogLevel.Debug)
+                //Log.log("No special chars to remove", LogLevel.Debug)
                 this.callTheRemoveSpecialCharCallbacks();
             }
         } catch (e) {

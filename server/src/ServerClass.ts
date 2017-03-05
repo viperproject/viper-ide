@@ -25,7 +25,7 @@ export class Server {
     static verificationTasks: Map<string, VerificationTask> = new Map();
     static nailgunService: NailgunService;
     static debuggedVerificationTask: VerificationTask;
-    static usedNailgunPort: string;
+    //static usedNailgunPort: string;
 
     static viperFileEndings: string[];
 

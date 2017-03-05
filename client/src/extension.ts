@@ -86,11 +86,11 @@ export function activate(context: vscode.ExtensionContext) {
 
     lastVersionWithSettingsChange = {
         nailgunSettingsVersion: "0.5.402",
-        backendSettingsVersion: "0.2.15",
+        backendSettingsVersion: "0.5.417",
         pathSettingsVersion: "0.2.15",
         userPreferencesVersion: "0.5.406",
         javaSettingsVersion: "0.2.15",
-        advancedFeaturesVersion: "0.3.8",
+        advancedFeaturesVersion: "0.5.417",
         defaultSettings: defaultConfiguration
     }
     workList = [];
@@ -1133,7 +1133,9 @@ function startBackend(backendName: string) {
 
 function handleBackendReadyNotification(params: BackendReadyParams) {
     try {
-        updateStatusBarItem(statusBarItem, "ready", 'white');
+        if (!State.isVerifying) {
+            updateStatusBarItem(statusBarItem, "ready", 'white');
+        }
         if (params.restarted) {
             //no file is verifying
             State.resetViperFiles()

@@ -83,10 +83,11 @@ export class NailgunService {
                         Server.sendBackendChangeNotification(backend.name);
                         Server.sendStateChangeNotification({ newState: VerificationState.Starting, backendName: backend.name });
 
-                        let command = 'java ' + Settings.settings.javaSettings.customArguments + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + Settings.settings.nailgunSettings.port;
-                        //store the port of the running nailgun server
-                        Server.usedNailgunPort = Settings.settings.nailgunSettings.port;
+                        //set determine the nailgun port if needed
+                        return Settings.setNailgunPort(Settings.settings.nailgunSettings);
+                    }).then(success => {
 
+                        let command = 'java ' + Settings.settings.javaSettings.customArguments + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + Settings.settings.nailgunSettings.port;
                         let backendJars = Settings.backendJars(backend);
                         command = command.replace(/\$backendPaths\$/g, '"' + Settings.settings.nailgunSettings.serverJar + '"' + backendJars);
                         Log.log(command, LogLevel.Debug)
@@ -173,16 +174,25 @@ export class NailgunService {
     public stopNailgunServer(): Thenable<boolean> {
         return new Promise((resolve, reject) => {
             try {
-                this.setStopping();
-                Log.log("gracefully shutting down nailgun server on port: " + Server.usedNailgunPort, LogLevel.Info);
-                let shutDownNailgunProcess = child_process.exec('"' + Settings.settings.nailgunSettings.clientExecutable + '" --nailgun-port ' + Server.usedNailgunPort + ' ng-stop');
-                shutDownNailgunProcess.on('exit', (code, signal) => {
+                if (Settings.settings.nailgunSettings.port == '*') {
+                    if (this.isReady() || NailgunService.startingOrRestarting) {
+                        Log.error("Error: inconsistent state detected, the nailgun port is * but the nailgun server is not stopped.");
+                    }
                     Log.log("nailgun server is stopped", LogLevel.Info);
                     this.setStopped();
-                    return resolve(true);
-                });
-                this.nailgunProcess = null;
-                Log.logOutput(shutDownNailgunProcess, "NG stopper");
+                    resolve(true);
+                } else {
+                    this.setStopping();
+                    Log.log("gracefully shutting down nailgun server on port: " + Settings.settings.nailgunSettings.port, LogLevel.Info);
+                    let shutDownNailgunProcess = child_process.exec('"' + Settings.settings.nailgunSettings.clientExecutable + '" --nailgun-port ' + Settings.settings.nailgunSettings.port + ' ng-stop');
+                    shutDownNailgunProcess.on('exit', (code, signal) => {
+                        Log.log("nailgun server is stopped", LogLevel.Info);
+                        this.setStopped();
+                        return resolve(true);
+                    });
+                    this.nailgunProcess = null;
+                    Log.logOutput(shutDownNailgunProcess, "NG stopper");
+                }
             } catch (e) {
                 Log.error("Error stopping nailgun server: " + e);
                 resolve(false);
@@ -355,7 +365,7 @@ export class NailgunService {
             if (!this.nailgunProcess) {
                 return resolve(false);
             }
-            let command = '"' + Settings.settings.nailgunSettings.clientExecutable + '" --nailgun-port ' + Server.usedNailgunPort + " NOT_USED_CLASS_NAME";
+            let command = '"' + Settings.settings.nailgunSettings.clientExecutable + '" --nailgun-port ' + Settings.settings.nailgunSettings.port + " NOT_USED_CLASS_NAME";
             Log.log(command, LogLevel.Debug);
             let nailgunServerTester = child_process.exec(command);
             nailgunServerTester.stderr.on('data', (data: string) => {

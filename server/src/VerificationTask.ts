@@ -496,7 +496,7 @@ export class VerificationTask {
                 Log.hint(hintMessage);
             }
             else if (data.startsWith("connect: No error")) {
-                let hintMessage = "No Nailgun server is running on port " + Server.usedNailgunPort + ": is your nailgun correctly linked in the settings?";
+                let hintMessage = "No Nailgun server is running on port " + Settings.settings.nailgunSettings.port + ": is your nailgun correctly linked in the settings?";
                 Log.hint(hintMessage);
             }
             if (data.startsWith("java.lang.NullPointerException")) {
@@ -507,6 +507,14 @@ export class VerificationTask {
             }
             else if (data.startsWith("java.io.IOException: Stream closed")) {
                 message = "A concurrency error occured, try again. Original Error message: " + data;
+            }
+            else if (/java\.io\.IOException:.*?No such file or directory/.test(data)) {
+                let match = /java\.io\.IOException:.*?(".*?").*?No such file or directory/.exec(data)
+                message = "File not found"
+                if (match && match[1]) {
+                    message = message + " at: " + match[1];
+                }
+                //TODO: suggest updating ViperTools
             }
             else if (data.startsWith("java.lang.StackOverflowError")) {
                 message = "StackOverflowError in verification backend";
@@ -921,13 +929,17 @@ export class VerificationTask {
         return new Promise((resolve, reject) => {
             try {
                 if (Server.verificationTasks && Server.verificationTasks.size > 0) {
-                    Log.log("Stop all running verificationTasks", LogLevel.Debug)
                     let promises: Promise<boolean>[] = [];
                     Server.verificationTasks.forEach(task => {
-                        promises.push(new Promise((res, rej) => {
-                            task.abortVerificationIfRunning().then(() => { res(true) });
-                        }));
+                        if (task.running) {
+                            promises.push(new Promise((res, rej) => {
+                                task.abortVerificationIfRunning().then(() => { res(true) });
+                            }));
+                        }
                     });
+                    if (promises.length > 0) {
+                        Log.log("Stop all running verificationTasks", LogLevel.Debug)
+                    }
                     Promise.all(promises).then(() => {
                         resolve(true);
                     })
