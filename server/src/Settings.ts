@@ -38,7 +38,7 @@ export class Settings {
         return null;
     }
 
-    public static getStageFromSuccess(backend: Backend, stage: Stage, success: Success) {
+    public static getStageFromSuccess(backend: Backend, stage: Stage, success: Success):Stage {
         switch (success) {
             case Success.ParsingFailed:
                 return this.getStage(backend, stage.onParsingError);
@@ -84,7 +84,7 @@ export class Settings {
 
     public static nailgunEquals(newSettings: NailgunSettings, oldSettings: NailgunSettings): boolean {
         let same = oldSettings.clientExecutable == newSettings.clientExecutable;
-        same = same && oldSettings.port == newSettings.port || newSettings.port == '*';
+        same = same && oldSettings.port == newSettings.port;
         same = same && oldSettings.serverJar == newSettings.serverJar;
         same = same && oldSettings.timeout == newSettings.timeout;
         return same;

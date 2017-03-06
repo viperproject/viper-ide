@@ -59,6 +59,10 @@ function registerHandlers() {
             Log.log('Configuration changed', LogLevel.Info);
             let oldSettings = Settings.settings;
             Settings.settings = <ViperSettings>change.settings.viperSettings;
+            if(oldSettings && Settings.settings.nailgunSettings.port == "*"){
+                //When the new settings contain a wildcard port, keep using the same
+                Settings.settings.nailgunSettings.port = oldSettings.nailgunSettings.port;
+            }
             Log.logLevel = Settings.settings.preferences.logLevel; //after this line, Logging works
             Server.refreshEndings();
             checkSettingsAndRestartBackendIfNeeded(oldSettings);

@@ -7,6 +7,5 @@ method foo()
     inhale acc(x.f, 0)
     assume false
     assert i == true
-    test
 }
 

@@ -134,7 +134,7 @@ describe("Viper IDE Tests", function () {
         waitForAbort().then(() => {
             //aborted
             //wait before reverifying
-            return wait(500);
+            return true //wait(500);
         }).then(() => {
             //reverify longDuration viper file
             vscode.commands.executeCommand('extension.verify');

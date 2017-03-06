@@ -85,7 +85,7 @@ export function activate(context: vscode.ExtensionContext) {
     let defaultConfiguration = ownPackageJson.contributes.configuration.properties;
 
     lastVersionWithSettingsChange = {
-        nailgunSettingsVersion: "0.5.402",
+        nailgunSettingsVersion: "0.5.418",
         backendSettingsVersion: "0.5.417",
         pathSettingsVersion: "0.2.15",
         userPreferencesVersion: "0.5.406",

@@ -271,8 +271,11 @@ export class NailgunService {
         });
     }
 
+/**
+ * depricated
+ */
     public killAllNgAndZ3Processes(): Thenable<boolean> {
-        // TODO: it would be much better to kill the processes by process group,
+        // it would be much better to kill the processes by process group,
         // unfortunaltey that did not work.
         // Moreover, the nailgun client is not listening to the SIGINT signal, 
         // thus, this mechanism cannot be used to gracefully shut down nailgun and its child processes.

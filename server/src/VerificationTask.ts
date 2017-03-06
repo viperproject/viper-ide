@@ -359,16 +359,16 @@ export class VerificationTask {
                     if (newStageExecutions <= 0 ||
                         (newStage.isVerification && !lastStage.isVerification && newStageExecutions <= 1)) {
                         Server.sendStateChangeNotification({ newState: VerificationState.Stage, stage: newStage.name, filename: this.filename }, this)
-                        if (newStage.isVerification) {
-                            Log.log("Restart verifiacation after stage " + lastStage.name, LogLevel.Info)
-                            this.verify(this.manuallyTriggered);
-                        } else {
+                        // if (newStage.isVerification) {
+                        //     Log.log("Restart verifiacation after stage " + lastStage.name, LogLevel.Info)
+                        //     this.verify(this.manuallyTriggered);
+                        // } else {
                             let successMessage = Success[isVerifyingStage ? success : Success.Success];
                             Log.log("Start stage " + newStage.name + " after stage " + lastStage.name + " success was: " + successMessage, LogLevel.Info);
                             Server.executedStages.push(newStage);
                             let path = Common.uriToPath(this.fileUri);
                             Server.nailgunService.startStageProcess(path, newStage, this.stdOutHandler.bind(this), this.stdErrHandler.bind(this), this.completionHandler.bind(this));
-                        }
+                        // }
                         return;
                     }
                 }

@@ -1,5 +1,5 @@
 
-import true 
+import true.sil
 
 domain Foo[T] {
     function enc(arg: T): Foo[T]
