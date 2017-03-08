@@ -11,7 +11,6 @@ import { VerificationTask } from './VerificationTask';
 import { Statement } from './Statement';
 import { DebugServer } from './DebugServer';
 import { Server } from './ServerClass';
-var AdmZip = require('adm-zip');
 import * as fs from 'fs';
 import * as http from 'http';
 import * as pathHelper from 'path';
