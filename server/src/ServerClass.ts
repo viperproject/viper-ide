@@ -1,13 +1,13 @@
 'use strict'
 
 import { IConnection, TextDocuments, PublishDiagnosticsParams } from 'vscode-languageserver';
-import { Command, LogParams, SettingsCheckedParams, Position, Range, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel } from './ViperProtocol'
+import { ProgressParams, Command, LogParams, SettingsCheckedParams, Position, Range, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel } from './ViperProtocol'
 import { NailgunService } from './NailgunService';
 import { VerificationTask } from './VerificationTask';
 import { Log } from './Log';
 import * as pathHelper from 'path';
 const os = require('os');
-const globToRexep = require ('glob-to-regexp');
+const globToRexep = require('glob-to-regexp');
 
 export class Server {
     static backend: Backend;
@@ -42,7 +42,7 @@ export class Server {
         return new Promise((resolve, reject) => {
             if (!this.viperFileEndings) {
                 if (firstTry) {
-                    Log.log("Refresh the viper file endings.");
+                    Log.log("Refresh the viper file endings.", LogLevel.Debug);
                     this.refreshEndings().then(() => {
                         this.isViperSourceFile(uri, false).then(success => {
                             resolve(success)
@@ -102,6 +102,10 @@ export class Server {
 
     static sendLogMessage(command: string, params: LogParams) {
         this.connection.sendNotification(command, params);
+    }
+
+    static sendProgressMessage(params: ProgressParams) {
+        this.connection.sendNotification(Commands.Progress, params);
     }
 
     static containsNumber(s: string): boolean {

@@ -57,7 +57,7 @@ export class DebugServer {
                                     try {
                                         ipc.disconnect('viperDebugger');
                                     } catch (e) {
-                                        Log.error("Error disconnecting from Debug server, is the server already stopped? "+ e);
+                                        Log.error("Error disconnecting from Debug server, is the server already stopped? " + e);
                                     }
                                     if (DebugServer.debuggerRunning) {
                                         Log.log('LanguageServer disconnected from Debugger', LogLevel.Debug);

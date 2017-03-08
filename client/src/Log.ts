@@ -3,8 +3,9 @@
 import * as vscode from "vscode";
 import * as path from 'path';
 import * as fs from 'fs';
-import { LogLevel } from './ViperProtocol';
+import { Progress, LogLevel } from './ViperProtocol';
 import { Helper } from './Helper';
+import { State } from './ExtensionState';
 const os = require('os');
 const unusedFilename = require('unused-filename');
 
@@ -92,7 +93,7 @@ export class Log {
         }
     }
 
-    public static log(message: string, logLevel: LogLevel = LogLevel.Default) {
+    public static log(message: string, logLevel: LogLevel) {
         let messageNewLine = message + "\n";
         message = this.prefix(logLevel) + message;
         if (!Log.logLevel || Log.logLevel >= logLevel) {
@@ -102,6 +103,15 @@ export class Log {
         if (Log.logFile) {
             Log.logFile.write(messageNewLine);
         }
+    }
+
+    public static progress(data: Progress, logLevel: LogLevel) {
+        if (!data) return;
+        let progress = 100.0 * data.current / data.total;
+        let label = data.domain + ": " + Helper.formatProgress(progress);
+        this.log(label, logLevel);
+        State.statusBarProgress.updateProgressBar(progress);
+        State.statusBarItem.updateProgressLabel(data.domain,progress);
     }
 
     private static prefix(logLevel: LogLevel): string {
@@ -153,7 +163,7 @@ export class Log {
                 if (choice && choice.title === settingsButton.title) {
                     vscode.commands.executeCommand("workbench.action.openGlobalSettings")
                 } else if (choice && choice.title === updateButton.title) {
-                    vscode.commands.executeCommand("extension.updateViperTools")
+                    vscode.commands.executeCommand("viper.updateViperTools")
                 }
             } catch (e) {
                 Log.error("Error accessing " + choice.title + " settings: " + e)

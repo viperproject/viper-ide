@@ -1,11 +1,11 @@
 'use strict';
 
-import {Log} from './Log';
-import {Model} from './Model';
-import {LogLevel, StatementType} from './ViperProtocol';
-import {Variable, Statement, NameType, ValueType, ConditionType, HeapChunk} from './Statement';
-import {DotNode, DotCluster, DotGraph} from './DotGraph';
-import {Settings} from './Settings';
+import { Log } from './Log';
+import { Model } from './Model';
+import { LogLevel, StatementType } from './ViperProtocol';
+import { Variable, Statement, NameType, ValueType, ConditionType, HeapChunk } from './Statement';
+import { DotNode, DotCluster, DotGraph } from './DotGraph';
+import { Settings } from './Settings';
 
 let NULL = "Null";
 let TRUE = "True";

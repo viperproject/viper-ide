@@ -1,7 +1,7 @@
 {
-    "name": "viper-advanced",
-    "displayName": "Viper Advanced",
-    "version": "0.5.419",
+    "name": "viper",
+    "displayName": "Viper",
+    "version": "0.5.422",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "license": "MIT",
@@ -38,8 +38,8 @@
         "portfinder": "^1.0.13",
         "unused-filename": "^0.1.0",
         "mkdirp": "^0.5.1",
-        "adm-zip": "^0.4.7",
-        "glob-to-regexp": "^0.3.0"
+        "glob-to-regexp": "^0.3.0",
+        "decompress-zip": "^0.3.0"
     },
     "devDependencies": {
         "@types/node": "^6.0.52",
@@ -64,43 +64,43 @@
     "contributes": {
         "commands": [
             {
-                "command": "extension.verify",
+                "command": "viper.verify",
                 "title": "Viper: verify the open document"
             },
             {
-                "command": "extension.selectBackend",
+                "command": "viper.selectBackend",
                 "title": "Viper: select verification backend"
             },
             {
-                "command": "extension.stopVerification",
+                "command": "viper.stopVerification",
                 "title": "Viper: stop the running verification"
             },
             {
-                "command": "extension.startDebugging",
+                "command": "viper.startDebugging",
                 "title": "Viper: debug the open document"
             },
             {
-                "command": "extension.toggleAutoVerify",
+                "command": "viper.toggleAutoVerify",
                 "title": "Viper: toggle the automatic verification of viper files"
             },
             {
-                "command": "extension.openLogFile",
+                "command": "viper.openLogFile",
                 "title": "Viper: open the current logFile"
             },
             {
-                "command": "extension.verifyAllFilesInWorkspace",
+                "command": "viper.verifyAllFilesInWorkspace",
                 "title": "Viper: verify all files in the open workspace"
             },
             {
-                "command": "extension.showAllStates",
+                "command": "viper.showAllStates",
                 "title": "Viper: show all state markers"
             },
             {
-                "command": "extension.removeDiagnostics",
+                "command": "viper.removeDiagnostics",
                 "title": "Viper: Remove the Diagnostics from the current file."
             },
             {
-                "command": "extension.updateViperTools",
+                "command": "viper.updateViperTools",
                 "title": "Viper: Install the newest version of Viper Tools."
             }
         ],
@@ -159,31 +159,31 @@
         ],
         "keybindings": [
             {
-                "command": "extension.selectBackend",
+                "command": "viper.selectBackend",
                 "key": "ctrl+l",
                 "mac": "cmd+l",
                 "when": "editorTextFocus"
             },
             {
-                "command": "extension.verify",
+                "command": "viper.verify",
                 "key": "f5",
                 "mac": "f5",
                 "when": "editorTextFocus"
             },
             {
-                "command": "extension.stopVerification",
+                "command": "viper.stopVerification",
                 "key": "ctrl+h",
                 "mac": "cmd+h",
                 "when": "editorTextFocus"
             },
             {
-                "command": "extension.startDebugging",
+                "command": "viper.startDebugging",
                 "key": "ctrl+d",
                 "mac": "cmd+d",
                 "when": "editorTextFocus"
             },
             {
-                "command": "extension.format",
+                "command": "viper.format",
                 "key": "alt+shift+f",
                 "mac": "alt+shift+f",
                 "when": "editorTextFocus"

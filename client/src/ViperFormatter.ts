@@ -1,14 +1,14 @@
 'use-strict'
 
 import * as vscode from 'vscode';
-import {Log} from './Log';
-import {LogLevel} from './ViperProtocol'
-import {Helper} from './Helper'
+import { Log } from './Log';
+import { LogLevel } from './ViperProtocol'
+import { Helper } from './Helper'
 
 export class ViperFormatter {
 	public formatOpenDoc() {
 		try {
-			Log.log("Format the document");
+			Log.log("Format the document", LogLevel.Info);
 			let openDoc = vscode.window.activeTextEditor.document;
 			if (!Helper.isViperSourceFile(openDoc.uri.toString())) {
 				return;

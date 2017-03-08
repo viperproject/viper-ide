@@ -35,7 +35,7 @@ export class NailgunService {
 
         this.getNailgunServerPid().then(pid => {
             this.nailgunServerPid = pid;
-            Log.log("The nailgun server pid is " + pid);
+            Log.log("The nailgun server pid is " + pid, LogLevel.LowLevelDebug);
         }).catch(e => {
             Log.error(e);
         });
@@ -261,7 +261,7 @@ export class NailgunService {
                     if (regex[1]) {
                         resolve(regex[1]);
                     } else {
-                        Log.log("Error getting Nailgun Pid");
+                        Log.log("Error getting Nailgun Pid", LogLevel.LowLevelDebug);
                         reject("");
                     }
                 });
@@ -271,9 +271,9 @@ export class NailgunService {
         });
     }
 
-/**
- * depricated
- */
+    /**
+     * deprecated
+     */
     public killAllNgAndZ3Processes(): Thenable<boolean> {
         // it would be much better to kill the processes by process group,
         // unfortunaltey that did not work.
@@ -281,7 +281,7 @@ export class NailgunService {
         // thus, this mechanism cannot be used to gracefully shut down nailgun and its child processes.
         // using the pID to kill the processes is also not an option, as we do not know the pID of z3
 
-        Log.log("kill all ng and z3 processes");
+        Log.log("kill all ng and z3 processes", LogLevel.Debug);
         return new Promise((resolve, reject) => {
             let killCommand: string;
             if (Settings.isWin) {
@@ -321,7 +321,7 @@ export class NailgunService {
     private killRecursive(pid): Promise<boolean> {
         return new Promise((resolve, reject) => {
             tree_kill(pid, 'SIGKILL', (err) => {
-                Log.log("tree-killer done: " + err);
+                Log.log("tree-killer done: " + err, LogLevel.LowLevelDebug);
                 resolve(true);
             });
         });

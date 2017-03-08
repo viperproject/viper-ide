@@ -346,7 +346,7 @@ export class StateVisualizer {
                     let simpleMode = Helper.getConfiguration("advancedFeatures").simpleMode;
                     if (!this.executionTrace || simpleMode !== true || (simpleMode === true && isCurrentStateErrorState)) {
                         let params: GetExecutionTraceParams = { uri: this.uri.toString(), clientState: this.currentState };
-                        State.instance.client.sendRequest(Commands.GetExecutionTrace, params).then((trace: ExecutionTrace[]) => {
+                        State.client.sendRequest(Commands.GetExecutionTrace, params).then((trace: ExecutionTrace[]) => {
                             this.executionTrace = trace;
                             this.markExecutionTrace(darkGraphs);
                         });
@@ -384,7 +384,7 @@ export class StateVisualizer {
             clientIndex: state,
             isHeapNeeded: isHeapNeeded
         }
-        State.instance.client.sendRequest(Commands.ShowHeap, params);
+        State.client.sendRequest(Commands.ShowHeap, params);
     }
 
     //handle both selection change, or debugger movement notification
@@ -425,7 +425,7 @@ export class StateVisualizer {
     showAllDecorations() {
         try {
             if (StateVisualizer.showStates && this.decorationOptions) {
-                Log.log("Showing all state markers")
+                Log.log("Showing all state markers", LogLevel.Info)
                 let darkGraphs = <boolean>Helper.getConfiguration("advancedFeatures").darkGraphs === true;
                 for (var i = 0; i < this.decorationOptions.length; i++) {
                     let option = this.decorationOptions[i];
@@ -510,7 +510,11 @@ export class StateVisualizer {
         }
     }
 
+    //unused
     //TIMING IN FILE
+    /**
+     * deprecated
+     */
     getLastTimingFromFile(): TimingInfo {
         let content = this.viperFile.editor.document.getText();
         let timingStart = content.indexOf(this.timingPrefix);
@@ -520,7 +524,7 @@ export class StateVisualizer {
             try {
                 timingInfo = JSON.parse(content.substring(timingStart + this.timingPrefix.length, timingEnd));
             } catch (e) {
-                Log.log("Warning: Misformed timing information: " + content.substring(timingStart + this.timingPrefix.length, timingEnd));
+                Log.log("Warning: Misformed timing information: " + content.substring(timingStart + this.timingPrefix.length, timingEnd), LogLevel.Debug);
             }
         }
         return timingInfo;

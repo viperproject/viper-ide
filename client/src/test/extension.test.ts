@@ -34,7 +34,7 @@ const CARBON = 'carbon';
 const SIMPLE = 'simple.sil';
 const LONG = 'longDuration.vpr';
 
-function waitForBackendReady(): Thenable<boolean> {
+function waitForBackendStarted(): Thenable<boolean> {
     return new Promise((resolve, reject) => {
         backendReadyCallback = () => { resolve(true); }
     });
@@ -71,12 +71,12 @@ function wait(timeout): Thenable<boolean> {
 }
 
 // Defines a Mocha test suite to group tests of similar kind together
-describe("Viper IDE Tests", function () {
+describe("ViperIDE tests", function () {
     before(() => {
         context = new TestContext();
         myExtension.initializeUnitTest(function (state) {
             executionStates.push(state);
-            if (state.event == "BackendReady") {
+            if (state.event == "BackendStarted") {
                 backendReadyCallback(state.backend);
                 ready = true;
             }
@@ -96,16 +96,16 @@ describe("Viper IDE Tests", function () {
     });
 
     //must be first test
-    it("Language Detection and Backend Ready Test", function (done) {
+    it("Language detection and backend startup test", function (done) {
         this.timeout(10000);
 
         openFile(context, SIMPLE).then(document => {
             if (document.languageId != 'viper') {
                 throw new Error("The language of viper file was not detected correctly: should: viper, is: " + document.languageId);
             }
-            return waitForBackendReady();
+            return waitForBackendStarted();
         }).then(() => {
-            console.log("UnitTest: BackendReady");
+            console.log("UnitTest: BackendStarted");
             done();
         });
     });
@@ -121,14 +121,14 @@ describe("Viper IDE Tests", function () {
         });
     });
 
-    it("Test Abort", function (done) {
+    it("Test abort", function (done) {
         this.timeout(15000);
 
         //open a file that takes longer
         openFile(context, LONG);
         //stop the verification after 1000ms
         setTimeout(() => {
-            vscode.commands.executeCommand('extension.stopVerification');
+            vscode.commands.executeCommand('viper.stopVerification');
         }, 1000)
 
         waitForAbort().then(() => {
@@ -137,7 +137,7 @@ describe("Viper IDE Tests", function () {
             return true //wait(500);
         }).then(() => {
             //reverify longDuration viper file
-            vscode.commands.executeCommand('extension.verify');
+            vscode.commands.executeCommand('viper.verify');
             return waitForVerification(SILICON, LONG);
         }).then(() => {
             //verified
@@ -186,7 +186,7 @@ describe("Viper IDE Tests", function () {
             console.log('UnitTest: zoom out')
             return vscode.commands.executeCommand("workbench.action.zoomOut");
         }).then(() => {
-            return waitForVerification(SILICON, SIMPLE);
+            return waitForBackendStarted();
         }).then(() => {
             //verified
             clearTimeout(timer);
@@ -194,12 +194,12 @@ describe("Viper IDE Tests", function () {
     });
 
     it("Test Viper Tools Update", function (done) {
-        this.timeout(60000);
-        vscode.commands.executeCommand('extension.updateViperTools');
+        this.timeout(50000);
+        vscode.commands.executeCommand('viper.updateViperTools');
         //wait until viper tools update done
         waitForViperToolsUpdate().then(() => {
             //viper tools update done
-            return waitForBackendReady();
+            return waitForBackendStarted();
         }).then(() => {
             //backend ready
             done();
@@ -207,11 +207,11 @@ describe("Viper IDE Tests", function () {
     });
 
     it("Test simple verification with carbon", function (done) {
-        this.timeout(20000);
+        this.timeout(25000);
         //change backend to carbon
-        vscode.commands.executeCommand('extension.selectBackend', 'carbon');
+        vscode.commands.executeCommand('viper.selectBackend', 'carbon');
 
-        waitForBackendReady().then(() => {
+        waitForBackendStarted().then(() => {
             //backend ready
             return waitForVerification(CARBON, SIMPLE);
         }).then(() => {

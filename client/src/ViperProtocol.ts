@@ -24,6 +24,8 @@ export class Commands {
     static ToLogFile = "ToLogFile";//LogParams
     //Server tells client to show an information message to the user
     static Hint = "Hint";//message: string
+    //Server tells client to show progress
+    static Progress = "Progress";//message: {domain:string, curr:number, total:number}
     //Server informs client about ongoing backend change
     static BackendChange = "BackendChange";//name: string
     //Server is informing client about opened file
@@ -52,7 +54,7 @@ export class Commands {
     static StopVerification = "StopVerification";//filePath:string
     static ShowHeap = "ShowHeap";//ShowHeapParams
     //Client tells Server to start backends
-    static StartBackend = "StartBackend" ;//backendName:string
+    static StartBackend = "StartBackend";//backendName:string
     //Request a list of all states that led to the current state
     static GetExecutionTrace = "GetExecutionTrace";//GetExecutionTraceParams -> trace:ExecutionTrace[]
     //Request the path to the dot executable from the language server
@@ -65,7 +67,7 @@ export class Commands {
     static UpdateViperTools = "UpdateViperTools";
 
     static GetViperFileEndings = "GetViperFileEndings";
-    
+
     static ViperUpdateComplete = "ViperUpdateComplete";
 }
 
@@ -255,6 +257,11 @@ export interface LogParams {
     logLevel: LogLevel;
 }
 
+export interface ProgressParams {
+    data: Progress;
+    logLevel: LogLevel;
+}
+
 export interface MyProtocolDecorationOptions {
     hoverMessage: string;
     range: Range;
@@ -425,6 +432,12 @@ export interface SettingsError {
     msg: string;
 }
 
+export interface Progress {
+    domain: string;
+    current: number;
+    total: number;
+}
+
 export interface Versions {
     nailgunSettingsVersion: string;
     backendSettingsVersion: string;
@@ -484,6 +497,12 @@ export interface BackendOutput {
     errors?: Error[]
 }
 
+export interface HintMessage {
+    message: string,
+    showSettingsButton: boolean,
+    showViperToolsUpdateButton: boolean
+}
+
 export interface Error {
     start: string,
     end: string,
@@ -514,13 +533,13 @@ export class Common {
 
     //Helper methods for child processes
     public static executer(command: string): child_process.ChildProcess {
-        Log.log("executer: " + command,LogLevel.Debug)
+        Log.log("executer: " + command, LogLevel.Debug)
         try {
             let child = child_process.exec(command, function (error, stdout, stderr) {
-                Log.log('stdout: ' + stdout,LogLevel.LowLevelDebug);
-                Log.log('stderr: ' + stderr,LogLevel.LowLevelDebug);
-                if (error && error.message) {
-                    Log.error('exec error: ' + error.message);
+                Log.log('stdout: ' + stdout, LogLevel.LowLevelDebug);
+                Log.log('stderr: ' + stderr, LogLevel.LowLevelDebug);
+                if (error !== null) {
+                    Log.error('exec error: ' + error);
                 }
             });
             return child;
@@ -530,17 +549,17 @@ export class Common {
     }
 
     public static spawner(command: string, args: string[]): child_process.ChildProcess {
-        Log.log("spawner: " + command + " " + args.join(" "),LogLevel.Debug);
+        Log.log("spawner: " + command + " " + args.join(" "), LogLevel.Debug);
         try {
             let child = child_process.spawn(command, args, { detached: true });
             child.on('stdout', data => {
-                Log.log('spawner stdout: ' + data,LogLevel.LowLevelDebug);
+                Log.log('spawner stdout: ' + data, LogLevel.LowLevelDebug);
             });
             child.on('stderr', data => {
-                Log.log('spawner stderr: ' + data,LogLevel.LowLevelDebug);
+                Log.log('spawner stderr: ' + data, LogLevel.LowLevelDebug);
             });
             child.on('exit', data => {
-                Log.log('spawner done: ' + data,LogLevel.LowLevelDebug);
+                Log.log('spawner done: ' + data, LogLevel.LowLevelDebug);
             });
             return child;
         } catch (e) {

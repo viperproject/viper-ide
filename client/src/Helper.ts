@@ -17,7 +17,7 @@ export class Helper {
         for (var pattern in fileAssociations) {
             let language = fileAssociations[pattern];
             if (language == 'viper') {
-                Log.log("Additional file associations detected: " + language + " -> " + pattern);
+                Log.log("Additional file associations detected: " + language + " -> " + pattern, LogLevel.Debug);
                 this.viperFileEndings.push(pattern);
             }
         }
@@ -112,5 +112,15 @@ export class Helper {
         } else {
             return null;
         }
+    }
+
+    public static formatSeconds(time: number): string {
+        if(!time) return "0 seconds";
+        return time.toFixed(1) + " seconds";
+    }
+
+    public static formatProgress(progress: number): string {
+        if (!progress) return "0%";
+        return progress.toFixed(0) + "%";
     }
 }

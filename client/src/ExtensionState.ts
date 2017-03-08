@@ -9,10 +9,11 @@ import { ViperFileState } from './ViperFileState';
 import Uri from 'vscode-uri/lib/index';
 import { Helper } from './Helper';
 import { StateVisualizer } from './StateVisualizer';
+import { Color, StatusBar } from './StatusBar';
 
 export class State {
-    public client: LanguageClient;
-    public context: vscode.ExtensionContext;
+    public static client: LanguageClient;
+    public static context: vscode.ExtensionContext;
     public static instance: State;
 
     public static viperFiles: Map<string, ViperFileState>;
@@ -27,6 +28,12 @@ export class State {
 
     public static activeBackend: string;
 
+    //status bar
+    public static statusBarItem: StatusBar;
+    public static statusBarProgress: StatusBar;
+    public static backendStatusBar: StatusBar;
+    public static abortButton: StatusBar;
+
     public static createState(): State {
         if (State.instance) {
             return State.instance;
@@ -36,6 +43,18 @@ export class State {
             State.instance = newState;
             return newState;
         }
+    }
+
+    public static initializeStatusBar(context) {
+        this.statusBarProgress = new StatusBar(11, context);
+        this.statusBarItem = new StatusBar(10, context);
+        this.statusBarItem.update("Hello from Viper", Color.READY);
+
+        this.abortButton = new StatusBar(9, context);
+        this.abortButton.setCommand("viper.stopVerification");
+        this.abortButton.update("$(x) Stop", Color.WARNING, null, false)
+
+        this.backendStatusBar = new StatusBar(12, context);
     }
 
     public static setLastActiveFile(uri: Uri | string | vscode.Uri, editor: vscode.TextEditor): ViperFileState {
@@ -51,7 +70,7 @@ export class State {
         if (this.lastActiveFileUri) {
             return this.getFileState(this.lastActiveFileUri);
         } else {
-            Log.log("WARNING, No file uri of the last active file.")
+            Log.log("WARNING, No file uri of the last active file.", LogLevel.Info)
             return null;
         }
     }
@@ -106,9 +125,9 @@ export class State {
     }
 
     public startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, brk: boolean) {
-        this.context = context;
+        State.context = context;
         // The server is implemented in node
-        let serverModule = this.context.asAbsolutePath(path.join('server', 'server.js'));
+        let serverModule = State.context.asAbsolutePath(path.join('server', 'server.js'));
 
         if (!fs.existsSync(serverModule)) {
             Log.log(serverModule + " does not exist. Reinstall the Extension", LogLevel.Debug);
@@ -136,13 +155,13 @@ export class State {
             }
         }
 
-        this.client = new LanguageClient('languageServer', 'Language Server', serverOptions, clientOptions, brk);
+        State.client = new LanguageClient('languageServer', 'Language Server', serverOptions, clientOptions, brk);
 
         Log.log("Start Language Server", LogLevel.Info);
         // Create the language client and start the client.
-        this.languageServerDisposable = this.client.start();
+        this.languageServerDisposable = State.client.start();
 
-        if (!this.client || !this.languageServerDisposable) {
+        if (!State.client || !this.languageServerDisposable) {
             Log.error("LanguageClient is undefined");
         }
     }
@@ -151,14 +170,14 @@ export class State {
         try {
             return new Promise((resolve, reject) => {
                 Log.log("Ask language server to shut down.", LogLevel.Info);
-                this.client.sendRequest(Commands.Dispose, null).then(() => {
+                State.client.sendRequest(Commands.Dispose, null).then(() => {
                     Log.log("Language server has shut down, terminate the connection", LogLevel.Info);
                     this.languageServerDisposable.dispose();
                     resolve();
                 });
             });
         } catch (e) {
-            Log.log("Error disposing state: " + e);
+            Log.error("Error disposing state: " + e);
         }
     }
 

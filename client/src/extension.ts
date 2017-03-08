@@ -7,18 +7,15 @@ import * as path from 'path';
 import { Timer } from './Timer';
 import * as vscode from 'vscode';
 import { State } from './ExtensionState';
-import { Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success } from './ViperProtocol';
+import { Progress, HintMessage, Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success } from './ViperProtocol';
 import Uri from 'vscode-uri/lib/index';
 import { Log } from './Log';
 import { StateVisualizer, MyDecorationOptions } from './StateVisualizer';
 import { Helper } from './Helper';
 import { ViperFormatter } from './ViperFormatter';
 import { ViperFileState } from './ViperFileState';
+import { StatusBar, Color } from './StatusBar';
 
-let statusBarItem;
-let statusBarProgress;
-let backendStatusBar;
-let abortButton;
 let autoSaver: Timer;
 let state: State;
 
@@ -46,9 +43,9 @@ interface Task {
 
 enum TaskType {
     NoOp = 0,
-    Save = 1, Verify = 2, Stop = 3, Clear = 4,
-    Verifying = 20, Stopping = 30,
-    StoppingComplete = 300, VerificationComplete = 200, VerificationFailed = 201
+    Save = 1, Verify = 2, Stop = 3, Clear = 4, UpdateViperTools = 5,
+    Verifying = 20, Stopping = 30, UpdatingViperTools = 50,
+    StoppingComplete = 300, VerificationComplete = 200, VerificationFailed = 201, ViperToolsUpdateComplete = 500
 }
 
 let unitTest;
@@ -58,21 +55,21 @@ export function initializeUnitTest(resolve) {
     //activate(context);
 }
 
-function addTestDecoration() {
+// function addTestDecoration() {
 
-    let options: vscode.DecorationOptions[] = []
-    options.push({
-        range: new vscode.Range(new vscode.Position(2, 1), new vscode.Position(2, 1)),
-        renderOptions: {
-            before: {
-                contentText: "Decoration",
-                color: "red"
-            }
-        }
-    });
-    let decoration = vscode.window.createTextEditorDecorationType(options);
-    vscode.window.activeTextEditor.setDecorations(decoration, options);
-}
+//     let options: vscode.DecorationOptions[] = []
+//     options.push({
+//         range: new vscode.Range(new vscode.Position(2, 1), new vscode.Position(2, 1)),
+//         renderOptions: {
+//             before: {
+//                 contentText: "Decoration",
+//                 color: "red"
+//             }
+//         }
+//     });
+//     let decoration = vscode.window.createTextEditorDecorationType(options);
+//     vscode.window.activeTextEditor.setDecorations(decoration, options);
+// }
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -81,7 +78,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
 
-    let ownPackageJson = vscode.extensions.getExtension("rukaelin.viper-advanced").packageJSON;
+    let ownPackageJson = vscode.extensions.getExtension("rukaelin.viper").packageJSON;
     let defaultConfiguration = ownPackageJson.contributes.configuration.properties;
 
     lastVersionWithSettingsChange = {
@@ -103,13 +100,13 @@ export function activate(context: vscode.ExtensionContext) {
     state.startLanguageServer(context, fileSystemWatcher, false); //break?
     registerHandlers();
     startAutoSaver();
-    initializeStatusBar();
+    State.initializeStatusBar(context);
     registerFormatter();
     if (vscode.window.activeTextEditor) {
         let uri = vscode.window.activeTextEditor.document.uri;
         State.setLastActiveFile(uri, vscode.window.activeTextEditor);
     } else {
-        Log.log("No active text editor found");
+        Log.log("No active text editor found", LogLevel.Info);
     }
     startVerificationController();
     //addTestDecoration();
@@ -139,7 +136,7 @@ function verifyAllFilesInWorkspace() {
 }
 
 function printAllVerificationResults() {
-    Log.log("Verified " + autoVerificationResults.length + " files in " + formatSeconds((Date.now() - autoVerificationStartTime) / 1000), LogLevel.Info);
+    Log.log("Verified " + autoVerificationResults.length + " files in " + Helper.formatSeconds((Date.now() - autoVerificationStartTime) / 1000), LogLevel.Info);
     autoVerificationResults.forEach(res => {
         Log.log("Verification Result: " + res, LogLevel.Info);
     })
@@ -149,7 +146,7 @@ function autoVerifyFile(): Thenable<boolean> {
     return new Promise((resolve, reject) => {
         if (nextFileToAutoVerify < allFilesToAutoVerify.length && verifyingAllFiles) {
             let currFile = allFilesToAutoVerify[nextFileToAutoVerify];
-            Log.log("AutoVerify " + path.basename(currFile.toString()));
+            Log.log("AutoVerify " + path.basename(currFile.toString()), LogLevel.Info);
             nextFileToAutoVerify++;
             vscode.workspace.openTextDocument(currFile).then((document) => {
                 vscode.window.showTextDocument(document).then(() => {
@@ -296,21 +293,23 @@ function startVerificationController() {
             let verificationFailed = false;
             let completedOrFailedFileUri: vscode.Uri;
             let uriOfFoundVerfy: vscode.Uri;
+            let viperToolsUpdateFound = false;
+            let viperToolsUpdateComplete = false;
             for (let i = workList.length - 1; i >= 0; i--) {
                 if (clearFound) {
                     //clear the workList
                     workList[i].type = NoOp;
                 }
-                if (workList[i].type == TaskType.Verify) {
-                    if (verifyFound) {
-                        //remove all older verify
+                else if (workList[i].type == TaskType.Verify) {
+                    if (verifyFound || stopFound || viperToolsUpdateFound) {
+                        //remove all older verify tasks once newer verify, stop, or viperToolsUpdate found
                         workList[i].type = NoOp;
                     } else {
                         verifyFound = true;
                         uriOfFoundVerfy = workList[i].uri;
                     }
-                    if (verificationComplete || verificationFailed && Helper.uriEquals(completedOrFailedFileUri, workList[i].uri)) {
-                        //remove verification requests that make no sense
+                    if ((verificationComplete || verificationFailed) && Helper.uriEquals(completedOrFailedFileUri, workList[i].uri)) {
+                        //remove verification requests of just verified file
                         workList[i].type = NoOp;
                     }
                 }
@@ -337,6 +336,14 @@ function startVerificationController() {
                     verificationFailed = true;
                     completedOrFailedFileUri = workList[i].uri;
                 }
+                else if (workList[i].type == TaskType.UpdateViperTools) {
+                    viperToolsUpdateFound = true;
+                }
+                else if (workList[i].type == TaskType.ViperToolsUpdateComplete) {
+                    workList[i].type = NoOp;
+                    viperToolsUpdateComplete = true;
+                }
+
                 if (stopFound && workList[i].type != TaskType.Verifying && workList[i].type != TaskType.Stopping) {
                     //remove all older non-bocking actions
                     workList[i].type = NoOp;
@@ -367,8 +374,9 @@ function startVerificationController() {
                         break;
                     case TaskType.Verifying:
                         //if another verification is requested, the current one must be stopped
-                        if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri)) || stopFound) {
+                        if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri)) || stopFound || viperToolsUpdateFound) {
                             task.type = TaskType.Stopping;
+                            Log.log("Stop the running verification of " + task.uri.toString(), LogLevel.Debug);
                             doStopVerification(task.uri.toString(), isStopManuallyTriggered);
                         }
                         //block until verification is complete or failed
@@ -387,6 +395,18 @@ function startVerificationController() {
                             if (unitTest) {
                                 unitTest({ event: 'VerificationStopped' });
                             }
+                        }
+                        break;
+                    case TaskType.UpdateViperTools:
+                        task.type = TaskType.UpdatingViperTools;
+                        State.isBackendReady = false;
+                        State.client.sendNotification(Commands.UpdateViperTools);
+                        State.statusBarProgress.updateProgressBar(0);
+                        break;
+                    case TaskType.UpdatingViperTools:
+                        //block until verification is stoped;
+                        if (viperToolsUpdateComplete) {
+                            task.type = NoOp;
                         }
                         break;
                     case TaskType.Save:
@@ -421,10 +441,10 @@ function startVerificationController() {
             workList.shift();
         }
     }, verificationTimeout);
-    state.context.subscriptions.push(verificationController);
+    State.context.subscriptions.push(verificationController);
 
     //trigger verification texteditorChange
-    state.context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(() => {
+    State.context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(() => {
         try {
             let editor = vscode.window.activeTextEditor;
             if (editor) {
@@ -462,23 +482,23 @@ function startVerificationController() {
 
 export function deactivate(): Promise<any> {
     return new Promise((resolve, reject) => {
-        Log.log("deactivate");
+        Log.log("deactivate", LogLevel.Info);
         state.dispose().then(() => {
-            Log.log("state disposed");
+            Log.log("state disposed", LogLevel.Debug);
             //TODO: make sure no doc contains special chars any more
             let oldFile = State.getLastActiveFile();
             if (oldFile) {
-                Log.log("Removing special chars of last opened file.");
+                Log.log("Removing special chars of last opened file.", LogLevel.Debug);
                 oldFile.stateVisualizer.removeSpecialCharacters(() => {
-                    Log.log("Close Log");
+                    Log.log("Close Log", LogLevel.Debug);
                     Log.dispose();
-                    Log.log("Deactivated")
+                    Log.log("Deactivated", LogLevel.Info)
                     resolve();
                 });
             } else {
-                Log.log("Close Log");
+                Log.log("Close Log", LogLevel.Debug);
                 Log.dispose();
-                Log.log("Deactivated")
+                Log.log("Deactivated", LogLevel.Info)
                 resolve();
             }
         }).catch(e => {
@@ -491,40 +511,12 @@ function registerFormatter() {
     formatter = new ViperFormatter();
 }
 
-function initializeStatusBar() {
-    statusBarProgress = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 11);
-    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
-    updateStatusBarItem(statusBarItem, "Hello from Viper", "white");
-
-    abortButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 9);
-    abortButton.command = "extension.stopVerification";
-    updateStatusBarItem(abortButton, "$(x) Stop", "orange", null, false)
-
-    state.context.subscriptions.push(statusBarProgress);
-    state.context.subscriptions.push(statusBarItem);
-    state.context.subscriptions.push(abortButton);
-
-    backendStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 12);
-}
-
-function updateStatusBarItem(item, text: string, color: string, tooltip: string = null, show: boolean = true) {
-    item.text = text;
-    item.color = color;
-    item.tooltip = tooltip;
-    if (show) {
-        item.show();
-    } else {
-        item.hide();
-    }
-}
-
 let autoVerify: boolean = true;
 
 function toggleAutoVerify() {
     autoVerify = !autoVerify;
     if (autoVerify) {
-        statusBarItem.color = 'white';
-        statusBarItem.text = "Auto Verify is " + (autoVerify ? "on" : "off");
+        State.statusBarItem.update("Auto Verify is " + (autoVerify ? "on" : "off"), Color.SUCCESS);
     }
 }
 
@@ -539,7 +531,7 @@ function startAutoSaver() {
         }
     }, autoSaveTimeout);
 
-    state.context.subscriptions.push(autoSaver);
+    State.context.subscriptions.push(autoSaver);
 
     let onActiveTextEditorChangeDisposable = vscode.window.onDidChangeActiveTextEditor(resetAutoSaver);
     let onTextEditorSelectionChange = vscode.window.onDidChangeTextEditorSelection(selectionChange => {
@@ -547,8 +539,8 @@ function startAutoSaver() {
             resetAutoSaver();
         }
     });
-    state.context.subscriptions.push(onActiveTextEditorChangeDisposable);
-    state.context.subscriptions.push(onTextEditorSelectionChange);
+    State.context.subscriptions.push(onActiveTextEditorChangeDisposable);
+    State.context.subscriptions.push(onTextEditorSelectionChange);
 }
 
 function resetAutoSaver() {
@@ -566,24 +558,24 @@ function handleStateChange(params: StateChangeParams) {
         switch (params.newState) {
             case VerificationState.Starting:
                 State.isBackendReady = false;
-                updateStatusBarItem(statusBarItem, 'starting', 'orange');
+                State.statusBarItem.update('starting', Color.ACTIVE);
                 break;
             case VerificationState.VerificationRunning:
                 progressLabel = `verifying ${params.filename}:`;
-                addTiming(params.progress, 'orange');
-                abortButton.show();
+                addTiming(params.progress, Color.ACTIVE);
+                State.abortButton.show();
                 break;
             case VerificationState.PostProcessing:
                 progressLabel = `postprocessing ${params.filename}:`;
-                addTiming(params.progress, 'white');
+                addTiming(params.progress, Color.ACTIVE);
                 break;
             case VerificationState.Stage:
-                Log.log("Run " + params.stage + " for " + params.filename);
-                updateStatusBarItem(statusBarItem, `File ${params.filename}: Stage ${params.stage}`, 'white');
+                Log.log("Run " + params.stage + " for " + params.filename, LogLevel.Info);
+                State.statusBarItem.update(`File ${params.filename}: Stage ${params.stage}`, Color.ACTIVE);
             case VerificationState.Ready:
                 clearInterval(progressUpdater);
-                statusBarProgress.hide();
-                abortButton.hide();
+                State.statusBarProgress.hide();
+                State.abortButton.hide();
 
                 State.viperFiles.forEach(file => {
                     file.verifying = false;
@@ -591,7 +583,7 @@ function handleStateChange(params: StateChangeParams) {
                 State.isVerifying = false;
 
                 if (!params.verificationCompleted) {
-                    updateStatusBarItem(statusBarItem, "ready", 'white');
+                    State.statusBarItem.update("ready", Color.READY);
                 }
                 else {
                     let uri = vscode.Uri.parse(params.uri);
@@ -606,7 +598,7 @@ function handleStateChange(params: StateChangeParams) {
                     }
 
                     //complete the timing measurement
-                    addTiming(100, 'white', true);
+                    addTiming(100, Color.ACTIVE, true);
                     if (Helper.getConfiguration("preferences").showProgress === true) {
                         verifiedFile.stateVisualizer.addTimingInformationToFileState({ total: params.time, timings: timings });
                     }
@@ -614,9 +606,9 @@ function handleStateChange(params: StateChangeParams) {
                     let msg: string = "";
                     switch (params.success) {
                         case Success.Success:
-                            msg = `Successfully verified ${params.filename} in ${formatSeconds(params.time)}`;
+                            msg = `Successfully verified ${params.filename} in ${Helper.formatSeconds(params.time)}`;
                             Log.log(msg, LogLevel.Default);
-                            updateStatusBarItem(statusBarItem, "$(check) " + msg, 'lightgreen');
+                            State.statusBarItem.update("$(check) " + msg, Color.SUCCESS);
                             if (params.manuallyTriggered) Log.hint(msg);
                             // this was only used for generating the svg of the SymbexLogger's execution tree
                             // as this file is unused we can safely remove its creation
@@ -627,33 +619,33 @@ function handleStateChange(params: StateChangeParams) {
                             }*/
                             break;
                         case Success.ParsingFailed:
-                            msg = `Parsing ${params.filename} failed after ${formatSeconds(params.time)}`;
+                            msg = `Parsing ${params.filename} failed after ${Helper.formatSeconds(params.time)}`;
                             Log.log(msg, LogLevel.Default);
-                            updateStatusBarItem(statusBarItem, "$(x) " + msg, 'red');
+                            State.statusBarItem.update("$(x) " + msg, Color.ERROR);
                             break;
                         case Success.TypecheckingFailed:
-                            msg = `Type checking ${params.filename} failed after ${formatSeconds(params.time)} with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
+                            msg = `Type checking ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
                             Log.log(msg, LogLevel.Default);
-                            updateStatusBarItem(statusBarItem, "$(x) " + msg, 'red');
+                            State.statusBarItem.update("$(x) " + msg, Color.ERROR);
                             break;
                         case Success.VerificationFailed:
-                            msg = `Verifying ${params.filename} failed after ${formatSeconds(params.time)} with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
+                            msg = `Verifying ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
                             Log.log(msg, LogLevel.Default);
-                            updateStatusBarItem(statusBarItem, "$(x) " + msg, 'red');
+                            State.statusBarItem.update("$(x) " + msg, Color.ERROR);
                             break;
                         case Success.Aborted:
-                            updateStatusBarItem(statusBarItem, "Verification aborted", 'orange');
+                            State.statusBarItem.update("Verification aborted", Color.WARNING);
                             Log.log(`Verifying ${params.filename} was aborted`, LogLevel.Info);
                             break;
                         case Success.Error:
                             let moreInfo = " - see View->Output->Viper for more info"
-                            updateStatusBarItem(statusBarItem, `$(x) Internal error` + moreInfo, 'red');
+                            State.statusBarItem.update(`$(x) Internal error` + moreInfo, Color.ERROR);
                             msg = `Verifying ${params.filename} failed due to an internal error`;
-                            Log.log(`Internal Error: failed to verify ${params.filename}: Reason: ` + (params.error && params.error.length > 0 ? params.error : "Unknown Reason: Set loglevel to 5 and see the viper.log file for more details"));
+                            Log.error(`Internal Error: failed to verify ${params.filename}: Reason: ` + (params.error && params.error.length > 0 ? params.error : "Unknown Reason: Set loglevel to 5 and see the viper.log file for more details"));
                             Log.hint(msg + moreInfo);
                             break;
                         case Success.Timeout:
-                            updateStatusBarItem(statusBarItem, "Verification timed out", 'orange');
+                            State.statusBarItem.update("Verification timed out", Color.WARNING);
                             Log.log(`Verifying ${params.filename} timed out`, LogLevel.Info);
                             break;
                     }
@@ -670,11 +662,11 @@ function handleStateChange(params: StateChangeParams) {
                 }
                 break;
             case VerificationState.Stopping:
-                updateStatusBarItem(statusBarItem, 'preparing', 'orange');
+                State.statusBarItem.update('preparing', Color.ACTIVE);
                 break;
             case VerificationState.Stopped:
                 clearInterval(progressUpdater);
-                updateStatusBarItem(statusBarItem, 'stopped', 'white');
+                State.statusBarItem.update('stopped', Color.READY);
                 break;
             default:
                 break;
@@ -705,7 +697,7 @@ function handleSettingsCheckResult(params: SettingsCheckedParams) {
                     break;
                 case SettingsErrorType.Warning:
                     nofWarnings++;
-                    Log.log("Settings Warning: " + error.msg);
+                    Log.log("Settings Warning: " + error.msg, LogLevel.Info);
                     break;
             }
             message = error.msg;
@@ -715,12 +707,12 @@ function handleSettingsCheckResult(params: SettingsCheckedParams) {
 
         //update status bar
         Log.log(errorCounts + " in settings detected.", LogLevel.Default);
-        statusBarItem.text = errorCounts + " in settings";
+        let text = errorCounts + " in settings";
         if (nofErrors > 0) {
-            statusBarItem.color = 'red';
+            State.statusBarItem.update(text, Color.ERROR);
             State.isBackendReady = false;
         } else if (nofWarnings > 0) {
-            statusBarItem.color = 'orange';
+            State.statusBarItem.update(text, Color.WARNING);
         }
 
         if (nofErrors + nofWarnings > 1)
@@ -731,48 +723,55 @@ function handleSettingsCheckResult(params: SettingsCheckedParams) {
 }
 
 function registerHandlers() {
-    state.client.onReady().then(ready => {
+    State.client.onReady().then(ready => {
 
-        state.client.onNotification(Commands.StateChange, (params: StateChangeParams) => handleStateChange(params));
-        state.client.onNotification(Commands.SettingsChecked, (data: SettingsCheckedParams) => handleSettingsCheckResult(data));
-        state.client.onNotification(Commands.Hint, (data: string) => {
-            Log.hint(data);
+        State.client.onNotification(Commands.StateChange, (params: StateChangeParams) => handleStateChange(params));
+        State.client.onNotification(Commands.SettingsChecked, (data: SettingsCheckedParams) => handleSettingsCheckResult(data));
+        State.client.onNotification(Commands.Hint, (data: HintMessage) => {
+            Log.hint(data.message, data.showSettingsButton, data.showViperToolsUpdateButton);
         });
-        state.client.onNotification(Commands.Log, (msg: { data: string, logLevel: LogLevel }) => {
+        State.client.onNotification(Commands.Log, (msg: { data: string, logLevel: LogLevel }) => {
             Log.log((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
         });
-        state.client.onNotification(Commands.ToLogFile, (msg: { data: string, logLevel: LogLevel }) => {
+        State.client.onNotification(Commands.Progress, (msg: { data: Progress, logLevel: LogLevel }) => {
+            Log.progress(msg.data, msg.logLevel);
+        });
+        State.client.onNotification(Commands.ToLogFile, (msg: { data: string, logLevel: LogLevel }) => {
             Log.toLogFile((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
         });
-        state.client.onNotification(Commands.Error, (msg: { data: string, logLevel: LogLevel }) => {
+        State.client.onNotification(Commands.Error, (msg: { data: string, logLevel: LogLevel }) => {
             Log.error((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
         });
 
-        state.client.onNotification(Commands.BackendChange, (newBackend: string) => {
+        State.client.onNotification(Commands.BackendChange, (newBackend: string) => {
             try {
                 State.activeBackend = newBackend;
-                updateStatusBarItem(backendStatusBar, newBackend, "white");
+                State.backendStatusBar.update(newBackend, Color.READY);
                 State.reset();
-                statusBarProgress.hide();
-                abortButton.hide();
+                State.statusBarProgress.hide();
+                State.abortButton.hide();
             } catch (e) {
                 Log.error("Error handling backend change: " + e);
             }
         });
-        state.client.onNotification(Commands.ViperUpdateComplete, (success) => {
+        State.client.onNotification(Commands.ViperUpdateComplete, (success) => {
             if (success) {
                 Log.hint("The ViperTools update is complete.");
+                State.statusBarItem.update("ViperTools update completed", Color.SUCCESS);
                 if (unitTest) {
                     unitTest({ event: "ViperUpdateComplete" });
                 }
             } else {
                 Log.hint("The ViperTools update failed. Missing permission: change the ViperTools path in the Settings or manually install the ViperTools.");
+                State.statusBarItem.update("ViperTools update failed", Color.ERROR);
                 if (unitTest) {
                     unitTest({ event: "ViperUpdateFailed" });
                 }
             }
+            workList.push({ type: TaskType.ViperToolsUpdateComplete, uri: null, manuallyTriggered: false });
+            State.statusBarProgress.hide();
         });
-        state.client.onNotification(Commands.FileOpened, (uri: string) => {
+        State.client.onNotification(Commands.FileOpened, (uri: string) => {
             try {
                 Log.log("File openend: " + path.basename(uri), LogLevel.Info);
                 let uriObject: Uri = Uri.parse(uri);
@@ -786,7 +785,7 @@ function registerHandlers() {
                 Log.error("Error handling file opened notification: " + e);
             }
         });
-        state.client.onNotification(Commands.FileClosed, (uri: string) => {
+        State.client.onNotification(Commands.FileClosed, (uri: string) => {
             try {
                 let uriObject: Uri = Uri.parse(uri);
                 Log.log("File closed: " + path.basename(uriObject.path), LogLevel.Info);
@@ -800,21 +799,21 @@ function registerHandlers() {
                 Log.error("Error handling file closed notification: " + e);
             }
         });
-        state.client.onRequest(Commands.RequestRequiredVersion, () => {
+        State.client.onRequest(Commands.RequestRequiredVersion, () => {
             return getRequiredVersion();
         });
-        state.client.onRequest(Commands.GetViperFileEndings, () => {
+        State.client.onRequest(Commands.GetViperFileEndings, () => {
             Helper.loadViperFileExtensions();
             return Helper.viperFileEndings;
         });
-        state.context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
+        State.context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
             try {
                 workList.push({ type: TaskType.Save, uri: params.uri });
             } catch (e) {
                 Log.error("Error handling saved document: " + e);
             }
         }));
-        state.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
+        State.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
             try {
                 Log.updateSettings();
                 stopDebuggingOnServer();
@@ -824,12 +823,12 @@ function registerHandlers() {
             }
         }));
 
-        state.client.onNotification(Commands.BackendReady, (params: BackendReadyParams) => {
+        State.client.onNotification(Commands.BackendReady, (params: BackendReadyParams) => {
             handleBackendReadyNotification(params);
         });
 
         //Heap visualization
-        state.client.onNotification(Commands.StepsAsDecorationOptions, params => {
+        State.client.onNotification(Commands.StepsAsDecorationOptions, params => {
             try {
                 let castParams = <StepsAsDecorationOptionsResult>params;
                 if (!castParams) {
@@ -842,7 +841,7 @@ function registerHandlers() {
             }
         });
 
-        state.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
+        State.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
             try {
                 if (!heapGraph) return;
                 if (Helper.getConfiguration("advancedFeatures").enabled === true) {
@@ -887,7 +886,8 @@ function registerHandlers() {
                 Log.error("Error handling text editor selection change: " + e);
             }
         });
-        /*state.client.onRequest(Commands.StateSelected, change => {
+
+        /*State.client.onRequest(Commands.StateSelected, change => {
             try {
                 let castChange = <{ uri: string, line: number, character: number }>change;
                 if (!castChange) {
@@ -900,7 +900,7 @@ function registerHandlers() {
             }
         });*/
 
-        state.client.onNotification(Commands.VerificationNotStarted, uri => {
+        State.client.onNotification(Commands.VerificationNotStarted, uri => {
             try {
                 Log.log("Verification not started for " + path.basename(<string>uri), LogLevel.Debug);
                 //reset the verifying flag if it is not beeing verified
@@ -914,35 +914,35 @@ function registerHandlers() {
             }
         });
 
-        state.client.onNotification(Commands.StopDebugging, () => {
+        State.client.onNotification(Commands.StopDebugging, () => {
             stopDebuggingLocally();
         });
 
         //Command Handlers
         //verify
-        state.context.subscriptions.push(vscode.commands.registerCommand('extension.verify', () => {
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.verify', () => {
             let fileUri = Helper.getActiveFileUri();
             if (!fileUri) {
-                Log.log("Cannot verify, no document is open.");
+                Log.log("Cannot verify, no document is open.", LogLevel.Info);
             } else if (!Helper.isViperSourceFile(fileUri)) {
-                Log.log("Cannot verify the active file, its not a viper file.");
+                Log.log("Cannot verify the active file, its not a viper file.", LogLevel.Info);
             } else {
                 workList.push({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: true });
             }
         }));
 
         //verifyAllFilesInWorkspace
-        state.context.subscriptions.push(vscode.commands.registerCommand('extension.verifyAllFilesInWorkspace', () => {
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.verifyAllFilesInWorkspace', () => {
             verifyAllFilesInWorkspace();
         }));
 
         //toggleAutoVerify
-        state.context.subscriptions.push(vscode.commands.registerCommand('extension.toggleAutoVerify', () => {
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.toggleAutoVerify', () => {
             toggleAutoVerify();
         }));
 
         //showAllStates
-        state.context.subscriptions.push(vscode.commands.registerCommand('extension.showAllStates', () => {
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.showAllStates', () => {
             if (State.isDebugging) {
                 let viperFile = State.getLastActiveFile();
                 if ((!Helper.getConfiguration("advancedFeatures").simpleMode === true) && viperFile) {
@@ -952,19 +952,19 @@ function registerHandlers() {
         }));
 
         //selectBackend
-        state.context.subscriptions.push(vscode.commands.registerCommand('extension.selectBackend', (selectBackend) => {
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.selectBackend', (selectBackend) => {
             try {
-                if (!state.client) {
+                if (!State.client) {
                     Log.hint("Extension not ready yet.");
                 } else {
-                    state.client.sendRequest(Commands.RequestBackendNames, null).then((backendNames: string[]) => {
+                    State.client.sendRequest(Commands.RequestBackendNames, null).then((backendNames: string[]) => {
                         if (backendNames.length > 1) {
                             if (!selectBackend || !backendNames.some(x => x == selectBackend)) {
                                 vscode.window.showQuickPick(backendNames).then(selectedBackend => {
                                     if (selectedBackend && selectedBackend.length > 0) {
                                         startBackend(selectedBackend);
                                     } else {
-                                        Log.log("No backend was selected, don't change the backend");
+                                        Log.log("No backend was selected, don't change the backend", LogLevel.Info);
                                     }
                                 });
                             } else {
@@ -984,17 +984,17 @@ function registerHandlers() {
         }));
 
         //start Debugging
-        state.context.subscriptions.push(vscode.commands.registerCommand('extension.startDebugging', () => {
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.startDebugging', () => {
             startDebugging();
         }));
 
         //stopVerification
-        state.context.subscriptions.push(vscode.commands.registerCommand('extension.stopVerification', () => {
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.stopVerification', () => {
             workList.push({ type: TaskType.Stop, uri: null, manuallyTriggered: true });
         }));
 
         //format
-        state.context.subscriptions.push(vscode.commands.registerCommand('extension.format', () => {
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.format', () => {
             try {
                 formatter.formatOpenDoc();
             } catch (e) {
@@ -1003,18 +1003,18 @@ function registerHandlers() {
         }));
 
         //open logFile
-        state.context.subscriptions.push(vscode.commands.registerCommand('extension.openLogFile', () => {
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.openLogFile', () => {
             openLogFile();
         }));
 
         //remove diagnostics of open file
-        state.context.subscriptions.push(vscode.commands.registerCommand('extension.removeDiagnostics', () => {
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.removeDiagnostics', () => {
             removeDiagnostics();
         }));
 
         //automatic installation and updating of viper tools
-        state.context.subscriptions.push(vscode.commands.registerCommand('extension.updateViperTools', () => {
-            state.client.sendNotification(Commands.UpdateViperTools);
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.updateViperTools', () => {
+            workList.push({ type: TaskType.UpdateViperTools, uri: null, manuallyTriggered: false });
         }));
     });
 }
@@ -1091,15 +1091,14 @@ function doStopVerification(uriToStop: string, manuallyTriggered: boolean) {
         printAllVerificationResults();
         verifyingAllFiles = false;
     }
-    if (state.client) {
+    if (State.client) {
         if (State.isVerifying) {
             clearInterval(progressUpdater);
             Log.log("Verification stop request", LogLevel.Debug);
-            abortButton.hide();
-            statusBarItem.color = 'orange';
-            statusBarItem.text = "aborting";
-            statusBarProgress.hide();
-            state.client.sendRequest(Commands.StopVerification, uriToStop).then((success) => {
+            State.abortButton.hide();
+            State.statusBarItem.update("aborting", Color.WARNING);
+            State.statusBarProgress.hide();
+            State.client.sendRequest(Commands.StopVerification, uriToStop).then((success) => {
                 workList.push({ type: TaskType.StoppingComplete, uri: null, manuallyTriggered: false });
             });
         } else {
@@ -1125,7 +1124,7 @@ function doStopVerification(uriToStop: string, manuallyTriggered: boolean) {
 function startBackend(backendName: string) {
     try {
         State.isBackendReady = false;
-        state.client.sendNotification(Commands.StartBackend, backendName);
+        State.client.sendNotification(Commands.StartBackend, backendName);
     } catch (e) {
         Log.error("Error starting backend: " + e);
     }
@@ -1134,20 +1133,20 @@ function startBackend(backendName: string) {
 function handleBackendReadyNotification(params: BackendReadyParams) {
     try {
         if (!State.isVerifying) {
-            updateStatusBarItem(statusBarItem, "ready", 'white');
+            State.statusBarItem.update("ready", Color.READY);
         }
         if (params.restarted) {
             //no file is verifying
             State.resetViperFiles()
             workList.push({ type: TaskType.Clear, uri: Helper.getActiveFileUri(), manuallyTriggered: false });
             if (Helper.getConfiguration('preferences').autoVerifyAfterBackendChange === true) {
-                Log.log("autoVerify after backend change", LogLevel.Info);
+                Log.log("AutoVerify after backend change", LogLevel.Info);
                 workList.push({ type: TaskType.Verify, uri: Helper.getActiveFileUri(), manuallyTriggered: false });
             }
-        }
-        //for unit testing
-        if (unitTest) {
-            unitTest({ event: "BackendReady", backend: params.name });
+            //for unit testing
+            if (unitTest) {
+                unitTest({ event: "BackendStarted", backend: params.name });
+            }
         }
 
         Log.log("Backend ready: " + params.name, LogLevel.Info);
@@ -1160,7 +1159,7 @@ function handleBackendReadyNotification(params: BackendReadyParams) {
 function stopDebuggingOnServer() {
     if (State.isDebugging) {
         Log.log("Tell language server to stop debugging", LogLevel.Debug);
-        state.client.sendNotification(Commands.StopDebugging);
+        State.client.sendNotification(Commands.StopDebugging);
     }
 }
 
@@ -1226,13 +1225,13 @@ function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
         //load expected timing
         let expectedTimings: TimingInfo = fileState.stateVisualizer.getLastTiming();
         if (expectedTimings && expectedTimings.total) {
-            Log.log("Verification is expected to take " + formatSeconds(expectedTimings.total), LogLevel.Info);
+            Log.log("Verification is expected to take " + Helper.formatSeconds(expectedTimings.total), LogLevel.Info);
             oldTimings = expectedTimings;
         }
 
         let uri = fileState.uri.toString();
         if (Helper.isViperSourceFile(uri)) {
-            if (!state.client) {
+            if (!State.client) {
                 Log.hint("Extension not ready yet.");
             } else {
                 let visualizer = State.getVisualizer(uri);
@@ -1254,8 +1253,8 @@ function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
                             lastProgress = progress;
                             let totalProgress = verifyingAllFiles ? ` (${nextFileToAutoVerify + 1}/${allFilesToAutoVerify.length})` : "";
                             Log.log("Progress: " + progress + " (" + fileState.name() + ")", LogLevel.Debug);
-                            statusBarProgress.text = progressBarText(progress);
-                            statusBarItem.text = progressLabel + " " + formatProgress(progress) + totalProgress;
+                            State.statusBarProgress.updateProgressBar(progress);
+                            State.statusBarItem.updateProgressLabel(progressLabel, progress, totalProgress);
                         }
                     }, 500);
 
@@ -1264,7 +1263,7 @@ function verify(fileState: ViperFileState, manuallyTriggered: boolean) {
                     let workspace = vscode.workspace.rootPath ? vscode.workspace.rootPath : path.dirname(fileState.uri.fsPath);
                     let params: VerifyParams = { uri: uri, manuallyTriggered: manuallyTriggered, workspace: workspace };
                     //request verification from Server
-                    state.client.sendNotification(Commands.Verify, params);
+                    State.client.sendNotification(Commands.Verify, params);
 
                     State.isVerifying = true;
                 }, visualizer);
@@ -1290,10 +1289,10 @@ function addTiming(paramProgress: number, color: string, hide: boolean = false) 
     let totalProgress = verifyingAllFiles ? ` (${nextFileToAutoVerify + 1}/${allFilesToAutoVerify.length})` : "";
     lastProgress = progress;
     if (hide)
-        statusBarProgress.hide();
+        State.statusBarProgress.hide();
     else {
-        updateStatusBarItem(statusBarProgress, progressBarText(progress), 'white', null, showProgressBar);
-        updateStatusBarItem(statusBarItem, progressLabel + " " + formatProgress(progress) + totalProgress, color);
+        State.statusBarProgress.updateProgressBar(progress, null, showProgressBar);
+        State.statusBarItem.updateProgressLabel(progressLabel, progress, totalProgress);
     }
 }
 
@@ -1325,35 +1324,16 @@ function getProgress(progress: number): number {
     }
 }
 
-function progressBarText(progress: number): string {
-    progress = Math.floor(progress);
-    let bar = "";
-    for (var i = 0; i < progress / 10; i++) {
-        bar = bar + "⚫";
-    }
-    for (var i = 10; i > progress / 10; i--) {
-        bar = bar + "⚪";
-    }
-    return bar;
-}
 
-function formatSeconds(time: number): string {
-    return time.toFixed(1) + " seconds";
-}
-
-function formatProgress(progress: number): string {
-    if (!progress) return "0%";
-    return progress.toFixed(0) + "%";
-}
 
 function removeDiagnostics() {
     if (vscode.window.activeTextEditor) {
         let file = vscode.window.activeTextEditor.document.uri.toString();
-        state.client.sendRequest(Commands.RemoveDiagnostics, file).then(success => {
+        State.client.sendRequest(Commands.RemoveDiagnostics, file).then(success => {
             if (success) {
-                Log.log("Diagnostics successfully removed");
+                Log.log("Diagnostics successfully removed", LogLevel.Debug);
             } else {
-                Log.log("Removing diagnostics failed");
+                Log.log("Removing diagnostics failed", LogLevel.Debug);
             }
         })
     }

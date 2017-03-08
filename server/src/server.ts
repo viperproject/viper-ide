@@ -16,6 +16,7 @@ import * as fs from 'fs';
 import * as http from 'http';
 import * as pathHelper from 'path';
 let mkdirp = require('mkdirp');
+var DecompressZip = require('decompress-zip');
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 Server.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
@@ -59,7 +60,7 @@ function registerHandlers() {
             Log.log('Configuration changed', LogLevel.Info);
             let oldSettings = Settings.settings;
             Settings.settings = <ViperSettings>change.settings.viperSettings;
-            if(oldSettings && Settings.settings.nailgunSettings.port == "*"){
+            if (oldSettings && Settings.settings.nailgunSettings.port == "*") {
                 //When the new settings contain a wildcard port, keep using the same
                 Settings.settings.nailgunSettings.port = oldSettings.nailgunSettings.port;
             }
@@ -173,7 +174,7 @@ function registerHandlers() {
                     Server.sendVerificationNotStartedNotification(data.uri);
                 });
             } else {
-                Log.log("The verification cannot be started.");
+                Log.log("The verification cannot be started.", LogLevel.Info);
                 Server.sendVerificationNotStartedNotification(data.uri);
             }
         } catch (e) {
@@ -183,8 +184,8 @@ function registerHandlers() {
     });
 
     Server.connection.onNotification(Commands.UpdateViperTools, () => {
-        Log.log("Updating Viper Tools ...", LogLevel.Default);
         try {
+            Log.log("Updating Viper Tools ...", LogLevel.Default);
             let filename: string;
             if (Settings.isWin) {
                 filename = "ViperToolsWin.zip"
@@ -194,52 +195,56 @@ function registerHandlers() {
             //check access to download location
             let dir = <string>Settings.settings.paths.viperToolsPath;
             let viperToolsPath = pathHelper.join(dir, filename);
-            makeSureFileExistsAndCheckForWritePermission(viperToolsPath).then(error => {
+
+            //this ugly cast is needed because of a bug in typesript:
+            //https://github.com/Microsoft/TypeScript/issues/10242
+            (<Promise<void>>makeSureFileExistsAndCheckForWritePermission(viperToolsPath).then(error => {
                 if (error) {
-                    Log.error("The Viper Tools Update failed, change the ViperTools directory to a folder in which you have permission to create files.");
-                    Log.error(error, LogLevel.Debug);
+                    throw ("The Viper Tools Update failed, change the ViperTools directory to a folder in which you have permission to create files. " + error);
                 } else {
                     //download Viper Tools
                     let url = <string>Settings.settings.preferences.viperToolsProvider;
                     Log.log("Downloading ViperTools from " + url + " ...", LogLevel.Default)
-                    Log.log("This might take a while as the ViperTools are about 100MB in size.", LogLevel.Info)
-                    download(url, viperToolsPath).then(success => {
-                        Log.log("Downloading ViperTools finished " + (success ? "" : "un") + "successfully", LogLevel.Info);
-                        if (success) {
-                            try {
-                                //extract files
-                                Log.log("Extracting files...", LogLevel.Info)
-                                let zip = new AdmZip(viperToolsPath);
-                                zip.extractAllTo(dir, true);
-
-                                //chmod to allow the execution of ng and zg files
-                                if (Settings.isLinux || Settings.isMac) {
-                                    fs.chmodSync(pathHelper.join(dir, "nailgun", "ng"), '755') //755 is for (read, write, execute)
-                                    fs.chmodSync(pathHelper.join(dir, "z3", "bin", "z3"), '755') //755 is for (read, write, execute)
-                                    fs.chmodSync(pathHelper.join(dir, "boogie", "Binaries", "Boogie"), '755');
-                                }
-
-                                Log.log("ViperTools Update completed", LogLevel.Default);
-
-                                Server.connection.sendNotification(Commands.ViperUpdateComplete, true);//success
-
-                                //trigger a restart of the backend
-                                checkSettingsAndRestartBackendIfNeeded(null, null, true);
-                            } catch (e) {
-                                if (e.code && e.code == 'ENOENT') {
-                                    Log.error("Error updating the Viper Tools, missing create file permission in the viper tools directory: " + e);
-                                } else {
-                                    Log.error("Error extracting the ViperTools: " + e);
-                                }
-                                Server.connection.sendNotification(Commands.ViperUpdateComplete, false);//update failed
-                            }
-                        }
-                    });
+                    return download(url, viperToolsPath);
                 }
-            });
+            }).then(success => {
+                if (success) {
+                    return extract(viperToolsPath);
+                } else {
+                    throw ("Downloading viper tools unsuccessful.");
+                }
+            }).then(success => {
+                if (success) {
+                    Log.log("Extracting ViperTools finished " + (success ? "" : "un") + "successfully", LogLevel.Info);
+                    if (success) {
+                        //chmod to allow the execution of ng and zg files
+                        if (Settings.isLinux || Settings.isMac) {
+                            fs.chmodSync(pathHelper.join(dir, "nailgun", "ng"), '755') //755 is for (read, write, execute)
+                            fs.chmodSync(pathHelper.join(dir, "z3", "bin", "z3"), '755') //755 is for (read, write, execute)
+                            fs.chmodSync(pathHelper.join(dir, "boogie", "Binaries", "Boogie"), '755');
+                        }
 
+                        //delete archive
+                        fs.unlink(viperToolsPath, (err) => {
+                            if (err) {
+                                Log.error("Error deleting archive after ViperToolsUpdate: " + err);
+                            }
+                            Log.log("ViperTools Update completed", LogLevel.Default);
+                            Server.connection.sendNotification(Commands.ViperUpdateComplete, true);//success
+                        });
+                        //trigger a restart of the backend
+                        checkSettingsAndRestartBackendIfNeeded(null, null, true);
+                    }
+                } else {
+                    throw ("Extracting viper tools unsuccessful.");
+                }
+            })).catch(e => {
+                Log.error(e);
+                Server.connection.sendNotification(Commands.ViperUpdateComplete, false);//update failed
+            });
         } catch (e) {
             Log.error("Error updating viper tools: " + e);
+            Server.connection.sendNotification(Commands.ViperUpdateComplete, false);//update failed
         }
     });
 
@@ -249,7 +254,7 @@ function registerHandlers() {
                 //if there are running verifications, stop related processes
                 Server.verificationTasks.forEach(task => {
                     if (task.running && task.verifierProcess) {
-                        Log.log("stop verification of " + task.filename);
+                        Log.log("stop verification of " + task.filename, LogLevel.Default);
                         task.nailgunService.killNGAndZ3(task.verifierProcess.pid);
                     }
                 });
@@ -384,24 +389,74 @@ function registerHandlers() {
 function download(url, filePath): Thenable<boolean> {
     return new Promise((resolve, reject) => {
         try {
+            Log.startProgress();
             let file = fs.createWriteStream(filePath);
             let request = http.get(url, function (response) {
                 response.pipe(file);
+
+                //download progress 
+                let len = parseInt(response.headers['content-length'], 10);
+                let cur = 0;
+                response.on("data", function (chunk) {
+                    cur += chunk.length;
+                    Log.progress("Download Viper Tools", cur, len, LogLevel.Debug);
+                });
+
                 file.on('finish', function () {
                     file.close();
                     resolve(true);
                 });
-            });
-            request.on('error', function (err) {
-                fs.unlink(filePath);
-                Log.log("Error downloading viper tools: " + err.message);
-                resolve(false);
+                request.on('error', function (err) {
+                    fs.unlink(filePath);
+                    Log.error("Error downloading viper tools: " + err.message);
+                    resolve(false);
+                });
             });
         } catch (e) {
             Log.error("Error downloading viper tools: " + e);
         }
     });
 };
+
+function extract(filePath: string): Thenable<boolean> {
+    return new Promise((resolve, reject) => {
+        try {
+            //extract files
+            Log.log("Extracting files...", LogLevel.Info)
+            Log.startProgress();
+            let unzipper = new DecompressZip(filePath);
+
+            unzipper.on('progress', function (fileIndex, fileCount) {
+                Log.progress("Extracting Viper Tools", fileIndex + 1, fileCount, LogLevel.Debug);
+            });
+
+            unzipper.on('error', function (e) {
+                if (e.code && e.code == 'ENOENT') {
+                    Log.error("Error updating the Viper Tools, missing create file permission in the viper tools directory: " + e);
+                } else if (e.code && e.code == 'EACCESS') {
+                    Log.error("Error extracting " + filePath + ": " + e + " | " + e.message);
+                } else {
+                    Log.error("Error extracting " + filePath + ": " + e);
+                }
+                resolve(false);
+            });
+
+            unzipper.on('extract', function (log) {
+                resolve(true);
+            });
+
+            unzipper.extract({
+                path: pathHelper.dirname(filePath),
+                filter: function (file) {
+                    return file.type !== "SymbolicLink";
+                }
+            });
+        } catch (e) {
+            Log.error("Error extracting viper tools: " + e);
+            resolve(false);
+        }
+    });
+}
 
 function checkForCreateAndWriteAccess(folderPath: string): Thenable<string> {
     return new Promise((resolve, reject) => {

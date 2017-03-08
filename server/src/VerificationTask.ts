@@ -273,7 +273,7 @@ export class VerificationTask {
             return false;
         }
 
-        Log.log("verify " + pathHelper.basename(this.fileUri));
+        Log.log("verify " + pathHelper.basename(this.fileUri), LogLevel.Default);
 
         Server.executedStages.push(stage);
         Log.log(Server.backend.name + ' verification started', LogLevel.Info);
@@ -363,11 +363,11 @@ export class VerificationTask {
                         //     Log.log("Restart verifiacation after stage " + lastStage.name, LogLevel.Info)
                         //     this.verify(this.manuallyTriggered);
                         // } else {
-                            let successMessage = Success[isVerifyingStage ? success : Success.Success];
-                            Log.log("Start stage " + newStage.name + " after stage " + lastStage.name + " success was: " + successMessage, LogLevel.Info);
-                            Server.executedStages.push(newStage);
-                            let path = Common.uriToPath(this.fileUri);
-                            Server.nailgunService.startStageProcess(path, newStage, this.stdOutHandler.bind(this), this.stdErrHandler.bind(this), this.completionHandler.bind(this));
+                        let successMessage = Success[isVerifyingStage ? success : Success.Success];
+                        Log.log("Start stage " + newStage.name + " after stage " + lastStage.name + " success was: " + successMessage, LogLevel.Info);
+                        Server.executedStages.push(newStage);
+                        let path = Common.uriToPath(this.fileUri);
+                        Server.nailgunService.startStageProcess(path, newStage, this.stdOutHandler.bind(this), this.stdErrHandler.bind(this), this.completionHandler.bind(this));
                         // }
                         return;
                     }
@@ -514,7 +514,7 @@ export class VerificationTask {
                 if (match && match[1]) {
                     message = message + " at: " + match[1];
                 }
-                //TODO: suggest updating ViperTools
+                Log.hint(message + " consider changing the settings or updating the ViperTools",true,true);
             }
             else if (data.startsWith("java.lang.StackOverflowError")) {
                 message = "StackOverflowError in verification backend";
@@ -802,7 +802,7 @@ export class VerificationTask {
             //check trivial states
             if (element.isTrivialState) {
                 if (element.children && element.hasNonTrivialChildren()) {
-                    Log.log("Warning: server state " + element.index + " is a trivial state with a non trivial child");
+                    Log.log("Warning: server state " + element.index + " is a trivial state with a non trivial child", LogLevel.Debug);
                 }
             }
 
