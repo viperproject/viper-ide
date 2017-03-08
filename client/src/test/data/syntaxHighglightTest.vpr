@@ -1,5 +1,7 @@
 
-import true.sil
+import true_true.true_sil
+
+function $(n: Ref, m: Ref): Node
 
 domain Foo[T] {
     function enc(arg: T): Foo[T]
@@ -7,13 +9,12 @@ domain Foo[T] {
 
     axiom ax_Dec {
         forall arg: T :: 
-        
             dec( enc(arg) ) == arg
     }
 
     axiom ax_Enc {
-        forall arg: Foo[T] ::
-            { enc( dec(arg) ) }
+        forall arg: Foo[T] :: 
+        { enc( dec(arg) ) } 
             {  dec(arg) }
                 enc( dec(arg) ) == arg
     }
@@ -48,13 +49,12 @@ method smokeTest() {
     assume false; assert false
     
     //magic wands
-
-
     var s: Set[Int]
     assert s setminus s != s
 
 }
 
+//:: special comment
 /*
         gfdgfd
 */
@@ -96,7 +96,6 @@ method testHighlights() returns ( res: Set[Seq[Multiset[Foo[Int]]]] )
     assert ! false
     assert + +0  +321 - 0 -321
 }
-
 
 field f:Int    
 

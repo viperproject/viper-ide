@@ -339,6 +339,17 @@
 		</dict>
 		<dict>
 			<key>name</key>
+			<string>Trigger</string>
+			<key>scope</key>
+			<string>punctuation.separator.forall.silver, punctuation.definition.trigger.begin.silver, punctuation.definition.trigger.end.silver</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#ffff00</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
 			<string>diff.inserted</string>
 			<key>scope</key>
 			<string>markup.inserted</string>
@@ -467,7 +478,7 @@
 			<key>settings</key>
 			<dict>
 				<key>fontStyle</key>
-				<string>italic</string>
+				<string>bold italic underline</string>
 				<key>foreground</key>
 				<string>#ff0000</string>
 			</dict>
