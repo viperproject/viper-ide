@@ -100,7 +100,7 @@ export class Log {
         let messageNewLine = message + "\n";
         message = this.prefix(logLevel) + message;
         if (!Log.logLevel || Log.logLevel >= logLevel) {
-            console.log(message);
+            //console.log(message);
             Log.outputChannel.append(messageNewLine);
         }
         if (Log.logFile) {
@@ -132,6 +132,7 @@ export class Log {
 
     public static toLogFile(message: string, logLevel: LogLevel = LogLevel.Default) {
         if (Log.logLevel >= logLevel && Log.logFile) {
+            console.log(message);
             let messageNewLine = message + "\n";
             Log.logFile.write(messageNewLine);
         }

@@ -271,7 +271,7 @@
                     "default": {
                         "v": "0.5.418",
                         "autoSave": true,
-                        "logLevel": 1,
+                        "logLevel": 5,
                         "autoVerifyAfterBackendChange": true,
                         "showProgress": true,
                         "viperToolsProvider": {
