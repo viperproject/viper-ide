@@ -61,6 +61,11 @@ export class Helper {
         return vscode.workspace.getConfiguration("viperSettings").get(setting);
     }
 
+
+    public static areAdvancedFeaturesEnabled(): boolean {
+        return (Helper.getConfiguration("advancedFeatures").enabled === true);
+    }
+
     //unused
     public static makeSureFileExists(fileName: string) {
         try {
@@ -115,7 +120,7 @@ export class Helper {
     }
 
     public static formatSeconds(time: number): string {
-        if(!time) return "0 seconds";
+        if (!time) return "0 seconds";
         return time.toFixed(1) + " seconds";
     }
 

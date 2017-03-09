@@ -28,6 +28,8 @@ export class State {
 
     public static activeBackend: string;
 
+    public static unitTest;
+
     //status bar
     public static statusBarItem: StatusBar;
     public static statusBarProgress: StatusBar;

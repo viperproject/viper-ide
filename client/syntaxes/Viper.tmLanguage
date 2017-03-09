@@ -168,11 +168,11 @@
               <key>2</key>
               <dict>
                 <key>name</key>
-                <string>entity.name.import.silver</string>
+                <string>string.quoted.double.silver</string>
               </dict>
             </dict>
             <key>match</key>
-            <string>\b(import)\s+([$\w]+)</string>
+            <string>\b(import)\s+(".*?")</string>
             <key>name</key>
             <string>meta.import.silver</string>
           </dict>

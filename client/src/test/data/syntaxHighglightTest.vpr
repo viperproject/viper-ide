@@ -1,5 +1,10 @@
+import "empty.sil"
 
-import true_true.true_sil
+//Problems:
+method test1(xs: Seq[Ref]) {
+    //Int should be colored
+  inhale forall i: Int :: 0 <= i && i < |xs| ==> xs[i].f != 0
+}
 
 function $(n: Ref, m: Ref): Node
 
@@ -13,7 +18,7 @@ domain Foo[T] {
     }
 
     axiom ax_Enc {
-        forall arg: Foo[T] :: 
+        forall arg: Foo[T] ::
         { enc( dec(arg) ) } 
             {  dec(arg) }
                 enc( dec(arg) ) == arg
@@ -94,7 +99,7 @@ method testHighlights() returns ( res: Set[Seq[Multiset[Foo[Int]]]] )
     //exists 
     //forall 
     assert ! false
-    assert + +0  +321 - 0 -321
+    assert +0  +321 - 0 -321 == 0
 }
 
 field f:Int    
@@ -125,5 +130,5 @@ method test02(x: Ref)
         exhale acc(x.f, p)
     } 
 
-    assert 0 == ( let a == 11 + 22 in a+a )
+    assert 0 == ( let a == (11 + 22) in a+a )
 }

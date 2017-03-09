@@ -49,7 +49,7 @@ export class StatusBar {
     private progressBarText(progress: number): string {
         progress = Math.floor(progress);
         let bar = "";
-        for (var i = 0; i < progress / 10; i++) {
+        for (var i = 0; i <= progress / 10; i++) {
             bar = bar + "⚫";
         }
         for (var i = 10; i > progress / 10; i--) {

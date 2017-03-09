@@ -48,10 +48,8 @@ enum TaskType {
     StoppingComplete = 300, VerificationComplete = 200, VerificationFailed = 201, ViperToolsUpdateComplete = 500
 }
 
-let unitTest;
-
 export function initializeUnitTest(resolve) {
-    unitTest = resolve;
+    State.unitTest = resolve;
     //activate(context);
 }
 
@@ -184,7 +182,7 @@ function canStartDebugging(): CheckResult {
         let result = false;
         let reason: string;
         let fileState = State.getLastActiveFile();
-        if (Helper.getConfiguration("advancedFeatures").enabled !== true) {
+        if (!Helper.areAdvancedFeaturesEnabled()) {
             reason = "Don't debug, You must first Enable the advanced features in the settings.";
         } else if (!fileState) {
             reason = "Don't debug, no viper file open.";
@@ -392,8 +390,8 @@ function startVerificationController() {
                         if (stoppingComplete) {
                             task.type = NoOp;
                             //for unitTest
-                            if (unitTest) {
-                                unitTest({ event: 'VerificationStopped' });
+                            if (State.unitTest) {
+                                State.unitTest({ event: 'VerificationStopped' });
                             }
                         }
                         break;
@@ -614,7 +612,7 @@ function handleStateChange(params: StateChangeParams) {
                             // as this file is unused we can safely remove its creation
                             /*let symbexDotFile = Log.getSymbExDotPath();
                             let symbexSvgFile = Log.getSymbExSvgPath();
-                            if (Helper.getConfiguration("advancedFeatures").enabled === true && fs.existsSync(symbexDotFile)) {
+                            if (Helper.areAdvancedFeaturesEnabled() && fs.existsSync(symbexDotFile)) {
                                 verifiedFile.stateVisualizer.generateSvg(null, symbexDotFile, symbexSvgFile, () => { });
                             }*/
                             break;
@@ -649,9 +647,9 @@ function handleStateChange(params: StateChangeParams) {
                             Log.log(`Verifying ${params.filename} timed out`, LogLevel.Info);
                             break;
                     }
-                    if (unitTest) {
+                    if (State.unitTest) {
                         if (verificationCompleted(params.success)) {
-                            unitTest({ event: "VerificationComplete", fileName: params.filename, backend: State.activeBackend });
+                            State.unitTest({ event: "VerificationComplete", fileName: params.filename, backend: State.activeBackend });
                         }
                     }
                     workList.push({ type: TaskType.VerificationComplete, uri: uri, manuallyTriggered: false });
@@ -758,14 +756,14 @@ function registerHandlers() {
             if (success) {
                 Log.hint("The ViperTools update is complete.");
                 State.statusBarItem.update("ViperTools update completed", Color.SUCCESS);
-                if (unitTest) {
-                    unitTest({ event: "ViperUpdateComplete" });
+                if (State.unitTest) {
+                    State.unitTest({ event: "ViperUpdateComplete" });
                 }
             } else {
                 Log.hint("The ViperTools update failed. Missing permission: change the ViperTools path in the Settings or manually install the ViperTools.");
                 State.statusBarItem.update("ViperTools update failed", Color.ERROR);
-                if (unitTest) {
-                    unitTest({ event: "ViperUpdateFailed" });
+                if (State.unitTest) {
+                    State.unitTest({ event: "ViperUpdateFailed" });
                 }
             }
             workList.push({ type: TaskType.ViperToolsUpdateComplete, uri: null, manuallyTriggered: false });
@@ -844,7 +842,7 @@ function registerHandlers() {
         State.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
             try {
                 if (!heapGraph) return;
-                if (Helper.getConfiguration("advancedFeatures").enabled === true) {
+                if (Helper.areAdvancedFeaturesEnabled()) {
                     let visualizer = State.getVisualizer(heapGraph.fileUri);
                     let state = visualizer.decorationOptions[heapGraph.state];
                     if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
@@ -1144,8 +1142,8 @@ function handleBackendReadyNotification(params: BackendReadyParams) {
                 workList.push({ type: TaskType.Verify, uri: Helper.getActiveFileUri(), manuallyTriggered: false });
             }
             //for unit testing
-            if (unitTest) {
-                unitTest({ event: "BackendStarted", backend: params.name });
+            if (State.unitTest) {
+                State.unitTest({ event: "BackendStarted", backend: params.name });
             }
         }
 
@@ -1177,17 +1175,19 @@ function stopDebuggingLocally() {
 
 function showStates(callback) {
     try {
-        if (!StateVisualizer.showStates) {
-            StateVisualizer.showStates = true;
-            let visualizer = State.getLastActiveFile().stateVisualizer;
-            visualizer.removeSpecialCharacters(() => {
-                visualizer.addCharacterToDecorationOptionLocations(() => {
-                    visualizer.showDecorations();
-                    callback();
+        if (Helper.areAdvancedFeaturesEnabled()) {
+            if (!StateVisualizer.showStates) {
+                StateVisualizer.showStates = true;
+                let visualizer = State.getLastActiveFile().stateVisualizer;
+                visualizer.removeSpecialCharacters(() => {
+                    visualizer.addCharacterToDecorationOptionLocations(() => {
+                        visualizer.showDecorations();
+                        callback();
+                    });
                 });
-            });
-        } else {
-            Log.log("don't show states, they are already shown", LogLevel.Debug);
+            } else {
+                Log.log("don't show states, they are already shown", LogLevel.Debug);
+            }
         }
     } catch (e) {
         Log.error("Error showing States: " + e);
@@ -1196,19 +1196,23 @@ function showStates(callback) {
 
 function hideStates(callback, visualizer: StateVisualizer) {
     try {
-        let editor = visualizer.viperFile.editor;
-        //vscode.window.showTextDocument(editor.document, editor.viewColumn).then(() => {  
-        vscode.commands.executeCommand('workbench.action.focusFirstEditorGroup').then(success => { }, error => {
-            Log.error("Error changing the focus to the first editorGroup");
-        });
-        State.isDebugging = false;
-        Log.log("Hide states for " + visualizer.viperFile.name(), LogLevel.Info);
-        StateVisualizer.showStates = false;
-        visualizer.removeSpecialCharacters(() => {
-            visualizer.hideDecorations();
-            visualizer.reset();
+        if (Helper.areAdvancedFeaturesEnabled()) {
+            let editor = visualizer.viperFile.editor;
+            //vscode.window.showTextDocument(editor.document, editor.viewColumn).then(() => {  
+            vscode.commands.executeCommand('workbench.action.focusFirstEditorGroup').then(success => { }, error => {
+                Log.error("Error changing the focus to the first editorGroup");
+            });
+            State.isDebugging = false;
+            Log.log("Hide states for " + visualizer.viperFile.name(), LogLevel.Info);
+            StateVisualizer.showStates = false;
+            visualizer.removeSpecialCharacters(() => {
+                visualizer.hideDecorations();
+                visualizer.reset();
+                callback();
+            });
+        }else{
             callback();
-        });
+        }
         //});
     } catch (e) {
         Log.error("Error hiding States: " + e);
