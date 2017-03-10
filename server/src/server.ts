@@ -542,9 +542,13 @@ function makeSureFileExistsAndCheckForWritePermission(filePath: string, firstTry
                     fs.open(filePath, 'a', (err, file) => {
                         if (err) {
                             if (firstTry && err && err.code == "EACCES") {
-                                Log.log("Try to change the ownership of " + filePath, LogLevel.Debug);
-                                changeOwnershipToCurrentUser(pathHelper.dirname(filePath)).then(() => {
-                                    return makeSureFileExistsAndCheckForWritePermission(filePath, false)
+                                Log.log("Try to change the ownership of " + pathHelper.dirname(filePath), LogLevel.Debug);
+                                changeOwnershipToCurrentUser(pathHelper.dirname(filePath)).then((err) => {
+                                    if (err) {
+                                        resolve(err);
+                                    } else {
+                                        return makeSureFileExistsAndCheckForWritePermission(filePath, false)
+                                    }
                                 }).then(err => {
                                     resolve(err);
                                 })
