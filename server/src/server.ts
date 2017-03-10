@@ -437,7 +437,7 @@ function extract(filePath: string): Thenable<boolean> {
             unzipper.on('error', function (e) {
                 if (e.code && e.code == 'ENOENT') {
                     Log.error("Error updating the Viper Tools, missing create file permission in the viper tools directory: " + e);
-                } else if (e.code && e.code == 'EACCESS') {
+                } else if (e.code && e.code == 'EACCES') {
                     Log.error("Error extracting " + filePath + ": " + e + " | " + e.message);
                 } else {
                     Log.error("Error extracting " + filePath + ": " + e);
@@ -541,8 +541,7 @@ function makeSureFileExistsAndCheckForWritePermission(filePath: string, firstTry
                 } else {
                     fs.open(filePath, 'a', (err, file) => {
                         if (err) {
-                            if (firstTry && err && err.code == "EACCESS") {
-
+                            if (firstTry && err && err.code == "EACCES") {
                                 Log.log("Try to change the ownership of " + filePath, LogLevel.Debug);
                                 changeOwnershipToCurrentUser(pathHelper.dirname(filePath)).then(() => {
                                     return makeSureFileExistsAndCheckForWritePermission(filePath, false)
@@ -550,7 +549,7 @@ function makeSureFileExistsAndCheckForWritePermission(filePath: string, firstTry
                                     resolve(err);
                                 })
                             } else {
-                                resolve(err.code + "Error opening " + filePath + " " + err.message)
+                                resolve(err.code + ": Error opening " + filePath + " " + err.message)
                             }
                         } else {
                             fs.close(file, err => {
