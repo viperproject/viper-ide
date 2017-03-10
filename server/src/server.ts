@@ -198,14 +198,19 @@ function registerHandlers() {
             //this ugly cast is needed because of a bug in typesript:
             //https://github.com/Microsoft/TypeScript/issues/10242
             (<Promise<void>>makeSureFileExistsAndCheckForWritePermission(viperToolsPath).then(error => {
+                if (error && Settings.isLinux && error.startsWith("EACCES")) {
+                    //change the owner of the location 
+                    return makeSureFileExistsAndCheckForWritePermission(viperToolsPath)
+                }
+                return error;
+            }).then(error => {
                 if (error) {
                     throw ("The Viper Tools Update failed, change the ViperTools directory to a folder in which you have permission to create files. " + error);
-                } else {
-                    //download Viper Tools
-                    let url = <string>Settings.settings.preferences.viperToolsProvider;
-                    Log.log("Downloading ViperTools from " + url + " ...", LogLevel.Default)
-                    return download(url, viperToolsPath);
                 }
+                //download Viper Tools
+                let url = <string>Settings.settings.preferences.viperToolsProvider;
+                Log.log("Downloading ViperTools from " + url + " ...", LogLevel.Default)
+                return download(url, viperToolsPath);
             }).then(success => {
                 if (success) {
                     return extract(viperToolsPath);
@@ -457,22 +462,35 @@ function extract(filePath: string): Thenable<boolean> {
     });
 }
 
+function getParentDir(fileOrFolderPath: string): string {
+    if (!fileOrFolderPath) return null;
+    let obj = pathHelper.parse(fileOrFolderPath);
+    if (obj.base) {
+        return obj.dir;
+    }
+    let folderPath = obj.dir;
+    let match = folderPath.match(/(^.*)[\/\\].+$/); //the regex retrieves the parent directory
+    if (match) {
+        return match[1];
+    }
+    else {
+        return null
+    }
+}
+
 function checkForCreateAndWriteAccess(folderPath: string): Thenable<string> {
     return new Promise((resolve, reject) => {
+        if (!folderPath) {
+            resolve("No access"); //TODO: when does that happens?
+        }
         fs.stat((folderPath), (err, stats) => {
             if (err) {
                 if (err.code == 'ENOENT') {
                     //no such file or directory
-                    let path = pathHelper.parse(folderPath).dir;
-                    let match = path.match(/(^.*)[\/\\].+$/) //the regex retrieves the parent directory
-                    if (match && match[1]) {
-                        checkForCreateAndWriteAccess(match[1]).then(err => {
-                            //pass along the error
-                            resolve(err);
-                        });
-                    } else {
-                        resolve("No access"); //TODO: when does that happens?
-                    }
+                    checkForCreateAndWriteAccess(getParentDir(folderPath)).then(err => {
+                        //pass along the error
+                        resolve(err);
+                    });
                 }
                 else if (err.code == 'EACCES') {
                     resolve("No read permission");
@@ -490,25 +508,58 @@ function checkForCreateAndWriteAccess(folderPath: string): Thenable<string> {
     });
 }
 
-function makeSureFileExistsAndCheckForWritePermission(filePath: string): Thenable<string> {
+//Only works for linux
+function changeOwnershipToCurrentUser(filePath: string): Thenable<any> {
+    return new Promise((resolve, reject) => {
+        if (!filePath) {
+            resolve("Cannot change ownership");
+        }
+        else if (!Settings.isLinux) {
+            resolve("Change Ownership is currently only supported for Linux.");
+        } else {
+            let user = process.env["USER"];
+            fs.chown(filePath, user, user, (err) => {
+                if (err) {
+                    changeOwnershipToCurrentUser(getParentDir(filePath)).then(err => {
+                        resolve(err);
+                    })
+                } else {
+                    resolve(null);
+                }
+            });
+        }
+    });
+}
+
+function makeSureFileExistsAndCheckForWritePermission(filePath: string, firstTry = true): Thenable<any> {
     return new Promise((resolve, reject) => {
         try {
             let folder = pathHelper.dirname(filePath);
             mkdirp(folder, (err) => {
                 if (err && err.code != 'EEXIST') {
-                    resolve("Error creating " + folder + " " + err.message);
+                    resolve(err.code + "Error creating " + folder + " " + err.message);
                 } else {
                     fs.open(filePath, 'a', (err, file) => {
                         if (err) {
-                            resolve("Error opening " + filePath + " " + err.message)
+                            if (firstTry && err && err.code == "EACCESS") {
+
+                                Log.log("Try to change the ownership of " + filePath, LogLevel.Debug);
+                                changeOwnershipToCurrentUser(pathHelper.dirname(filePath)).then(() => {
+                                    return makeSureFileExistsAndCheckForWritePermission(filePath, false)
+                                }).then(err => {
+                                    resolve(err);
+                                })
+                            } else {
+                                resolve(err.code + "Error opening " + filePath + " " + err.message)
+                            }
                         } else {
                             fs.close(file, err => {
                                 if (err) {
-                                    resolve("Error closing " + filePath + " " + err.message)
+                                    resolve(err.code + "Error closing " + filePath + " " + err.message)
                                 } else {
                                     fs.access(filePath, 2, (e) => { //fs.constants.W_OK is 2
                                         if (e) {
-                                            resolve("Error accessing " + filePath + " " + e.message)
+                                            resolve(e.code + "Error accessing " + filePath + " " + e.message)
                                         } else {
                                             resolve(null);
                                         }

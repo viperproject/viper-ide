@@ -17,6 +17,7 @@ import { Event } from 'typescript.events';
 import { State } from '../ExtensionState';
 import * as child_process from 'child_process';
 import * as mocha from 'mocha';
+import { Helper } from '../Helper';
 
 let ready = false;
 //let verified = false;
@@ -72,6 +73,7 @@ function wait(timeout): Thenable<boolean> {
 
 // Defines a Mocha test suite to group tests of similar kind together
 describe("ViperIDE tests", function () {
+
     before(() => {
         context = new TestContext();
         myExtension.initializeUnitTest(function (state) {
@@ -220,6 +222,16 @@ describe("ViperIDE tests", function () {
         })
     });
 
+    it("Helper Method Tests", function (done) {
+        checkAssert(Helper.formatProgress(12.9), "13%", "formatProgress");
+        checkAssert(Helper.formatSeconds(12.99), "13.0 seconds", "formatSeconds");
+        checkAssert(Helper.isViperSourceFile("/folder/file.vpr"),true, "isViperSourceFile unix path");
+        checkAssert(Helper.isViperSourceFile("..\\.\\folder\\file.sil"),true, "isViperSourceFile relavive windows path");
+        checkAssert(!Helper.isViperSourceFile("C:\\absolute\\path\\file.ts"),true, "isViperSourceFile absolute windows path");
+        checkAssert(path.basename(Helper.uriToString(Helper.getActiveFileUri())),SIMPLE,"active file");
+        done();
+    });
+
     //must be last test
     it("Test closing all auxilary processes", function (done) {
         this.timeout(5000);
@@ -251,6 +263,10 @@ describe("ViperIDE tests", function () {
         }, 1000);
     });
 });
+
+function checkAssert(seen, expected, message: string) {
+    assert(expected === seen, message + ": Expected: " + expected + " Seen: " + seen);
+}
 
 function openFile(context, fileName): Thenable<vscode.TextDocument> {
     return new Promise((resolve, reject) => {
