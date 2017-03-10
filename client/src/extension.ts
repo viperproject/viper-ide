@@ -641,6 +641,11 @@ function handleStateChange(params: StateChangeParams) {
                             msg = `Verifying ${params.filename} failed due to an internal error`;
                             Log.error(`Internal Error: failed to verify ${params.filename}: Reason: ` + (params.error && params.error.length > 0 ? params.error : "Unknown Reason: Set loglevel to 5 and see the viper.log file for more details"));
                             Log.hint(msg + moreInfo);
+                            
+                            //for unit test 
+                            if (State.unitTest) {
+                                State.unitTest({ event: 'InternalError' });
+                            }
                             break;
                         case Success.Timeout:
                             State.statusBarItem.update("Verification timed out", Color.WARNING);

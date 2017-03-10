@@ -25,10 +25,12 @@ let ready = false;
 let executionStates = [];
 let context;
 
-let backendReadyCallback;
-let verificationCompletionCallback;
-let abortCallback;
-let updateViperToolsCallback;
+let backendReadyCallback = (b) => { };
+let verificationCompletionCallback = (b, f) => { };
+let abortCallback = () => { };
+let updateViperToolsCallback = () => { };
+
+let internalErrorDetected: boolean;
 
 const SILICON = 'silicon';
 const CARBON = 'carbon';
@@ -94,24 +96,32 @@ describe("ViperIDE tests", function () {
             else if (state.event == 'VerificationStopped') {
                 abortCallback();
             }
+            else if (state.event == 'InternalError') {
+                internalErrorDetected = true;
+            }
         });
     });
 
     //must be first test
-    it("Language detection and backend startup test", function (done) {
-        this.timeout(10000);
-
+    it("Language Detection, Viper Tools Update, and Backend Startup test.", function (done) {
+        this.timeout(50000);
         openFile(context, SIMPLE).then(document => {
             if (document.languageId != 'viper') {
                 throw new Error("The language of viper file was not detected correctly: should: viper, is: " + document.languageId);
             }
+            return wait(5000);
+        }).then(() => {
+            vscode.commands.executeCommand('viper.updateViperTools');
+            //wait until viper tools update done
+            return waitForViperToolsUpdate();
+        }).then(() => {
+            //viper tools update done
             return waitForBackendStarted();
         }).then(() => {
-            console.log("UnitTest: BackendStarted");
+            //backend ready
             done();
         });
     });
-
 
     it("Test simple verification with silicon", function (done) {
         this.timeout(15000);
@@ -171,7 +181,7 @@ describe("ViperIDE tests", function () {
             return waitForVerification(SILICON, SIMPLE);
         }).then(() => {
             //verified
-            clearTimeout(timer);
+            throw "unwanted reverification of verified file after switching context";
         });
     });
 
@@ -191,29 +201,79 @@ describe("ViperIDE tests", function () {
             return waitForBackendStarted();
         }).then(() => {
             //verified
-            clearTimeout(timer);
+            throw "unwanted reverification of verified file after zooming";
         });
     });
 
-    it("Test Viper Tools Update", function (done) {
-        this.timeout(50000);
-        vscode.commands.executeCommand('viper.updateViperTools');
-        //wait until viper tools update done
-        waitForViperToolsUpdate().then(() => {
-            //viper tools update done
-            return waitForBackendStarted();
+    it("Stress test 1: multiple fast verification requests", function (done) {
+        this.timeout(11000);
+
+        let verificationDone = false;
+        internalErrorDetected = false;
+
+        let timer = setTimeout(() => {
+            //the file should be verified exactly once
+            //no internal error must happen
+            if (!verificationDone) {
+                throw "No verification completed";
+            } else if (internalErrorDetected) {
+                throw "Internal error detected";
+            } else {
+                done();
+            }
+        }, 10000);
+
+        //submit 10 verification requests
+        for (let i = 0; i < 10; i++) {
+            vscode.commands.executeCommand('viper.verify');
+        }
+
+        waitForVerification(SILICON, SIMPLE).then(() => {
+            verificationDone = true;
+            return waitForVerification(SILICON, SIMPLE);
         }).then(() => {
-            //backend ready
-            done();
+            throw "multiple verifications seen";
         });
+    });
+
+    it("Stress test 2: quickly start, stop, and restart verification", function (done) {
+        this.timeout(15000);
+
+        vscode.commands.executeCommand('viper.verify');
+        vscode.commands.executeCommand('viper.stopVerification');
+        vscode.commands.executeCommand('viper.verify');
+        waitForVerification(SILICON, SIMPLE).then(() => {
+            if (internalErrorDetected) {
+                throw "Internal error detected";
+            } else {
+                done();
+            }
+        });
+    });
+
+    it("Stress test 3: closing all files right after starting verificaiton", function (done) {
+        this.timeout(6000);
+
+        let timer = setTimeout(() => {
+            //no internal error must happen
+            if (internalErrorDetected) {
+                throw "Internal error detected";
+            } else {
+                done();
+            }
+        }, 5000);
+
+        vscode.commands.executeCommand('viper.verify');
+        vscode.commands.executeCommand('workbench.action.closeAllEditors');
     });
 
     it("Test simple verification with carbon", function (done) {
         this.timeout(25000);
-        //change backend to carbon
-        vscode.commands.executeCommand('viper.selectBackend', 'carbon');
-
-        waitForBackendStarted().then(() => {
+        openFile(context, SIMPLE).then(() => {
+            //change backend to carbon
+            vscode.commands.executeCommand('viper.selectBackend', 'carbon');
+            return waitForBackendStarted()
+        }).then(() => {
             //backend ready
             return waitForVerification(CARBON, SIMPLE);
         }).then(() => {
@@ -225,10 +285,10 @@ describe("ViperIDE tests", function () {
     it("Helper Method Tests", function (done) {
         checkAssert(Helper.formatProgress(12.9), "13%", "formatProgress");
         checkAssert(Helper.formatSeconds(12.99), "13.0 seconds", "formatSeconds");
-        checkAssert(Helper.isViperSourceFile("/folder/file.vpr"),true, "isViperSourceFile unix path");
-        checkAssert(Helper.isViperSourceFile("..\\.\\folder\\file.sil"),true, "isViperSourceFile relavive windows path");
-        checkAssert(!Helper.isViperSourceFile("C:\\absolute\\path\\file.ts"),true, "isViperSourceFile absolute windows path");
-        checkAssert(path.basename(Helper.uriToString(Helper.getActiveFileUri())),SIMPLE,"active file");
+        checkAssert(Helper.isViperSourceFile("/folder/file.vpr"), true, "isViperSourceFile unix path");
+        checkAssert(Helper.isViperSourceFile("..\\.\\folder\\file.sil"), true, "isViperSourceFile relavive windows path");
+        checkAssert(!Helper.isViperSourceFile("C:\\absolute\\path\\file.ts"), true, "isViperSourceFile absolute windows path");
+        checkAssert(path.basename(Helper.uriToString(Helper.getActiveFileUri())), SIMPLE, "active file");
         done();
     });
 
