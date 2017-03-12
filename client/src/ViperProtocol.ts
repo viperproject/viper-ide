@@ -536,7 +536,7 @@ export class Common {
     public static executer(command: string): child_process.ChildProcess {
         try {
             Log.log("executer: " + command, LogLevel.Debug)
-            let child: child_process.ChildProcess = child_process.execFile(command, function (error, stdout, stderr) {
+            let child: child_process.ChildProcess = child_process.exec(command, function (error, stdout, stderr) {
                 Log.log('stdout: ' + stdout, LogLevel.LowLevelDebug);
                 Log.log('stderr: ' + stderr, LogLevel.LowLevelDebug);
                 if (error !== null) {

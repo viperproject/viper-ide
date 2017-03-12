@@ -294,24 +294,25 @@ describe("ViperIDE tests", function () {
 
     //must be last test
     it("Test closing all auxilary processes", function (done) {
-        this.timeout(5000);
+        this.timeout(10000);
         context.dispose();
 
-        //wait 1000ms
+        //wait 5000ms
         setTimeout(() => {
             let command: string;
             if (State.isWin) {
                 command = `wmic process where 'name="ng.exe" or name="java.exe" or name="Boogie.exe" or name="z3.exe"' get processid`
             } else if (State.isLinux) {
-                command = 'pgrep -x -l ng; pgrep -x -l z3; pgrep -x -l java; pgrep -x -l Boogie'
+                command = 'pgrep -x -l -u $UID ng; pgrep -x -l -u $UID z3; pgrep -x -l -u $UID java; pgrep -x -l -u $UID Boogie'
             } else {
-                command = 'pgrep -x -l ng; pgrep -x -l z3; pgrep -x -l java; pgrep -x -l Boogie'
+                command = 'pgrep -x -l -u $UID ng; pgrep -x -l -u $UID z3; pgrep -x -l -u $UID java; pgrep -x -l -u $UID Boogie'
             }
             let processesFound = false;
             let pgrep = Common.executer(command);
             pgrep.stdout.on('data', data => {
+                console.log("Running processes: "+data);
                 let stringData = <string>data;
-                if (/^.*?(\d+).*$/.test(stringData)) {
+                if (/^.*?(\d+).*/.test(stringData)) {
                     processesFound = true;
                 }
             });
@@ -320,7 +321,7 @@ describe("ViperIDE tests", function () {
                     done();
                 }
             });
-        }, 1000);
+        }, 5000);
     });
 });
 
