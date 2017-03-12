@@ -27,7 +27,7 @@ export class StatusBar {
         }
     }
 
-    public setCommand(command:string){
+    public setCommand(command: string) {
         this.elem.command = command;
     }
 
@@ -35,7 +35,7 @@ export class StatusBar {
         this.update(this.progressBarText(progress), Color.PROGRESS_BAR, tooltip, show);
     }
     public updateProgressLabel(progressLabel: string, progress: number, totalProgress?: string) {
-        this.update(progressLabel + " " + Helper.formatProgress(progress) + (totalProgress?" "+totalProgress:""), Color.PROGRESS_BAR);
+        this.update(progressLabel + " " + Helper.formatProgress(progress) + (totalProgress ? " " + totalProgress : ""), Color.PROGRESS_BAR);
     }
 
     public show() {
@@ -47,15 +47,10 @@ export class StatusBar {
     }
 
     private progressBarText(progress: number): string {
-        progress = Math.floor(progress);
-        let bar = "";
-        for (var i = 0; i <= progress / 10; i++) {
-            bar = bar + "⚫";
-        }
-        for (var i = 10; i > progress / 10; i--) {
-            bar = bar + "⚪";
-        }
-        return bar;
+        if (progress < 0) progress = 0;
+        if (progress > 100) progress = 100;
+        let completed = Math.floor(progress / 10);
+        return "⚫".repeat(completed) + "⚪".repeat(10 - completed);
     }
 }
 

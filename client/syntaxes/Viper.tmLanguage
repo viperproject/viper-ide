@@ -250,28 +250,10 @@
         <key>patterns</key>
         <array>
           <dict>
-            <key>captures</key>
-            <dict>
-              <key>1</key>
-              <dict>
-                <key>name</key>
-                <string>keyword.other.verification.expression.silver</string>
-              </dict>
-              <key>2</key>
-              <dict>
-                <key>name</key>
-                <string>punctuation.separator.forall.silver</string>
-              </dict>
-            </dict>
             <key>match</key>
-            <string>\b(forall)\s+.*?\s+(::)</string>
+            <string>::</string>
             <key>name</key>
-            <string>meta.forall.silver</string>
-            <key>patterns</key>
-            <dict>
-              <key>include</key>
-              <string>#trigger-list</string>
-            </dict>
+            <string>punctuation.separator.forall.silver</string>
           </dict>
           <dict>
             <key>match</key>

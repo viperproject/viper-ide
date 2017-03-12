@@ -13,11 +13,7 @@ import { Statement } from './Statement';
 import { DebugServer } from './DebugServer';
 import { Server } from './ServerClass';
 import * as fs from 'fs';
-import * as http from 'http';
 import * as pathHelper from 'path';
-let mkdirp = require('mkdirp');
-var DecompressZip = require('decompress-zip');
-let sudo = require('sudo-prompt');
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 Server.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
@@ -148,8 +144,7 @@ function registerHandlers() {
             Log.error("No verification task found for file: " + uri);
             return false;
         } else if (!Server.nailgunService.isReady()) {
-            if (manuallyTriggered)
-                Log.hint("The verification backend is not ready yet");
+            if (manuallyTriggered) Log.hint("The verification backend is not ready yet");
             Log.error("The verification backend is not ready yet");
             return false;
         }
@@ -199,11 +194,11 @@ function registerHandlers() {
 
             //this ugly cast is needed because of a bug in typesript:
             //https://github.com/Microsoft/TypeScript/issues/10242
-            (<Promise<void>>makeSureFileExistsAndCheckForWritePermission(viperToolsPath).then(error => {
+            (<Promise<void>>Server.makeSureFileExistsAndCheckForWritePermission(viperToolsPath).then(error => {
                 if (error && !Settings.isWin && error.startsWith("EACCES")) {
                     //change the owner of the location 
                     Log.log("Try to change the ownership of " + dir, LogLevel.Debug);
-                    return sudoMakeSureFileExistsAndSetOwner(dir)
+                    return Server.sudoMakeSureFileExistsAndSetOwner(dir)
                 } else {
                     return error;
                 }
@@ -214,10 +209,10 @@ function registerHandlers() {
                 //download Viper Tools
                 let url = <string>Settings.settings.preferences.viperToolsProvider;
                 Log.log("Downloading ViperTools from " + url + " ...", LogLevel.Default)
-                return download(url, viperToolsPath);
+                return Server.download(url, viperToolsPath);
             }).then(success => {
                 if (success) {
-                    return extract(viperToolsPath);
+                    return Server.extract(viperToolsPath);
                 } else {
                     throw ("Downloading viper tools unsuccessful.");
                 }
@@ -394,216 +389,6 @@ function registerHandlers() {
     });
 }
 
-function download(url, filePath): Thenable<boolean> {
-    return new Promise((resolve, reject) => {
-        try {
-            Log.startProgress();
-            let file = fs.createWriteStream(filePath);
-            let request = http.get(url, function (response) {
-                response.pipe(file);
-
-                //download progress 
-                let len = parseInt(response.headers['content-length'], 10);
-                let cur = 0;
-                response.on("data", function (chunk) {
-                    cur += chunk.length;
-                    Log.progress("Download Viper Tools", cur, len, LogLevel.Debug);
-                });
-
-                file.on('finish', function () {
-                    file.close();
-                    resolve(true);
-                });
-                request.on('error', function (err) {
-                    fs.unlink(filePath);
-                    Log.error("Error downloading viper tools: " + err.message);
-                    resolve(false);
-                });
-            });
-        } catch (e) {
-            Log.error("Error downloading viper tools: " + e);
-        }
-    });
-};
-
-function extract(filePath: string): Thenable<boolean> {
-    return new Promise((resolve, reject) => {
-        try {
-            //extract files
-            Log.log("Extracting files...", LogLevel.Info)
-            Log.startProgress();
-            let unzipper = new DecompressZip(filePath);
-
-            unzipper.on('progress', function (fileIndex, fileCount) {
-                Log.progress("Extracting Viper Tools", fileIndex + 1, fileCount, LogLevel.Debug);
-            });
-
-            unzipper.on('error', function (e) {
-                if (e.code && e.code == 'ENOENT') {
-                    Log.error("Error updating the Viper Tools, missing create file permission in the viper tools directory: " + e);
-                } else if (e.code && e.code == 'EACCES') {
-                    Log.error("Error extracting " + filePath + ": " + e + " | " + e.message);
-                } else {
-                    Log.error("Error extracting " + filePath + ": " + e);
-                }
-                resolve(false);
-            });
-
-            unzipper.on('extract', function (log) {
-                resolve(true);
-            });
-
-            unzipper.extract({
-                path: pathHelper.dirname(filePath),
-                filter: function (file) {
-                    return file.type !== "SymbolicLink";
-                }
-            });
-        } catch (e) {
-            Log.error("Error extracting viper tools: " + e);
-            resolve(false);
-        }
-    });
-}
-
-function getParentDir(fileOrFolderPath: string): string {
-    if (!fileOrFolderPath) return null;
-    let obj = pathHelper.parse(fileOrFolderPath);
-    if (obj.base) {
-        return obj.dir;
-    }
-    let folderPath = obj.dir;
-    let match = folderPath.match(/(^.*)[\/\\].+$/); //the regex retrieves the parent directory
-    if (match) {
-        if (match[1] == fileOrFolderPath) {
-            Log.error("getParentDir has a fixpoint at " + fileOrFolderPath);
-            return null;
-        }
-        return match[1];
-    }
-    else {
-        return null
-    }
-}
-
-function checkForCreateAndWriteAccess(folderPath: string): Thenable<string> {
-    return new Promise((resolve, reject) => {
-        if (!folderPath) {
-            resolve("No access"); //TODO: when does that happens?
-        }
-        fs.stat((folderPath), (err, stats) => {
-            if (err) {
-                if (err.code == 'ENOENT') {
-                    //no such file or directory
-                    checkForCreateAndWriteAccess(getParentDir(folderPath)).then(err => {
-                        //pass along the error
-                        resolve(err);
-                    });
-                }
-                else if (err.code == 'EACCES') {
-                    resolve("No read permission");
-                } else {
-                    resolve(err.message);
-                }
-            }
-            let writePermissions = stats.mode & 0x92;
-            if (writePermissions) {
-                resolve(null);
-            } else {
-                resolve("No write permission");
-            }
-        });
-    });
-}
-
-//TODO: test on windows and linux
-function sudoMakeSureFileExistsAndSetOwner(filePath: string): Thenable<string> {
-    return new Promise((resolve, reject) => {
-        let command: string;
-        let user = getUser();
-        if (Settings.isWin) {
-            command = 'takeown /f "'+filePath+'" /r /d y; icacls "'+filePath+'" /grant %USERNAME%:F /t /q';
-        } else if (Settings.isLinux) {
-            command = `sh -c "mkdir -p '` + filePath + `'; chown -R ` + user + `:` + user + ` '` + filePath + `'"`;
-        } else {
-            command = `sh -c "mkdir -p '` + filePath + `'; chown -R ` + user + `:staff '` + filePath + `'"`;
-        }
-        Common.sudoExecuter(command, "ViperTools Installer", () => {
-            resolve()
-        });
-    });
-}
-
-function getUser(): string {
-    if (Settings.isLinux) {
-        return process.env["USER"];
-    } else if (Settings.isMac) {
-        return process.env["USER"];
-    } else {
-        Log.error("getUser is unimplemented for Windows")//TODO: implement
-        return;
-    }
-}
-
-//the user and group need to be specified via UID and GID not username
-//Only works for linux
-// function changeOwnershipToCurrentUser(filePath: string): Thenable<any> {
-//     return new Promise((resolve, reject) => {
-//         if (!filePath) {
-//             resolve("Cannot change ownership");
-//         }
-//         else if (!Settings.isLinux) {
-//             resolve("Change Ownership is currently only supported for Linux.");
-//         } else {
-//             let user = getUser();
-//             fs.chown(filePath, user, user, (err) => {
-//                 if (err) {
-//                     changeOwnershipToCurrentUser(getParentDir(filePath)).then(err => {
-//                         resolve(err);
-//                     })
-//                 } else {
-//                     resolve(null);
-//                 }
-//             });
-//         }
-//     });
-// }
-
-function makeSureFileExistsAndCheckForWritePermission(filePath: string, firstTry = true): Thenable<any> {
-    return new Promise((resolve, reject) => {
-        try {
-            let folder = pathHelper.dirname(filePath);
-            mkdirp(folder, (err) => {
-                if (err && err.code != 'EEXIST') {
-                    resolve(err.code + ": Error creating " + folder + " " + err.message);
-                } else {
-                    fs.open(filePath, 'a', (err, file) => {
-                        if (err) {
-                            resolve(err.code + ": Error opening " + filePath + " " + err.message)
-                        } else {
-                            fs.close(file, err => {
-                                if (err) {
-                                    resolve(err.code + ": Error closing " + filePath + " " + err.message)
-                                } else {
-                                    fs.access(filePath, 2, (e) => { //fs.constants.W_OK is 2
-                                        if (e) {
-                                            resolve(e.code + ": Error accessing " + filePath + " " + e.message)
-                                        } else {
-                                            resolve(null);
-                                        }
-                                    });
-                                }
-                            });
-                        }
-                    });
-                }
-            });
-        } catch (e) {
-            resolve(e);
-        }
-    });
-}
-
 function resetDiagnostics(uri: string) {
     let task = Server.verificationTasks.get(uri);
     if (!task) {
@@ -622,16 +407,6 @@ function checkSettingsAndRestartBackendIfNeeded(oldSettings: ViperSettings, sele
             }
             let newBackend = Settings.autoselectBackend(Settings.settings);
             if (newBackend) {
-
-                // Log.log("no nailgun ready: " + !Server.nailgunService.isReady());
-                // Log.log("backends changed: " + !Settings.backendEquals(Server.backend, newBackend));
-                // Log.log("nailgunSettings changed: " + (oldSettings && (newBackend.useNailgun && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings)))));
-                // if (oldSettings) {
-                //     Log.log("old:" + JSON.stringify(oldSettings.nailgunSettings));
-                //     Log.log("new:" + JSON.stringify(Settings.settings.nailgunSettings));
-                // }
-                // Log.log("viperToolsUpdated " + viperToolsUpdated);
-
                 //only restart the backend after settings changed if the active backend was affected
                 let restartBackend = !Server.nailgunService.isReady() //backend is not ready -> restart
                     || !Settings.backendEquals(Server.backend, newBackend) //change in backend

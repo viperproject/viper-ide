@@ -1,13 +1,18 @@
 'use strict'
 
 import { IConnection, TextDocuments, PublishDiagnosticsParams } from 'vscode-languageserver';
-import { ProgressParams, Command, LogParams, SettingsCheckedParams, Position, Range, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel } from './ViperProtocol'
+import { Common, ProgressParams, Command, LogParams, SettingsCheckedParams, Position, Range, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel } from './ViperProtocol'
 import { NailgunService } from './NailgunService';
 import { VerificationTask } from './VerificationTask';
 import { Log } from './Log';
+import { Settings } from './Settings';
 import * as pathHelper from 'path';
+import * as fs from 'fs';
+import * as http from 'http';
 const os = require('os');
 const globToRexep = require('glob-to-regexp');
+let mkdirp = require('mkdirp');
+var DecompressZip = require('decompress-zip');
 
 export class Server {
     static backend: Backend;
@@ -202,5 +207,194 @@ export class Server {
             end = start
         }
         return { start: start, end: end };
+    }
+
+    //file system helper methods
+
+    public static getUser(): string {
+        if (Settings.isLinux) {
+            return process.env["USER"];
+        } else if (Settings.isMac) {
+            return process.env["USER"];
+        } else {
+            Log.error("getUser is unimplemented for Windows")//TODO: implement
+            return;
+        }
+    }
+
+    public static makeSureFileExistsAndCheckForWritePermission(filePath: string, firstTry = true): Thenable<any> {
+        return new Promise((resolve, reject) => {
+            try {
+                let folder = pathHelper.dirname(filePath);
+                mkdirp(folder, (err) => {
+                    if (err && err.code != 'EEXIST') {
+                        resolve(err.code + ": Error creating " + folder + " " + err.message);
+                    } else {
+                        fs.open(filePath, 'a', (err, file) => {
+                            if (err) {
+                                resolve(err.code + ": Error opening " + filePath + " " + err.message)
+                            } else {
+                                fs.close(file, err => {
+                                    if (err) {
+                                        resolve(err.code + ": Error closing " + filePath + " " + err.message)
+                                    } else {
+                                        fs.access(filePath, 2, (e) => { //fs.constants.W_OK is 2
+                                            if (e) {
+                                                resolve(e.code + ": Error accessing " + filePath + " " + e.message)
+                                            } else {
+                                                resolve(null);
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+            } catch (e) {
+                resolve(e);
+            }
+        });
+    }
+
+    public static download(url, filePath): Thenable<boolean> {
+        return new Promise((resolve, reject) => {
+            try {
+                Log.startProgress();
+                let file = fs.createWriteStream(filePath);
+                let request = http.get(url, function (response) {
+                    response.pipe(file);
+
+                    //download progress 
+                    let len = parseInt(response.headers['content-length'], 10);
+                    let cur = 0;
+                    response.on("data", function (chunk) {
+                        cur += chunk.length;
+                        Log.progress("Download Viper Tools", cur, len, LogLevel.Debug);
+                    });
+
+                    file.on('finish', function () {
+                        file.close();
+                        resolve(true);
+                    });
+                    request.on('error', function (err) {
+                        fs.unlink(filePath);
+                        Log.error("Error downloading viper tools: " + err.message);
+                        resolve(false);
+                    });
+                });
+            } catch (e) {
+                Log.error("Error downloading viper tools: " + e);
+            }
+        });
+    };
+
+    public static extract(filePath: string): Thenable<boolean> {
+        return new Promise((resolve, reject) => {
+            try {
+                //extract files
+                Log.log("Extracting files...", LogLevel.Info)
+                Log.startProgress();
+                let unzipper = new DecompressZip(filePath);
+
+                unzipper.on('progress', function (fileIndex, fileCount) {
+                    Log.progress("Extracting Viper Tools", fileIndex + 1, fileCount, LogLevel.Debug);
+                });
+
+                unzipper.on('error', function (e) {
+                    if (e.code && e.code == 'ENOENT') {
+                        Log.error("Error updating the Viper Tools, missing create file permission in the viper tools directory: " + e);
+                    } else if (e.code && e.code == 'EACCES') {
+                        Log.error("Error extracting " + filePath + ": " + e + " | " + e.message);
+                    } else {
+                        Log.error("Error extracting " + filePath + ": " + e);
+                    }
+                    resolve(false);
+                });
+
+                unzipper.on('extract', function (log) {
+                    resolve(true);
+                });
+
+                unzipper.extract({
+                    path: pathHelper.dirname(filePath),
+                    filter: function (file) {
+                        return file.type !== "SymbolicLink";
+                    }
+                });
+            } catch (e) {
+                Log.error("Error extracting viper tools: " + e);
+                resolve(false);
+            }
+        });
+    }
+
+    public static getParentDir(fileOrFolderPath: string): string {
+        if (!fileOrFolderPath) return null;
+        let obj = pathHelper.parse(fileOrFolderPath);
+        if (obj.base) {
+            return obj.dir;
+        }
+        let folderPath = obj.dir;
+        let match = folderPath.match(/(^.*)[\/\\].+$/); //the regex retrieves the parent directory
+        if (match) {
+            if (match[1] == fileOrFolderPath) {
+                Log.error("getParentDir has a fixpoint at " + fileOrFolderPath);
+                return null;
+            }
+            return match[1];
+        }
+        else {
+            return null
+        }
+    }
+
+    //TODO: test on windows and linux
+    public static sudoMakeSureFileExistsAndSetOwner(filePath: string): Thenable<string> {
+        return new Promise((resolve, reject) => {
+            let command: string;
+            let user = Server.getUser();
+            if (Settings.isWin) {
+                command = 'takeown /f "' + filePath + '" /r /d y; icacls "' + filePath + '" /grant %USERNAME%:F /t /q';
+            } else if (Settings.isLinux) {
+                command = `sh -c "mkdir -p '` + filePath + `'; chown -R ` + user + `:` + user + ` '` + filePath + `'"`;
+            } else {
+                command = `sh -c "mkdir -p '` + filePath + `'; chown -R ` + user + `:staff '` + filePath + `'"`;
+            }
+            Common.sudoExecuter(command, "ViperTools Installer", () => {
+                resolve()
+            });
+        });
+    }
+
+    //unused
+    public static checkForCreateAndWriteAccess(folderPath: string): Thenable<string> {
+        return new Promise((resolve, reject) => {
+            if (!folderPath) {
+                resolve("No access"); //TODO: when does that happens?
+            }
+            fs.stat((folderPath), (err, stats) => {
+                if (err) {
+                    if (err.code == 'ENOENT') {
+                        //no such file or directory
+                        this.checkForCreateAndWriteAccess(this.getParentDir(folderPath)).then(err => {
+                            //pass along the error
+                            resolve(err);
+                        });
+                    }
+                    else if (err.code == 'EACCES') {
+                        resolve("No read permission");
+                    } else {
+                        resolve(err.message);
+                    }
+                }
+                let writePermissions = stats.mode & 0x92;
+                if (writePermissions) {
+                    resolve(null);
+                } else {
+                    resolve("No write permission");
+                }
+            });
+        });
     }
 }

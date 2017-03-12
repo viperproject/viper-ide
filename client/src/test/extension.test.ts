@@ -207,9 +207,9 @@ describe("ViperIDE tests", function () {
 
     it("Stress test 1: multiple fast verification requests", function (done) {
         this.timeout(11000);
+        internalErrorDetected = false;
 
         let verificationDone = false;
-        internalErrorDetected = false;
 
         let timer = setTimeout(() => {
             //the file should be verified exactly once
@@ -236,8 +236,25 @@ describe("ViperIDE tests", function () {
         });
     });
 
-    it("Stress test 2: quickly start, stop, and restart verification", function (done) {
+    // it("Stress test 2: quickly change backends", function (done) {
+    //     this.timeout(20000);
+    //     internalErrorDetected = false;
+    //     vscode.commands.executeCommand('viper.selectBackend', 'carbon');
+    //     wait(500).then(() => {
+    //         vscode.commands.executeCommand('viper.selectBackend', 'silicon');
+    //         return waitForVerification(SILICON, SIMPLE);
+    //     }).then(() => {
+    //         if (internalErrorDetected) {
+    //             throw "Internal error detected";
+    //         } else {
+    //             done();
+    //         }
+    //     });
+    // });
+
+    it("Stress test 3: quickly start, stop, and restart verification", function (done) {
         this.timeout(15000);
+        internalErrorDetected = false;
 
         vscode.commands.executeCommand('viper.verify');
         vscode.commands.executeCommand('viper.stopVerification');
@@ -251,8 +268,9 @@ describe("ViperIDE tests", function () {
         });
     });
 
-    it("Stress test 3: closing all files right after starting verificaiton", function (done) {
+    it("Stress test 4: closing all files right after starting verificaiton", function (done) {
         this.timeout(6000);
+        internalErrorDetected = false;
 
         let timer = setTimeout(() => {
             //no internal error must happen
@@ -310,7 +328,7 @@ describe("ViperIDE tests", function () {
             let processesFound = false;
             let pgrep = Common.executer(command);
             pgrep.stdout.on('data', data => {
-                console.log("Running processes: "+data);
+                console.log("Running processes: " + data);
                 let stringData = <string>data;
                 if (/^.*?(\d+).*/.test(stringData)) {
                     processesFound = true;
