@@ -18,7 +18,8 @@
         "portfinder": "^1.0.13",
         "mkdirp": "^0.5.1",
         "glob-to-regexp": "^0.3.0",
-        "decompress-zip": "^0.3.0"
+        "decompress-zip": "^0.3.0",
+        "sudo-prompt": "6.2.1"
     },
     "devDependencies": {
         "@types/node": "^6.0.52",

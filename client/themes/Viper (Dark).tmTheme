@@ -52,6 +52,8 @@
 			<string>comment</string>
 			<key>settings</key>
 			<dict>
+				<key>fontStyle</key>
+				<string>italic</string>
 				<key>foreground</key>
 				<string>#95917E</string>
 			</dict>
@@ -104,7 +106,7 @@
 			<key>name</key>
 			<string>Variable</string>
 			<key>scope</key>
-			<string>variable</string>
+			<string>variable, variable.language, variable.other</string>
 			<key>settings</key>
 			<dict>
 				<key>fontStyle</key>
@@ -115,7 +117,7 @@
 			<key>name</key>
 			<string>Keyword</string>
 			<key>scope</key>
-			<string>keyword</string>
+			<string>keyword, support.constant.property-value, constant.other.color</string>
 			<key>settings</key>
 			<dict>
 				<key>foreground</key>
@@ -181,8 +183,6 @@
 			<string>entity.name.function</string>
 			<key>settings</key>
 			<dict>
-				<key>fontStyle</key>
-				<string></string>
 				<key>foreground</key>
 				<string>#A6E22E</string>
 			</dict>
@@ -233,8 +233,6 @@
 			<string>support.function</string>
 			<key>settings</key>
 			<dict>
-				<key>fontStyle</key>
-				<string></string>
 				<key>foreground</key>
 				<string>#66D9EF</string>
 			</dict>
@@ -246,8 +244,6 @@
 			<string>support.constant</string>
 			<key>settings</key>
 			<dict>
-				<key>fontStyle</key>
-				<string></string>
 				<key>foreground</key>
 				<string>#66D9EF</string>
 			</dict>
@@ -271,10 +267,7 @@
 			<key>scope</key>
 			<string>support.other.variable</string>
 			<key>settings</key>
-			<dict>
-				<key>fontStyle</key>
-				<string></string>
-			</dict>
+			<dict/>
 		</dict>
 		<dict>
 			<key>name</key>
@@ -283,12 +276,8 @@
 			<string>invalid</string>
 			<key>settings</key>
 			<dict>
-				<key>background</key>
-				<string>#F92672</string>
-				<key>fontStyle</key>
-				<string></string>
 				<key>foreground</key>
-				<string>#F8F8F0</string>
+				<string>#FF002A</string>
 			</dict>
 		</dict>
 		<dict>
@@ -298,10 +287,8 @@
 			<string>invalid.deprecated</string>
 			<key>settings</key>
 			<dict>
-				<key>background</key>
-				<string>#AE81FF</string>
 				<key>foreground</key>
-				<string>#F8F8F0</string>
+				<string>#AE81FF</string>
 			</dict>
 		</dict>
 		<dict>
@@ -402,12 +389,10 @@
 			<string>output.error</string>
 			<key>settings</key>
 			<dict>
-				<key>background</key>
-				<string>#FF0000</string>
 				<key>fontStyle</key>
 				<string></string>
 				<key>foreground</key>
-				<string>#F8F8F0</string>
+				<string>#FF0000</string>
 			</dict>
 		</dict>
 		<dict>
@@ -415,12 +400,10 @@
 			<string>output.success</string>
 			<key>settings</key>
 			<dict>
-				<key>background</key>
-				<string>#009900</string>
 				<key>fontStyle</key>
 				<string></string>
 				<key>foreground</key>
-				<string>#F8F8F0</string>
+				<string>#009900</string>
 			</dict>
 		</dict>
 		<dict>

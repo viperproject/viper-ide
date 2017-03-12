@@ -3,6 +3,7 @@
 import Uri from 'vscode-uri/lib/index';
 import child_process = require('child_process');
 import { Log } from './Log';
+var sudo = require('sudo-prompt');
 
 //Global interfaces:
 
@@ -533,9 +534,9 @@ export class Common {
 
     //Helper methods for child processes
     public static executer(command: string): child_process.ChildProcess {
-        Log.log("executer: " + command, LogLevel.Debug)
         try {
-            let child = child_process.exec(command, function (error, stdout, stderr) {
+            Log.log("executer: " + command, LogLevel.Debug)
+            let child: child_process.ChildProcess = child_process.execFile(command, function (error, stdout, stderr) {
                 Log.log('stdout: ' + stdout, LogLevel.LowLevelDebug);
                 Log.log('stderr: ' + stderr, LogLevel.LowLevelDebug);
                 if (error !== null) {
@@ -546,6 +547,19 @@ export class Common {
         } catch (e) {
             Log.error("Error executing " + command + ": " + e);
         }
+    }
+
+    public static sudoExecuter(command: string, name: string, callback) {
+        Log.log("sudo-executer: " + command, LogLevel.Debug)
+        let options = { name: name }
+        let child = sudo.exec(command, options, function (error, stdout, stderr) {
+            Log.log('stdout: ' + stdout, LogLevel.LowLevelDebug);
+            Log.log('stderr: ' + stderr, LogLevel.LowLevelDebug);
+            if (error) {
+                Log.error('sudo-executer error: ' + error);
+            }
+            callback();
+        });
     }
 
     public static spawner(command: string, args: string[]): child_process.ChildProcess {

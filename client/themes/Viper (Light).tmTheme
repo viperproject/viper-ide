@@ -47,8 +47,6 @@
 			<string>string</string>
 			<key>settings</key>
 			<dict>
-				<key>fontStyle</key>
-				<string></string>
 				<key>foreground</key>
 				<string>#5D90CD</string>
 			</dict>
@@ -89,7 +87,7 @@
 			<key>name</key>
 			<string>Variable</string>
 			<key>scope</key>
-			<string>variable.language, variable.other</string>
+			<string>variable, variable.language, variable.other</string>
 			<key>settings</key>
 			<dict>
 				<key>fontStyle</key>
@@ -143,7 +141,20 @@
 				<key>fontStyle</key>
 				<string></string>
 				<key>foreground</key>
-				<string>#000</string>
+				<string>#000000</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Storage type</string>
+			<key>scope</key>
+			<string>storage.type</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string>italic</string>
+				<key>foreground</key>
+				<string>#66D9EF</string>
 			</dict>
 		</dict>
 		<dict>
@@ -154,7 +165,7 @@
 			<key>settings</key>
 			<dict>
 				<key>fontStyle</key>
-				<string></string>
+				<string>underline</string>
 				<key>foreground</key>
 				<string>#27a6b4</string>
 			</dict>
@@ -167,7 +178,7 @@
 			<key>settings</key>
 			<dict>
 				<key>fontStyle</key>
-				<string></string>
+				<string>italic underline</string>
 				<key>foreground</key>
 				<string>#858585</string>
 			</dict>
@@ -179,8 +190,6 @@
 			<string>entity.name.function</string>
 			<key>settings</key>
 			<dict>
-				<key>fontStyle</key>
-				<string></string>
 				<key>foreground</key>
 				<string>#5319b5</string>
 			</dict>
@@ -191,7 +200,12 @@
 			<key>scope</key>
 			<string>variable.parameter</string>
 			<key>settings</key>
-			<dict/>
+			<dict>
+				<key>fontStyle</key>
+				<string>italic</string>
+				<key>foreground</key>
+				<string>#FD971F</string>
+			</dict>
 		</dict>
 		<dict>
 			<key>name</key>
@@ -208,28 +222,6 @@
 		</dict>
 		<dict>
 			<key>name</key>
-			<string>HTML Entity</string>
-			<key>scope</key>
-			<string>constant.character.entity</string>
-			<key>settings</key>
-			<dict>
-				<key>foreground</key>
-				<string>#BF78CC</string>
-			</dict>
-		</dict>
-		<dict>
-			<key>name</key>
-			<string>JS Support Class</string>
-			<key>scope</key>
-			<string>support.class.js</string>
-			<key>settings</key>
-			<dict>
-				<key>foreground</key>
-				<string>#BF78CC</string>
-			</dict>
-		</dict>
-		<dict>
-			<key>name</key>
 			<string>Tag attribute</string>
 			<key>scope</key>
 			<string>entity.other.attribute-name</string>
@@ -239,30 +231,6 @@
 				<string></string>
 				<key>foreground</key>
 				<string>#606060</string>
-			</dict>
-		</dict>
-		<dict>
-			<key>name</key>
-			<string>CSS Selector</string>
-			<key>scope</key>
-			<string>meta.selector.css, entity.name.tag.css, entity.other.attribute-name.id.css, entity.other.attribute-name.class.css</string>
-			<key>settings</key>
-			<dict>
-				<key>fontStyle</key>
-				<string></string>
-				<key>foreground</key>
-				<string>#C52727</string>
-			</dict>
-		</dict>
-		<dict>
-			<key>name</key>
-			<string>CSS Property</string>
-			<key>scope</key>
-			<string>meta.property-name.css</string>
-			<key>settings</key>
-			<dict>
-				<key>foreground</key>
-				<string>#484848</string>
 			</dict>
 		</dict>
 		<dict>
@@ -282,7 +250,10 @@
 			<key>scope</key>
 			<string>support.constant</string>
 			<key>settings</key>
-			<dict/>
+			<dict>
+				<key>foreground</key>
+				<string>#C52727</string>
+			</dict>
 		</dict>
 		<dict>
 			<key>name</key>
@@ -290,7 +261,12 @@
 			<key>scope</key>
 			<string>support.type, support.class</string>
 			<key>settings</key>
-			<dict/>
+			<dict>
+				<key>fontStyle</key>
+				<string>italic</string>
+				<key>foreground</key>
+				<string>#C52727</string>
+			</dict>
 		</dict>
 		<dict>
 			<key>name</key>
@@ -298,10 +274,7 @@
 			<key>scope</key>
 			<string>support.other.variable</string>
 			<key>settings</key>
-			<dict>
-				<key>fontStyle</key>
-				<string></string>
-			</dict>
+			<dict/>
 		</dict>
 		<dict>
 			<key>name</key>
@@ -312,6 +285,28 @@
 			<dict>
 				<key>background</key>
 				<string>#FF002A</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Invalid deprecated</string>
+			<key>scope</key>
+			<string>invalid.deprecated</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#AE81FF</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>JSON String</string>
+			<key>scope</key>
+			<string>meta.structure.dictionary.json string.quoted.double.json</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#6F6F62</string>
 			</dict>
 		</dict>
 		<dict>
@@ -353,15 +348,22 @@
 		</dict>
 		<dict>
 			<key>scope</key>
+			<string>message.error</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#F83333</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>scope</key>
 			<string>output.error</string>
 			<key>settings</key>
 			<dict>
-				<key>background</key>
-				<string>#FF0000</string>
 				<key>fontStyle</key>
 				<string></string>
 				<key>foreground</key>
-				<string>#F8F8F0</string>
+				<string>#FF0000</string>
 			</dict>
 		</dict>
 		<dict>
@@ -369,39 +371,50 @@
 			<string>output.success</string>
 			<key>settings</key>
 			<dict>
-				<key>background</key>
-				<string>#009900</string>
 				<key>fontStyle</key>
 				<string></string>
 				<key>foreground</key>
-				<string>#F8F8F0</string>
+				<string>#009900</string>
 			</dict>
 		</dict>
 		<dict>
 			<key>scope</key>
-			<string>keyword.declaration.silver, keyword.declaration.fields.silver, keyword.declaration.variables.silver, keyword.declaration.namedassertions.silver, keyword.other.permissions.silver, keyword.other.contracts.silver, keyword.other.other.silver</string>
+			<string>keyword.declaration.variables.silver, keyword.declaration.namedassertions.silver, keyword.other.permissions.silver, keyword.other.verification.statement.silver, keyword.other.other.silver</string>
 			<key>settings</key>
 			<dict>
 				<key>foreground</key>
-				<string>#000080</string>
+				<string>#8E61DF</string>
 			</dict>
 		</dict>
 		<dict>
 			<key>scope</key>
-			<string>keyword.other.verification.silver, keyword.control.flow.silver</string>
+			<string>keyword.control.flow.silver</string>
 			<key>settings</key>
 			<dict>
+				<key>fontStyle</key>
+				<string>bold</string>
 				<key>foreground</key>
-				<string>#004000</string>
+				<string>#8E61DF</string>
 			</dict>
 		</dict>
 		<dict>
 			<key>scope</key>
-			<string>keyword.other.permissions.silver</string>
+			<string>keyword.other.verification.expression.silver</string>
 			<key>settings</key>
 			<dict>
 				<key>foreground</key>
 				<string>#FF8000</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>scope</key>
+			<string>keyword.other.verification.contracts.silver</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string>bold italic</string>
+				<key>foreground</key>
+				<string>#007700</string>
 			</dict>
 		</dict>
 		<dict>
@@ -418,8 +431,10 @@
 			<string>keyword.warning.silver</string>
 			<key>settings</key>
 			<dict>
-				<key>background</key>
-				<string>#990000</string>
+				<key>fontStyle</key>
+				<string>bold italic</string>
+				<key>foreground</key>
+				<string>#ff0000</string>
 			</dict>
 		</dict>
 		<dict>

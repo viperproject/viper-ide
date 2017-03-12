@@ -154,14 +154,14 @@ export class NailgunService {
                     if (running) {
                         resolve(true);
                     } else {
-                        Log.log("Nailgun server should be running, however, it is not running yet. -> retry after 100ms", LogLevel.Info);
+                        Log.log("Nailgun server should be running, however, it is not running yet. -> retry after 200ms", LogLevel.Info);
                         setTimeout(() => {
                             this.waitForNailgunToStart(retriesLeft - 1).then(success => {
                                 resolve(success);
                             }, reject => {
                                 resolve(false);
                             });
-                        }, 100);
+                        }, 200);
                     }
                 });
             } catch (e) {

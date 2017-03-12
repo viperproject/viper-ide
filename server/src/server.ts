@@ -1,11 +1,12 @@
 'use strict';
+import { settings } from 'cluster';
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 
 import { IPCMessageReader, IPCMessageWriter, createConnection, InitializeResult } from 'vscode-languageserver';
 import { Log } from './Log';
 import { Settings } from './Settings'
-import { StateColors, ExecutionTrace, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams } from './ViperProtocol'
+import { Common, StateColors, ExecutionTrace, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams } from './ViperProtocol'
 import { NailgunService } from './NailgunService';
 import { VerificationTask } from './VerificationTask';
 import { Statement } from './Statement';
@@ -16,6 +17,7 @@ import * as http from 'http';
 import * as pathHelper from 'path';
 let mkdirp = require('mkdirp');
 var DecompressZip = require('decompress-zip');
+let sudo = require('sudo-prompt');
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 Server.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
@@ -198,11 +200,13 @@ function registerHandlers() {
             //this ugly cast is needed because of a bug in typesript:
             //https://github.com/Microsoft/TypeScript/issues/10242
             (<Promise<void>>makeSureFileExistsAndCheckForWritePermission(viperToolsPath).then(error => {
-                if (error && Settings.isLinux && error.startsWith("EACCES")) {
+                if (error && !Settings.isWin && error.startsWith("EACCES")) {
                     //change the owner of the location 
-                    return makeSureFileExistsAndCheckForWritePermission(viperToolsPath)
+                    Log.log("Try to change the ownership of " + dir, LogLevel.Debug);
+                    return sudoMakeSureFileExistsAndSetOwner(dir)
+                } else {
+                    return error;
                 }
-                return error;
             }).then(error => {
                 if (error) {
                     throw ("The Viper Tools Update failed, change the ViperTools directory to a folder in which you have permission to create files. " + error);
@@ -471,6 +475,10 @@ function getParentDir(fileOrFolderPath: string): string {
     let folderPath = obj.dir;
     let match = folderPath.match(/(^.*)[\/\\].+$/); //the regex retrieves the parent directory
     if (match) {
+        if (match[1] == fileOrFolderPath) {
+            Log.error("getParentDir has a fixpoint at " + fileOrFolderPath);
+            return null;
+        }
         return match[1];
     }
     else {
@@ -508,28 +516,58 @@ function checkForCreateAndWriteAccess(folderPath: string): Thenable<string> {
     });
 }
 
-//Only works for linux
-function changeOwnershipToCurrentUser(filePath: string): Thenable<any> {
+//TODO: test on windows and linux
+function sudoMakeSureFileExistsAndSetOwner(filePath: string): Thenable<string> {
     return new Promise((resolve, reject) => {
-        if (!filePath) {
-            resolve("Cannot change ownership");
-        }
-        else if (!Settings.isLinux) {
-            resolve("Change Ownership is currently only supported for Linux.");
+        let command: string;
+        let user = getUser();
+        if (Settings.isWin) {
+            command = 'takeown /f "'+filePath+'" /r /d y; icacls "'+filePath+'" /grant %USERNAME%:F /t /q';
+        } else if (Settings.isLinux) {
+            command = `sh -c "mkdir -p '` + filePath + `'; chown -R ` + user + `:` + user + ` '` + filePath + `'"`;
         } else {
-            let user = process.env["USER"];
-            fs.chown(filePath, user, user, (err) => {
-                if (err) {
-                    changeOwnershipToCurrentUser(getParentDir(filePath)).then(err => {
-                        resolve(err);
-                    })
-                } else {
-                    resolve(null);
-                }
-            });
+            command = `sh -c "mkdir -p '` + filePath + `'; chown -R ` + user + `:staff '` + filePath + `'"`;
         }
+        Common.sudoExecuter(command, "ViperTools Installer", () => {
+            resolve()
+        });
     });
 }
+
+function getUser(): string {
+    if (Settings.isLinux) {
+        return process.env["USER"];
+    } else if (Settings.isMac) {
+        return process.env["USER"];
+    } else {
+        Log.error("getUser is unimplemented for Windows")//TODO: implement
+        return;
+    }
+}
+
+//the user and group need to be specified via UID and GID not username
+//Only works for linux
+// function changeOwnershipToCurrentUser(filePath: string): Thenable<any> {
+//     return new Promise((resolve, reject) => {
+//         if (!filePath) {
+//             resolve("Cannot change ownership");
+//         }
+//         else if (!Settings.isLinux) {
+//             resolve("Change Ownership is currently only supported for Linux.");
+//         } else {
+//             let user = getUser();
+//             fs.chown(filePath, user, user, (err) => {
+//                 if (err) {
+//                     changeOwnershipToCurrentUser(getParentDir(filePath)).then(err => {
+//                         resolve(err);
+//                     })
+//                 } else {
+//                     resolve(null);
+//                 }
+//             });
+//         }
+//     });
+// }
 
 function makeSureFileExistsAndCheckForWritePermission(filePath: string, firstTry = true): Thenable<any> {
     return new Promise((resolve, reject) => {
@@ -537,32 +575,19 @@ function makeSureFileExistsAndCheckForWritePermission(filePath: string, firstTry
             let folder = pathHelper.dirname(filePath);
             mkdirp(folder, (err) => {
                 if (err && err.code != 'EEXIST') {
-                    resolve(err.code + "Error creating " + folder + " " + err.message);
+                    resolve(err.code + ": Error creating " + folder + " " + err.message);
                 } else {
                     fs.open(filePath, 'a', (err, file) => {
                         if (err) {
-                            if (firstTry && err && err.code == "EACCES") {
-                                Log.log("Try to change the ownership of " + pathHelper.dirname(filePath), LogLevel.Debug);
-                                changeOwnershipToCurrentUser(pathHelper.dirname(filePath)).then((err) => {
-                                    if (err) {
-                                        resolve(err);
-                                    } else {
-                                        return makeSureFileExistsAndCheckForWritePermission(filePath, false)
-                                    }
-                                }).then(err => {
-                                    resolve(err);
-                                })
-                            } else {
-                                resolve(err.code + ": Error opening " + filePath + " " + err.message)
-                            }
+                            resolve(err.code + ": Error opening " + filePath + " " + err.message)
                         } else {
                             fs.close(file, err => {
                                 if (err) {
-                                    resolve(err.code + "Error closing " + filePath + " " + err.message)
+                                    resolve(err.code + ": Error closing " + filePath + " " + err.message)
                                 } else {
                                     fs.access(filePath, 2, (e) => { //fs.constants.W_OK is 2
                                         if (e) {
-                                            resolve(e.code + "Error accessing " + filePath + " " + e.message)
+                                            resolve(e.code + ": Error accessing " + filePath + " " + e.message)
                                         } else {
                                             resolve(null);
                                         }
