@@ -354,6 +354,7 @@ export class NailgunService {
             let command = Settings.expandCustomArguments(program, stage, fileToVerify, this.activeBackend);
             Log.log(command, LogLevel.Debug);
             let verifyProcess = child_process.exec(command, { maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, cwd: Server.backendOutputDirectory });
+            Log.log("Verifier Process PID: " + verifyProcess.pid, LogLevel.Debug);
             verifyProcess.stdout.on('data', onData);
             verifyProcess.stderr.on('data', onError);
             verifyProcess.on('close', onClose);
