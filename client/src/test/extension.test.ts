@@ -320,7 +320,7 @@ describe("ViperIDE tests", function () {
         setTimeout(() => {
             let command: string;
             if (State.isWin) {
-                command = `wmic process where 'name="ng.exe" or name="java.exe" or name="Boogie.exe" or name="z3.exe"'` // get ProcessId,name,ParentProcessId
+                command = `wmic process where 'name="ng.exe" or (name="java.exe" and CommandLine like "%nailgun%") or name="Boogie.exe" or name="z3.exe" get ProcessId,name,ParentProcessId'` // 
             } else if (State.isLinux) {
                 command = 'pgrep -x -l -u "$UID" ng; pgrep -x -l -u "$UID" z3; pgrep -l -u "$UID" -f nailgun | grep java; pgrep -x -l -u "$UID" Boogie'
             } else {
