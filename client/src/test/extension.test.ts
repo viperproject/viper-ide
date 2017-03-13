@@ -111,7 +111,7 @@ describe("ViperIDE tests", function () {
                 internalErrorDetected = true;
             }
             else if (state.event == 'LogFileOpened') {
-
+                logFileOpened();
             }
         });
     });
@@ -340,10 +340,8 @@ describe("ViperIDE tests", function () {
             let command: string;
             if (State.isWin) {
                 command = `wmic process where 'name="ng.exe" or (name="java.exe" and CommandLine like "%nailgun%") or name="Boogie.exe" or name="z3.exe"' get ProcessId,Name` // 
-            } else if (State.isLinux) {
-                command = 'pgrep -x -l -u "$UID" ng; pgrep -x -l -u "$UID" z3; pgrep -l -u "$UID" -f nailgun | grep java; pgrep -x -l -u "$UID" Boogie'
             } else {
-                command = 'pgrep -x -l -u "$UID" ng; pgrep -x -l -u "$UID" z3; pgrep -l -u "$UID" -f nailgun | grep java; pgrep -x -l -u "$UID" Boogie'
+                command = 'pgrep -x -l -u "$UID" ng; pgrep -x -l -u "$UID" z3; pgrep -l -u "$UID" -f nailgun; pgrep -x -l -u "$UID" Boogie'
             }
             let pgrep = Common.executer(command);
             pgrep.stdout.on('data', data => {
