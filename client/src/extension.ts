@@ -7,7 +7,7 @@ import * as path from 'path';
 import { Timer } from './Timer';
 import * as vscode from 'vscode';
 import { State } from './ExtensionState';
-import { Progress, HintMessage, Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success } from './ViperProtocol';
+import { Common, Progress, HintMessage, Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success } from './ViperProtocol';
 import Uri from 'vscode-uri/lib/index';
 import { Log } from './Log';
 import { StateVisualizer, MyDecorationOptions } from './StateVisualizer';
@@ -374,7 +374,7 @@ function startVerificationController() {
                         //if another verification is requested, the current one must be stopped
                         if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri)) || stopFound || viperToolsUpdateFound) {
                             task.type = TaskType.Stopping;
-                            Log.log("Stop the running verification of " + task.uri.toString(), LogLevel.Debug);
+                            Log.log("Stop the running verification of " + path.basename(Common.uriToPath(task.uri.toString())), LogLevel.Debug);
                             doStopVerification(task.uri.toString(), isStopManuallyTriggered);
                         }
                         //block until verification is complete or failed
@@ -641,7 +641,7 @@ function handleStateChange(params: StateChangeParams) {
                             msg = `Verifying ${params.filename} failed due to an internal error`;
                             Log.error(`Internal Error: failed to verify ${params.filename}: Reason: ` + (params.error && params.error.length > 0 ? params.error : "Unknown Reason: Set loglevel to 5 and see the viper.log file for more details"));
                             Log.hint(msg + moreInfo);
-                            
+
                             //for unit test 
                             if (State.unitTest) {
                                 State.unitTest({ event: 'InternalError' });
@@ -1215,7 +1215,7 @@ function hideStates(callback, visualizer: StateVisualizer) {
                 visualizer.reset();
                 callback();
             });
-        }else{
+        } else {
             callback();
         }
         //});

@@ -319,17 +319,17 @@ describe("ViperIDE tests", function () {
         setTimeout(() => {
             let command: string;
             if (State.isWin) {
-                command = `wmic process where 'name="ng.exe" or name="java.exe" or name="Boogie.exe" or name="z3.exe"' get processid`
+                command = `wmic process where 'name="ng.exe" or name="java.exe" or name="Boogie.exe" or name="z3.exe"' get processid,name`
             } else if (State.isLinux) {
-                command = 'pgrep -x -l -u $UID ng; pgrep -x -l -u $UID z3; pgrep -x -l -u $UID java; pgrep -x -l -u $UID Boogie'
+                command = 'pgrep -x -l -u "$UID" ng; pgrep -x -l -u "$UID" z3; pgrep -l -u "$UID" -f nailgun | grep java; pgrep -x -l -u "$UID" Boogie'
             } else {
-                command = 'pgrep -x -l -u $UID ng; pgrep -x -l -u $UID z3; pgrep -x -l -u $UID java; pgrep -x -l -u $UID Boogie'
+                command = 'pgrep -x -l -u "$UID" ng; pgrep -x -l -u "$UID" z3; pgrep -l -u "$UID" -f nailgun | grep java; pgrep -x -l -u "$UID" Boogie'
             }
             let processesFound = false;
             let pgrep = Common.executer(command);
             pgrep.stdout.on('data', data => {
                 console.log("Running processes: " + data);
-                let stringData = <string>data;
+                let stringData = (<string>data).replace(/[\n\r]/g," ");
                 if (/^.*?(\d+).*/.test(stringData)) {
                     processesFound = true;
                 }
