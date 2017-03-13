@@ -294,7 +294,7 @@ function startVerificationController() {
             let viperToolsUpdateFound = false;
             let viperToolsUpdateComplete = false;
             for (let i = workList.length - 1; i >= 0; i--) {
-                if (clearFound) {
+                if (clearFound && workList[i].type != TaskType.UpdatingViperTools) {
                     //clear the workList
                     workList[i].type = NoOp;
                 }
@@ -1024,6 +1024,9 @@ function openLogFile() {
             } else {
                 vscode.window.showTextDocument(textDocument, vscode.ViewColumn.Two).then(() => {
                     Log.log("Showing logfile succeeded", LogLevel.Debug);
+                    if(State.unitTest){
+                        State.unitTest({ event: 'LogFileOpened' });
+                    }
                 }, error => {
                     Log.error("vscode.window.showTextDocument call failed while opening the logfile: " + error);
                 });

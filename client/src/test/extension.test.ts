@@ -29,6 +29,7 @@ let backendReadyCallback = (b) => { };
 let verificationCompletionCallback = (b, f) => { };
 let abortCallback = () => { };
 let updateViperToolsCallback = () => { };
+let logFileOpened = () => { };
 
 let internalErrorDetected: boolean;
 
@@ -70,6 +71,12 @@ function waitForAbort(): Thenable<boolean> {
     });
 }
 
+function waitForLogFile(): Thenable<boolean> {
+    return new Promise((resolve, reject) => {
+        logFileOpened = () => { resolve(true); }
+    });
+}
+
 function wait(timeout): Thenable<boolean> {
     return new Promise((resolve, reject) => {
         setTimeout(function () {
@@ -102,6 +109,9 @@ describe("ViperIDE tests", function () {
             }
             else if (state.event == 'InternalError') {
                 internalErrorDetected = true;
+            }
+            else if (state.event == 'LogFileOpened') {
+
             }
         });
     });
@@ -266,6 +276,15 @@ describe("ViperIDE tests", function () {
             } else {
                 done();
             }
+        });
+    });
+
+    it("Test opening logFile", function (done) {
+        this.timeout(2000);
+
+        vscode.commands.executeCommand('viper.openLogFile');
+        waitForLogFile().then(() => {
+            done();
         });
     });
 
