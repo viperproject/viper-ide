@@ -202,7 +202,7 @@ describe("ViperIDE tests", function () {
             return waitForBackendStarted();
         }).then(() => {
             //verified
-            throw new Error ("unwanted reverification of verified file after zooming");
+            throw new Error("unwanted reverification of verified file after zooming");
         });
     });
 
@@ -216,9 +216,9 @@ describe("ViperIDE tests", function () {
             //the file should be verified exactly once
             //no internal error must happen
             if (!verificationDone) {
-                throw new Error ("No verification completed");
+                throw new Error("No verification completed");
             } else if (internalErrorDetected) {
-                throw new Error ("Internal error detected");
+                throw new Error("Internal error detected");
             } else {
                 done();
             }
@@ -233,7 +233,7 @@ describe("ViperIDE tests", function () {
             verificationDone = true;
             return waitForVerification(SILICON, SIMPLE);
         }).then(() => {
-            throw new Error ("multiple verifications seen");
+            throw new Error("multiple verifications seen");
         });
     });
 
@@ -262,7 +262,7 @@ describe("ViperIDE tests", function () {
         vscode.commands.executeCommand('viper.verify');
         waitForVerification(SILICON, SIMPLE).then(() => {
             if (internalErrorDetected) {
-                throw new Error ("Internal error detected");
+                throw new Error("Internal error detected");
             } else {
                 done();
             }
@@ -276,7 +276,7 @@ describe("ViperIDE tests", function () {
         let timer = setTimeout(() => {
             //no internal error must happen
             if (internalErrorDetected) {
-                throw new Error ("Internal error detected");
+                throw new Error("Internal error detected");
             } else {
                 done();
             }
@@ -320,7 +320,7 @@ describe("ViperIDE tests", function () {
         setTimeout(() => {
             let command: string;
             if (State.isWin) {
-                command = `wmic process where 'name="ng.exe" or (name="java.exe" and CommandLine like "%nailgun%") or name="Boogie.exe" or name="z3.exe" get ProcessId,name,ParentProcessId'` // 
+                command = `wmic process where 'name="ng.exe" or (name="java.exe" and CommandLine like "%nailgun%") or name="Boogie.exe" or name="z3.exe"' get ProcessId,Name` // 
             } else if (State.isLinux) {
                 command = 'pgrep -x -l -u "$UID" ng; pgrep -x -l -u "$UID" z3; pgrep -l -u "$UID" -f nailgun | grep java; pgrep -x -l -u "$UID" Boogie'
             } else {
