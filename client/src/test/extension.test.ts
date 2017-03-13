@@ -37,6 +37,10 @@ const CARBON = 'carbon';
 const SIMPLE = 'simple.sil';
 const LONG = 'longDuration.vpr';
 
+function log(msg: string) {
+    console.log("UnitTest: " + msg);
+}
+
 function waitForBackendStarted(): Thenable<boolean> {
     return new Promise((resolve, reject) => {
         backendReadyCallback = () => { resolve(true); }
@@ -46,6 +50,7 @@ function waitForBackendStarted(): Thenable<boolean> {
 function waitForVerification(backend: string, fileName: string): Thenable<boolean> {
     return new Promise((resolve, reject) => {
         verificationCompletionCallback = (b, f) => {
+            log("Verificaion Completed: file: " + f + ", backend: " + b);
             if (b === backend && f === fileName) {
                 resolve(true);
             }
@@ -91,7 +96,6 @@ describe("ViperIDE tests", function () {
             }
             else if (ready && state.event == "VerificationComplete") {
                 verificationCompletionCallback(state.backend, state.fileName);
-                console.log("UnitTest: " + state.fileName + " verified with " + state.backend);
             }
             else if (state.event == 'VerificationStopped') {
                 abortCallback();
@@ -128,7 +132,7 @@ describe("ViperIDE tests", function () {
         //3. viper file should verify with silicon 
         waitForVerification(SILICON, SIMPLE).then(() => {
             //verified
-            console.log("UnitTest: silicon verification complete");
+            log("silicon verification complete");
             done();
         });
     });
@@ -186,16 +190,13 @@ describe("ViperIDE tests", function () {
     });
 
     it("Test zooming", function (done) {
-
         this.timeout(11000);
         let timer = setTimeout(() => {
             done();
         }, 10000);
-        console.log('UnitTest: zoom in')
         vscode.commands.executeCommand("workbench.action.zoomIn").then(() => {
             return wait(500);
         }).then(() => {
-            console.log('UnitTest: zoom out')
             return vscode.commands.executeCommand("workbench.action.zoomOut");
         }).then(() => {
             return waitForBackendStarted();
@@ -325,19 +326,15 @@ describe("ViperIDE tests", function () {
             } else {
                 command = 'pgrep -x -l -u "$UID" ng; pgrep -x -l -u "$UID" z3; pgrep -l -u "$UID" -f nailgun | grep java; pgrep -x -l -u "$UID" Boogie'
             }
-            let processesFound = false;
             let pgrep = Common.executer(command);
             pgrep.stdout.on('data', data => {
-                console.log("Running processes: " + data);
-                let stringData = (<string>data).replace(/[\n\r]/g," ");
+                let stringData = (<string>data).replace(/[\n\r]/g, " ");
                 if (/^.*?(\d+).*/.test(stringData)) {
-                    processesFound = true;
+                    throw "Process found";
                 }
             });
             pgrep.on('exit', data => {
-                if (!processesFound) {
-                    done();
-                }
+                done();
             });
         }, 5000);
     });
@@ -350,7 +347,7 @@ function checkAssert(seen, expected, message: string) {
 function openFile(context, fileName): Thenable<vscode.TextDocument> {
     return new Promise((resolve, reject) => {
         let filePath = path.join(context.DATA_ROOT, fileName);
-        console.log("UNIT TEST: open " + filePath);
+        log("open " + filePath);
         vscode.workspace.openTextDocument(filePath).then(document => {
             vscode.window.showTextDocument(document).then((editor) => {
                 resolve(document);

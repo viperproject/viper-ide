@@ -608,13 +608,6 @@ function handleStateChange(params: StateChangeParams) {
                             Log.log(msg, LogLevel.Default);
                             State.statusBarItem.update("$(check) " + msg, Color.SUCCESS);
                             if (params.manuallyTriggered) Log.hint(msg);
-                            // this was only used for generating the svg of the SymbexLogger's execution tree
-                            // as this file is unused we can safely remove its creation
-                            /*let symbexDotFile = Log.getSymbExDotPath();
-                            let symbexSvgFile = Log.getSymbExSvgPath();
-                            if (Helper.areAdvancedFeaturesEnabled() && fs.existsSync(symbexDotFile)) {
-                                verifiedFile.stateVisualizer.generateSvg(null, symbexDotFile, symbexSvgFile, () => { });
-                            }*/
                             break;
                         case Success.ParsingFailed:
                             msg = `Parsing ${params.filename} failed after ${Helper.formatSeconds(params.time)}`;
@@ -681,10 +674,10 @@ function handleStateChange(params: StateChangeParams) {
 
 //for unittest
 function verificationCompleted(success: Success) {
-    return success == Success.Success
-        || success == Success.ParsingFailed
-        || success == Success.TypecheckingFailed
-        || success == Success.VerificationFailed;
+    return success === Success.Success
+        || success === Success.ParsingFailed
+        || success === Success.TypecheckingFailed
+        || success === Success.VerificationFailed;
 }
 
 function handleSettingsCheckResult(params: SettingsCheckedParams) {

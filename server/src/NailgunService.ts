@@ -307,7 +307,7 @@ export class NailgunService {
         this.killRecursive(this.nailgunProcess.pid);
 
         if (Settings.isWin) {
-            let wmic = Common.spawner('wmic', ["process", "where", 'ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid, "call", "terminate"]);
+            let wmic = Common.spawner('wmic', ["process", "where", 'ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunServerPid + ' or ParentProcessId=' + this.nailgunServerPid, "call", "terminate"]);
             //let wmic = this.executer('wmic process where "ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid + '" call terminate');
         } else {
             //TODO: consider also killing the parent (its actually the shell process)

@@ -514,7 +514,7 @@ export class VerificationTask {
                 if (match && match[1]) {
                     message = message + " at: " + match[1];
                 }
-                Log.hint(message + " consider changing the settings or updating the ViperTools",true,true);
+                Log.hint(message + " consider changing the settings or updating the ViperTools", true, true);
             }
             else if (data.startsWith("java.lang.StackOverflowError")) {
                 message = "StackOverflowError in verification backend";
@@ -737,6 +737,9 @@ export class VerificationTask {
             case VerificationState.VerificationReporting:
                 if (line == 'No errors found.') { }
                 else if (line.startsWith('The following errors were found')) { }
+                else if (line.startsWith('  Internal error:')) {
+                    this.internalErrorMessage = line.substring('  Internal error:'.length,line.length).trim();
+                }
                 else if (line.startsWith('  ')) {
                     let parsedPosition = Server.extractPosition(line);
                     let message = parsedPosition.after.length > 0 ? parsedPosition.after : parsedPosition.before;
