@@ -93,6 +93,8 @@ export class VerificationController {
                 let viperToolsUpdateComplete = false;
                 let backendStarted = false;
                 let backendStopped = false;
+                let stopBackendFound = false;
+                let startBackendFound = false;
 
                 for (let i = this.workList.length - 1; i >= 0; i--) {
                     let cur: TaskType = this.workList[i].type;
@@ -150,9 +152,19 @@ export class VerificationController {
                             viperToolsUpdateComplete = true;
                             break;
                         case TaskType.StartBackend:
+                            //remove duplicated start backend commands
+                            if (startBackendFound) {
+                                this.workList[i].type = NoOp;
+                            }
+                            startBackendFound = true;
                             clear = true;
                             break;
                         case TaskType.StopBackend:
+                            //remove duplicated stop backend commands
+                            if (stopBackendFound) {
+                                this.workList[i].type = NoOp;
+                            }
+                            stopBackendFound = true;
                             clear = true;
                             stopFound = true;
                             isStopManuallyTriggered = isStopManuallyTriggered || this.workList[i].manuallyTriggered;
@@ -194,7 +206,7 @@ export class VerificationController {
                             break;
                         case TaskType.Verifying:
                             //if another verification is requested, the current one must be stopped
-                            if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri)) || stopFound || viperToolsUpdateFound) {
+                            if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri)) || stopFound || viperToolsUpdateFound || startBackendFound || stopBackendFound) {
                                 task.type = TaskType.StopVerifying;
                                 Log.log("Stop the running verification of " + path.basename(Common.uriToPath(task.uri.toString())), LogLevel.Debug);
                                 this.stopVerification(task.uri.toString(), isStopManuallyTriggered);
