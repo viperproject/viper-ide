@@ -34,7 +34,7 @@ export class Server {
 
     static viperFileEndings: string[];
 
-    static refreshEndings(): Thenable<boolean> {
+    static refreshEndings(): Promise<boolean> {
         return new Promise((resolve, reject) => {
             Server.connection.sendRequest(Commands.GetViperFileEndings).then((endings: string[]) => {
                 this.viperFileEndings = endings;
@@ -43,7 +43,7 @@ export class Server {
         });
     }
 
-    static isViperSourceFile(uri: string, firstTry: boolean = true): Thenable<boolean> {
+    static isViperSourceFile(uri: string, firstTry: boolean = true): Promise<boolean> {
         return new Promise((resolve, reject) => {
             if (!this.viperFileEndings) {
                 if (firstTry) {
@@ -111,6 +111,10 @@ export class Server {
 
     static sendProgressMessage(params: ProgressParams) {
         this.connection.sendNotification(Commands.Progress, params);
+    }
+
+    static sendStartBackendMessage(backend: string) {
+        this.connection.sendNotification(Commands.StartBackend, backend);
     }
 
     static containsNumber(s: string): boolean {
@@ -222,7 +226,7 @@ export class Server {
         }
     }
 
-    public static makeSureFileExistsAndCheckForWritePermission(filePath: string, firstTry = true): Thenable<any> {
+    public static makeSureFileExistsAndCheckForWritePermission(filePath: string, firstTry = true): Promise<any> {
         return new Promise((resolve, reject) => {
             try {
                 let folder = pathHelper.dirname(filePath);
@@ -257,7 +261,7 @@ export class Server {
         });
     }
 
-    public static download(url, filePath): Thenable<boolean> {
+    public static download(url, filePath): Promise<boolean> {
         return new Promise((resolve, reject) => {
             try {
                 Log.startProgress();
@@ -289,7 +293,7 @@ export class Server {
         });
     };
 
-    public static extract(filePath: string): Thenable<boolean> {
+    public static extract(filePath: string): Promise<boolean> {
         return new Promise((resolve, reject) => {
             try {
                 //extract files
@@ -349,8 +353,86 @@ export class Server {
         }
     }
 
+    public static updateViperTools(askForPermission: boolean) {
+        try {
+            Log.log("Updating Viper Tools ...", LogLevel.Default);
+            let filename: string;
+            if (Settings.isWin) {
+                filename = "ViperToolsWin.zip"
+            } else {
+                filename = Settings.isLinux ? "ViperToolsLinux.zip" : "ViperToolsMac.zip";
+            }
+            //check access to download location
+            let dir = <string>Settings.settings.paths.viperToolsPath;
+            let viperToolsPath = pathHelper.join(dir, filename);
+
+            // In case the update is started automatically, always ask for permission. 
+            // If it was requested by the user, only ask when sudo permission needed.
+            let prepareFolderPromise;
+            if (askForPermission) {
+                prepareFolderPromise = Server.sudoMakeSureFileExistsAndSetOwner(dir);
+            } else {
+                prepareFolderPromise = Server.makeSureFileExistsAndCheckForWritePermission(viperToolsPath).then(error => {
+                    if (error && !Settings.isWin && error.startsWith("EACCES")) {
+                        //change the owner of the location 
+                        Log.log("Try to change the ownership of " + dir, LogLevel.Debug);
+                        return Server.sudoMakeSureFileExistsAndSetOwner(dir)
+                    } else {
+                        return error;
+                    }
+                })
+            }
+            prepareFolderPromise.then(error => {
+                if (error) {
+                    throw ("The Viper Tools Update failed, change the ViperTools directory to a folder in which you have permission to create files. " + error);
+                }
+                //download Viper Tools
+                let url = <string>Settings.settings.preferences.viperToolsProvider;
+                Log.log("Downloading ViperTools from " + url + " ...", LogLevel.Default)
+                return Server.download(url, viperToolsPath);
+            }).then(success => {
+                if (success) {
+                    return Server.extract(viperToolsPath);
+                } else {
+                    throw ("Downloading viper tools unsuccessful.");
+                }
+            }).then(success => {
+                if (success) {
+                    Log.log("Extracting ViperTools finished " + (success ? "" : "un") + "successfully", LogLevel.Info);
+                    if (success) {
+                        //chmod to allow the execution of ng and zg files
+                        if (Settings.isLinux || Settings.isMac) {
+                            fs.chmodSync(pathHelper.join(dir, "nailgun", "ng"), '755') //755 is for (read, write, execute)
+                            fs.chmodSync(pathHelper.join(dir, "z3", "bin", "z3"), '755') //755 is for (read, write, execute)
+                            fs.chmodSync(pathHelper.join(dir, "boogie", "Binaries", "Boogie"), '755');
+                        }
+
+                        //delete archive
+                        fs.unlink(viperToolsPath, (err) => {
+                            if (err) {
+                                Log.error("Error deleting archive after ViperToolsUpdate: " + err);
+                            }
+                            Log.log("ViperTools Update completed", LogLevel.Default);
+                            Server.connection.sendNotification(Commands.ViperUpdateComplete, true);//success
+                        });
+                        //trigger a restart of the backend
+                        Settings.initiateBackendRestartIfNeeded(null, null, true);
+                    }
+                } else {
+                    throw ("Extracting viper tools unsuccessful.");
+                }
+            }).catch(e => {
+                Log.error(e);
+                Server.connection.sendNotification(Commands.ViperUpdateComplete, false);//update failed
+            });
+        } catch (e) {
+            Log.error("Error updating viper tools: " + e);
+            Server.connection.sendNotification(Commands.ViperUpdateComplete, false);//update failed
+        }
+    }
+
     //TODO: test on windows and linux
-    public static sudoMakeSureFileExistsAndSetOwner(filePath: string): Thenable<string> {
+    public static sudoMakeSureFileExistsAndSetOwner(filePath: string): Promise<string> {
         return new Promise((resolve, reject) => {
             let command: string;
             let user = Server.getUser();
@@ -368,7 +450,7 @@ export class Server {
     }
 
     //unused
-    public static checkForCreateAndWriteAccess(folderPath: string): Thenable<string> {
+    public static checkForCreateAndWriteAccess(folderPath: string): Promise<string> {
         return new Promise((resolve, reject) => {
             if (!folderPath) {
                 resolve("No access"); //TODO: when does that happens?

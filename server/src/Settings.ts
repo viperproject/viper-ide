@@ -38,7 +38,7 @@ export class Settings {
         return null;
     }
 
-    public static getStageFromSuccess(backend: Backend, stage: Stage, success: Success):Stage {
+    public static getStageFromSuccess(backend: Backend, stage: Stage, success: Success): Stage {
         switch (success) {
             case Success.ParsingFailed:
                 return this.getStage(backend, stage.onParsingError);
@@ -153,7 +153,10 @@ export class Settings {
         return path;
     }
 
-    public static autoselectBackend(settings: ViperSettings): Backend {
+    public static selectBackend(settings: ViperSettings, selectedBackend: string): Backend {
+        if (selectedBackend) {
+            Settings.selectedBackend = selectedBackend;
+        }
         if (!settings || !settings.verificationBackends || settings.verificationBackends.length == 0) {
             this.selectedBackend = null;
             return null;
@@ -183,7 +186,7 @@ export class Settings {
         return this._valid;
     }
 
-    public static setNailgunPort(nailgunSettings: NailgunSettings): Thenable<boolean> {
+    public static setNailgunPort(nailgunSettings: NailgunSettings): Promise<boolean> {
         return new Promise((resolve, reject) => {
             if (!nailgunSettings.port || nailgunSettings.port == "*") {
                 //use a random port
@@ -192,8 +195,41 @@ export class Settings {
                     nailgunSettings.port = port;
                     resolve(true);
                 });
-            }else{
+            } else {
                 resolve(true);
+            }
+        });
+    }
+
+    //tries to restart backend, 
+    public static initiateBackendRestartIfNeeded(oldSettings?: ViperSettings, selectedBackend?: string, viperToolsUpdated: boolean = false) {
+        Settings.checkSettings(viperToolsUpdated).then(() => {
+            if (Settings.valid()) {
+                let newBackend = Settings.selectBackend(Settings.settings, selectedBackend);
+                if (newBackend) {
+                    //only restart the backend after settings changed if the active backend was affected
+                    let restartBackend = !Server.nailgunService.isReady() //backend is not ready -> restart
+                        || !Settings.backendEquals(Server.backend, newBackend) //change in backend
+                        || (oldSettings && (newBackend.useNailgun && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings)))) //backend needs nailgun and nailgun settings changed
+                        || viperToolsUpdated; //Viper Tools Update might have modified the binaries
+                    if (restartBackend) {
+                        Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info);
+                        Server.backend = newBackend;
+                        Server.verificationTasks.forEach(task => task.resetLastSuccess());
+                        Server.sendStartBackendMessage(Server.backend.name);
+                        //Server.nailgunService.startOrRestartNailgunServer(Server.backend, true);
+                    } else {
+                        //In case the backend does not need to be restarted, retain the port
+                        if (oldSettings) { Settings.settings.nailgunSettings.port = oldSettings.nailgunSettings.port; }
+                        Log.log("No need to restart backend. It is still the same", LogLevel.Debug)
+                        Server.backend = newBackend;
+                        Server.sendBackendReadyNotification({ name: Server.backend.name, restarted: false });
+                    }
+                } else {
+                    Log.error("No backend, even though the setting check succeeded.");
+                }
+            } else {
+                Server.nailgunService.stopNailgunServer();
             }
         });
     }
@@ -236,7 +272,7 @@ export class Settings {
         this._errors.push({ type: SettingsErrorType.Warning, msg: msg });
     }
 
-    public static checkSettings(): Thenable<boolean> {
+    public static checkSettings(viperToolsUpdated: boolean): Promise<boolean> {
         return new Promise((resolve, reject) => {
             try {
                 this._valid = false;
@@ -278,7 +314,6 @@ export class Settings {
 
                     if (oldSettings.length > 0) {
                         let affectedSettings = oldSettings.length < 4 ? "(" + oldSettings.join(", ") + ")" : "(" + oldSettings.length + ")";
-
                         this.addError("Old viper settings detected: " + affectedSettings + " please replace the old settings with the new default settings.");
                         resolve(false); return;
                     }
@@ -288,10 +323,18 @@ export class Settings {
 
                     //Check Paths
                     //check viperToolsPath
-                    let resolvedPath = this.checkPath(settings.paths.viperToolsPath, "Path to Viper Tools:", false, true, true);
+                    let resolvedPath: ResolvedPath = this.checkPath(settings.paths.viperToolsPath, "Path to Viper Tools:", false, true, true);
                     settings.paths.viperToolsPath = resolvedPath.path;
                     if (!resolvedPath.exists) {
-                        resolve(false); return;
+                        if (!viperToolsUpdated) {
+                            //Automatically install the Viper tools
+                            Server.updateViperTools(true);
+                            reject(); // in this case we do not want to continue restarting the backend,
+                            //the backend will be restarted after the update
+                        } else {
+                            resolve(false);
+                        }
+                        return;
                     }
                     //check z3 Executable
                     settings.paths.z3Executable = this.checkPath(settings.paths.z3Executable, "z3 Executable:", true, true).path;

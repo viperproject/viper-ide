@@ -42,13 +42,13 @@ function log(msg: string) {
     console.log("UnitTest: " + msg);
 }
 
-function waitForBackendStarted(): Thenable<boolean> {
+function waitForBackendStarted(): Promise<boolean> {
     return new Promise((resolve, reject) => {
         backendReadyCallback = () => { resolve(true); }
     });
 }
 
-function waitForVerification(backend: string, fileName: string): Thenable<boolean> {
+function waitForVerification(backend: string, fileName: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
         verificationCompletionCallback = (b, f) => {
             log("Verificaion Completed: file: " + f + ", backend: " + b);
@@ -59,25 +59,25 @@ function waitForVerification(backend: string, fileName: string): Thenable<boolea
     });
 }
 
-function waitForViperToolsUpdate(): Thenable<boolean> {
+function waitForViperToolsUpdate(): Promise<boolean> {
     return new Promise((resolve, reject) => {
         updateViperToolsCallback = () => { resolve(true); }
     });
 }
 
-function waitForAbort(): Thenable<boolean> {
+function waitForAbort(): Promise<boolean> {
     return new Promise((resolve, reject) => {
         abortCallback = () => { resolve(true); }
     });
 }
 
-function waitForLogFile(): Thenable<boolean> {
+function waitForLogFile(): Promise<boolean> {
     return new Promise((resolve, reject) => {
         logFileOpened = () => { resolve(true); }
     });
 }
 
-function wait(timeout): Thenable<boolean> {
+function wait(timeout): Promise<boolean> {
     return new Promise((resolve, reject) => {
         setTimeout(function () {
             resolve(true);
@@ -118,7 +118,7 @@ describe("ViperIDE tests", function () {
 
     //must be first test
     it("Language Detection, Viper Tools Update, and Backend Startup test.", function (done) {
-        this.timeout(50000);
+        this.timeout(60000);
         openFile(context, SIMPLE).then(document => {
             if (document.languageId != 'viper') {
                 throw new Error("The language of viper file was not detected correctly: should: viper, is: " + document.languageId);
@@ -138,7 +138,7 @@ describe("ViperIDE tests", function () {
     });
 
     it("Test simple verification with silicon", function (done) {
-        this.timeout(15000);
+        this.timeout(25000);
         //3. viper file should verify with silicon 
         waitForVerification(SILICON, SIMPLE).then(() => {
             //verified
@@ -148,7 +148,7 @@ describe("ViperIDE tests", function () {
     });
 
     it("Test abort", function (done) {
-        this.timeout(15000);
+        this.timeout(30000);
 
         //open a file that takes longer
         openFile(context, LONG);
@@ -212,7 +212,7 @@ describe("ViperIDE tests", function () {
             return waitForBackendStarted();
         }).then(() => {
             //verified
-            throw new Error("unwanted reverification of verified file after zooming");
+            clearTimeout(timer);
         });
     });
 
@@ -247,21 +247,21 @@ describe("ViperIDE tests", function () {
         });
     });
 
-    // it("Stress test 2: quickly change backends", function (done) {
-    //     this.timeout(20000);
-    //     internalErrorDetected = false;
-    //     vscode.commands.executeCommand('viper.selectBackend', 'carbon');
-    //     wait(500).then(() => {
-    //         vscode.commands.executeCommand('viper.selectBackend', 'silicon');
-    //         return waitForVerification(SILICON, SIMPLE);
-    //     }).then(() => {
-    //         if (internalErrorDetected) {
-    //             throw new Error ("Internal error detected");
-    //         } else {
-    //             done();
-    //         }
-    //     });
-    // });
+    it("Stress test 2: quickly change backends", function (done) {
+        this.timeout(50000);
+        internalErrorDetected = false;
+        vscode.commands.executeCommand('viper.selectBackend', 'carbon');
+        wait(500).then(() => {
+            vscode.commands.executeCommand('viper.selectBackend', 'silicon');
+            return waitForVerification(SILICON, SIMPLE);
+        }).then(() => {
+            if (internalErrorDetected) {
+                throw new Error ("Internal error detected");
+            } else {
+                done();
+            }
+        });
+    });
 
     it("Stress test 3: quickly start, stop, and restart verification", function (done) {
         this.timeout(15000);
@@ -306,7 +306,7 @@ describe("ViperIDE tests", function () {
     });
 
     it("Test simple verification with carbon", function (done) {
-        this.timeout(25000);
+        this.timeout(35000);
         openFile(context, SIMPLE).then(() => {
             //change backend to carbon
             vscode.commands.executeCommand('viper.selectBackend', 'carbon');
@@ -361,7 +361,7 @@ function checkAssert(seen, expected, message: string) {
     assert(expected === seen, message + ": Expected: " + expected + " Seen: " + seen);
 }
 
-function openFile(context, fileName): Thenable<vscode.TextDocument> {
+function openFile(context, fileName): Promise<vscode.TextDocument> {
     return new Promise((resolve, reject) => {
         let filePath = path.join(context.DATA_ROOT, fileName);
         log("open " + filePath);

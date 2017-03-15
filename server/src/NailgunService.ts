@@ -14,9 +14,6 @@ export class NailgunService {
     instanceCount: number = 0;
 
     private _ready: boolean = false;
-    activeBackend: Backend;
-
-    reverifyWhenBackendReady: boolean = true;
 
     maxNumberOfRetries = 20;
     static REQUIRED_JAVA_VERSION = 8;
@@ -29,9 +26,10 @@ export class NailgunService {
 
     public setReady(backend: Backend) {
         this._ready = true;
+        Server.backend = backend;
         NailgunService.startingOrRestarting = false;
         Log.log("The backend is ready for verification", LogLevel.Info);
-        Server.sendBackendReadyNotification({ name: this.activeBackend.name, restarted: this.reverifyWhenBackendReady });
+        Server.sendBackendReadyNotification({ name: Server.backend.name, restarted: Settings.settings.preferences.autoVerifyAfterBackendChange });
 
         this.getNailgunServerPid().then(pid => {
             this.nailgunServerPid = pid;
@@ -50,80 +48,156 @@ export class NailgunService {
     public setStopped() {
         Log.log("Set Stopped ", LogLevel.Debug);
         this._ready = false;
+        // Server.backend = null;
         NailgunService.startingOrRestarting = false;
         Server.sendStateChangeNotification({ newState: VerificationState.Stopped });
     }
 
-    public startOrRestartNailgunServer(backend: Backend, reverifyWhenBackendReady: boolean) {
-        try {
-            this.reverifyWhenBackendReady = reverifyWhenBackendReady;
-            if (NailgunService.startingOrRestarting) {
-                Log.log("Server is already starting or restarting, don't restart", LogLevel.Debug);
+    // public startOrRestartNailgunServer(backend: Backend, reverifyWhenBackendReady: boolean) {
+    //     try {
+    //         this.reverifyWhenBackendReady = reverifyWhenBackendReady;
+    //         if (NailgunService.startingOrRestarting) {
+    //             Log.log("Server is already starting or restarting, don't restart", LogLevel.Debug);
+    //             return;
+    //         }
+
+    //         //Stop all running verificationTasks before restarting backend
+    //         VerificationTask.stopAllRunningVerifications().then(done => {
+    //             //check java version
+    //             this.isJreInstalled().then(jreInstalled => {
+    //                 if (!jreInstalled) {
+    //                     Log.hint("No compatible Java 8 (64bit) Runtime Environment is installed. Please install it.");
+    //                     this.setStopped(); return;
+    //                 }
+    //                 this.activeBackend = backend;
+    //                 if (!backend.useNailgun) {
+    //                     //If nailgun is disabled, don't start it
+    //                     this.setReady(this.activeBackend);
+    //                     return;
+    //                 }
+    //                 this.stopNailgunServer().then(success => {
+    //                     NailgunService.startingOrRestarting = true;
+    //                     Log.log('starting nailgun server', LogLevel.Info);
+    //                     //notify client
+    //                     Server.sendBackendChangeNotification(backend.name);
+    //                     Server.sendStateChangeNotification({ newState: VerificationState.Starting, backendName: backend.name });
+
+    //                     //set determine the nailgun port if needed
+    //                     return Settings.setNailgunPort(Settings.settings.nailgunSettings);
+    //                 }).then(success => {
+
+    //                     let command = 'java ' + Settings.settings.javaSettings.customArguments + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + Settings.settings.nailgunSettings.port;
+    //                     let backendJars = Settings.backendJars(backend);
+    //                     command = command.replace(/\$backendPaths\$/g, '"' + Settings.settings.nailgunSettings.serverJar + '"' + backendJars);
+    //                     Log.log(command, LogLevel.Debug)
+
+    //                     this.instanceCount++;
+    //                     this.startNailgunTimeout(this.instanceCount);
+    //                     this.nailgunProcess = child_process.exec(command, { cwd: Server.backendOutputDirectory });
+    //                     this.nailgunProcess.stdout.on('data', (data: string) => {
+    //                         Log.logWithOrigin('NS', data, LogLevel.LowLevelDebug);
+    //                         if (data.indexOf("started") > 0) {
+    //                             this.waitForNailgunToStart(this.maxNumberOfRetries).then(success => {
+    //                                 if (success) {
+    //                                     //the nailgun server is confirmed to be running
+    //                                     this.setReady(this.activeBackend);
+    //                                 } else {
+    //                                     this.setStopped();
+    //                                 }
+    //                             }, reject => {
+    //                                 Log.error("waitForNailgunToStart was rejected");
+    //                                 this.setStopped();
+    //                             });
+    //                         }
+    //                     });
+    //                 }, reject => {
+    //                     Log.error("stopNailgunServer was rejected");
+    //                     this.setStopped();
+    //                 });
+    //             });
+    //         }, reject => {
+    //             Log.error("stopAllRunningVerifications was rejected");
+    //             this.setStopped();
+    //         });
+    //     } catch (e) {
+    //         Log.error("Error starting or restarting nailgun server");
+    //         this.setStopped(); return;
+    //     }
+    // }
+
+    /**
+     * resolve(true) => nailgun server successfully started
+     * resolve(false) => nailgun server was not started
+     * reject() => nailgun server start failed, the server needs to be terminated 
+     */
+    public startNailgunServer(backend: Backend): Promise<boolean> {
+        return new Promise((resolve, reject) => {
+            if (NailgunService.startingOrRestarting || this.isReady()) {
+                Log.error("Cannot start server, it is not stopped.", LogLevel.Debug);
+                resolve(false);
                 return;
             }
+            if (!backend.useNailgun) {
+                //If nailgun is disabled, don't start it
+                resolve(true)
+                return;
+            }
+            this.isJreInstalled().then(jreInstalled => {
+                if (!jreInstalled) {
+                    Log.hint("No compatible Java 8 (64bit) Runtime Environment is installed. Please install it.");
+                    resolve(false);
+                    return false;
+                }
+                //determine the nailgun port if needed
+                return Settings.setNailgunPort(Settings.settings.nailgunSettings);
+            }).then(success => {
+                if (!success) return false;
+                Log.log('starting nailgun server', LogLevel.Info);
+                //notify client
+                Server.sendStateChangeNotification({ newState: VerificationState.Starting, backendName: backend.name });
+                return this.doStartNailgunServer(backend);
+            }).then(success => {
+                resolve(success);
+            }).catch(error => {
+                reject();
+            })
+        });
+    }
 
-            //Stop all running verificationTasks before restarting backend
-            VerificationTask.stopAllRunningVerifications().then(done => {
-                //check java version
-                this.isJreInstalled().then(jreInstalled => {
-                    if (!jreInstalled) {
-                        Log.hint("No compatible Java 8 (64bit) Runtime Environment is installed. Please install it.");
-                        this.setStopped(); return;
-                    }
-                    this.activeBackend = backend;
-                    if (!backend.useNailgun) {
-                        //If nailgun is disabled, don't start it
-                        this.setReady(this.activeBackend);
-                        return;
-                    }
-                    this.stopNailgunServer().then(success => {
-                        NailgunService.startingOrRestarting = true;
-                        Log.log('starting nailgun server', LogLevel.Info);
-                        //notify client
-                        Server.sendBackendChangeNotification(backend.name);
-                        Server.sendStateChangeNotification({ newState: VerificationState.Starting, backendName: backend.name });
+    private doStartNailgunServer(backend: Backend): Promise<boolean> {
+        return new Promise((resolve, reject) => {
+            NailgunService.startingOrRestarting = true;
 
-                        //set determine the nailgun port if needed
-                        return Settings.setNailgunPort(Settings.settings.nailgunSettings);
-                    }).then(success => {
+            let command = this.getNailgunStartCommand(backend);
+            Log.log(command, LogLevel.Debug)
 
-                        let command = 'java ' + Settings.settings.javaSettings.customArguments + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + Settings.settings.nailgunSettings.port;
-                        let backendJars = Settings.backendJars(backend);
-                        command = command.replace(/\$backendPaths\$/g, '"' + Settings.settings.nailgunSettings.serverJar + '"' + backendJars);
-                        Log.log(command, LogLevel.Debug)
-
-                        this.instanceCount++;
-                        this.startNailgunTimeout(this.instanceCount);
-                        this.nailgunProcess = child_process.exec(command, { cwd: Server.backendOutputDirectory });
-                        this.nailgunProcess.stdout.on('data', (data: string) => {
-                            Log.logWithOrigin('NS', data, LogLevel.LowLevelDebug);
-                            if (data.indexOf("started") > 0) {
-                                this.waitForNailgunToStart(this.maxNumberOfRetries).then(success => {
-                                    if (success) {
-                                        //the nailgun server is confirmed to be running
-                                        this.setReady(this.activeBackend);
-                                    } else {
-                                        this.setStopped();
-                                    }
-                                }, reject => {
-                                    Log.error("waitForNailgunToStart was rejected");
-                                    this.setStopped();
-                                });
-                            }
-                        });
+            this.instanceCount++;
+            this.startNailgunTimeout(this.instanceCount);
+            this.nailgunProcess = child_process.exec(command, { cwd: Server.backendOutputDirectory });
+            this.nailgunProcess.stdout.on('data', (data: string) => {
+                Log.logWithOrigin('NS', data, LogLevel.LowLevelDebug);
+                if (data.indexOf("started") > 0) {
+                    this.waitForNailgunToStart(this.maxNumberOfRetries).then(success => {
+                        if (success) {
+                            //the nailgun server is confirmed to be running
+                            resolve(true);
+                        } else {
+                            reject();
+                        }
                     }, reject => {
-                        Log.error("stopNailgunServer was rejected");
-                        this.setStopped();
+                        Log.error("waitForNailgunToStart was rejected");
+                        reject();
                     });
-                });
-            }, reject => {
-                Log.error("stopAllRunningVerifications was rejected");
-                this.setStopped();
+                }
             });
-        } catch (e) {
-            Log.error("Error starting or restarting nailgun server");
-            this.setStopped(); return;
-        }
+        })
+    }
+
+    private getNailgunStartCommand(backend: Backend): string {
+        let command = 'java ' + Settings.settings.javaSettings.customArguments + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + Settings.settings.nailgunSettings.port;
+        let backendJars = Settings.backendJars(backend);
+        command = command.replace(/\$backendPaths\$/g, '"' + Settings.settings.nailgunSettings.serverJar + '"' + backendJars);
+        return command;
     }
 
     private startNailgunTimeout(instanceCount: number) {
@@ -132,13 +206,13 @@ export class NailgunService {
                 //Log.log("check for nailgun timeout", LogLevel.Debug);
                 if (!this.isReady() && this.instanceCount == instanceCount) {
                     Log.hint("The nailgun server startup timed out after " + Settings.settings.nailgunSettings.timeout + "ms");
-                    this.stopNailgunServer();
+                    this.killNailgunServer();
                 }
             }, Settings.settings.nailgunSettings.timeout);
         }
     }
 
-    private waitForNailgunToStart(retriesLeft: number): Thenable<boolean> {
+    private waitForNailgunToStart(retriesLeft: number): Promise<boolean> {
         return new Promise((resolve, reject) => {
             try {
                 if (!NailgunService.startingOrRestarting) {
@@ -171,16 +245,20 @@ export class NailgunService {
         });
     }
 
-    public stopNailgunServer(): Thenable<boolean> {
+    public stopNailgunServer(): Promise<boolean> {
         return new Promise((resolve, reject) => {
             try {
                 if (Settings.settings.nailgunSettings.port == '*') {
                     if (this.isReady() || NailgunService.startingOrRestarting) {
                         Log.error("Error: inconsistent state detected, the nailgun port is * but the nailgun server is not stopped.");
+                        Log.error("This potentially leaks a java process.");
+                        resolve(false);
+                    } else {
+                        Log.log("nailgun server is stopped", LogLevel.Info);
+
+                        resolve(true);
                     }
-                    Log.log("nailgun server is stopped", LogLevel.Info);
                     this.setStopped();
-                    resolve(true);
                 } else {
                     this.setStopping();
                     Log.log("gracefully shutting down nailgun server on port: " + Settings.settings.nailgunSettings.port, LogLevel.Info);
@@ -202,7 +280,7 @@ export class NailgunService {
 
     //the backend related processes (e.g z3) are child processes of the nailgun server, 
     //therefore, killing all childs of the nailgun server stops the right processes
-    public killNGAndZ3(ngPid?: number, secondTry: boolean = false): Thenable<boolean> {
+    public killNGAndZ3(ngPid?: number, secondTry: boolean = false): Promise<boolean> {
         return new Promise((resolve, reject) => {
             try {
                 if (Server.nailgunService.nailgunServerPid) {
@@ -274,7 +352,7 @@ export class NailgunService {
     /**
      * deprecated
      */
-    public killAllNgAndZ3Processes(): Thenable<boolean> {
+    public killAllNgAndZ3Processes(): Promise<boolean> {
         // it would be much better to kill the processes by process group,
         // unfortunaltey that did not work.
         // Moreover, the nailgun client is not listening to the SIGINT signal, 
@@ -304,6 +382,10 @@ export class NailgunService {
         // Log.log('killing nailgun server, this may leave its sub processes running', LogLevel.Debug);
         // process.kill(this.nailgunProcess.pid, 'SIGTERM')
         Log.log('recursively killing nailgun server', LogLevel.Debug);
+        if (!this.nailgunProcess) {
+            Log.error("cannot kill the Nailgun process, it is not running.");
+            return;
+        }
         this.killRecursive(this.nailgunProcess.pid);
 
         if (Settings.isWin) {
@@ -350,8 +432,8 @@ export class NailgunService {
     public startStageProcess(fileToVerify: string, stage: Stage, onData, onError, onClose): child_process.ChildProcess {
         try {
             Log.log("Start Stage Process", LogLevel.LowLevelDebug);
-            let program = this.activeBackend.useNailgun ? ('"' + Settings.settings.nailgunSettings.clientExecutable + '"') : ('java ' + Settings.settings.javaSettings.customArguments);
-            let command = Settings.expandCustomArguments(program, stage, fileToVerify, this.activeBackend);
+            let program = Server.backend.useNailgun ? ('"' + Settings.settings.nailgunSettings.clientExecutable + '"') : ('java ' + Settings.settings.javaSettings.customArguments);
+            let command = Settings.expandCustomArguments(program, stage, fileToVerify, Server.backend);
             Log.log(command, LogLevel.Debug);
             let verifyProcess = child_process.exec(command, { maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, cwd: Server.backendOutputDirectory });
             Log.log("Verifier Process PID: " + verifyProcess.pid, LogLevel.Debug);
@@ -364,7 +446,7 @@ export class NailgunService {
         }
     }
 
-    private isNailgunServerReallyRunning(): Thenable<boolean> {
+    private isNailgunServerReallyRunning(): Promise<boolean> {
         return new Promise((resolve, reject) => {
             if (!this.nailgunProcess) {
                 return resolve(false);
@@ -382,7 +464,7 @@ export class NailgunService {
         });
     }
 
-    public isJreInstalled(): Thenable<boolean> {
+    public isJreInstalled(): Promise<boolean> {
         Log.log("Check if Jre is installed", LogLevel.Verbose);
         return new Promise((resolve, reject) => {
             let jreTester = child_process.exec("java -version");

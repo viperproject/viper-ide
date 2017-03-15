@@ -56,6 +56,8 @@ export class Commands {
     static ShowHeap = "ShowHeap";//ShowHeapParams
     //Client tells Server to start backends
     static StartBackend = "StartBackend";//backendName:string
+    //client asks Server to stop the backend
+    static StopBackend = "StopBackend";//void
     //Request a list of all states that led to the current state
     static GetExecutionTrace = "GetExecutionTrace";//GetExecutionTraceParams -> trace:ExecutionTrace[]
     //Request the path to the dot executable from the language server

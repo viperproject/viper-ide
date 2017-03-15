@@ -307,11 +307,11 @@ export class VerificationTask {
     }
 
     private startVerificationTimeout(verificationCount: number) {
-        if (this.nailgunService.activeBackend.timeout) {
+        if (Server.backend.timeout) {
             setTimeout(() => {
                 //Log.log("check for verification timeout", LogLevel.Debug);
                 if (this.running && this.verificationCount == verificationCount) {
-                    Log.hint("The verification timed out after " + this.nailgunService.activeBackend.timeout + "ms");
+                    Log.hint("The verification timed out after " + Server.backend.timeout + "ms");
                     this.abortVerificationIfRunning().then(() => {
                         //wait for verification to terminate
                         Server.sendStateChangeNotification({
@@ -324,7 +324,7 @@ export class VerificationTask {
                     });
                 }
                 this.running = false;
-            }, this.nailgunService.activeBackend.timeout);
+            }, Server.backend.timeout);
         }
     }
 
@@ -360,7 +360,7 @@ export class VerificationTask {
                         (newStage.isVerification && !lastStage.isVerification && newStageExecutions <= 1)) {
                         Server.sendStateChangeNotification({ newState: VerificationState.Stage, stage: newStage.name, filename: this.filename }, this)
                         let successMessage = Success[isVerifyingStage ? success : Success.Success];
-                        
+
                         Log.log(`Start stage ${newStage.name} after stage ${lastStage.name}, success was: ${successMessage}`, LogLevel.Info);
                         Server.executedStages.push(newStage);
                         let path = Common.uriToPath(this.fileUri);
@@ -734,7 +734,7 @@ export class VerificationTask {
                 if (line == 'No errors found.') { }
                 else if (line.startsWith('The following errors were found')) { }
                 else if (line.startsWith('  Internal error:')) {
-                    this.internalErrorMessage = line.substring('  Internal error:'.length,line.length).trim();
+                    this.internalErrorMessage = line.substring('  Internal error:'.length, line.length).trim();
                 }
                 else if (line.startsWith('  ')) {
                     let parsedPosition = Server.extractPosition(line);
@@ -831,7 +831,7 @@ export class VerificationTask {
         }
     }
 
-    public abortVerificationIfRunning(): Thenable<boolean> {
+    public abortVerificationIfRunning(): Promise<boolean> {
         return new Promise((resolve, reject) => {
             try {
                 if (!this.running) {
@@ -846,6 +846,7 @@ export class VerificationTask {
                 this.verifierProcess.removeAllListeners('close');
                 this.verifierProcess.stdout.removeAllListeners('data');
                 this.verifierProcess.stderr.removeAllListeners('data');
+                
                 //log the exit of the child_process to kill
                 let ngClientEndPromise = new Promise((res, rej) => {
                     this.verifierProcess.on('exit', (code, signal) => {
@@ -853,26 +854,7 @@ export class VerificationTask {
                         res(true);
                     })
                 });
-                //try {
-
-                //HOW TO kill the verifier process and all its children?
-
-                //-> this worked so far: kill the process and all ng.exe and z3.exe instances
-                //this.verifierProcess.kill('SIGINT'); //TODO: not working on mac, linux?
-                //let deamonKillerPromise = Server.nailgunService.killNGAndZ3Deamon();
-                //only after the verification really ended we can continue;
-
-                //experiments:
-                //process.kill(this.verifierProcess.pid);
-                //let k = child_process.exec("pkill -TERM -P " +this.verifierProcess.pid);
                 let deamonKillerPromise = Server.nailgunService.killNGAndZ3(this.verifierProcess.pid);
-
-                //let killcommand = "taskkill /pid "+this.verifierProcess.pid+" /T /F";
-                //Log.log("kill command:" + killcommand);
-                //child_process.exec(killcommand);
-
-                //process.kill(this.verifierProcess.pid, 'SIGINT');
-                //} catch (e) {}// if stopping does not work, there is nothing we can do about it.
                 let l = this.verifierProcess.listeners;
                 this.verifierProcess = null;
                 this.running = false;
@@ -924,7 +906,7 @@ export class VerificationTask {
         }
     }
 
-    public static stopAllRunningVerifications(): Thenable<boolean> {
+    public static stopAllRunningVerifications(): Promise<boolean> {
         return new Promise((resolve, reject) => {
             try {
                 if (Server.verificationTasks && Server.verificationTasks.size > 0) {

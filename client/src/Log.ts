@@ -84,7 +84,7 @@ export class Log {
     public static updateSettings() {
         let oldLogLevel = Log.logLevel;
         Log.logLevel = Helper.getConfiguration("preferences").logLevel || LogLevel.Default;
-        if(State.unitTest){
+        if (State.unitTest) {
             Log.logLevel = LogLevel.LowLevelDebug;
         }
         if (oldLogLevel != Log.logLevel) {
@@ -114,7 +114,7 @@ export class Log {
         let label = data.domain + ": " + Helper.formatProgress(progress);
         this.log(label, logLevel);
         State.statusBarProgress.updateProgressBar(progress);
-        State.statusBarItem.updateProgressLabel(data.domain,progress);
+        State.statusBarItem.updateProgressLabel(data.domain, progress);
     }
 
     private static prefix(logLevel: LogLevel): string {
@@ -154,15 +154,15 @@ export class Log {
         Log.logFile = null;
     }
 
-    public static hint(message: string, showSettingsButton = false, showViperToolsUpdateButton = false) {
-        Log.log("H: " + message, LogLevel.Debug);
+    public static hint(message: string, tag: string = "Viper", showSettingsButton = false, showViperToolsUpdateButton = false) {
+        Log.log("H: " + tag + ": "+ message, LogLevel.Debug);
 
         let settingsButton: vscode.MessageItem = { title: "Open Settings" };
         let updateButton: vscode.MessageItem = { title: "Update ViperTools" };
         let buttons: vscode.MessageItem[] = [];
         if (showSettingsButton) buttons.push(settingsButton);
         if (showViperToolsUpdateButton) buttons.push(updateButton);
-        vscode.window.showInformationMessage("Viper: " + message, ...buttons).then((choice) => {
+        vscode.window.showInformationMessage(tag + ": " + message, ...buttons).then((choice) => {
             try {
                 if (choice && choice.title === settingsButton.title) {
                     vscode.commands.executeCommand("workbench.action.openGlobalSettings")

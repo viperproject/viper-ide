@@ -10,25 +10,29 @@ import Uri from 'vscode-uri/lib/index';
 import { Helper } from './Helper';
 import { StateVisualizer } from './StateVisualizer';
 import { Color, StatusBar } from './StatusBar';
+import { VerificationController, Task } from './VerificationController';
 
 export class State {
     public static client: LanguageClient;
     public static context: vscode.ExtensionContext;
     public static instance: State;
 
-    public static viperFiles: Map<string, ViperFileState>;
+    public static viperFiles: Map<string, ViperFileState> = new Map<string, ViperFileState>();
     public static isBackendReady: boolean;
     public static isDebugging: boolean;
     public static isVerifying: boolean;
-    private languageServerDisposable;
+    private static languageServerDisposable;
     public static isWin = /^win/.test(process.platform);
     public static isLinux = /^linux/.test(process.platform);
     public static isMac = /^darwin/.test(process.platform);
     private static lastActiveFileUri: string;
+    public static verificationController: VerificationController;
 
     public static activeBackend: string;
 
     public static unitTest;
+
+    public static autoVerify: boolean = true;
 
     //status bar
     public static statusBarItem: StatusBar;
@@ -36,15 +40,19 @@ export class State {
     public static backendStatusBar: StatusBar;
     public static abortButton: StatusBar;
 
-    public static createState(): State {
-        if (State.instance) {
-            return State.instance;
-        } else {
-            this.reset();
-            let newState = new State();
-            State.instance = newState;
-            return newState;
-        }
+    // public static createState(): State {
+    //     if (State.instance) {
+    //         return State.instance;
+    //     } else {
+    //         this.reset();
+    //         let newState = new State();
+    //         State.instance = newState;
+    //         return newState;
+    //     }
+    // }
+
+    public static addToWorklist(task: Task) {
+        this.verificationController.addToWorklist(task);
     }
 
     public static initializeStatusBar(context) {
@@ -126,8 +134,7 @@ export class State {
         return result;
     }
 
-    public startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, brk: boolean) {
-        State.context = context;
+    public static startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, brk: boolean) {
         // The server is implemented in node
         let serverModule = State.context.asAbsolutePath(path.join('server', 'server.js'));
 
@@ -168,7 +175,7 @@ export class State {
         }
     }
 
-    public dispose(): Promise<any> {
+    public static dispose(): Promise<any> {
         try {
             return new Promise((resolve, reject) => {
                 Log.log("Ask language server to shut down.", LogLevel.Info);

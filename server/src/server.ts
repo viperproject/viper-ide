@@ -26,6 +26,7 @@ Server.connection.listen();
 
 function registerHandlers() {
     //starting point (executed once)
+    //TODO: somehow this is never executed, why?
     Server.connection.onInitialize((params): InitializeResult => {
         try {
             Log.log("Debug Server is initializing", LogLevel.LowLevelDebug);
@@ -63,7 +64,7 @@ function registerHandlers() {
             }
             Log.logLevel = Settings.settings.preferences.logLevel; //after this line, Logging works
             Server.refreshEndings();
-            checkSettingsAndRestartBackendIfNeeded(oldSettings);
+            Settings.initiateBackendRestartIfNeeded(oldSettings);
         } catch (e) {
             Log.error("Error handling configuration change: " + e);
         }
@@ -74,11 +75,18 @@ function registerHandlers() {
             if (!selectedBackend || selectedBackend.length == 0) {
                 Log.log("No backend was chosen, don't restart backend", LogLevel.Debug);
             } else {
-                //recheck settings upon backend change
-                checkSettingsAndRestartBackendIfNeeded(null, selectedBackend);
+                checkSettingsAndStartNailgun(selectedBackend);
             }
         } catch (e) {
             Log.error("Error handling select backend request: " + e);
+        }
+    });
+
+    Server.connection.onNotification(Commands.StopBackend, () => {
+        try {
+            Server.nailgunService.stopNailgunServer();
+        } catch (e) {
+            Log.error("Error handling stop backend request: " + e);
         }
     });
 
@@ -180,75 +188,7 @@ function registerHandlers() {
     });
 
     Server.connection.onNotification(Commands.UpdateViperTools, () => {
-        try {
-            Log.log("Updating Viper Tools ...", LogLevel.Default);
-            let filename: string;
-            if (Settings.isWin) {
-                filename = "ViperToolsWin.zip"
-            } else {
-                filename = Settings.isLinux ? "ViperToolsLinux.zip" : "ViperToolsMac.zip";
-            }
-            //check access to download location
-            let dir = <string>Settings.settings.paths.viperToolsPath;
-            let viperToolsPath = pathHelper.join(dir, filename);
-
-            //this ugly cast is needed because of a bug in typesript:
-            //https://github.com/Microsoft/TypeScript/issues/10242
-            (<Promise<void>>Server.makeSureFileExistsAndCheckForWritePermission(viperToolsPath).then(error => {
-                if (error && !Settings.isWin && error.startsWith("EACCES")) {
-                    //change the owner of the location 
-                    Log.log("Try to change the ownership of " + dir, LogLevel.Debug);
-                    return Server.sudoMakeSureFileExistsAndSetOwner(dir)
-                } else {
-                    return error;
-                }
-            }).then(error => {
-                if (error) {
-                    throw ("The Viper Tools Update failed, change the ViperTools directory to a folder in which you have permission to create files. " + error);
-                }
-                //download Viper Tools
-                let url = <string>Settings.settings.preferences.viperToolsProvider;
-                Log.log("Downloading ViperTools from " + url + " ...", LogLevel.Default)
-                return Server.download(url, viperToolsPath);
-            }).then(success => {
-                if (success) {
-                    return Server.extract(viperToolsPath);
-                } else {
-                    throw ("Downloading viper tools unsuccessful.");
-                }
-            }).then(success => {
-                if (success) {
-                    Log.log("Extracting ViperTools finished " + (success ? "" : "un") + "successfully", LogLevel.Info);
-                    if (success) {
-                        //chmod to allow the execution of ng and zg files
-                        if (Settings.isLinux || Settings.isMac) {
-                            fs.chmodSync(pathHelper.join(dir, "nailgun", "ng"), '755') //755 is for (read, write, execute)
-                            fs.chmodSync(pathHelper.join(dir, "z3", "bin", "z3"), '755') //755 is for (read, write, execute)
-                            fs.chmodSync(pathHelper.join(dir, "boogie", "Binaries", "Boogie"), '755');
-                        }
-
-                        //delete archive
-                        fs.unlink(viperToolsPath, (err) => {
-                            if (err) {
-                                Log.error("Error deleting archive after ViperToolsUpdate: " + err);
-                            }
-                            Log.log("ViperTools Update completed", LogLevel.Default);
-                            Server.connection.sendNotification(Commands.ViperUpdateComplete, true);//success
-                        });
-                        //trigger a restart of the backend
-                        checkSettingsAndRestartBackendIfNeeded(null, null, true);
-                    }
-                } else {
-                    throw ("Extracting viper tools unsuccessful.");
-                }
-            })).catch(e => {
-                Log.error(e);
-                Server.connection.sendNotification(Commands.ViperUpdateComplete, false);//update failed
-            });
-        } catch (e) {
-            Log.error("Error updating viper tools: " + e);
-            Server.connection.sendNotification(Commands.ViperUpdateComplete, false);//update failed
-        }
+        Server.updateViperTools(false);
     });
 
     Server.connection.onRequest(Commands.Dispose, () => {
@@ -372,10 +312,6 @@ function registerHandlers() {
         }
     });
 
-    // Server.connection.onRequest(Commands.GetDotExecutable, params => {
-    //     return Settings.settings.paths.dotExecutable;
-    // });
-
     Server.connection.onRequest(Commands.RemoveDiagnostics, (uri: string) => {
         //Log.log("Trying to remove diagnostics from "+ uri);
         return new Promise((resolve, reject) => {
@@ -389,46 +325,29 @@ function registerHandlers() {
     });
 }
 
-function resetDiagnostics(uri: string) {
-    let task = Server.verificationTasks.get(uri);
-    if (!task) {
-        Log.error("no verification Task for file: " + uri);
-        return;
-    }
-    task.resetDiagnostics();
-}
-
-//tries to restart backend, 
-function checkSettingsAndRestartBackendIfNeeded(oldSettings: ViperSettings, selectedBackend?: string, viperToolsUpdated: boolean = false) {
-    Settings.checkSettings().then(() => {
+function checkSettingsAndStartNailgun(backendName: string) {
+    let backend;
+    Settings.checkSettings(false).then(() => {
         if (Settings.valid()) {
-            if (selectedBackend) {
-                Settings.selectedBackend = selectedBackend;
-            }
-            let newBackend = Settings.autoselectBackend(Settings.settings);
-            if (newBackend) {
-                //only restart the backend after settings changed if the active backend was affected
-                let restartBackend = !Server.nailgunService.isReady() //backend is not ready -> restart
-                    || !Settings.backendEquals(Server.backend, newBackend) //change in backend
-                    || (oldSettings && (newBackend.useNailgun && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings))))
-                    || viperToolsUpdated; //backend needs nailgun and nailgun settings changed
-                if (restartBackend) {
-                    Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info);
-                    Server.backend = newBackend;
-                    Server.verificationTasks.forEach(task => task.resetLastSuccess());
-                    Server.nailgunService.startOrRestartNailgunServer(Server.backend, true);
-                } else {
-                    //In case the backend does not need to be restarted, retain the port
-                    Settings.settings.nailgunSettings.port = oldSettings.nailgunSettings.port;
-                    Log.log("No need to restart backend. It is still the same", LogLevel.Debug)
-                    Server.backend = newBackend;
-                    Server.sendBackendReadyNotification({ name: Server.backend.name, restarted: false });
-                }
+            backend = Settings.selectBackend(Settings.settings, backendName);
+            if (backend) {
+                return Server.nailgunService.startNailgunServer(backend);
             } else {
-                Log.error("No backend, even though the setting check succeeded.");
+                Log.error("cannot start backend " + backendName + ", no configuration found.");
+                return false;
             }
         } else {
-            Server.nailgunService.stopNailgunServer();
+            return false;
         }
+    }).then(success => {
+        if (success) {
+            Server.nailgunService.setReady(backend);
+        } else {
+            Server.nailgunService.setStopped();
+            Log.log("The nailgun server could not be started.", LogLevel.Debug);
+        }
+    }).catch(reason => {
+        Log.error("startNailgunServer failed: " + reason);
+        Server.nailgunService.killNailgunServer();
     });
 }
