@@ -218,9 +218,13 @@ export class VerificationController {
                             }
                             break;
                         case TaskType.UpdateViperTools:
-                            task.type = TaskType.UpdatingViperTools;
-                            State.client.sendNotification(Commands.UpdateViperTools);
-                            State.statusBarProgress.updateProgressBar(0);
+                            if (State.isBackendReady) {
+                                this.workList.unshift({ type: TaskType.StopBackend, manuallyTriggered: task.manuallyTriggered })
+                            } else {
+                                task.type = TaskType.UpdatingViperTools;
+                                State.client.sendNotification(Commands.UpdateViperTools);
+                                State.statusBarProgress.updateProgressBar(0);
+                            }
                             break;
                         case TaskType.UpdatingViperTools:
                             //block until verification is stoped;
