@@ -1,4 +1,5 @@
 'use strict';
+import { clearTimeout } from 'timers';
 
 import child_process = require('child_process');
 import { Log } from './Log'
@@ -19,6 +20,8 @@ export class NailgunService {
     static REQUIRED_JAVA_VERSION = 8;
 
     static startingOrRestarting: boolean = false;
+
+    private nailgunTimeout;
 
     public isReady(): boolean {
         return this._ready;
@@ -202,7 +205,7 @@ export class NailgunService {
 
     private startNailgunTimeout(instanceCount: number) {
         if (Settings.settings.nailgunSettings.timeout) {
-            setTimeout(() => {
+            this.nailgunTimeout = setTimeout(() => {
                 //Log.log("check for nailgun timeout", LogLevel.Debug);
                 if (!this.isReady() && this.instanceCount == instanceCount) {
                     Log.hint("The nailgun server startup timed out after " + Settings.settings.nailgunSettings.timeout + "ms");
@@ -248,6 +251,7 @@ export class NailgunService {
     public stopNailgunServer(): Promise<boolean> {
         return new Promise((resolve, reject) => {
             try {
+                clearTimeout(this.nailgunTimeout);
                 if (Settings.settings.nailgunSettings.port == '*') {
                     if (this.isReady() || NailgunService.startingOrRestarting) {
                         Log.error("Error: inconsistent state detected, the nailgun port is * but the nailgun server is not stopped.");
@@ -381,17 +385,22 @@ export class NailgunService {
     public killNailgunServer() {
         // Log.log('killing nailgun server, this may leave its sub processes running', LogLevel.Debug);
         // process.kill(this.nailgunProcess.pid, 'SIGTERM')
-        Log.log('recursively killing nailgun server', LogLevel.Debug);
+
+        if (this.nailgunTimeout) {
+            clearTimeout(this.nailgunTimeout);
+        }
+
         if (!this.nailgunProcess) {
             Log.error("cannot kill the Nailgun process, it is not running.");
             return;
         }
-        this.killRecursive(this.nailgunProcess.pid);
+        Log.log('kill nailgun server', LogLevel.Debug);
 
         if (Settings.isWin) {
             let wmic = Common.spawner('wmic', ["process", "where", 'ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunServerPid + ' or ParentProcessId=' + this.nailgunServerPid, "call", "terminate"]);
             //let wmic = this.executer('wmic process where "ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid + '" call terminate');
         } else {
+            //this.killRecursive(this.nailgunProcess.pid);
             //TODO: consider also killing the parent (its actually the shell process)
             Common.spawner('pkill', ["-P", "" + this.nailgunProcess.pid]);
         }

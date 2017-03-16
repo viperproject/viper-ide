@@ -419,7 +419,7 @@ function registerHandlers() {
         }));
 
         //verifyAllFilesInWorkspace
-        State.context.subscriptions.push(vscode.commands.registerCommand('viper.verifyAllFilesInWorkspace', () => State.verificationController.verifyAllFilesInWorkspace()));
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.verifyAllFilesInWorkspace', (folder) => State.verificationController.verifyAllFilesInWorkspace(folder)));
 
         //toggleAutoVerify
         State.context.subscriptions.push(vscode.commands.registerCommand('viper.toggleAutoVerify', () => toggleAutoVerify()));

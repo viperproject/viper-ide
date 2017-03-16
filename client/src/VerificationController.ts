@@ -167,7 +167,6 @@ export class VerificationController {
                             stopBackendFound = true;
                             clear = true;
                             stopFound = true;
-                            isStopManuallyTriggered = isStopManuallyTriggered || this.workList[i].manuallyTriggered;
                             break;
                         case TaskType.BackendStarted:
                             this.workList[i].type = NoOp;
@@ -205,6 +204,9 @@ export class VerificationController {
                             this.lastCanStartVerificationUri = task.uri;
                             break;
                         case TaskType.Verifying:
+                            if (!State.isVerifying) {
+                                task.type = NoOp;
+                            }
                             //if another verification is requested, the current one must be stopped
                             if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri)) || stopFound || viperToolsUpdateFound || startBackendFound || stopBackendFound) {
                                 task.type = TaskType.StopVerifying;
@@ -681,7 +683,7 @@ export class VerificationController {
             || success === Success.VerificationFailed;
     }
 
-    public verifyAllFilesInWorkspace() {
+    public verifyAllFilesInWorkspace(folder: string) {
         this.autoVerificationStartTime = Date.now();
         this.verifyingAllFiles = true;
         this.autoVerificationResults = [];
@@ -702,27 +704,27 @@ export class VerificationController {
         Log.log("Verified " + this.autoVerificationResults.length + " files in " + Helper.formatSeconds((Date.now() - this.autoVerificationStartTime) / 1000), LogLevel.Info);
         this.autoVerificationResults.forEach(res => {
             Log.log("Verification Result: " + res, LogLevel.Info);
-        })
+        });
+        //for unitTest
+        if (State.unitTest) {
+            State.unitTest({ event: 'AllFilesVerified', verified: this.autoVerificationResults.length, total: this.allFilesToAutoVerify.length });
+        }
     }
 
-    private autoVerifyFile(): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            if (this.nextFileToAutoVerify < this.allFilesToAutoVerify.length && this.verifyingAllFiles) {
-                let currFile = this.allFilesToAutoVerify[this.nextFileToAutoVerify];
-                Log.log("AutoVerify " + path.basename(currFile.toString()), LogLevel.Info);
-                this.nextFileToAutoVerify++;
-                vscode.workspace.openTextDocument(currFile).then((document) => {
-                    vscode.window.showTextDocument(document).then(() => {
-                        //verify(State.getFileState(currFile), false);
-                        State.addToWorklist({ type: TaskType.Verify, uri: currFile, manuallyTriggered: false });
-                        resolve(true);
-                    })
+    private autoVerifyFile() {
+        if (this.nextFileToAutoVerify < this.allFilesToAutoVerify.length && this.verifyingAllFiles) {
+            let currFile = this.allFilesToAutoVerify[this.nextFileToAutoVerify];
+            Log.log("AutoVerify " + path.basename(currFile.toString()), LogLevel.Info);
+            this.nextFileToAutoVerify++;
+            vscode.workspace.openTextDocument(currFile).then((document) => {
+                vscode.window.showTextDocument(document).then(() => {
+                    //verify(State.getFileState(currFile), false);
+                    State.addToWorklist({ type: TaskType.Verify, uri: currFile, manuallyTriggered: false });
                 })
-            } else {
-                this.verifyingAllFiles = false;
-                this.printAllVerificationResults();
-                resolve(false);
-            }
-        });
+            })
+        } else {
+            this.verifyingAllFiles = false;
+            this.printAllVerificationResults();
+        }
     }
 }
