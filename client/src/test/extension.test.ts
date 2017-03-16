@@ -32,7 +32,6 @@ let logFileOpened = () => { };
 let workspaceVerificationCompletionCallback = (result) => { };
 
 let internalErrorDetected: boolean;
-let isIdeReadyForTests = false;
 
 const SILICON = 'silicon';
 const CARBON = 'carbon';
@@ -155,7 +154,6 @@ function StartViperIdeTests() {
                 return waitForBackendStarted();
             }).then(() => {
                 //backend ready
-                isIdeReadyForTests = true;
                 done();
             });
         });
@@ -163,7 +161,6 @@ function StartViperIdeTests() {
 }
 
 function ViperIdeTests() {
-    if(!isIdeReadyForTests) return;
     // Defines a Mocha test suite to group tests of similar kind together
     describe("ViperIDE tests", function () {
 
@@ -285,7 +282,6 @@ function ViperIdeTests() {
 }
 
 function ViperIdeStressTests() {
-        if(!isIdeReadyForTests) return;
     describe("ViperIDE Stress Tests", function () {
         it("Stress test 1: multiple fast verification requests", function (done) {
             this.timeout(11000);
@@ -394,7 +390,6 @@ function ViperIdeStressTests() {
 
 //TODO: Not working yet
 function TestVerificationOfAllFilesInWorkspace() {
-        if(!isIdeReadyForTests) return;
     describe("Test Verification of all files in the workspace", function () {
         it("Test Verification of all files in the workspace", function (done) {
             this.timeout(100000);
