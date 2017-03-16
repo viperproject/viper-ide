@@ -551,6 +551,7 @@ function canStartDebugging(): CheckResult {
         return {
             result: result,
             reason: reason,
+            removeRequest: false,//TODO:change when adding debugging to the verification controller
             error: null
         };
     } catch (e) {
@@ -559,6 +560,7 @@ function canStartDebugging(): CheckResult {
         return {
             result: false,
             reason: null,
+            removeRequest: false,//TODO:change when adding debugging to the verification controller
             error: error
         };
     }
@@ -638,6 +640,7 @@ function handleBackendReadyNotification(params: BackendReadyParams) {
         }
         Log.log("Backend ready: " + params.name, LogLevel.Info);
         State.addToWorklist({ type: TaskType.BackendStarted, backend: params.name, manuallyTriggered: true });
+        State.isBackendReady = true;
     } catch (e) {
         Log.error("Error handling backend started notification: " + e);
     }

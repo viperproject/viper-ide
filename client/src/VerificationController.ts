@@ -32,6 +32,7 @@ export enum TaskType {
 export interface CheckResult {
     result: boolean,
     reason: string,
+    removeRequest: boolean,
     error: string
 }
 
@@ -177,6 +178,11 @@ export class VerificationController {
                             this.workList[i].type = NoOp;
                             backendStopped = true;
                             break;
+                        case TaskType.Save:
+                            if(this.workList[0].type == TaskType.Verifying){
+                                stopFound = true;
+                            }
+                            break;
                     }
                 }
 
@@ -200,25 +206,29 @@ export class VerificationController {
                             } else if (canVerify.reason && (canVerify.reason != this.lastCanStartVerificationReason || (task.uri && !Helper.uriEquals(task.uri, this.lastCanStartVerificationUri)))) {
                                 Log.log(canVerify.reason, LogLevel.Info);
                                 this.lastCanStartVerificationReason = canVerify.reason;
+                                if (canVerify.removeRequest) {
+                                    task.type = NoOp;
+                                }
                             }
                             this.lastCanStartVerificationUri = task.uri;
                             break;
                         case TaskType.Verifying:
                             if (!State.isVerifying) {
                                 task.type = NoOp;
-                            }
-                            //if another verification is requested, the current one must be stopped
-                            if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri)) || stopFound || viperToolsUpdateFound || startBackendFound || stopBackendFound) {
-                                task.type = TaskType.StopVerifying;
-                                Log.log("Stop the running verification of " + path.basename(Common.uriToPath(task.uri.toString())), LogLevel.Debug);
-                                this.stopVerification(task.uri.toString(), isStopManuallyTriggered);
-                            }
-                            //block until verification is complete or failed
-                            if (verificationComplete || verificationFailed) {
-                                if (!Helper.uriEquals(completedOrFailedFileUri, task.uri)) {
-                                    Log.error("WARNING: the " + (verificationComplete ? "completed" : "failed") + " verification uri does not correspond to the uri of the started verification.");
+                            } else {
+                                //if another verification is requested, the current one must be stopped
+                                if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri)) || stopFound || viperToolsUpdateFound || startBackendFound || stopBackendFound) {
+                                    task.type = TaskType.StopVerifying;
+                                    Log.log("Stop the running verification of " + path.basename(Common.uriToPath(task.uri.toString())), LogLevel.Debug);
+                                    this.stopVerification(task.uri.toString(), isStopManuallyTriggered);
                                 }
-                                task.type = NoOp;
+                                //block until verification is complete or failed
+                                if (verificationComplete || verificationFailed) {
+                                    if (!Helper.uriEquals(completedOrFailedFileUri, task.uri)) {
+                                        Log.error("WARNING: the " + (verificationComplete ? "completed" : "failed") + " verification uri does not correspond to the uri of the started verification.");
+                                    }
+                                    task.type = NoOp;
+                                }
                             }
                             break;
                         case TaskType.StopVerifying:
@@ -249,16 +259,7 @@ export class VerificationController {
                         case TaskType.Save:
                             task.type = NoOp;
                             if (fileState) {
-                                if (fileState.onlySpecialCharsChanged) {
-                                    fileState.onlySpecialCharsChanged = false;
-                                } else {
-                                    //Log.log("Save " + path.basename(task.uri.toString()) + " is handled", LogLevel.Info);
-                                    fileState.changed = true;
-                                    fileState.verified = false;
-                                    this.stopDebuggingOnServer();
-                                    this.stopDebuggingLocally();
-                                    this.addToWorklist({ type: TaskType.Verify, uri: task.uri, manuallyTriggered: false });
-                                }
+                                this.handleSaveTask(fileState);
                             }
                             break;
                         case TaskType.StartBackend:
@@ -300,6 +301,9 @@ export class VerificationController {
                         done = true;
                     }
                 }
+                if (State.unitTest && this.workList.length == 0) {
+                    State.unitTest({ event: 'Idle' });
+                }
             } catch (e) {
                 Log.error("Error in verification controller (critical): " + e);
                 this.workList.shift();
@@ -308,16 +312,31 @@ export class VerificationController {
         State.context.subscriptions.push(this.controller);
     }
 
+    private handleSaveTask(fileState: ViperFileState) {
+        if (fileState.onlySpecialCharsChanged) {
+            fileState.onlySpecialCharsChanged = false;
+        } else {
+            //Log.log("Save " + path.basename(task.uri.toString()) + " is handled", LogLevel.Info);
+            fileState.changed = true;
+            fileState.verified = false;
+            this.stopDebuggingOnServer();
+            this.stopDebuggingLocally();
+            this.addToWorklist({ type: TaskType.Verify, uri: fileState.uri, manuallyTriggered: false });
+        }
+    }
+
     private canStartVerification(task: Task): CheckResult {
         try {
             let result = false;
             let reason: string;
+            let removeRequest = true;
             if (!task.uri) {
                 reason = "Cannot Verify, unknown file uri";
             } else {
                 let dontVerify = `Don't verify ${path.basename(task.uri.toString())}: `;
                 if (!State.isBackendReady) {
                     reason = "Backend is not ready, wait for backend to start.";
+                    removeRequest = false;
                 } else {
                     let fileState = State.getFileState(task.uri);
                     if (!fileState) {
@@ -339,6 +358,7 @@ export class VerificationController {
                             reason = dontVerify + `another file is active`;
                         } else {
                             result = true;
+                            removeRequest = false;
                         }
                     }
                 }
@@ -346,6 +366,7 @@ export class VerificationController {
             return {
                 result: result,
                 reason: reason,
+                removeRequest: removeRequest,
                 error: null
             };
         } catch (e) {
@@ -354,6 +375,7 @@ export class VerificationController {
             return {
                 result: false,
                 reason: null,
+                removeRequest: true,
                 error: error
             };
         }
@@ -468,14 +490,14 @@ export class VerificationController {
     }
 
     public stopDebuggingLocally() {
-        try {
-            if (State.isDebugging) {
+        if (State.isDebugging) {
+            try {
                 Log.log("Stop Debugging", LogLevel.Info);
                 let visualizer = State.getLastActiveFile().stateVisualizer;
                 this.hideStates(() => { }, visualizer);
+            } catch (e) {
+                Log.error("Error handling stop debugging request: " + e);
             }
-        } catch (e) {
-            Log.error("Error handling stop debugging request: " + e);
         }
     }
 
@@ -483,7 +505,6 @@ export class VerificationController {
         try {
             if (Helper.areAdvancedFeaturesEnabled()) {
                 let editor = visualizer.viperFile.editor;
-                //vscode.window.showTextDocument(editor.document, editor.viewColumn).then(() => {  
                 vscode.commands.executeCommand('workbench.action.focusFirstEditorGroup').then(success => { }, error => {
                     Log.error("Error changing the focus to the first editorGroup");
                 });
@@ -498,14 +519,13 @@ export class VerificationController {
             } else {
                 callback();
             }
-            //});
         } catch (e) {
             Log.error("Error hiding States: " + e);
         }
     }
 
     private getTotalProgress(): string {
-        return this.verifyingAllFiles ? ` (${this.nextFileToAutoVerify + 1}/${this.allFilesToAutoVerify.length})` : "";
+        return this.verifyingAllFiles ? ` (${this.nextFileToAutoVerify}/${this.allFilesToAutoVerify.length})` : "";
     }
 
     public addTiming(paramProgress: number, color: string, hide: boolean = false) {
@@ -692,11 +712,36 @@ export class VerificationController {
             return;
         }
         let endings = "{" + Helper.viperFileEndings.join(",") + "}";
-        vscode.workspace.findFiles('**/' + endings, '').then((uris: Uri[]) => {
+
+        let fileListReader;
+        if (folder) {
+            fileListReader = this.getAllViperFilesInDir(folder);
+        } else {
+            fileListReader = vscode.workspace.findFiles('**/' + endings, '');
+        }
+
+        fileListReader.then((uris: Uri[]) => {
             Log.log("Starting to verify " + uris.length + " viper files.", LogLevel.Info);
             this.allFilesToAutoVerify = uris;
             this.nextFileToAutoVerify = 0;
             this.autoVerifyFile();
+        });
+    }
+
+    //non recursive at the moment
+    //TODO: implement recursively getting files
+    private getAllViperFilesInDir(folder): Thenable<Uri[]> {
+        return new Promise((resolve, reject) => {
+            let result: vscode.Uri[] = [];
+            fs.readdir(folder, (err, files) => {
+                files.forEach(file => {
+                    let filePath = path.join(folder, file);
+                    if (Helper.isViperSourceFile(filePath)) {
+                        result.push(Helper.uriToObject(Common.pathToUri(filePath)));
+                    }
+                });
+                resolve(result);
+            })
         });
     }
 

@@ -30,6 +30,7 @@ let abortCallback = () => { };
 let updateViperToolsCallback = () => { };
 let logFileOpened = () => { };
 let workspaceVerificationCompletionCallback = (result) => { };
+let idleCallback = () => { };
 
 let internalErrorDetected: boolean;
 
@@ -47,9 +48,8 @@ ViperIdeTests();
 //Test corner cases, and timing related issues
 ViperIdeStressTests();
 
-//TODO: NOT WOKRKING YET
 //can take a long time. 
-//TestVerificationOfAllFilesInWorkspace();
+TestVerificationOfAllFilesInWorkspace();
 
 //needs to be last test
 FinishViperIdeTests();
@@ -78,8 +78,8 @@ function waitForVerification(backend: string, fileName: string): Promise<boolean
 
 function waitForVerificationOfAllFilesInWorkspace(): Promise<boolean> {
     return new Promise((resolve, reject) => {
-        workspaceVerificationCompletionCallback = () => {
-            resolve(true);
+        workspaceVerificationCompletionCallback = (res) => {
+            resolve(res);
         }
     });
 }
@@ -99,6 +99,15 @@ function waitForAbort(): Promise<boolean> {
 function waitForLogFile(): Promise<boolean> {
     return new Promise((resolve, reject) => {
         logFileOpened = () => { resolve(true); }
+    });
+}
+
+function waitForIdle(): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+        idleCallback = () => {
+            idleCallback = () => { };
+            resolve(true);
+        }
     });
 }
 
@@ -135,6 +144,8 @@ function registerUnitTestHandler() {
             logFileOpened();
         } else if (state.event == 'AllFilesVerified') {
             workspaceVerificationCompletionCallback({ verified: state.verified, total: state.total });
+        } else if (state.event == 'Idle') {
+            idleCallback();
         }
     });
 }
@@ -393,11 +404,12 @@ function TestVerificationOfAllFilesInWorkspace() {
     describe("Test Verification of all files in the workspace", function () {
         it("Test Verification of all files in the workspace", function (done) {
             this.timeout(100000);
-            vscode.commands.executeCommand('workbench.action.closeAllEditors').then(() => {
-                vscode.commands.executeCommand('viper.verifyAllFilesInWorkspace',Helper.uriToString(TestContext.DATA_ROOT));
-                return waitForVerificationOfAllFilesInWorkspace()
+            vscode.commands.executeCommand('workbench.action.closeAllEditors');
+            waitForIdle().then(() => {
+                vscode.commands.executeCommand('viper.verifyAllFilesInWorkspace', Helper.uriToString(TestContext.DATA_ROOT));
+                return waitForVerificationOfAllFilesInWorkspace();
             }).then((result: any) => {
-                if (result.verified = result.total) {
+                if (result.verified == result.total) {
                     done();
                 } else {
                     throw new Error("partially verified workspace: (" + result.verified + "/" + result.total + ")");
