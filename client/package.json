@@ -1,7 +1,7 @@
 {
     "name": "viper",
     "displayName": "Viper",
-    "version": "0.5.432",
+    "version": "0.5.433",
     "publisher": "rukaelin",
     "description": "Facilitates the development of viper programs",
     "license": "MIT",
