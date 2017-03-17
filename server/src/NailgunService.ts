@@ -397,7 +397,9 @@ export class NailgunService {
         Log.log('kill nailgun server', LogLevel.Debug);
 
         if (Settings.isWin) {
-            let wmic = Common.spawner('wmic', ["process", "where", 'ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunServerPid + ' or ParentProcessId=' + this.nailgunServerPid, "call", "terminate"]);
+            let where = 'ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid
+                + (this.nailgunServerPid?' or ProcessId=' + this.nailgunServerPid + ' or ParentProcessId=' + this.nailgunServerPid :"");
+            let wmic = Common.spawner('wmic', ["process", "where", where, "call", "terminate"]);
             //let wmic = this.executer('wmic process where "ParentProcessId=' + this.nailgunProcess.pid + ' or ProcessId=' + this.nailgunProcess.pid + '" call terminate');
         } else {
             //this.killRecursive(this.nailgunProcess.pid);

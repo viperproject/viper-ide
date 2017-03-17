@@ -37,6 +37,7 @@ let internalErrorDetected: boolean;
 const SILICON = 'silicon';
 const CARBON = 'carbon';
 const SIMPLE = 'simple.sil';
+const EMPTY = 'empty.txt';
 const LONG = 'longDuration.vpr';
 
 //needs to be first test
@@ -239,7 +240,7 @@ function ViperIdeTests() {
                 return waitForVerification(SILICON, SIMPLE);
             }).then(() => {
                 //simulate context switch by opening non-viper file
-                return openFile('empty.txt');
+                return openFile(EMPTY);
             }).then(() => {
                 return openFile(SIMPLE);
             }).then(() => {
@@ -399,7 +400,6 @@ function ViperIdeStressTests() {
     })
 }
 
-//TODO: Not working yet
 function TestVerificationOfAllFilesInWorkspace() {
     describe("Test Verification of all files in the workspace", function () {
         it("Test Verification of all files in the workspace", function (done) {
@@ -425,7 +425,7 @@ function FinishViperIdeTests() {
             this.timeout(10000);
             TestContext.dispose();
 
-            //wait 5000ms
+            //wait 15000ms
             setTimeout(() => {
                 let command: string;
                 if (State.isWin) {
@@ -435,6 +435,7 @@ function FinishViperIdeTests() {
                 }
                 let pgrep = Common.executer(command);
                 pgrep.stdout.on('data', data => {
+                    log("Process found: " + data);
                     let stringData = (<string>data).replace(/[\n\r]/g, " ");
                     if (/^.*?(\d+).*/.test(stringData)) {
                         throw new Error("Process found");
