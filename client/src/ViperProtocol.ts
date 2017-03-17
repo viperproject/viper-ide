@@ -535,14 +535,24 @@ export class Common {
     }
 
     //Helper methods for child processes
-    public static executer(command: string): child_process.ChildProcess {
+    public static executer(command: string, dataHandler?: (string) => void, errorHandler?: (string) => void, exitHandler?: () => void): child_process.ChildProcess {
         try {
-            Log.log("executer: " + command, LogLevel.Debug)
+            Log.logWithOrigin("executer",command, LogLevel.Debug)
             let child: child_process.ChildProcess = child_process.exec(command, function (error, stdout, stderr) {
-                Log.log('stdout: ' + stdout, LogLevel.LowLevelDebug);
-                Log.log('stderr: ' + stderr, LogLevel.LowLevelDebug);
+                Log.logWithOrigin('executer stdout',stdout, LogLevel.LowLevelDebug);
+                if (dataHandler) {
+                    dataHandler(stdout);
+                }
+                Log.logWithOrigin('executer stderr',stderr, LogLevel.LowLevelDebug);
+                if (errorHandler) {
+                    errorHandler(stderr);
+                }
                 if (error !== null) {
-                    Log.error('exec error: ' + error);
+                    Log.error('executer error: ' + error);
+                }
+                if (exitHandler) {
+                    Log.log("executer done",LogLevel.LowLevelDebug);
+                    exitHandler();
                 }
             });
             return child;

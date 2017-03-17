@@ -475,31 +475,25 @@ export class NailgunService {
     }
 
     public isJreInstalled(): Promise<boolean> {
-        Log.log("Check if Jre is installed", LogLevel.Verbose);
+        Log.log("Check Jre version", LogLevel.Verbose);
         return new Promise((resolve, reject) => {
-            let jreTester = child_process.exec("java -version");
             let is64bit = false;
-            //let resolved = false;
 
-            let versionChecker = (data: string) => {
-                Log.toLogFile("[Java checker]: " + data, LogLevel.LowLevelDebug);
+            let dataHandler = (data: string) => {
                 is64bit = is64bit || data.indexOf("64") >= 0;
-                if (/*!resolved &&*/ this.findAppropriateVersion(data)) {
-                    //resolved = true;
+                if (this.findAppropriateVersion(data)) {
                     resolve(true);
                 }
             };
 
-            jreTester.stdout.on('data', versionChecker);
-            jreTester.stderr.on('data', versionChecker);
-            
-            jreTester.on('exit', () => {
-                Log.toLogFile("[Java checker done]", LogLevel.LowLevelDebug);
+            let exitHandler = () => {
                 if (!is64bit) {
-                    Log.hint("Error: Your java version is not 64-bit. The nailgun server will not work")
+                    Log.error("Error: Your java version is not 64-bit. The nailgun server will not work")
                 }
-                /*if (!resolved)*/ resolve(false);
-            });
+                resolve(false);
+            }
+
+            let jreTester = Common.executer("java -version", dataHandler, dataHandler, exitHandler);
         });
     }
 
