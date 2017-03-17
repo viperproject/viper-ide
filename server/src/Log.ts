@@ -34,8 +34,10 @@ export class Log {
         Server.sendLogMessage(Commands.Error, { data: message, logLevel: logLevel });
     }
 
-    static logWithOrigin(origin: string, message: string, logLevel: LogLevel = LogLevel.Default) {
-        Server.sendLogMessage(Commands.Log, { data: (logLevel >= LogLevel.Debug ? "[" + origin + "]: " : "") + message, logLevel: logLevel });
+    static logWithOrigin(origin: string, message: string, logLevel: LogLevel) {
+        if (message) {
+            Server.sendLogMessage(Commands.Log, { data: (logLevel >= LogLevel.Debug ? "[" + origin + "]: " : "") + message, logLevel: logLevel });
+        }
     }
 
     static hint(message: string, showSettingsButton = false, showViperToolsUpdateButton = false) {

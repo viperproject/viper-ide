@@ -555,8 +555,8 @@ export class Common {
         Log.log("sudo-executer: " + command, LogLevel.Debug)
         let options = { name: name }
         let child = sudo.exec(command, options, function (error, stdout, stderr) {
-            Log.log('stdout: ' + stdout, LogLevel.LowLevelDebug);
-            Log.log('stderr: ' + stderr, LogLevel.LowLevelDebug);
+            Log.logWithOrigin('stdout', stdout, LogLevel.LowLevelDebug);
+            Log.logWithOrigin('stderr', stderr, LogLevel.LowLevelDebug);
             if (error) {
                 Log.error('sudo-executer error: ' + error);
             }
@@ -569,10 +569,10 @@ export class Common {
         try {
             let child = child_process.spawn(command, args, { detached: true });
             child.on('stdout', data => {
-                Log.log('spawner stdout: ' + data, LogLevel.LowLevelDebug);
+                Log.logWithOrigin('spawner stdout', data, LogLevel.LowLevelDebug);
             });
             child.on('stderr', data => {
-                Log.log('spawner stderr: ' + data, LogLevel.LowLevelDebug);
+                Log.logWithOrigin('spawner stderr', data, LogLevel.LowLevelDebug);
             });
             child.on('exit', data => {
                 Log.log('spawner done: ' + data, LogLevel.LowLevelDebug);

@@ -1,120 +1,55 @@
-Visual Sutio Code is a powerful GUI text editor which is a base for implementing features of an integrated verification environment for the Silver language.
+Visual Sutio Code is a powerful GUI text editor which we use as a base for implementing an integrated verification environment for the Viper toolchain.
 
-This repository contains the source files of the VS Code Extension, installation instructions, and the needed files for installing it on OsX, Debian, and Windows.
-
-# Changelog:
-
-## v.0.3.5:
-Bug fixes:
-* issue 53:
-  *	enabled toggling comments
-  *	enabled bracket highlighting
-  *	automatically add closing bracket when typing opening bracket  
-* issue 54: extending syntax and theme
-  *	added Rational as an alias for Perm
-  *	added perm and forperm as verification keywords
-  *	added label as other keywords
-* issue 50:
-  *	the deactivate method returns a promise as soon as it is done cleaning up. this allows VS Code to wait for the extension, however, sometimes it is still hitting a timeout and failing to finish the cleanup.
-* issue 45:
-  *	fixed autosave during running verification
-* issue 35:
-  * implemented ng and z3 kill command for mac
-* auto formatter fix
+This repository contains the source files of the Viper IDE and installation instructions
 
 # Installation
 
 ## 1. Install VS Code
 
-You can download the installer for VS Code from here: https://code.visualstudio.com/download
+You can download the installer for VS Code from the official website, [here](https://code.visualstudio.com/download).
 
-## 2. Setup the Viper Toolchain
+## 2. Install the Viper IDE extension
 
-You can either use the prepackaged ViperTools directory or assemble the necessary tools on your own as described in 2.1 and 2.2.
+Start VS Code and install the **Viper** extension either:
+1. using the extensions panel (View->Extensions) 
+2. or via the command pallete (```F1``` or ```ctrl+shift+p```/```cmd+shift+p```) ```ext install viper```
 
-The prepackaged ViperTools directory can be downloaded from: ...,
-Put its extracted content into the following location and continue with 3.  
-Windows: ```%ProgramFiles%\Viper``` which defaults to ```C:\Program Files (x86)\Viper```  
-Mac/Linux: ```/usr/local/Viper```  
-
-### 2.1. Create jar-files for verification backends
-
-Assemble (or otherwise obtain) a fat jar for each Viper backend (Silicon, Carbon, ...) you want to use from the IDE.
-
-To assemble a fat jar, cd into the backend's checkout directory and run
-```bash
-$ sbt assembly
-```
-If successful, the assembled fat jar should be at `./target/scala-2.11/<backend>.jar`.
-
-Put all the jars in your user's default java extentions directory. For example, if
-you have a assembled `silicon.jar`, you should do the following:
-
-```bash
-$ mkdir -p ~/Library/Java/Extensions
-$ cp ~/viper/silicon/target/scala-2.11/silicon.jar ~/Library/Java/Extensions
-```
-
-### 2.2. Install nailgun
-
-Optionally, if you don't want to wait for a few seconds for each verification procedure
-(known as the JVM startup overhead), install [nailgun](http://martiansoftware.com/nailgun):
-
-```bash
-$ mkdir -p ~/viper/tools/nailgun
-$ cd ~/viper/tools/nailgun
-$ git clone https://github.com/martylamb/nailgun.git .
-$ make && sudo make install
-```
-
-This will install the nailgun client, which could be used through the ```ng``` command.
-
-In order to install the server, one should get Apache Maven. Download the archive with
-Maven binaries from here: http://maven.apache.org/download.cgi
-(the current version is 3.3.3).
-
-```bash
-$ mkdir ~/viper/tools/maven
-$ unzip ~/Downloads/apache-maven-3.3.3-bin.zip -d ~/viper/tools/maven
-$ ../maven/bin.mvn dependency::tree
-$ cp nailgun-server-0.9.2-SNAPSHOT.jar ~/Library/Java/Extensions
-```
-
-## 3. Install the Extension
-
-Install the viper IDE extension using the command pallete (```F1``` or ```ctrl+shift+p```/```cmd+shift+p```) ```ext install viper advanced```
 VS Code informs you that the extension is only ready after the next restart of VS Code. 
 
 More information on how to install an extension can be found at: [Managing Extensions in VS Code](https://code.visualstudio.com/docs/editor/extension-gallery?pub=felixfbecker&ext=php-debug)
 
-## 4. Run the IDE
+## 3. Open a Viper File
 
-Start VS Code and open the folder in which you would like to work on your viper source code files.  
-As soon as a ```.sil``` or ```.vpr``` source file is opened the extension is activated.
-When the file is saved the verification is triggered.  
+After restarting VS Code, open a Viper file. 
+All ```.vpr``` and ```.sil``` files are considered Viper files.
 
-## 5. Customize the Settings
+When the IDE is started for the first time it will automatically install the Viper Toolchain.
 
-You might want to change the default behaviour of the Viper IDE. This can be achieved by customizing the settings.
+For instructions on how to manually install the ViperTools, see 3.1
 
+## 3.1 Manually Setup the Viper Toolchain
 
-The extension expects the ViperTools directory to be at:  
+You can use the prepackaged ViperTools directory that can be downloaded from: [ViperTools](http://www.pm.inf.ethz.ch/research/viper/downloads.html)
+Put its extracted content into the following location.
 Windows: ```%ProgramFiles%\Viper``` which defaults to ```C:\Program Files (x86)\Viper```  
 Mac/Linux: ```/usr/local/Viper```  
 
-If the ViperTools directory is at another location you need to change the viperSettings.viperToolsPath accordingly.
+For instructions on how to assemble the necessary tools on your own visit [Viper](https://bitbucket.org/viperproject/documentation/wiki/Home)
 
-You can open the settings in VS Code through the menu or using the command palette (```F1``` or ```ctrl+shift+p```/```cmd+shift+p```) ```settings```    
+## 4. Customize the Settings
 
-You cannot change the default setting, but have to copy the default viperSettings to your own settings.
-For all settings you don't include in your settings, VS Code is the default settings.
-The default settings open up together with your settings. 
+You might want to change the default behaviour of the Viper IDE. This can be achieved by customizing the settings.
+
 Open the command palette (```F1```), type ```settings```, and select ```open user settings``` or ```open workspace settings``` from the dropdown menu to open the default settings next to your own settings.
+The default settings open up together with your settings. 
+
+You cannot change the default settings, you have to edit your user or workspace settings.
+For all configurations you don't include in your settings, VS Code uses the default settings.
 The user settings are valid for the current user whereas the workspace settings only affect the currently open folder.
 
 More Information on the Settings in VSCode can be found here: [User and Workspace Settings in VS Code](https://code.visualstudio.com/docs/customization/userandworkspace)
 
-### 5.1 List of all viperSettings
+### 4.1 List of all viperSettings
 
 * **nailgunSettings:** All nailgun related settings
   * **serverJar:** The path to the nailgun server jar.
@@ -153,11 +88,31 @@ More Information on the Settings in VSCode can be found here: [User and Workspac
   * **simpleMode:** Useful for verifying programs. Disable when developing the backend
   * **verificationBufferSize:** Maximal buffer size for verification in KB
 
-## 6. Technical Desciptions
+# Changelog:
+
+## v.0.3.5:
+Bug fixes:
+* issue 53:
+  *	enabled toggling comments
+  *	enabled bracket highlighting
+  *	automatically add closing bracket when typing opening bracket  
+* issue 54: extending syntax and theme
+  *	added Rational as an alias for Perm
+  *	added perm and forperm as verification keywords
+  *	added label as other keywords
+* issue 50:
+  *	the deactivate method returns a promise as soon as it is done cleaning up. this allows VS Code to wait for the extension, however, sometimes it is still hitting a timeout and failing to finish the cleanup.
+* issue 45:
+  *	fixed autosave during running verification
+* issue 35:
+  * implemented ng and z3 kill command for mac
+* auto formatter fix
+
+## 5. Technical Desciptions
 
 The IDE can handle any jar backend that uses the right output format. 
 
-### 6.1 The format expected from the backend verification tools:
+### 5.1 The format expected from the backend verification tools:
 Here we describe the format expected by the IDE. Upon detecting a deviation from this specification, the IDE will output an error and not support the backend.
 
 * The backend is expected to send a Start message. The backendType field must contain the type of the backend, e.g. Carbon, Silicon.  
@@ -184,7 +139,7 @@ All fields in the example are mandatory and need to be set.
 
 All messages can have additional fields, however, they will not be regarded by the IDE.  
 
-### 6.2 Output behaviour for the advanced features:
+### 5.2 Output behaviour for the advanced features:
 
 In order to use the advanced features of the IDE, the backend must create additional output.
 

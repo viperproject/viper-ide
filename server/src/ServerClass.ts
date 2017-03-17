@@ -435,12 +435,13 @@ export class Server {
     public static sudoMakeSureFileExistsAndSetOwner(filePath: string): Promise<string> {
         return new Promise((resolve, reject) => {
             let command: string;
-            let user = Server.getUser();
             if (Settings.isWin) {
-                command = 'takeown /f "' + filePath + '" /r /d y; icacls "' + filePath + '" /grant %USERNAME%:F /t /q';
+                command = 'mkdir "' + filePath + '"; takeown /f "' + filePath + '" /r /d y; icacls "' + filePath + '" /grant %USERNAME%:F /t /q';
             } else if (Settings.isLinux) {
+                let user = Server.getUser();
                 command = `sh -c "mkdir -p '` + filePath + `'; chown -R ` + user + `:` + user + ` '` + filePath + `'"`;
             } else {
+                let user = Server.getUser();
                 command = `sh -c "mkdir -p '` + filePath + `'; chown -R ` + user + `:staff '` + filePath + `'"`;
             }
             Common.sudoExecuter(command, "ViperTools Installer", () => {

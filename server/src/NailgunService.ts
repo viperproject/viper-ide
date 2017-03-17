@@ -407,6 +407,7 @@ export class NailgunService {
 
         //this.nailgunProcess.kill('SIGINT');
         this.nailgunProcess = null;
+        this.setStopped();
     }
 
     private killRecursive(pid): Promise<boolean> {
@@ -478,29 +479,26 @@ export class NailgunService {
         return new Promise((resolve, reject) => {
             let jreTester = child_process.exec("java -version");
             let is64bit = false;
-            let resolved = false;
-            jreTester.stdout.on('data', (data: string) => {
+            //let resolved = false;
+
+            let versionChecker = (data: string) => {
                 Log.toLogFile("[Java checker]: " + data, LogLevel.LowLevelDebug);
                 is64bit = is64bit || data.indexOf("64") >= 0;
-                if (!resolved && this.findAppropriateVersion(data)) {
-                    resolved = true;
+                if (/*!resolved &&*/ this.findAppropriateVersion(data)) {
+                    //resolved = true;
                     resolve(true);
                 }
-            });
-            jreTester.stderr.on('data', (data: string) => {
-                Log.toLogFile("[Java checker stderr]: " + data, LogLevel.LowLevelDebug);
-                is64bit = is64bit || data.indexOf("64") >= 0;
-                if (!resolved && this.findAppropriateVersion(data)) {
-                    resolved = true;
-                    resolve(true);
-                }
-            });
+            };
+
+            jreTester.stdout.on('data', versionChecker);
+            jreTester.stderr.on('data', versionChecker);
+            
             jreTester.on('exit', () => {
                 Log.toLogFile("[Java checker done]", LogLevel.LowLevelDebug);
                 if (!is64bit) {
-                    Log.error("Your java version is not 64-bit. The nailgun server will possibly not work")
+                    Log.hint("Error: Your java version is not 64-bit. The nailgun server will not work")
                 }
-                if (!resolved) resolve(false);
+                /*if (!resolved)*/ resolve(false);
             });
         });
     }

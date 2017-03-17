@@ -108,6 +108,12 @@ export class Log {
         }
     }
 
+    public static logWithOrigin(origin: string, message: string, logLevel: LogLevel) {
+        if (message) {
+            this.log(logLevel >= LogLevel.Debug ? "[" + origin + "]: " : "" + message, logLevel);
+        }
+    }
+
     public static progress(data: Progress, logLevel: LogLevel) {
         if (!data) return;
         let progress = 100.0 * data.current / data.total;
@@ -155,7 +161,7 @@ export class Log {
     }
 
     public static hint(message: string, tag: string = "Viper", showSettingsButton = false, showViperToolsUpdateButton = false) {
-        Log.log("H: " + tag + ": "+ message, LogLevel.Debug);
+        Log.log("H: " + tag + ": " + message, LogLevel.Debug);
 
         let settingsButton: vscode.MessageItem = { title: "Open Settings" };
         let updateButton: vscode.MessageItem = { title: "Update ViperTools" };
