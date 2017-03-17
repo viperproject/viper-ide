@@ -24,14 +24,10 @@ let formatter: ViperFormatter;
 
 let lastVersionWithSettingsChange: Versions;
 
-export function initializeUnitTest(resolve) {
-    State.unitTest = resolve;
-    //activate(context);
-}
-
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+    if (State.unitTest) State.unitTest.activated();
     Helper.loadViperFileExtensions();
 
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
@@ -204,15 +200,13 @@ function registerHandlers() {
             if (success) {
                 Log.hint("The ViperTools update is complete.");
                 State.statusBarItem.update("ViperTools update completed", Color.SUCCESS);
-                if (State.unitTest) {
-                    State.unitTest({ event: "ViperUpdateComplete" });
-                }
+                if (State.unitTest) State.unitTest.viperUpdateComplete();
+
             } else {
                 Log.hint("The ViperTools update failed. Missing permission: change the ViperTools path in the Settings or manually install the ViperTools.");
                 State.statusBarItem.update("ViperTools update failed", Color.ERROR);
-                if (State.unitTest) {
-                    State.unitTest({ event: "ViperUpdateFailed" });
-                }
+                if (State.unitTest) State.unitTest.viperUpdateFailed();
+
             }
             State.addToWorklist({ type: TaskType.ViperToolsUpdateComplete, uri: null, manuallyTriggered: false });
             State.statusBarProgress.hide();
@@ -505,9 +499,7 @@ function openLogFile() {
             } else {
                 vscode.window.showTextDocument(textDocument, vscode.ViewColumn.Two).then(() => {
                     Log.log("Showing logfile succeeded", LogLevel.Debug);
-                    if (State.unitTest) {
-                        State.unitTest({ event: 'LogFileOpened' });
-                    }
+                    if (State.unitTest) State.unitTest.logFileOpened();
                 }, error => {
                     Log.error("vscode.window.showTextDocument call failed while opening the logfile: " + error);
                 });
@@ -633,10 +625,7 @@ function handleBackendReadyNotification(params: BackendReadyParams) {
                 Log.log("AutoVerify after backend change", LogLevel.Info);
                 State.addToWorklist({ type: TaskType.Verify, uri: Helper.getActiveFileUri(), manuallyTriggered: false });
             }
-            //for unit testing
-            if (State.unitTest) {
-                State.unitTest({ event: "BackendStarted", backend: params.name });
-            }
+            if (State.unitTest) State.unitTest.backendStarted(params.name);
         }
         Log.log("Backend ready: " + params.name, LogLevel.Info);
         State.addToWorklist({ type: TaskType.BackendStarted, backend: params.name, manuallyTriggered: true });

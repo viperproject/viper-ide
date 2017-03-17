@@ -11,6 +11,7 @@ import { Helper } from './Helper';
 import { StateVisualizer } from './StateVisualizer';
 import { Color, StatusBar } from './StatusBar';
 import { VerificationController, Task } from './VerificationController';
+import { UnitTestCallback } from './test/extension.test';
 
 export class State {
     public static client: LanguageClient;
@@ -30,7 +31,7 @@ export class State {
 
     public static activeBackend: string;
 
-    public static unitTest;
+    public static unitTest: UnitTestCallback;
 
     public static autoVerify: boolean = true;
 

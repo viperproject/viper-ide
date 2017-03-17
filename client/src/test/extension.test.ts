@@ -24,13 +24,18 @@ let ready = false;
 
 let executionStates = [];
 
-let backendReadyCallback = (b) => { };
-let verificationCompletionCallback = (b, f) => { };
-let abortCallback = () => { };
-let updateViperToolsCallback = () => { };
-let logFileOpened = () => { };
-let workspaceVerificationCompletionCallback = (result) => { };
-let idleCallback = () => { };
+export class UnitTestCallback {
+    backendStarted = (b) => { };
+    verificationComplete = (b, f) => { };
+    logFileOpened = () => { };
+    allFilesVerified = (verified, total) => { };
+    ideIsIdle = () => { };
+    internalErrorDetected = () => { internalErrorDetected = true }
+    activated = () => { };
+    viperUpdateComplete = () => { };
+    viperUpdateFailed = () => { };
+    verificationStopped = () => { };
+}
 
 let internalErrorDetected: boolean;
 
@@ -40,8 +45,15 @@ const SIMPLE = 'simple.sil';
 const EMPTY = 'empty.txt';
 const LONG = 'longDuration.vpr';
 
+//Initialize
+State.unitTest = new UnitTestCallback();
+
+//TestOpeningWorkspace();
+
 //needs to be first test
 StartViperIdeTests();
+
+ViperToolsUpdateTest();
 
 //Test core functionality
 ViperIdeTests();
@@ -62,13 +74,16 @@ function log(msg: string) {
 
 function waitForBackendStarted(): Promise<boolean> {
     return new Promise((resolve, reject) => {
-        backendReadyCallback = () => { resolve(true); }
+        State.unitTest.backendStarted = () => {
+            ready = true;
+            resolve(true);
+        }
     });
 }
 
 function waitForVerification(backend: string, fileName: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
-        verificationCompletionCallback = (b, f) => {
+        State.unitTest.verificationComplete = (b, f) => {
             log("Verificaion Completed: file: " + f + ", backend: " + b);
             if (b === backend && f === fileName) {
                 resolve(true);
@@ -79,7 +94,7 @@ function waitForVerification(backend: string, fileName: string): Promise<boolean
 
 function waitForVerificationOfAllFilesInWorkspace(): Promise<boolean> {
     return new Promise((resolve, reject) => {
-        workspaceVerificationCompletionCallback = (res) => {
+        State.unitTest.allFilesVerified = (res) => {
             resolve(res);
         }
     });
@@ -87,26 +102,34 @@ function waitForVerificationOfAllFilesInWorkspace(): Promise<boolean> {
 
 function waitForViperToolsUpdate(): Promise<boolean> {
     return new Promise((resolve, reject) => {
-        updateViperToolsCallback = () => { resolve(true); }
+        State.unitTest.viperUpdateComplete = () => { resolve(true); }
+        State.unitTest.viperUpdateFailed = () => { resolve(false); }
     });
 }
 
 function waitForAbort(): Promise<boolean> {
     return new Promise((resolve, reject) => {
-        abortCallback = () => { resolve(true); }
+        State.unitTest.verificationStopped = () => { resolve(true); }
     });
 }
 
 function waitForLogFile(): Promise<boolean> {
     return new Promise((resolve, reject) => {
-        logFileOpened = () => { resolve(true); }
+        State.unitTest.logFileOpened = () => { resolve(true); }
     });
 }
 
 function waitForIdle(): Promise<boolean> {
     return new Promise((resolve, reject) => {
-        idleCallback = () => {
-            idleCallback = () => { };
+        State.unitTest.ideIsIdle = () => {
+            resolve(true);
+        }
+    });
+}
+
+function waitForActivated(): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+        State.unitTest.activated = () => {
             resolve(true);
         }
     });
@@ -120,42 +143,8 @@ function wait(timeout): Promise<boolean> {
     });
 }
 
-function registerUnitTestHandler() {
-    myExtension.initializeUnitTest(function (state) {
-        executionStates.push(state);
-        if (state.event == "BackendStarted") {
-            backendReadyCallback(state.backend);
-            ready = true;
-        }
-        else if (state.event == "ViperUpdateComplete") {
-            updateViperToolsCallback();
-        }
-        else if (state.event == "ViperUpdateFailed") {
-        }
-        else if (ready && state.event == "VerificationComplete") {
-            verificationCompletionCallback(state.backend, state.fileName);
-        }
-        else if (state.event == 'VerificationStopped') {
-            abortCallback();
-        }
-        else if (state.event == 'InternalError') {
-            internalErrorDetected = true;
-        }
-        else if (state.event == 'LogFileOpened') {
-            logFileOpened();
-        } else if (state.event == 'AllFilesVerified') {
-            workspaceVerificationCompletionCallback({ verified: state.verified, total: state.total });
-        } else if (state.event == 'Idle') {
-            idleCallback();
-        }
-    });
-}
-
 function StartViperIdeTests() {
-    describe("ViperIDE tests", function () {
-        before(() => {
-            registerUnitTestHandler();
-        });
+    describe("ViperIDE Startup tests:", function () {
 
         it("Language Detection, and Backend Startup test.", function (done) {
             this.timeout(60000);
@@ -169,26 +158,6 @@ function StartViperIdeTests() {
                 done();
             });
         });
-    });
-}
-
-function ViperIdeTests() {
-    // Defines a Mocha test suite to group tests of similar kind together
-    describe("ViperIDE tests", function () {
-
-        it("Viper Tools Update Test", function (done) {
-            this.timeout(60000);
-            vscode.commands.executeCommand('viper.updateViperTools');
-
-            //wait until viper tools update done
-            waitForViperToolsUpdate().then(() => {
-                //viper tools update done
-                return waitForBackendStarted();
-            }).then(() => {
-                //backend ready
-                done();
-            });
-        })
 
         it("Test simple verification with silicon", function (done) {
             this.timeout(25000);
@@ -199,6 +168,31 @@ function ViperIdeTests() {
                 done();
             });
         });
+    });
+}
+
+function ViperToolsUpdateTest() {
+    describe("Viper Tools Update Test:", function () {
+        it("Viper Tools Update Test", function (done) {
+            this.timeout(60000);
+            vscode.commands.executeCommand('viper.updateViperTools');
+
+            //wait until viper tools update done
+            waitForViperToolsUpdate().then(success => {
+                //viper tools update done
+                if (success) return waitForBackendStarted();
+                else throw new Error("viper Tools Update failed");
+            }).then(() => {
+                //backend ready
+                done();
+            });
+        })
+    })
+}
+
+function ViperIdeTests() {
+    // Defines a Mocha test suite to group tests of similar kind together
+    describe("ViperIDE tests:", function () {
 
         it("Test abort", function (done) {
             this.timeout(30000);
@@ -212,9 +206,6 @@ function ViperIdeTests() {
 
             waitForAbort().then(() => {
                 //aborted
-                //wait before reverifying
-                return true //wait(500);
-            }).then(() => {
                 //reverify longDuration viper file
                 vscode.commands.executeCommand('viper.verify');
                 return waitForVerification(SILICON, LONG);
@@ -294,8 +285,8 @@ function ViperIdeTests() {
 }
 
 function ViperIdeStressTests() {
-    describe("ViperIDE Stress Tests", function () {
-        it("Stress test 1: multiple fast verification requests", function (done) {
+    describe("ViperIDE Stress Tests:", function () {
+        it("1. multiple fast verification requests", function (done) {
             this.timeout(11000);
             internalErrorDetected = false;
 
@@ -326,7 +317,7 @@ function ViperIdeStressTests() {
             });
         });
 
-        it("Stress test 2: quickly change backends", function (done) {
+        it("2. quickly change backends", function (done) {
             this.timeout(50000);
             internalErrorDetected = false;
 
@@ -350,7 +341,7 @@ function ViperIdeStressTests() {
             });
         });
 
-        it("Stress test 3: quickly start, stop, and restart verification", function (done) {
+        it("3. quickly start, stop, and restart verification", function (done) {
             this.timeout(15000);
             internalErrorDetected = false;
 
@@ -366,7 +357,7 @@ function ViperIdeStressTests() {
             });
         });
 
-        it("Stress test 4: closing all files right after starting verificaiton", function (done) {
+        it("4. closing all files right after starting verificaiton", function (done) {
             this.timeout(6000);
             internalErrorDetected = false;
 
@@ -401,8 +392,8 @@ function ViperIdeStressTests() {
 }
 
 function TestVerificationOfAllFilesInWorkspace() {
-    describe("Test Verification of all files in the workspace", function () {
-        it("Test Verification of all files in the workspace", function (done) {
+    describe("Workspace tests:", function () {
+        it("Test Verification of all files in folder", function (done) {
             this.timeout(100000);
             vscode.commands.executeCommand('workbench.action.closeAllEditors');
             waitForIdle().then(() => {
@@ -419,8 +410,24 @@ function TestVerificationOfAllFilesInWorkspace() {
     })
 }
 
+function TestOpeningWorkspace() {
+    describe("Folder Tests:", function () {
+        it("Test opening a folder", function (done) {
+            this.timeout(100000);
+            vscode.commands.executeCommand('vscode.openFolder', Helper.uriToObject(Common.pathToUri(TestContext.DATA_ROOT))).then(() => {
+                State.unitTest = new UnitTestCallback();
+                return wait(10000);
+            }).then(() => {
+                return waitForBackendStarted();
+            }).then(() => {
+                done();
+            })
+        });
+    })
+}
+
 function FinishViperIdeTests() {
-    describe("Finish Viper Tests", function () {
+    describe("Deactivation Tests:", function () {
         it("Test closing all auxilary processes", function (done) {
             this.timeout(10000);
             TestContext.dispose();

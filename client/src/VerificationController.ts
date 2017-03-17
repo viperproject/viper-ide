@@ -179,7 +179,7 @@ export class VerificationController {
                             backendStopped = true;
                             break;
                         case TaskType.Save:
-                            if(this.workList[0].type == TaskType.Verifying){
+                            if (this.workList[0].type == TaskType.Verifying) {
                                 stopFound = true;
                             }
                             break;
@@ -235,10 +235,7 @@ export class VerificationController {
                             //block until verification is stoped;
                             if (verificationStopped) {
                                 task.type = NoOp;
-                                //for unitTest
-                                if (State.unitTest) {
-                                    State.unitTest({ event: 'VerificationStopped' });
-                                }
+                                if (State.unitTest) State.unitTest.verificationStopped();
                             }
                             break;
                         case TaskType.UpdateViperTools:
@@ -301,9 +298,7 @@ export class VerificationController {
                         done = true;
                     }
                 }
-                if (State.unitTest && this.workList.length == 0) {
-                    State.unitTest({ event: 'Idle' });
-                }
+                if (State.unitTest && this.workList.length == 0) State.unitTest.ideIsIdle();
             } catch (e) {
                 Log.error("Error in verification controller (critical): " + e);
                 this.workList.shift();
@@ -657,20 +652,15 @@ export class VerificationController {
                                 Log.error(`Internal Error: failed to verify ${params.filename}: Reason: ` + (params.error && params.error.length > 0 ? params.error : "Unknown Reason: Set loglevel to 5 and see the viper.log file for more details"));
                                 Log.hint(msg + moreInfo);
 
-                                //for unit test 
-                                if (State.unitTest) {
-                                    State.unitTest({ event: 'InternalError' });
-                                }
+                                if (State.unitTest) State.unitTest.internalErrorDetected();
                                 break;
                             case Success.Timeout:
                                 State.statusBarItem.update("Verification timed out", Color.WARNING);
                                 Log.log(`Verifying ${params.filename} timed out`, LogLevel.Info);
                                 break;
                         }
-                        if (State.unitTest) {
-                            if (this.verificationCompleted(params.success)) {
-                                State.unitTest({ event: "VerificationComplete", fileName: params.filename, backend: State.activeBackend });
-                            }
+                        if (State.unitTest && this.verificationCompleted(params.success)) {
+                            State.unitTest.verificationComplete(State.activeBackend, params.filename);
                         }
                         State.addToWorklist({ type: TaskType.VerificationComplete, uri: uri, manuallyTriggered: false });
                     }
@@ -750,10 +740,7 @@ export class VerificationController {
         this.autoVerificationResults.forEach(res => {
             Log.log("Verification Result: " + res, LogLevel.Info);
         });
-        //for unitTest
-        if (State.unitTest) {
-            State.unitTest({ event: 'AllFilesVerified', verified: this.autoVerificationResults.length, total: this.allFilesToAutoVerify.length });
-        }
+        if (State.unitTest) State.unitTest.allFilesVerified(this.autoVerificationResults.length, this.allFilesToAutoVerify.length);
     }
 
     private autoVerifyFile() {
