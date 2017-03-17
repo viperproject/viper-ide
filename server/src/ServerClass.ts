@@ -436,7 +436,7 @@ export class Server {
         return new Promise((resolve, reject) => {
             let command: string;
             if (Settings.isWin) {
-                command = 'mkdir "' + filePath + '"; takeown /f "' + filePath + '" /r /d y; icacls "' + filePath + '" /grant %USERNAME%:F /t /q';
+                command = 'mkdir "' + filePath + '" && takeown /f "' + filePath + '" /r /d y && icacls "' + filePath + '" /grant %USERNAME%:F /t /q';
             } else if (Settings.isLinux) {
                 let user = Server.getUser();
                 command = `sh -c "mkdir -p '` + filePath + `'; chown -R ` + user + `:` + user + ` '` + filePath + `'"`;
