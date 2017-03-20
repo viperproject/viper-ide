@@ -331,6 +331,9 @@ export class VerificationController {
                 let dontVerify = `Don't verify ${path.basename(task.uri.toString())}: `;
                 if (!State.isBackendReady) {
                     reason = "Backend is not ready, wait for backend to start.";
+                    if (State.activeBackend) {
+                        this.addToWorklist({ type: TaskType.StartBackend, backend: State.activeBackend, manuallyTriggered: false });
+                    }
                     removeRequest = false;
                 } else {
                     let fileState = State.getFileState(task.uri);

@@ -114,8 +114,10 @@ function waitForViperToolsUpdate(): Promise<boolean> {
 
 function waitForAbort(): Promise<boolean> {
     return new Promise((resolve, reject) => {
-        log("verification stopped");
-        State.unitTest.verificationStopped = () => { resolve(true); }
+        State.unitTest.verificationStopped = () => {
+            log("verification stopped");
+            resolve(true);
+        }
     });
 }
 
@@ -198,6 +200,30 @@ function ViperToolsUpdateTest() {
                 done();
             });
         })
+        
+        // it("Test abort of first verification after viper tools update", function (done) {
+        //     log("Test abort of first verification after viper tools update");
+        //     this.timeout(30000);
+
+        //     internalErrorDetected = false;
+
+        //     //open a file that takes longer
+        //     openFile(LONG);
+        //     //stop the verification after 1000ms
+        //     setTimeout(() => {
+        //         stopVerification()
+        //     }, 1000)
+
+        //     waitForAbort().then(() => {
+        //         //aborted
+        //         //reverify longDuration viper file
+        //         verify()
+        //         return waitForVerification(SILICON, LONG);
+        //     }).then(() => {
+        //         //verified
+        //         checkForInternalErrorBefore(done);
+        //     })
+        // });
     })
 }
 
@@ -209,21 +235,28 @@ function ViperIdeTests() {
             log("Test abort");
             this.timeout(30000);
 
+            internalErrorDetected = false;
+
             //open a file that takes longer
             openFile(LONG);
-            //stop the verification after 1000ms
-            setTimeout(() => {
-                stopVerification()
-            }, 1000)
+            verify();
+            waitForVerification(SILICON, LONG).then(() => {
 
-            waitForAbort().then(() => {
+                verify();
+                //stop the verification after 1000ms
+                setTimeout(() => {
+                    stopVerification()
+                }, 1000)
+
+                return waitForAbort();
+            }).then(() => {
                 //aborted
                 //reverify longDuration viper file
                 verify()
                 return waitForVerification(SILICON, LONG);
             }).then(() => {
                 //verified
-                done();
+                checkForInternalErrorBefore(done);
             })
         });
 
@@ -323,6 +356,14 @@ function closeAllEditors() {
     executeCommand('workbench.action.closeAllEditors');
 }
 
+function checkForInternalErrorBefore(done) {
+    if (internalErrorDetected) {
+        throw new Error("Internal error detected");
+    } else {
+        done();
+    }
+}
+
 function ViperIdeStressTests() {
     describe("ViperIDE Stress Tests:", function () {
         it("1. multiple fast verification requests", function (done) {
@@ -337,10 +378,8 @@ function ViperIdeStressTests() {
                 //no internal error must happen
                 if (!verificationDone) {
                     throw new Error("No verification completed");
-                } else if (internalErrorDetected) {
-                    throw new Error("Internal error detected");
                 } else {
-                    done();
+                    checkForInternalErrorBefore(done);
                 }
             }, 10000);
 
@@ -375,11 +414,7 @@ function ViperIdeStressTests() {
                 selectBackend(SILICON);
                 return waitForVerification(SILICON, SIMPLE);
             }).then(() => {
-                if (internalErrorDetected) {
-                    throw new Error("Internal error detected");
-                } else {
-                    done();
-                }
+                checkForInternalErrorBefore(done);
             });
         });
 
@@ -393,11 +428,7 @@ function ViperIdeStressTests() {
             stopVerification()
             verify()
             waitForVerification(SILICON, SIMPLE).then(() => {
-                if (internalErrorDetected) {
-                    throw new Error("Internal error detected");
-                } else {
-                    done();
-                }
+                checkForInternalErrorBefore(done);
             });
         });
 
@@ -408,12 +439,7 @@ function ViperIdeStressTests() {
             internalErrorDetected = false;
 
             let timer = setTimeout(() => {
-                //no internal error must happen
-                if (internalErrorDetected) {
-                    throw new Error("Internal error detected");
-                } else {
-                    done();
-                }
+                checkForInternalErrorBefore(done);
             }, 5000);
 
             verify()

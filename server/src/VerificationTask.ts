@@ -855,7 +855,7 @@ export class VerificationTask {
                     })
                 });
                 let deamonKillerPromise = Server.nailgunService.killNGAndZ3(this.verifierProcess.pid);
-                let l = this.verifierProcess.listeners;
+                //let l = this.verifierProcess.listeners;
                 this.verifierProcess = null;
                 this.running = false;
                 this.lastSuccess = Success.Aborted;
