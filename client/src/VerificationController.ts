@@ -651,9 +651,9 @@ export class VerificationController {
                             case Success.Error:
                                 let moreInfo = " - see View->Output->Viper for more info"
                                 State.statusBarItem.update(`$(x) Internal error` + moreInfo, Color.ERROR);
-                                msg = `Verifying ${params.filename} failed due to an internal error`;
+                                //msg = `Verifying ${params.filename} failed due to an internal error`;
                                 Log.error(`Internal Error: failed to verify ${params.filename}: Reason: ` + (params.error && params.error.length > 0 ? params.error : "Unknown Reason: Set loglevel to 5 and see the viper.log file for more details"));
-                                Log.hint(msg + moreInfo);
+                                //Log.hint(msg + moreInfo);
 
                                 if (State.unitTest) State.unitTest.internalErrorDetected();
                                 break;
