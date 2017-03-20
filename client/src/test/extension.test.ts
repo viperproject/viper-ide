@@ -51,21 +51,16 @@ State.unitTest = new UnitTestCallback();
 
 //TestOpeningWorkspace();
 
-//needs to be first test
+//first test
 StartViperIdeTests();
 
-//ViperToolsUpdateTest();
+//Main tests
+ViperToolsUpdateTest();
+ViperIdeTests();
+ViperIdeStressTests();
+TestVerificationOfAllFilesInWorkspace();
 
-//Test core functionality
-//ViperIdeTests();
-
-//Test corner cases, and timing related issues
-//ViperIdeStressTests();
-
-//can take a long time. 
-//TestVerificationOfAllFilesInWorkspace();
-
-//needs to be last test
+//last test
 FinishViperIdeTests();
 
 function prettyUptime(): string {
@@ -307,9 +302,9 @@ function ViperIdeTests() {
     });
 }
 
-function executeCommand(command:string,args?){
-    log(command + (args?' '+args:''));
-    return vscode.commands.executeCommand(command);
+function executeCommand(command: string, args?) {
+    log(command + (args ? ' ' + args : ''));
+    return vscode.commands.executeCommand(command, args);
 }
 
 function verify() {
@@ -488,7 +483,7 @@ function FinishViperIdeTests() {
         it("Test closing all auxilary processes", function (done) {
             log("Test closing all auxilary processes");
             this.timeout(10000);
-            
+
             TestContext.dispose();
 
             //wait 15000ms

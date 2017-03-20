@@ -711,10 +711,16 @@ export class VerificationController {
         }
 
         fileListReader.then((uris: Uri[]) => {
-            Log.log("Starting to verify " + uris.length + " viper files.", LogLevel.Info);
-            this.allFilesToAutoVerify = uris;
-            this.nextFileToAutoVerify = 0;
-            this.autoVerifyFile();
+            if (!uris) {
+                Log.error('cannot start verifying all files in directory, uris is ' + uris);
+            } else {
+                Log.log("Starting to verify " + uris.length + " viper files.", LogLevel.Info);
+                this.allFilesToAutoVerify = uris;
+                this.nextFileToAutoVerify = 0;
+                this.autoVerifyFile();
+            }
+        }).catch(err => {
+            Log.error("error reading files list " + err);
         });
     }
 
