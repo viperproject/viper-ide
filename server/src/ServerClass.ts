@@ -404,6 +404,7 @@ export class Server {
                         if (Settings.isLinux || Settings.isMac) {
                             fs.chmodSync(pathHelper.join(dir, "nailgun", "ng"), '755') //755 is for (read, write, execute)
                             fs.chmodSync(pathHelper.join(dir, "z3", "bin", "z3"), '755') //755 is for (read, write, execute)
+                            fs.chmodSync(pathHelper.join(dir, "boogie", "Binaries", "Boogie.exe"), '755');
                             fs.chmodSync(pathHelper.join(dir, "boogie", "Binaries", "Boogie"), '755');
                         }
 

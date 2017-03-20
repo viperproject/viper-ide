@@ -1,4 +1,4 @@
-Visual Sutio Code is a powerful GUI text editor which we use as a base for implementing an integrated verification environment for the Viper toolchain.
+Visual Studio Code is a powerful GUI text editor which we use as a basis for implementing an integrated verification environment for the Viper toolchain.
 
 This repository contains the source files of the Viper IDE and installation instructions
 
