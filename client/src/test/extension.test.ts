@@ -200,7 +200,7 @@ function ViperToolsUpdateTest() {
                 done();
             });
         })
-        
+
         // it("Test abort of first verification after viper tools update", function (done) {
         //     log("Test abort of first verification after viper tools update");
         //     this.timeout(30000);
@@ -238,10 +238,10 @@ function ViperIdeTests() {
             internalErrorDetected = false;
 
             //open a file that takes longer
-            openFile(LONG);
-            verify();
-            waitForVerification(SILICON, LONG).then(() => {
-
+            openFile(LONG).then(() => {
+                verify();
+                return waitForVerification(SILICON, LONG);
+            }).then(() => {
                 verify();
                 //stop the verification after 1000ms
                 setTimeout(() => {
