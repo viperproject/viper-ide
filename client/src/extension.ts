@@ -29,11 +29,11 @@ let lastVersionWithSettingsChange: Versions;
 export function activate(context: vscode.ExtensionContext) {
     if (State.unitTest) State.unitTest.activated();
     Helper.loadViperFileExtensions();
-
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
 
     let ownPackageJson = vscode.extensions.getExtension("rukaelin.viper").packageJSON;
     let defaultConfiguration = ownPackageJson.contributes.configuration.properties;
+    Log.log('The current version of ' + ownPackageJson.displayName + ' is: v.' + ownPackageJson.version, LogLevel.Info);
 
     lastVersionWithSettingsChange = {
         nailgunSettingsVersion: "0.5.418",

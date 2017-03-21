@@ -348,7 +348,7 @@ export class NailgunService {
                     }
                 });
             } catch (e) {
-                reject("Error determining the nailgun server PID");
+                reject("Error determining the nailgun server PID: "+e);
             }
         });
     }

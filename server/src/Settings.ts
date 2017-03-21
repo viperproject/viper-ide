@@ -103,47 +103,6 @@ export class Settings {
         return args;
     }
 
-    // static splitArguments(str: string): string[] {
-    //     //reduce multiple spaces
-    //     str = str.replace(/\s+/g, ' ');
-    //     var args = [];
-    //     var readingPart = false;
-    //     var part = '';
-    //     for (var i = 0; i < str.length; i++) {
-    //         if (str.charAt(i) === ' ' && !readingPart) {
-    //             args.push(part);
-    //             part = '';
-    //         } else {
-    //             if (str.charAt(i) === '\"') {
-    //                 readingPart = !readingPart;
-    //             } else {
-    //                 part += str.charAt(i);
-    //             }
-    //         }
-    //     }
-    //     args.push(part);
-    //     return args;
-    // }
-
-    // static expandCustomArgumentsForSpawn(args: string[], stage: Stage, fileToVerify: string, backend: Backend): string[] {
-    //     args.push(stage.mainMethod);
-    //     if (backend.useNailgun) {
-    //         args.push("--nailgun-port");
-    //         args.push("$nailgunPort$");
-    //     }
-    //     Settings.splitArguments(stage.customArguments).forEach(arg => { args.push(arg) });//TODO: what if the argument contains spaces?
-
-    //     for (let i = 0; i < args.length; i++) {
-    //         args[i] = args[i].replace(/\$z3Exe\$/g, '"' + this.settings.paths.z3Executable + '"');
-    //         args[i] = args[i].replace(/\$boogieExe\$/g, '"' + this.settings.paths.boogieExecutable + '"');
-    //         args[i] = args[i].replace(/\$mainMethod\$/g, stage.mainMethod);
-    //         args[i] = args[i].replace(/\$nailgunPort\$/g, this.settings.nailgunSettings.port);
-    //         args[i] = args[i].replace(/\$fileToVerify\$/g, '"' + fileToVerify + '"');
-    //         args[i] = args[i].replace(/\$backendPaths\$/g, Settings.backendJars(backend))
-    //     }
-    //     return args;
-    // }
-
     static expandViperToolsPath(path: string): string {
         if (!path) return path;
         if (typeof Settings.settings.paths.viperToolsPath !== "string") {
@@ -344,8 +303,19 @@ export class Settings {
                     //check backends
                     if (!settings.verificationBackends || settings.verificationBackends.length == 0) {
                         settings.verificationBackends = defaultSettings["viperSettings.verificationBackends"].default;
+                    } else {
+                        defaultSettings["viperSettings.verificationBackends"].default.forEach(defaultBackend => {
+                            let customBackend = settings.verificationBackends.filter(backend => backend.name == defaultBackend.name)[0];
+                            if (customBackend) {
+                                //Merge the backend with the default backend
+                                this.mergeBackend(customBackend, defaultBackend);
+                            } else {
+                                //Add the default backend if there is none with the same name
+                                settings.verificationBackends.push(defaultBackend);
+                            }
+                        })
                     }
-                    Settings.checkBackends(defaultSettings["viperSettings.verificationBackends"].default, settings.verificationBackends);
+                    Settings.checkBackends(settings.verificationBackends);
                     //check nailgun settings
                     let useNailgun = settings.verificationBackends.some(elem => elem.useNailgun);
 
@@ -374,6 +344,29 @@ export class Settings {
             } catch (e) {
                 Log.error("Error checking settings: " + e);
                 resolve(false);
+            }
+        });
+    }
+
+    private static mergeBackend(custom: Backend, def: Backend) {
+        if (!custom || !def || custom.name != def.name) return;
+        if (!custom.paths || custom.paths.length == 0) custom.paths = def.paths;
+        if (!custom.stages) custom.stages = def.stages
+        else this.mergeStages(custom.stages, def.stages);
+        if (!custom.timeout) custom.timeout = def.timeout;
+        if (custom.useNailgun === undefined) custom.useNailgun = def.useNailgun;
+    }
+
+    private static mergeStages(custom: Stage[], defaultStages: Stage[]) {
+        defaultStages.forEach(def => {
+            let cus = custom.filter(stage => stage.name == def.name)[0];
+            if (cus) {
+                //merge
+                if(cus.customArguments === undefined) cus.customArguments = def.customArguments;
+                if(!cus.mainMethod) cus.mainMethod = def.mainMethod;
+                if(cus.isVerification === undefined) cus.isVerification = def.isVerification;
+            } else {
+                custom.push(def);
             }
         });
     }
@@ -442,7 +435,7 @@ export class Settings {
         return resolvedPath;
     }
 
-    private static checkBackends(defaultBackends: Backend[], backends: Backend[]) {
+    private static checkBackends(backends: Backend[]) {
         //Log.log("Checking backends...", LogLevel.Debug);
         if (!backends || backends.length == 0) {
             this.addError("No backend detected, specify at least one backend");

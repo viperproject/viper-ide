@@ -89,7 +89,7 @@ function waitForBackendStarted(): Promise<boolean> {
 function waitForVerification(backend: string, fileName: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
         State.unitTest.verificationComplete = (b, f) => {
-            log("Verificaion Completed: file: " + f + ", backend: " + b);
+            log("Verification Completed: file: " + f + ", backend: " + b);
             if (b === backend && f === fileName) {
                 resolve(true);
             }
@@ -516,7 +516,7 @@ function FinishViperIdeTests() {
             setTimeout(() => {
                 let command: string;
                 if (State.isWin) {
-                    command = `wmic process where 'CommandLine like "%Viper%" and (name="ng.exe" or name="java.exe" or name="Boogie.exe" or name="z3.exe")' get ProcessId,Name,commandline` // 
+                    command = `wmic process where 'CommandLine like "%Viper%" and (name="ng.exe" or name="java.exe" or name="Boogie.exe" or name="z3.exe")' get ParentProcessId,ProcessId,Name,CommandLine` // 
                 } else {
                     command = 'pgrep -x -l -u "$UID" ng; pgrep -x -l -u "$UID" z3; pgrep -l -u "$UID" -f nailgun; pgrep -x -l -u "$UID" Boogie'
                 }
