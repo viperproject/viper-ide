@@ -18,6 +18,7 @@ import { State } from '../ExtensionState';
 import * as child_process from 'child_process';
 import * as mocha from 'mocha';
 import { Helper } from '../Helper';
+import { Log } from '../Log';
 
 let ready = false;
 //let verified = false;
@@ -44,7 +45,6 @@ const CARBON = 'carbon';
 const SIMPLE = 'simple.sil';
 const EMPTY = 'empty.txt';
 const LONG = 'longDuration.vpr';
-const START_TIME = new Date().getTime();
 
 //Initialize
 State.unitTest = new UnitTestCallback();
@@ -63,18 +63,8 @@ TestVerificationOfAllFilesInWorkspace();
 //last test
 FinishViperIdeTests();
 
-function prettyUptime(): string {
-    let uptime = new Date().getTime() - START_TIME;
-    var hours = Math.floor(uptime / (1000 * 60 * 60));
-    var minutes = Math.floor(uptime % (1000 * 60 * 60) / (1000 * 60));
-    var seconds = uptime % (1000 * 60) / 1000;
-    return (hours ? hours + ':' : '') +
-        (minutes < 10 ? '0' : '') + minutes + ':' +
-        (seconds < 10 ? '0' : '') + seconds.toFixed(3);
-}
-
 function log(msg: string) {
-    console.log("[UnitTest " + prettyUptime() + "] " + msg);
+    console.log("[UnitTest " + Log.prettyUptime() + "] " + msg);
 }
 
 function waitForBackendStarted(): Promise<boolean> {

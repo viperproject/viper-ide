@@ -15,6 +15,10 @@ export class Log {
     static logFile: fs.WriteStream;
     static outputChannel = vscode.window.createOutputChannel('Viper');
     static logLevel: LogLevel;
+    static lastProgress: { msg: string, logLevel: LogLevel };
+    private static START_TIME = new Date().getTime();
+
+    static logTiming = true;
 
     public static initialize() {
         try {
@@ -97,14 +101,22 @@ export class Log {
     }
 
     public static log(message: string, logLevel: LogLevel) {
-        let messageNewLine = message + "\n";
+        if (this.lastProgress) {
+            this.doLog(this.lastProgress.msg, this.lastProgress.logLevel);
+            this.lastProgress = null;
+        }
+        this.doLog(message, logLevel);
+    }
+
+    private static doLog(message: string, logLevel: LogLevel) {
+        let timing = this.logTiming ? this.prettyUptime() + ' ' : '';
         message = this.prefix(logLevel) + message;
         if (!Log.logLevel || Log.logLevel >= logLevel) {
-            console.log(message);
-            Log.outputChannel.append(messageNewLine);
+            console.log(timing + message);
+            Log.outputChannel.append(message + "\n");
         }
         if (Log.logFile) {
-            Log.logFile.write(messageNewLine);
+            Log.logFile.write(timing + message + "\n");
         }
     }
 
@@ -116,11 +128,14 @@ export class Log {
 
     public static progress(data: Progress, logLevel: LogLevel) {
         if (!data) return;
-        let progress = 100.0 * data.current / data.total;
-        let label = data.domain + ": " + Helper.formatProgress(progress);
-        this.log(label, logLevel);
-        State.statusBarProgress.updateProgressBar(progress);
-        State.statusBarItem.updateProgressLabel(data.domain, progress);
+        let progress = data.progress ? data.progress : 100.0 * data.current / data.total;
+        let label = data.domain + ": " + Helper.formatProgress(progress) + (data.postfix ? ' ' + data.postfix : '');
+        this.lastProgress = { msg: label, logLevel: logLevel };
+
+        let showProgressBar = Helper.getConfiguration('preferences').showProgress === true;
+        State.statusBarProgress.updateProgressBar(progress, null, showProgressBar);
+        if (progress == 100) State.statusBarProgress.hide();
+        State.statusBarItem.updateProgressLabel(data.domain, progress, data.postfix);
     }
 
     private static prefix(logLevel: LogLevel): string {
@@ -133,25 +148,30 @@ export class Log {
         if (logLevel == LogLevel.LowLevelDebug) {
             return ". ";
         }
-
     }
 
     public static toLogFile(message: string, logLevel: LogLevel = LogLevel.Default) {
         if (Log.logLevel >= logLevel && Log.logFile) {
+            let timing = this.logTiming ? this.prettyUptime() + ' ' : '';
+            message = timing + message;
             console.log(message);
-            let messageNewLine = message + "\n";
-            Log.logFile.write(messageNewLine);
+            Log.logFile.write(message + "\n");
         }
     }
 
     public static error(message: string, logLevel: LogLevel = LogLevel.Debug) {
-        let messageNewLine = "ERROR: " + message + "\n";
+        if (this.lastProgress) {
+            this.log(this.lastProgress.msg, this.lastProgress.logLevel);
+            this.lastProgress = null;
+        }
+        let timing = this.logTiming ? this.prettyUptime() + ' ' : '';
+        message = "ERROR: " + message;
         if (Log.logLevel >= logLevel && Log.logFile) {
-            console.error(message);
-            Log.outputChannel.append(messageNewLine);
+            console.error(timing + message);
+            Log.outputChannel.append(message + "\n");
         }
         if (Log.logFile) {
-            Log.logFile.write(messageNewLine);
+            Log.logFile.write(timing + message + "\n");
         }
     }
 
@@ -179,6 +199,15 @@ export class Log {
                 Log.error("Error accessing " + choice.title + " settings: " + e)
             }
         });
+    }
 
+    public static prettyUptime(): string {
+        let uptime = new Date().getTime() - this.START_TIME;
+        var hours = Math.floor(uptime / (1000 * 60 * 60));
+        var minutes = Math.floor(uptime % (1000 * 60 * 60) / (1000 * 60));
+        var seconds = uptime % (1000 * 60) / 1000;
+        return (hours ? hours + ':' : '') +
+            (minutes < 10 ? '0' : '') + minutes + ':' +
+            (seconds < 10 ? '0' : '') + seconds.toFixed(3);
     }
 }

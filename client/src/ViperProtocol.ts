@@ -437,8 +437,10 @@ export interface SettingsError {
 
 export interface Progress {
     domain: string;
-    current: number;
-    total: number;
+    current?: number;
+    total?: number;
+    progress?: number;
+    postfix?: string;
 }
 
 export interface Versions {
@@ -537,13 +539,13 @@ export class Common {
     //Helper methods for child processes
     public static executer(command: string, dataHandler?: (string) => void, errorHandler?: (string) => void, exitHandler?: () => void): child_process.ChildProcess {
         try {
-            Log.logWithOrigin("executer",command, LogLevel.Debug)
+            Log.logWithOrigin("executer", command, LogLevel.Debug)
             let child: child_process.ChildProcess = child_process.exec(command, function (error, stdout, stderr) {
-                Log.logWithOrigin('executer stdout',stdout, LogLevel.LowLevelDebug);
+                Log.logWithOrigin('executer stdout', stdout, LogLevel.LowLevelDebug);
                 if (dataHandler) {
                     dataHandler(stdout);
                 }
-                Log.logWithOrigin('executer stderr',stderr, LogLevel.LowLevelDebug);
+                Log.logWithOrigin('executer stderr', stderr, LogLevel.LowLevelDebug);
                 if (errorHandler) {
                     errorHandler(stderr);
                 }
@@ -551,7 +553,7 @@ export class Common {
                     Log.error('executer error: ' + error);
                 }
                 if (exitHandler) {
-                    Log.log("executer done",LogLevel.LowLevelDebug);
+                    Log.log("executer done", LogLevel.LowLevelDebug);
                     exitHandler();
                 }
             });

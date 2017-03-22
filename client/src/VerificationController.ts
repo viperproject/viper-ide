@@ -51,8 +51,8 @@ export class VerificationController {
     private timings: number[];
     private oldTimings: TimingInfo;
     private progressUpdater;
-    private lastProgress: number;
     private progressLabel = "";
+    private lastProgress: number;
 
     private lastState: VerificationState = VerificationState.Stopped;
 
@@ -413,13 +413,8 @@ export class VerificationController {
                         clearInterval(this.progressUpdater);
                         this.progressUpdater = setInterval(() => {
                             let progress = this.getProgress(this.lastProgress)
-                            if (progress != this.lastProgress) {
-                                this.lastProgress = progress;
-                                let totalProgress = this.getTotalProgress();
-                                Log.log("Progress: " + progress + " (" + fileState.name() + ")", LogLevel.Debug);
-                                State.statusBarProgress.updateProgressBar(progress);
-                                State.statusBarItem.updateProgressLabel(this.progressLabel, progress, totalProgress);
-                            }
+                            let totalProgress = this.getTotalProgress();
+                            Log.progress({ domain: "Verification of " + fileState.name(), progress: progress, postfix: totalProgress }, LogLevel.Debug);
                         }, 500);
 
                         Log.log("Request verification for " + path.basename(uri), LogLevel.Verbose);
@@ -526,18 +521,10 @@ export class VerificationController {
         return this.verifyingAllFiles ? ` (${this.nextFileToAutoVerify}/${this.allFilesToAutoVerify.length})` : "";
     }
 
-    public addTiming(paramProgress: number, color: string, hide: boolean = false) {
-        let showProgressBar = Helper.getConfiguration('preferences').showProgress === true;
+    public addTiming(filename: string, paramProgress: number, color: string) {
         this.timings.push(Date.now() - this.verificationStartTime);
         let progress = this.getProgress(paramProgress || 0);
-        Log.log("Progress: " + progress, LogLevel.Debug);
-        this.lastProgress = progress;
-        if (hide)
-            State.statusBarProgress.hide();
-        else {
-            State.statusBarProgress.updateProgressBar(progress, null, showProgressBar);
-            State.statusBarItem.updateProgressLabel(this.progressLabel, progress, this.getTotalProgress());
-        }
+        Log.progress({ domain: "Verification of " + filename, progress: progress, postfix: this.getTotalProgress() }, LogLevel.Debug);
     }
 
     private getProgress(progress: number): number {
@@ -562,11 +549,13 @@ export class VerificationController {
                 //don't show 100%, because otherwise people think it is done.
                 if (progress > 99) progress = 99;
             }
+            this.lastProgress = progress;
             return progress;
         } catch (e) {
             Log.error("Error computing progress: " + e);
         }
     }
+
     public handleStateChange(params: StateChangeParams) {
         try {
             this.lastState = params.newState;
@@ -579,13 +568,13 @@ export class VerificationController {
                     State.statusBarItem.update('starting', Color.ACTIVE);
                     break;
                 case VerificationState.VerificationRunning:
-                    this.progressLabel = `verifying ${params.filename}:`;
-                    this.addTiming(params.progress, Color.ACTIVE);
+                    this.progressLabel = `Verification of ${params.filename}:`;
+                    this.addTiming(params.filename, params.progress, Color.ACTIVE);
                     State.abortButton.show();
                     break;
                 case VerificationState.PostProcessing:
                     this.progressLabel = `postprocessing ${params.filename}:`;
-                    this.addTiming(params.progress, Color.ACTIVE);
+                    this.addTiming(params.filename, params.progress, Color.ACTIVE);
                     break;
                 case VerificationState.Stage:
                     Log.log("Run " + params.stage + " for " + params.filename, LogLevel.Info);
@@ -616,7 +605,7 @@ export class VerificationController {
                         }
 
                         //complete the timing measurement
-                        this.addTiming(100, Color.ACTIVE, true);
+                        this.addTiming(params.filename, 100, Color.ACTIVE);
                         if (Helper.getConfiguration("preferences").showProgress === true) {
                             verifiedFile.stateVisualizer.addTimingInformationToFileState({ total: params.time, timings: this.timings });
                         }

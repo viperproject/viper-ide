@@ -34,8 +34,8 @@ export class StatusBar {
     public updateProgressBar(progress: number, tooltip: string = null, show: boolean = true) {
         this.update(this.progressBarText(progress), Color.PROGRESS_BAR, tooltip, show);
     }
-    public updateProgressLabel(progressLabel: string, progress: number, totalProgress?: string) {
-        this.update(progressLabel + " " + Helper.formatProgress(progress) + (totalProgress ? " " + totalProgress : ""), Color.PROGRESS_BAR);
+    public updateProgressLabel(progressLabel: string, progress: number, postfix?: string) {
+        this.update(progressLabel + " " + Helper.formatProgress(progress) + (postfix ? " " + postfix : ""), Color.PROGRESS_BAR);
     }
 
     public show() {
