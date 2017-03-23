@@ -1,9 +1,10 @@
 'use strict';
+import { SymbolKind } from 'vscode-languageserver-types/lib/main';
 import { settings } from 'cluster';
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 
-import { IPCMessageReader, IPCMessageWriter, createConnection, InitializeResult } from 'vscode-languageserver';
+import { IPCMessageReader, IPCMessageWriter, Location, Position, Range, createConnection, InitializeResult, SymbolInformation } from 'vscode-languageserver';
 import { Log } from './Log';
 import { Settings } from './Settings'
 import { Common, StateColors, ExecutionTrace, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams } from './ViperProtocol'
@@ -32,12 +33,14 @@ function registerHandlers() {
             Log.log("Debug Server is initializing", LogLevel.LowLevelDebug);
             DebugServer.initialize();
 
-            Server.refreshEndings();
+            //Server.refreshEndings();
 
             //Server.workspaceRoot = params.rootPath;
             Server.nailgunService = new NailgunService();
             return {
-                capabilities: {}
+                capabilities: {
+                    documentSymbolProvider: true
+                }
             }
         } catch (e) {
             Log.error("Error handling initialize request: " + e);
@@ -68,6 +71,24 @@ function registerHandlers() {
         } catch (e) {
             Log.error("Error handling configuration change: " + e);
         }
+    });
+
+    Server.connection.onDidChangeTextDocument((change) => {
+        let task = Server.verificationTasks.get(change.textDocument.uri.toString());
+        if (task) {
+            task.symbolInformation = [];
+        }
+    });
+
+    Server.connection.onRequest('textDocument/documentSymbol', (args) => {
+        return new Promise((resolve, reject) => {
+            let task = Server.verificationTasks.get(args.textDocument.uri.toString());
+            if (task) {
+                resolve(task.symbolInformation);
+            } else {
+                reject();
+            }
+        })
     });
 
     Server.connection.onNotification(Commands.StartBackend, (selectedBackend: string) => {

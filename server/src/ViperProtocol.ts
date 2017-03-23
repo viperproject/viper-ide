@@ -482,6 +482,7 @@ export class BackendOutputType {
     static FunctionVerified = "FunctionVerified";
     static PredicateVerified = "PredicateVerified";
     static Error = "Error";
+    static Outline = "Outline";
     static Success = "Success";
 }
 
@@ -499,7 +500,15 @@ export interface BackendOutput {
     time?: string,
     //for Error:
     file?: string,
-    errors?: Error[]
+    errors?: Error[],
+    //for Outline
+    members?: Member[]
+}
+
+export interface Member {
+    type: string;
+    name: string;
+    location: string;
 }
 
 export interface HintMessage {

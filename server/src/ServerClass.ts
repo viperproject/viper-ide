@@ -39,6 +39,8 @@ export class Server {
             Server.connection.sendRequest(Commands.GetViperFileEndings).then((endings: string[]) => {
                 this.viperFileEndings = endings;
                 resolve(true);
+            }, err => {
+                Log.error("GetViperFileEndings request was rejected by the client: " + err);
             });
         });
     }
@@ -149,7 +151,7 @@ export class Server {
             if (s) {
 
                 //parse position:
-                let regex = /^(.*?)(\([^ ]*?@(\d+)\.(\d+)\)|(\d+):(\d+)|<un.*>):?(.*)$/.exec(s);
+                let regex = /^(.*?)(\(?[^ ]*?@(\d+)\.(\d+)\)?|(\d+):(\d+)|<un.*>):?(.*)$/.exec(s);
                 if (regex && regex[3] && regex[4]) {
                     //subtract 1 to confirm with VS Codes 0-based numbering
                     let lineNr = Math.max(0, +regex[3] - 1);

@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { Progress, LogLevel } from './ViperProtocol';
 import { Helper } from './Helper';
+import { Log } from './Log';
 
 export class StatusBar {
 
@@ -16,34 +17,34 @@ export class StatusBar {
         context.subscriptions.push(this.elem);
     }
 
-    public update(text: string, color: string, tooltip: string = null, show: boolean = true) {
+    public update(text: string, color: string, tooltip: string = null) {
         this.elem.text = text;
         this.elem.color = color;
         this.elem.tooltip = tooltip;
-        if (show) {
-            this.elem.show();
-        } else {
-            this.elem.hide();
-        }
+        return this;
     }
 
     public setCommand(command: string) {
         this.elem.command = command;
     }
 
-    public updateProgressBar(progress: number, tooltip: string = null, show: boolean = true) {
-        this.update(this.progressBarText(progress), Color.PROGRESS_BAR, tooltip, show);
+    public updateProgressBar(progress: number, tooltip: string = null) {
+        return this.update(this.progressBarText(progress), Color.PROGRESS_BAR, tooltip);
     }
     public updateProgressLabel(progressLabel: string, progress: number, postfix?: string) {
-        this.update(progressLabel + " " + Helper.formatProgress(progress) + (postfix ? " " + postfix : ""), Color.PROGRESS_BAR);
+        return this.update(progressLabel + " " + Helper.formatProgress(progress) + (postfix ? " " + postfix : ""), Color.PROGRESS_BAR);
     }
 
     public show() {
-        this.elem.show();
+        if (Helper.getConfiguration('preferences').showProgress === true) {
+            this.elem.show();
+        }
+        return this;
     }
 
     public hide() {
         this.elem.hide();
+        return this;
     }
 
     private progressBarText(progress: number): string {

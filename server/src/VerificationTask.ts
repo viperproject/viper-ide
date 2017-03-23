@@ -1,9 +1,10 @@
 'use strict';
+import { SymbolInformation, SymbolKind } from 'vscode-languageserver-types/lib/main';
 
 import child_process = require('child_process');
-import { Diagnostic, DiagnosticSeverity, } from 'vscode-languageserver';
+import * as language_server from 'vscode-languageserver';
 import { Settings } from './Settings'
-import { Common, ExecutionTrace, BackendOutput, BackendOutputType, SymbExLogEntry, Stage, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, Range, HeapGraph, VerificationState, LogLevel, Success } from './ViperProtocol'
+import { Member, Common, ExecutionTrace, BackendOutput, BackendOutputType, SymbExLogEntry, Stage, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, Range, HeapGraph, VerificationState, LogLevel, Success } from './ViperProtocol'
 import { Log } from './Log';
 import { NailgunService } from './NailgunService';
 import { Statement } from './Statement';
@@ -39,7 +40,7 @@ export class VerificationTask {
     private partialData: string = "";
     //verification results
     time: number = 0;
-    diagnostics: Diagnostic[];
+    diagnostics: language_server.Diagnostic[];
     steps: Statement[];
     verifiables: Verifiable[];
     model: Model = new Model();
@@ -54,6 +55,8 @@ export class VerificationTask {
     progress: Progress;
 
     shownExecutionTrace: ExecutionTrace[];
+
+    symbolInformation: SymbolInformation[];
 
     constructor(fileUri: string, nailgunService: NailgunService) {
         this.fileUri = fileUri;
@@ -574,6 +577,12 @@ export class VerificationTask {
                         error = "End message needs to contain the time";
                     }
                     break;
+                case BackendOutputType.Outline:
+                    //symbolInformation
+                    if (!json.members) {
+                        error = "The outline message needs to provide a list of members";
+                    }
+                    break;
                 default:
                     error = "Unknown message type: " + json.type;
             }
@@ -648,7 +657,7 @@ export class VerificationTask {
                                         this.diagnostics.push({
                                             range: range,
                                             source: null, //Server.backend.name
-                                            severity: DiagnosticSeverity.Error,
+                                            severity: language_server.DiagnosticSeverity.Error,
                                             message: err.message
                                         });
                                     });
@@ -656,6 +665,28 @@ export class VerificationTask {
                                 case BackendOutputType.End:
                                     this.state = VerificationState.VerificationReporting;
                                     this.time = Server.extractNumber(json.time);
+                                    break;
+                                case BackendOutputType.Outline:
+                                    this.symbolInformation = [];
+                                    json.members.forEach((m: Member) => {
+                                        let pos = Server.extractPosition(m.location);
+                                        let range = !pos
+                                            ? language_server.Range.create(0, 0, 0, 0)
+                                            : language_server.Range.create(pos.pos.line, pos.pos.character, pos.pos.line, pos.pos.character);
+                                        let location: language_server.Location = { uri: this.fileUri, range: range };
+                                        let kind: SymbolKind;
+                                        let className = m.type.substring(m.type.lastIndexOf('.')+1, m.type.length);
+                                        switch (className) {
+                                            case "Method": kind = SymbolKind.Method; break;
+                                            case "Function": kind = SymbolKind.Function; break;
+                                            case "Field": kind = SymbolKind.Field; break;
+                                            case "Predicate": kind = SymbolKind.Interface; break;
+                                            case "Domain": kind = SymbolKind.Class; break;
+                                            default: kind = SymbolKind.Enum;
+                                        }
+                                        let info: SymbolInformation = { name: m.name, kind: kind, location: location }
+                                        this.symbolInformation.push(info);
+                                    })
                                     break;
                             }
                         } catch (e) {
@@ -766,7 +797,7 @@ export class VerificationTask {
                     this.diagnostics.push({
                         range: range,
                         source: null, //Server.backend.name
-                        severity: DiagnosticSeverity.Error,
+                        severity: language_server.DiagnosticSeverity.Error,
                         message: message
                     });
                 } else {
@@ -846,7 +877,7 @@ export class VerificationTask {
                 this.verifierProcess.removeAllListeners('close');
                 this.verifierProcess.stdout.removeAllListeners('data');
                 this.verifierProcess.stderr.removeAllListeners('data');
-                
+
                 //log the exit of the child_process to kill
                 let ngClientEndPromise = new Promise((res, rej) => {
                     this.verifierProcess.on('exit', (code, signal) => {

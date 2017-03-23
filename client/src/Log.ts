@@ -128,13 +128,12 @@ export class Log {
 
     public static progress(data: Progress, logLevel: LogLevel) {
         if (!data) return;
-        let progress = data.progress ? data.progress : 100.0 * data.current / data.total;
+
+        let progress = (data.progress !== undefined) ? data.progress : 100.0 * data.current / data.total;
         let label = data.domain + ": " + Helper.formatProgress(progress) + (data.postfix ? ' ' + data.postfix : '');
         this.lastProgress = { msg: label, logLevel: logLevel };
 
-        let showProgressBar = Helper.getConfiguration('preferences').showProgress === true;
-        State.statusBarProgress.updateProgressBar(progress, null, showProgressBar);
-        if (progress == 100) State.statusBarProgress.hide();
+        State.statusBarProgress.updateProgressBar(progress, null);
         State.statusBarItem.updateProgressLabel(data.domain, progress, data.postfix);
     }
 

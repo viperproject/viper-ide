@@ -37,7 +37,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     lastVersionWithSettingsChange = {
         nailgunSettingsVersion: "0.5.418",
-        backendSettingsVersion: "0.5.417",
+        backendSettingsVersion: "0.5.440",
         pathSettingsVersion: "0.2.15",
         userPreferencesVersion: "0.5.406",
         javaSettingsVersion: "0.2.15",
@@ -209,7 +209,7 @@ function registerHandlers() {
 
             }
             State.addToWorklist({ type: TaskType.ViperToolsUpdateComplete, uri: null, manuallyTriggered: false });
-            State.statusBarProgress.hide();
+            State.hideProgress();
         });
         State.client.onNotification(Commands.FileOpened, (uri: string) => {
             try {
@@ -395,8 +395,7 @@ function registerHandlers() {
             State.addToWorklist({ type: TaskType.StartBackend, backend: backend, manuallyTriggered: false });
             State.activeBackend = backend;
             State.backendStatusBar.update(backend, Color.READY);
-            State.statusBarProgress.hide();
-            State.abortButton.hide();
+            State.hideProgress();
         });
 
         //Command Handlers

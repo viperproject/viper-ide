@@ -215,12 +215,14 @@ export class VerificationController {
                         case TaskType.Verifying:
                             if (!State.isVerifying) {
                                 task.type = NoOp;
+                                State.hideProgress();
                             } else {
                                 //if another verification is requested, the current one must be stopped
                                 if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri)) || stopFound || viperToolsUpdateFound || startBackendFound || stopBackendFound) {
                                     task.type = TaskType.StopVerifying;
                                     Log.log("Stop the running verification of " + path.basename(Common.uriToPath(task.uri.toString())), LogLevel.Debug);
                                     this.stopVerification(task.uri.toString(), isStopManuallyTriggered);
+                                    State.hideProgress();
                                 }
                                 //block until verification is complete or failed
                                 if (verificationComplete || verificationFailed) {
@@ -228,6 +230,7 @@ export class VerificationController {
                                         Log.error("WARNING: the " + (verificationComplete ? "completed" : "failed") + " verification uri does not correspond to the uri of the started verification.");
                                     }
                                     task.type = NoOp;
+                                    State.hideProgress();
                                 }
                             }
                             break;
@@ -244,7 +247,7 @@ export class VerificationController {
                             } else {
                                 task.type = TaskType.UpdatingViperTools;
                                 State.client.sendNotification(Commands.UpdateViperTools);
-                                State.statusBarProgress.updateProgressBar(0);
+                                State.statusBarProgress.updateProgressBar(0).show();
                             }
                             break;
                         case TaskType.UpdatingViperTools:
@@ -273,6 +276,10 @@ export class VerificationController {
                                 task.type = NoOp;
                                 State.backendStatusBar.update(task.backend, Color.READY);
                                 State.activeBackend = task.backend;
+                            }
+                            if (backendStopped) {
+                                task.type = NoOp;
+                                State.statusBarItem.update("Backend start failed", Color.ERROR);
                             }
                             break;
                         case TaskType.StopBackend:
@@ -416,6 +423,7 @@ export class VerificationController {
                             let totalProgress = this.getTotalProgress();
                             Log.progress({ domain: "Verification of " + fileState.name(), progress: progress, postfix: totalProgress }, LogLevel.Debug);
                         }, 500);
+                        State.statusBarProgress.updateProgressBar(0).show();
 
                         Log.log("Request verification for " + path.basename(uri), LogLevel.Verbose);
 
@@ -449,9 +457,8 @@ export class VerificationController {
             if (State.isVerifying) {
                 clearInterval(this.progressUpdater);
                 Log.log("Verification stop request", LogLevel.Debug);
-                State.abortButton.hide();
+                State.hideProgress();
                 State.statusBarItem.update("aborting", Color.WARNING);
-                State.statusBarProgress.hide();
                 State.client.sendRequest(Commands.StopVerification, uriToStop).then((success) => {
                     State.addToWorklist({ type: TaskType.VerificationStopped, uri: null, manuallyTriggered: false });
                 });
@@ -571,6 +578,7 @@ export class VerificationController {
                     this.progressLabel = `Verification of ${params.filename}:`;
                     this.addTiming(params.filename, params.progress, Color.ACTIVE);
                     State.abortButton.show();
+                    State.statusBarProgress.show();
                     break;
                 case VerificationState.PostProcessing:
                     this.progressLabel = `postprocessing ${params.filename}:`;
@@ -579,10 +587,10 @@ export class VerificationController {
                 case VerificationState.Stage:
                     Log.log("Run " + params.stage + " for " + params.filename, LogLevel.Info);
                     State.statusBarItem.update(`File ${params.filename}: Stage ${params.stage}`, Color.ACTIVE);
+                    break;
                 case VerificationState.Ready:
                     clearInterval(this.progressUpdater);
-                    State.statusBarProgress.hide();
-                    State.abortButton.hide();
+                    State.hideProgress();
 
                     State.viperFiles.forEach(file => {
                         file.verifying = false;
@@ -666,6 +674,7 @@ export class VerificationController {
                     break;
                 case VerificationState.Stopped:
                     clearInterval(this.progressUpdater);
+                    State.hideProgress();
                     State.statusBarItem.update('stopped', Color.READY);
                     State.addToWorklist({ type: TaskType.BackendStopped, manuallyTriggered: false });
                     break;

@@ -57,15 +57,22 @@ export class State {
     }
 
     public static initializeStatusBar(context) {
-        this.statusBarProgress = new StatusBar(11, context);
         this.statusBarItem = new StatusBar(10, context);
-        this.statusBarItem.update("Hello from Viper", Color.READY);
+        this.statusBarItem.update("Hello from Viper", Color.READY).show();
 
         this.abortButton = new StatusBar(9, context);
         this.abortButton.setCommand("viper.stopVerification");
-        this.abortButton.update("$(x) Stop", Color.WARNING, null, false)
+        this.abortButton.update("$(x) Stop", Color.WARNING);
+        this.statusBarProgress = new StatusBar(11, context);
+        this.hideProgress();
 
         this.backendStatusBar = new StatusBar(12, context);
+        this.backendStatusBar.show();
+    }
+
+    public static hideProgress(){
+        this.abortButton.hide();
+        this.statusBarProgress.hide().updateProgressBar(0);
     }
 
     public static setLastActiveFile(uri: Uri | string | vscode.Uri, editor: vscode.TextEditor): ViperFileState {

@@ -131,7 +131,7 @@ method CoincedenceCount0(f: Seq[Int], g: Seq[Int]) returns (res: Int)
 		//invariant res + sum(countSeq(f, g, n, |g|), m, |f|) == sum(countSeq(f, g, 0, |g|), 0, |f|) /* The alternative to (IO) */
 	{
 		if ( f[m] < g[n] )
-		{
+		{	
 			m := m+1
 		}
 		elseif ( g[n] < f[m] )

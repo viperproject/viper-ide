@@ -517,6 +517,10 @@ export class Settings {
             if (!backend.paths || backend.paths.length == 0) {
                 this.addError(backendName + " The backend setting needs at least one path");
             } else {
+                if(typeof backend.paths == 'string'){
+                    let temp = backend.paths;
+                    backend.paths = [temp];
+                }
                 for (let i = 0; i < backend.paths.length; i++) {
                     //extract environment variable or leave unchanged
                     backend.paths[i] = Settings.checkPath(backend.paths[i], backendName, false, false).path;
