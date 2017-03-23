@@ -146,4 +146,3 @@ method CoincedenceCount0(f: Seq[Int], g: Seq[Int]) returns (res: Int)
 		}
 	}
 }
-//@TIMING:{"total":11.444,"timings":[12,5748,11520,11891,12140]}

@@ -1,16 +1,16 @@
 {
     "name": "viper",
     "displayName": "Viper",
-    "version": "0.5.442",
-    "publisher": "rukaelin",
-    "description": "Facilitates the development of viper programs",
+    "version": "1.0.0",
+    "publisher": "viper-admin",
+    "description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
     "license": "MIT",
     "repository": "bitbucket:viperproject/viper-ide",
     "bugs": "https://bitbucket.org/viperproject/viper-ide/issues",
     "author": {
-        "name": "Viper Team",
+        "name": "Chair of Programming Methodology, ETH Zurich",
         "email": "viper@inf.ethz.ch",
-        "url": "http://www.pm.inf.ethz.ch/people.html"
+        "url": "viper.ethz.ch"
     },
     "main": "./out/extension",
     "engines": {
@@ -66,7 +66,7 @@
         "commands": [
             {
                 "command": "viper.verify",
-                "title": "Viper: verify the open document"
+                "title": "Viper: verify this file"
             },
             {
                 "command": "viper.selectBackend",
@@ -78,19 +78,19 @@
             },
             {
                 "command": "viper.startDebugging",
-                "title": "Viper: debug the open document"
+                "title": "Viper: debug this file"
             },
             {
                 "command": "viper.toggleAutoVerify",
-                "title": "Viper: toggle the automatic verification of viper files"
+                "title": "Viper: toggle automatic verification"
             },
             {
                 "command": "viper.openLogFile",
-                "title": "Viper: open the current logFile"
+                "title": "Viper: open current logFile"
             },
             {
                 "command": "viper.verifyAllFilesInWorkspace",
-                "title": "Viper: verify all files in the open workspace"
+                "title": "Viper: verify all files in this workspace"
             },
             {
                 "command": "viper.showAllStates",
@@ -98,11 +98,11 @@
             },
             {
                 "command": "viper.removeDiagnostics",
-                "title": "Viper: Remove the Diagnostics from the current file."
+                "title": "Viper: remove diagnostics caused by this file"
             },
             {
                 "command": "viper.updateViperTools",
-                "title": "Viper: Install the newest version of Viper Tools."
+                "title": "Viper: install or update dependencies (command line tools)"
             }
         ],
         "grammars": [
@@ -188,6 +188,12 @@
                 "key": "alt+shift+f",
                 "mac": "alt+shift+f",
                 "when": "editorTextFocus"
+            },
+            {
+                "command": "viper.toggleAutoVerify",
+                "key": "ctrl+k ctrl+a",
+                "mac": "cmd+k cmd+a",
+                "when": "editorTextFocus" 
             }
         ],
         "configuration": {
@@ -203,7 +209,7 @@
                         "port": "*",
                         "timeout": 5000
                     },
-                    "description": "All Nailgun related settings. The Nailgun port can be referred to by $nailgunPort$. set the port to * to use a random free port"
+                    "description": "Nailgun-related settings. The Nailgun port can be referred to by $nailgunPort$. Set the port to * to use a random free port. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Nailgun"
                 },
                 "viperSettings.verificationBackends": {
                     "type": "array",
@@ -243,7 +249,7 @@
                             ]
                         }
                     ],
-                    "description": "You can add your backends here."
+                    "description": "The list of verification backends. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Verification%20Backends"
                 },
                 "viperSettings.paths": {
                     "type": "object",
@@ -265,7 +271,7 @@
                             "mac": "$viperTools$/boogie/Binaries/Boogie"
                         }
                     },
-                    "description": "Paths to the dependencies."
+                    "description": "Paths to the dependencies. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Paths"
                 },
                 "viperSettings.preferences": {
                     "type": "object",
@@ -281,7 +287,7 @@
                             "mac": "http://viper.ethz.ch/downloads/ViperToolsMac.zip"
                         }
                     },
-                    "description": "General user preferences."
+                    "description": "General user preferences. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Preferences"
                 },
                 "viperSettings.javaSettings": {
                     "type": "object",
@@ -289,7 +295,7 @@
                         "v": "0.5.440",
                         "customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$"
                     },
-                    "description": "Settings used for running Java commands."
+                    "description": "Settings used for running Java commands. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Java%20Settings"
                 },
                 "viperSettings.advancedFeatures": {
                     "type": "object",
@@ -304,14 +310,14 @@
                         "compareStates": true,
                         "verificationBufferSize": 102400
                     },
-                    "description": "Settings concerning the advanced features."
+                    "description": "Settings concerning the advanced features. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Advanced%20Features"
                 }
             }
         },
         "debuggers": [
             {
                 "type": "viper",
-                "label": "Viper Debug",
+                "label": "Silicon Debugger",
                 "enableBreakpointsFor": {
                     "languageIds": [
                         "viper"
@@ -327,7 +333,7 @@
                         "properties": {
                             "program": {
                                 "type": "string",
-                                "description": "Path to a viper source file.",
+                                "description": "Path to a Viper source file.",
                                 "default": "${workspaceRoot}/sum.sil"
                             },
                             "startInState": {

@@ -31,7 +31,7 @@ export function activate(context: vscode.ExtensionContext) {
     Helper.loadViperFileExtensions();
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
 
-    let ownPackageJson = vscode.extensions.getExtension("rukaelin.viper").packageJSON;
+    let ownPackageJson = vscode.extensions.getExtension("viper-admin.viper").packageJSON;
     let defaultConfiguration = ownPackageJson.contributes.configuration.properties;
     Log.log('The current version of ' + ownPackageJson.displayName + ' is: v.' + ownPackageJson.version, LogLevel.Info);
 
