@@ -19,6 +19,7 @@ import * as child_process from 'child_process';
 import * as mocha from 'mocha';
 import { Helper } from '../Helper';
 import { Log } from '../Log';
+var CryptoJs = require("crypto-js");
 
 let ready = false;
 //let verified = false;
@@ -240,6 +241,8 @@ function ViperIdeTests() {
 
                 return waitForAbort();
             }).then(() => {
+                    return checkForRunningProcesses(true, false, true, true);
+            }).then(ok => {
                 //aborted
                 //reverify longDuration viper file
                 verify()
@@ -307,6 +310,14 @@ function ViperIdeTests() {
             checkAssert(Helper.isViperSourceFile("..\\.\\folder\\file.sil"), true, "isViperSourceFile relavive windows path");
             checkAssert(!Helper.isViperSourceFile("C:\\absolute\\path\\file.ts"), true, "isViperSourceFile absolute windows path");
             checkAssert(path.basename(Helper.uriToString(Helper.getActiveFileUri())), SIMPLE, "active file");
+
+            //crypto test:
+            let clearText = "1.0.0";
+            let key = "VdafSZVOWpe";
+            let cypher = CryptoJs.AES.encrypt(clearText, key).toString();
+            let decyphered = CryptoJs.AES.decrypt(cypher, key).toString(CryptoJs.enc.Utf8);
+            checkAssert(decyphered, clearText, "crypto fails");
+
             done();
         });
 
@@ -502,29 +513,55 @@ function FinishViperIdeTests() {
 
             TestContext.dispose();
 
-            //wait 15000ms
-            setTimeout(() => {
-                let command: string;
-                if (State.isWin) {
-                    command = `wmic process where 'CommandLine like "%Viper%" and (name="ng.exe" or name="java.exe" or name="Boogie.exe" or name="z3.exe")' get ParentProcessId,ProcessId,Name,CommandLine` // 
-                } else {
-                    command = 'pgrep -x -l -u "$UID" ng; pgrep -x -l -u "$UID" z3; pgrep -l -u "$UID" -f nailgun; pgrep -x -l -u "$UID" Boogie'
-                }
-                let pgrep = Common.executer(command);
-                pgrep.stdout.on('data', data => {
-                    log("Process found: " + data);
-                    let stringData = (<string>data).replace(/[\n\r]/g, " ");
-                    if (/^.*?(\d+).*/.test(stringData)) {
-                        throw new Error("Process found");
-                    }
-                });
-                pgrep.on('exit', data => {
+            wait(5000).then(() => {
+                return checkForRunningProcesses(true, true, true, true);
+            }).then(ok => {
+                if (ok) {
                     done();
-                });
-            }, 5000);
+                }
+            })
         });
     })
 }
+
+function checkForRunningProcesses(checkNg: boolean, checkJava: boolean, checkBoogie: boolean, checkZ3: boolean): Thenable<boolean> {
+    return new Promise((resolve, reject) => {
+        let command: string;
+        if (State.isWin) {
+            let terms = [];
+            if (checkNg || checkJava) {
+                let term = `(CommandLine like "%Viper%" and (`;
+                let innerTerms = [];
+                if (checkNg) innerTerms.push('name="ng.exe"');
+                if (checkJava) innerTerms.push('name="java.exe"');
+                term += innerTerms.join(' or ');
+                term += '))'
+                terms.push(term);
+            }
+            if (checkBoogie) terms.push('name="Boogie.exe"');
+            if (checkZ3) terms.push('name="z3.exe"');
+            command = `wmic process where '` + terms.join(' or ') + `' get ParentProcessId,ProcessId,Name,CommandLine`
+        } else {
+            command = (checkNg ? 'pgrep -x -l -u "$UID" ng; ' : '')
+                + (checkZ3 ? 'pgrep -x -l -u "$UID" z3; ' : '')
+                + (checkJava ? 'pgrep -l -u "$UID" -f nailgun; ' : '')
+                + (checkBoogie ? 'pgrep -x -l -u "$UID" Boogie' : '');
+        }
+        let pgrep = Common.executer(command);
+        pgrep.stdout.on('data', data => {
+            log("Process found: " + data);
+            let stringData = (<string>data).replace(/[\n\r]/g, " ");
+            if (/^.*?(\d+).*/.test(stringData)) {
+                resolve(false);
+                throw new Error("Process found");
+            }
+        });
+        pgrep.on('exit', data => {
+            resolve(true);
+        });
+    })
+}
+
 function checkAssert(seen, expected, message: string) {
     assert(expected === seen, message + ": Expected: " + expected + " Seen: " + seen);
 }

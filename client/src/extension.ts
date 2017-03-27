@@ -7,7 +7,7 @@ import * as path from 'path';
 import { Timer } from './Timer';
 import * as vscode from 'vscode';
 import { State } from './ExtensionState';
-import { Common, Progress, HintMessage, Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success } from './ViperProtocol';
+import { SettingsError, Common, Progress, HintMessage, Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success } from './ViperProtocol';
 import Uri from 'vscode-uri/lib/index';
 import { Log } from './Log';
 import { StateVisualizer, MyDecorationOptions } from './StateVisualizer';
@@ -16,6 +16,8 @@ import { ViperFormatter } from './ViperFormatter';
 import { ViperFileState } from './ViperFileState';
 import { StatusBar, Color } from './StatusBar';
 import { VerificationController, TaskType, CheckResult } from './VerificationController';
+let stripJSONComments = require('strip-json-comments');
+const os = require('os');
 
 let autoSaver: Timer;
 
@@ -36,13 +38,14 @@ export function activate(context: vscode.ExtensionContext) {
     Log.log('The current version of ' + ownPackageJson.displayName + ' is: v.' + ownPackageJson.version, LogLevel.Info);
 
     lastVersionWithSettingsChange = {
-        nailgunSettingsVersion: "0.5.418",
-        backendSettingsVersion: "0.5.440",
-        pathSettingsVersion: "0.2.15",
-        userPreferencesVersion: "0.5.406",
-        javaSettingsVersion: "0.2.15",
-        advancedFeaturesVersion: "0.5.417",
-        defaultSettings: defaultConfiguration
+        nailgunSettingsVersion: "1.0.0",
+        backendSettingsVersion: "1.0.0",
+        pathSettingsVersion: "1.0.0",
+        userPreferencesVersion: "1.0.0",
+        javaSettingsVersion: "1.0.0",
+        advancedFeaturesVersion: "1.0.0",
+        defaultSettings: defaultConfiguration,
+        extensionVersion: ownPackageJson.version
     }
 
     Log.initialize();
@@ -241,6 +244,9 @@ function registerHandlers() {
         });
         State.client.onRequest(Commands.RequestRequiredVersion, () => {
             return getRequiredVersion();
+        });
+        State.client.onRequest(Commands.CheckIfSettingsVersionsSpecified, () => {
+            return checkIfSettingsVersionsSpecified();
         });
         State.client.onRequest(Commands.GetViperFileEndings, () => {
             Helper.loadViperFileExtensions();
@@ -666,4 +672,84 @@ function removeDiagnostics() {
             }
         })
     }
+}
+
+function checkIfSettingsVersionsSpecified(): Thenable<SettingsError[]> {
+    return new Promise((resolve, reject) => {
+        try {
+            //userSettings
+            let userSettingsPath = getUserSettingsPath();
+            let errors = checkSettingsFile(userSettingsPath);
+            //workspaceSettings
+            let workspaceSettingsPath = getWorkspaceSettingsPath();
+            if (workspaceSettingsPath && fs.existsSync(workspaceSettingsPath)) {
+                errors = errors.concat(checkSettingsFile(workspaceSettingsPath));
+            }
+            if (errors.length > 0) {
+                resolve(errors);
+            } else {
+                resolve(null);
+            }
+        } catch (e) {
+            Log.error("Error checking Settings file " + path + ": " + e);
+            resolve(null);
+        }
+    })
+}
+
+let settings = ["viperSettings.nailgunSettings",
+    "viperSettings.paths",
+    "viperSettings.preferences",
+    "viperSettings.javaSettings",
+    "viperSettings.advancedFeatures"]
+
+//check if each specified viper setting has a v field in the file located at path 
+function checkSettingsFile(path: string): SettingsError[] {
+    let errors: SettingsError[] = [];
+    let content = fs.readFileSync(path).toString();
+    if (content) {
+        let json = JSON.parse(stripJSONComments(content));
+        if (json) {
+            //check objects
+            settings.forEach(viperSetting => {
+                if (json[viperSetting] && !json[viperSetting].v) {
+                    errors.push({
+                        type: SettingsErrorType.Error,
+                        msg: viperSetting + " is missing a v field."
+                    })
+                }
+            });
+            //check arrays
+            let backendSettings = "viperSettings.verificationBackends";
+            if (json[backendSettings]) {
+                json[backendSettings].forEach(backend => {
+                    if (backend && !backend.v) {
+                        errors.push({
+                            type: SettingsErrorType.Error,
+                            msg: "backend " + backend.name + " is missing a v field."
+                        })
+                    }
+                });
+            }
+        }
+    }
+    return errors;
+}
+
+function getUserSettingsPath(): string {
+    let userSettingsPath;
+    if (State.isWin) {
+        userSettingsPath = path.join(process.env['APPDATA'], "Code\User\settings.json");
+    } else if (State.isLinux) {
+        userSettingsPath = path.join(os.homedir(), ".config/Code/User/settings.json");
+    } else {
+        userSettingsPath = path.join(os.homedir(), "Library/Application Support/Code/User/settings.json");
+    }
+    return userSettingsPath;
+}
+function getWorkspaceSettingsPath(): string {
+    if (vscode.workspace.rootPath) {
+        return path.join(vscode.workspace.rootPath, ".vscode", "settings.json");
+    }
+    return;
 }

@@ -19,7 +19,8 @@
         "mkdirp": "^0.5.1",
         "glob-to-regexp": "^0.3.0",
         "decompress-zip": "^0.3.0",
-        "sudo-prompt": "6.2.1"
+        "sudo-prompt": "6.2.1",
+        "crypto-js": "3.1.9-1"
     },
     "devDependencies": {
         "@types/node": "^6.0.52",

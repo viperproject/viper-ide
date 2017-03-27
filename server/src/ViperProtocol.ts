@@ -72,6 +72,8 @@ export class Commands {
     static GetViperFileEndings = "GetViperFileEndings";
 
     static ViperUpdateComplete = "ViperUpdateComplete";
+
+    static CheckIfSettingsVersionsSpecified = "CheckIfSettingsVersionsSpecified";
 }
 
 export interface GetExecutionTraceParams {
@@ -451,6 +453,7 @@ export interface Versions {
     javaSettingsVersion: string;
     advancedFeaturesVersion: string;
     defaultSettings: any;
+    extensionVersion: string;
 }
 
 ////////////////////////////////////////////////////

@@ -5,9 +5,9 @@ import * as pathHelper from 'path';
 import { Log } from './Log';
 import { Versions, PlatformDependentURL, PlatformDependentPath, SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel } from './ViperProtocol';
 import { Server } from './ServerClass';
+var CryptoJs = require("crypto-js");
 const os = require('os');
 var portfinder = require('portfinder');
-
 
 export interface ResolvedPath {
     path: string,
@@ -24,8 +24,11 @@ export class Settings {
     public static VERIFY = "verify";
     public static selectedBackend: string;
 
+    private static firstSettingsCheck = true;
+
     private static _valid: boolean = false;
     private static _errors: SettingsError[];
+    private static _upToDate: boolean = false;
 
     private static home = os.homedir();
 
@@ -145,6 +148,10 @@ export class Settings {
         return this._valid;
     }
 
+    public static upToDate(): boolean {
+        return this._upToDate;
+    }
+
     public static setNailgunPort(nailgunSettings: NailgunSettings): Promise<boolean> {
         return new Promise((resolve, reject) => {
             if (!nailgunSettings.port || nailgunSettings.port == "*") {
@@ -227,8 +234,42 @@ export class Settings {
     private static addError(msg: string) {
         this._errors.push({ type: SettingsErrorType.Error, msg: msg });
     }
+    private static addErrors(errors: SettingsError[]) {
+        this._errors = this._errors.concat(errors);
+    }
     private static addWarning(msg: string) {
         this._errors.push({ type: SettingsErrorType.Warning, msg: msg });
+    }
+
+    private static checkSettingsVersion(settings, requiredVersions): string[] {
+        let oldSettings = [];
+        //check the settings versions
+        if (!requiredVersions) {
+            Log.error("Getting required version failed.");
+        } else {
+            if (Version.createFromVersion(requiredVersions.advancedFeaturesVersion).compare(Version.createFromHash(settings.advancedFeatures.v)) > 0) {
+                oldSettings.push("advancedFeatures");
+            }
+            if (Version.createFromVersion(requiredVersions.javaSettingsVersion).compare(Version.createFromHash(settings.javaSettings.v)) > 0) {
+                oldSettings.push("javaSettings");
+            }
+            if (Version.createFromVersion(requiredVersions.nailgunSettingsVersion).compare(Version.createFromHash(settings.nailgunSettings.v)) > 0) {
+                oldSettings.push("nailgunSettings");
+            }
+            if (Version.createFromVersion(requiredVersions.pathSettingsVersion).compare(Version.createFromHash(settings.paths.v)) > 0) {
+                oldSettings.push("paths");
+            }
+            if (Version.createFromVersion(requiredVersions.userPreferencesVersion).compare(Version.createFromHash(settings.preferences.v)) > 0) {
+                oldSettings.push("preferences");
+            }
+            let requiredBackendVersion = Version.createFromVersion(requiredVersions.backendSettingsVersion);
+            settings.verificationBackends.forEach(backend => {
+                if (requiredBackendVersion.compare(Version.createFromHash(backend.v)) > 0) {
+                    oldSettings.push("backend " + backend.name);
+                }
+            });
+        }
+        return oldSettings;
     }
 
     public static checkSettings(viperToolsUpdated: boolean): Promise<boolean> {
@@ -236,46 +277,36 @@ export class Settings {
             try {
                 this._valid = false;
                 this._errors = [];
+                this._upToDate = false;
 
-                //check settings versions
-                Server.connection.sendRequest(Commands.RequestRequiredVersion).then((requiredVersions: Versions) => {
+                Server.connection.sendRequest(Commands.CheckIfSettingsVersionsSpecified).then((errors: SettingsError[]) => {
+                    if (errors) {
+                        this.addErrors(errors);
+                        return null;
+                    } else {
+                        //check settings versions
+                        return Server.connection.sendRequest(Commands.RequestRequiredVersion);
+                    }
+                }).then((requiredVersions: Versions) => {
+                    if (!requiredVersions) {
+                        resolve(false);
+                        return;
+                    }
+                    if (this.firstSettingsCheck) {
+                        Log.log("Extension Version: " + requiredVersions.extensionVersion + " - " + Version.hash(requiredVersions.extensionVersion), LogLevel.LowLevelDebug)
+                        this.firstSettingsCheck = false;
+                    }
                     let settings = Settings.settings;
-                    let oldSettings: string[] = [];
-
+                    let oldSettings: string[] = this.checkSettingsVersion(settings, requiredVersions);
                     let defaultSettings = requiredVersions.defaultSettings;
 
-                    //check the settings versions
-                    if (!requiredVersions) {
-                        Log.error("Getting required version failed.");
-                    } else {
-                        if (new Version(requiredVersions.advancedFeaturesVersion).compare(new Version(settings.advancedFeatures.v)) > 0) {
-                            oldSettings.push("advancedFeatures");
-                        }
-                        if (new Version(requiredVersions.javaSettingsVersion).compare(new Version(settings.javaSettings.v)) > 0) {
-                            oldSettings.push("javaSettings");
-                        }
-                        if (new Version(requiredVersions.nailgunSettingsVersion).compare(new Version(settings.nailgunSettings.v)) > 0) {
-                            oldSettings.push("nailgunSettings");
-                        }
-                        if (new Version(requiredVersions.pathSettingsVersion).compare(new Version(settings.paths.v)) > 0) {
-                            oldSettings.push("paths");
-                        }
-                        if (new Version(requiredVersions.userPreferencesVersion).compare(new Version(settings.preferences.v)) > 0) {
-                            oldSettings.push("preferences");
-                        }
-                        let requiredBackendVersion = new Version(requiredVersions.backendSettingsVersion);
-                        settings.verificationBackends.forEach(backend => {
-                            if (requiredBackendVersion.compare(new Version(backend.v)) > 0) {
-                                oldSettings.push("backend " + backend.name);
-                            }
-                        });
-                    }
-
                     if (oldSettings.length > 0) {
-                        let affectedSettings = oldSettings.length < 4 ? "(" + oldSettings.join(", ") + ")" : "(" + oldSettings.length + ")";
+                        let affectedSettings = oldSettings.length < 10 ? "(" + oldSettings.join(", ") + ")" : "(" + oldSettings.length + ")";
                         this.addError("Old viper settings detected: " + affectedSettings + " please replace the old settings with the new default settings.");
                         resolve(false); return;
                     }
+                    
+                    this._upToDate = true;
 
                     //Check viperToolsProvider
                     settings.preferences.viperToolsProvider = this.checkPlatformDependentUrl(settings.preferences.viperToolsProvider);
@@ -362,9 +393,9 @@ export class Settings {
             let cus = custom.filter(stage => stage.name == def.name)[0];
             if (cus) {
                 //merge
-                if(cus.customArguments === undefined) cus.customArguments = def.customArguments;
-                if(!cus.mainMethod) cus.mainMethod = def.mainMethod;
-                if(cus.isVerification === undefined) cus.isVerification = def.isVerification;
+                if (cus.customArguments === undefined) cus.customArguments = def.customArguments;
+                if (!cus.mainMethod) cus.mainMethod = def.mainMethod;
+                if (cus.isVerification === undefined) cus.isVerification = def.isVerification;
             } else {
                 custom.push(def);
             }
@@ -517,7 +548,7 @@ export class Settings {
             if (!backend.paths || backend.paths.length == 0) {
                 this.addError(backendName + " The backend setting needs at least one path");
             } else {
-                if(typeof backend.paths == 'string'){
+                if (typeof backend.paths == 'string') {
                     let temp = backend.paths;
                     backend.paths = [temp];
                 }
@@ -645,20 +676,49 @@ export class Settings {
 }
 
 class Version {
-    versionNumbers: number[];
-    constructor(version: string) {
-        try {
-            if (!version) {
-                this.versionNumbers = [0, 0, 0];
-            } else {
-                this.versionNumbers = version.split(".").map(x => Number.parseInt(x));
-            }
-        } catch (e) {
-            Log.error("Error parsing version: " + e);
+    private static Key = "VdafSZVOWpe";
+
+    versionNumbers: number[] = [0, 0, 0];
+    private constructor(versionNumbers?: number[]) {
+        if (versionNumbers) {
+            this.versionNumbers = versionNumbers;
         }
     }
+
+    public static createFromVersion(version) {
+        try {
+            if (version) {
+                if (/\d+(\.\d+)+/.test(version)) {
+                    return new Version(version.split(".").map(x => Number.parseInt(x)))
+                }
+            }
+        } catch (e) {
+            Log.error("Error creating version from Version: " + e);
+        }
+        return new Version();
+    }
+
+    public static createFromHash(hash) {
+        try {
+            if (hash) {
+                let version = CryptoJs.AES.decrypt(hash, Version.Key).toString(CryptoJs.enc.Utf8);
+                //Log.log("hash: " + hash + " decrypted version: " + version, LogLevel.LowLevelDebug);
+                return this.createFromVersion(version);
+            }
+        } catch (e) {
+            Log.error("Error creating version from hash: " + e);
+        }
+        return new Version();
+    }
+
     toString(): string {
         return this.versionNumbers.join(".");
+    }
+
+    public static hash(version: string): string {
+        let hash = CryptoJs.AES.encrypt(version, Version.Key).toString();
+        //Log.log("version: " + version + " hash: " + hash, LogLevel.LowLevelDebug);
+        return hash;
     }
 
     //1: this is larger, -1 other is larger

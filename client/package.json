@@ -40,7 +40,9 @@
         "mkdirp": "^0.5.1",
         "glob-to-regexp": "^0.3.0",
         "decompress-zip": "^0.3.0",
-        "sudo-prompt": "6.2.1"
+        "sudo-prompt": "6.2.1",
+        "crypto-js": "3.1.9-1",
+        "strip-json-comments": "2.0.1"
     },
     "devDependencies": {
         "@types/node": "^6.0.52",
@@ -203,7 +205,7 @@
                 "viperSettings.nailgunSettings": {
                     "type": "object",
                     "default": {
-                        "v": "0.5.440",
+                        "v": "U2FsdGVkX1+VQVIvMbAYzqAUC2uMPB7LrtcyC8gkwuc=",
                         "serverJar": "$viperTools$/nailgun/nailgun.jar",
                         "clientExecutable": "$viperTools$/nailgun/ng",
                         "port": "*",
@@ -215,7 +217,7 @@
                     "type": "array",
                     "default": [
                         {
-                            "v": "0.5.440",
+                            "v": "U2FsdGVkX1+VQVIvMbAYzqAUC2uMPB7LrtcyC8gkwuc=",
                             "name": "silicon",
                             "paths": [
                                 "$viperTools$/backends/silicon.jar"
@@ -232,7 +234,7 @@
                             ]
                         },
                         {
-                            "v": "0.5.440",
+                            "v": "U2FsdGVkX1+VQVIvMbAYzqAUC2uMPB7LrtcyC8gkwuc=",
                             "name": "carbon",
                             "paths": [
                                 "$viperTools$/backends/carbon.jar"
@@ -254,7 +256,7 @@
                 "viperSettings.paths": {
                     "type": "object",
                     "default": {
-                        "v": "0.5.440",
+                        "v": "U2FsdGVkX1+VQVIvMbAYzqAUC2uMPB7LrtcyC8gkwuc=",
                         "viperToolsPath": {
                             "windows": "%ProgramFiles%\\Viper\\",
                             "linux": "/usr/local/Viper",
@@ -276,7 +278,7 @@
                 "viperSettings.preferences": {
                     "type": "object",
                     "default": {
-                        "v": "0.5.440",
+                        "v": "U2FsdGVkX1+VQVIvMbAYzqAUC2uMPB7LrtcyC8gkwuc=",
                         "autoSave": true,
                         "logLevel": 5,
                         "autoVerifyAfterBackendChange": true,
@@ -292,7 +294,7 @@
                 "viperSettings.javaSettings": {
                     "type": "object",
                     "default": {
-                        "v": "0.5.440",
+                        "v": "U2FsdGVkX1+VQVIvMbAYzqAUC2uMPB7LrtcyC8gkwuc=",
                         "customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$"
                     },
                     "description": "Settings used for running Java commands. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Java%20Settings"
@@ -300,7 +302,7 @@
                 "viperSettings.advancedFeatures": {
                     "type": "object",
                     "default": {
-                        "v": "0.5.440",
+                        "v": "U2FsdGVkX1+VQVIvMbAYzqAUC2uMPB7LrtcyC8gkwuc=",
                         "enabled": false,
                         "showSymbolicState": false,
                         "simpleMode": true,

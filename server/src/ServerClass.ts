@@ -357,6 +357,12 @@ export class Server {
 
     public static updateViperTools(askForPermission: boolean) {
         try {
+            if (!Settings.upToDate()) {
+                Log.hint("The settings are not up to date, refresh them before updating the Viper Tools. ", true)
+                Server.connection.sendNotification(Commands.ViperUpdateComplete, false);//update failed
+                return;
+            }
+
             Log.log("Updating Viper Tools ...", LogLevel.Default);
             let filename: string;
             if (Settings.isWin) {
