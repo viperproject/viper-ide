@@ -70,7 +70,8 @@ function log(msg: string) {
 
 function waitForBackendStarted(): Promise<boolean> {
     return new Promise((resolve, reject) => {
-        State.unitTest.backendStarted = () => {
+        State.unitTest.backendStarted = (b) => {
+            log("Backend " + b + "started");
             ready = true;
             resolve(true);
         }
