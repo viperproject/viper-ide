@@ -296,7 +296,14 @@ export class NailgunService {
                         //since z3 appears as the child process of the nailgun server, it suffices to kill all children of the nailgun server process
                         let killProcess = Common.spawner('pkill', ["-9", "-P", "" + Server.nailgunService.nailgunServerPid + (ngPid ? "," + ngPid : "")]);
                         killProcess.on('exit', (code) => {
-                            resolve(true);
+                            if (ngPid) {
+                                killProcess = Common.spawner('kill', ['' + ngPid]);
+                                killProcess.on('exit', (code) => {
+                                    resolve(true);
+                                });
+                            } else {
+                                resolve(true);
+                            }
                         });
                     }
                 } else {
