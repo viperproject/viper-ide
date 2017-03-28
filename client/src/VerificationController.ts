@@ -24,7 +24,7 @@ export interface Task {
 
 export enum TaskType {
     NoOp = 0, Clear = 1,
-    Save = 2, Verify = 3, StopVerification = 4, UpdateViperTools = 5, StartBackend = 6, StopBackend = 7,
+    Save = 2, Verify = 3, StopVerification = 4, UpdateViperTools = 5, StartBackend = 6, StopBackend = 7, FileClosed = 8,
     Verifying = 30, StopVerifying = 40, UpdatingViperTools = 50, StartingBackend = 60, StoppingBackend = 70,
     VerificationComplete = 300, VerificationFailed = 301, VerificationStopped = 400, ViperToolsUpdateComplete = 500, BackendStarted = 600, BackendStopped = 700
 }
@@ -130,6 +130,11 @@ export class VerificationController {
                             stopFound = true;
                             isStopManuallyTriggered = isStopManuallyTriggered || this.workList[i].manuallyTriggered;
                             break;
+                        case TaskType.FileClosed:
+                            if (this.workList[0].type == TaskType.Verifying && this.workList[0].uri.toString() == this.workList[i].uri.toString()) {
+                                stopFound = true;
+                            }
+                            break;
                         case TaskType.Clear:
                             this.workList[i].type = NoOp;
                             clear = true;
@@ -201,6 +206,7 @@ export class VerificationController {
                         case TaskType.Verify:
                             let canVerify = this.canStartVerification(task);
                             if (canVerify.result) {
+                                Log.logWithOrigin("workList", "Verifying", LogLevel.LowLevelDebug);
                                 task.type = TaskType.Verifying;
                                 this.verify(fileState, task.manuallyTriggered);
                             } else if (canVerify.reason && (canVerify.reason != this.lastCanStartVerificationReason || (task.uri && !Helper.uriEquals(task.uri, this.lastCanStartVerificationUri)))) {
@@ -219,6 +225,7 @@ export class VerificationController {
                             } else {
                                 //if another verification is requested, the current one must be stopped
                                 if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri)) || stopFound || viperToolsUpdateFound || startBackendFound || stopBackendFound) {
+                                    Log.logWithOrigin("workList", "StopVerifying", LogLevel.LowLevelDebug);
                                     task.type = TaskType.StopVerifying;
                                     Log.log("Stop the running verification of " + path.basename(Common.uriToPath(task.uri.toString())), LogLevel.Debug);
                                     this.stopVerification(task.uri.toString(), isStopManuallyTriggered);
@@ -230,6 +237,7 @@ export class VerificationController {
                                         Log.error("WARNING: the " + (verificationComplete ? "completed" : "failed") + " verification uri does not correspond to the uri of the started verification.");
                                     }
                                     task.type = NoOp;
+                                    Log.logWithOrigin("workList", "VerificationFinished", LogLevel.LowLevelDebug);
                                     State.hideProgress();
                                 }
                             }
@@ -237,15 +245,27 @@ export class VerificationController {
                         case TaskType.StopVerifying:
                             //block until verification is stoped;
                             if (verificationStopped) {
+                                Log.logWithOrigin("workList", "VerificationStopped", LogLevel.LowLevelDebug);
                                 task.type = NoOp;
                                 if (State.unitTest) State.unitTest.verificationStopped();
                             }
+                            break;
+                        case TaskType.FileClosed:
+                            let uri = task.uri.toString();
+                            if (!fileState.open) {
+                                //if the file has not been reopened in the meantime:
+                                //let server and client forget about the file
+                                State.client.sendNotification(Commands.FileClosed, uri);
+                                State.viperFiles.delete(uri);
+                            }
+                            task.type = NoOp;
                             break;
                         case TaskType.UpdateViperTools:
                             if (State.isBackendReady) {
                                 this.workList.unshift({ type: TaskType.StopBackend, manuallyTriggered: task.manuallyTriggered })
                             } else {
                                 task.type = TaskType.UpdatingViperTools;
+                                Log.logWithOrigin("workList", "UpdatingViperTools", LogLevel.LowLevelDebug);
                                 State.client.sendNotification(Commands.UpdateViperTools);
                                 State.statusBarProgress.updateProgressBar(0).show();
                             }
@@ -254,6 +274,7 @@ export class VerificationController {
                             //block until verification is stoped;
                             if (viperToolsUpdateComplete) {
                                 task.type = NoOp;
+                                Log.logWithOrigin("workList", "ViperToolsUpdateComplete", LogLevel.LowLevelDebug);
                             }
                             break;
                         case TaskType.Save:
@@ -266,6 +287,7 @@ export class VerificationController {
                             if (State.isBackendReady) {
                                 this.workList.unshift({ type: TaskType.StopBackend, manuallyTriggered: task.manuallyTriggered })
                             } else {
+                                Log.logWithOrigin("workList", "StartingBackend", LogLevel.LowLevelDebug);
                                 task.type = TaskType.StartingBackend;
                                 State.client.sendNotification(Commands.StartBackend, task.backend);
                             }
@@ -274,22 +296,26 @@ export class VerificationController {
                             //block until backend change complete;
                             if (backendStarted) {
                                 task.type = NoOp;
+                                Log.logWithOrigin("workList", "BackendStarted", LogLevel.LowLevelDebug);
                                 State.backendStatusBar.update(task.backend, Color.READY);
                                 State.activeBackend = task.backend;
                             }
                             if (backendStopped) {
                                 task.type = NoOp;
+                                Log.logWithOrigin("workList", "BackendStartFailed BackendStopped", LogLevel.LowLevelDebug);
                                 State.statusBarItem.update("Backend start failed", Color.ERROR);
                             }
                             break;
                         case TaskType.StopBackend:
                             task.type = TaskType.StoppingBackend;
+                            Log.logWithOrigin("workList", "StoppingBackend", LogLevel.LowLevelDebug);
                             State.reset()
                             State.client.sendNotification(Commands.StopBackend);
                             break;
                         case TaskType.StoppingBackend:
                             //block until backend change complete;
                             if (backendStopped) {
+                                Log.logWithOrigin("workList", "BackendStopped", LogLevel.LowLevelDebug);
                                 task.type = NoOp;
                             }
                             break;

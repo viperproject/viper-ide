@@ -122,7 +122,7 @@ export class Log {
 
     public static logWithOrigin(origin: string, message: string, logLevel: LogLevel) {
         if (message) {
-            this.log(logLevel >= LogLevel.Debug ? "[" + origin + "]: " : "" + message, logLevel);
+            this.log((logLevel >= LogLevel.Debug ? "[" + origin + "]: " : "") + message, logLevel);
         }
     }
 

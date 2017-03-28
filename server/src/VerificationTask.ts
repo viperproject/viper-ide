@@ -480,9 +480,10 @@ export class VerificationTask {
             data = data.trim();
             if (data.length == 0) return;
 
+
+            Log.toLogFile(data, LogLevel.LowLevelDebug);
             //hide scala/java stacktraces
-            if (data.startsWith("at ")) {
-                Log.toLogFile(data, LogLevel.LowLevelDebug);
+            if (data.startsWith("at ") || data.startsWith("...") || data.startsWith("Caused by:")) {
                 return;
             }
             this.internalErrorMessage = data;
@@ -675,7 +676,7 @@ export class VerificationTask {
                                             : language_server.Range.create(pos.pos.line, pos.pos.character, pos.pos.line, pos.pos.character);
                                         let location: language_server.Location = { uri: this.fileUri, range: range };
                                         let kind: SymbolKind;
-                                        let className = m.type.substring(m.type.lastIndexOf('.')+1, m.type.length);
+                                        let className = m.type.substring(m.type.lastIndexOf('.') + 1, m.type.length);
                                         switch (className) {
                                             case "Method": kind = SymbolKind.Method; break;
                                             case "Function": kind = SymbolKind.Function; break;

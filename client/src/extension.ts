@@ -238,6 +238,7 @@ function registerHandlers() {
                     fileState.verified = false;
                 }
                 fileState.stateVisualizer.removeSpecialCharsFromClosedDocument(() => { });
+                State.addToWorklist({ type: TaskType.FileClosed, uri: fileState.uri });
             } catch (e) {
                 Log.error("Error handling file closed notification: " + e);
             }

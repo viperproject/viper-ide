@@ -149,16 +149,11 @@ function registerHandlers() {
 
     Server.connection.onDidCloseTextDocument((params) => {
         try {
-            Server.isViperSourceFile(params.textDocument.uri).then(res => {
-                if (res) {
-                    let uri = params.textDocument.uri;
+            let uri = params.textDocument.uri;
+            Server.isViperSourceFile(uri).then(isViperFile => {
+                if (isViperFile) {
                     //notify client;
                     Server.sendFileClosedNotification(uri);
-                    if (Server.verificationTasks.has(uri)) {
-                        //remove no longer needed task
-                        Server.verificationTasks.get(uri).resetDiagnostics();
-                        Server.verificationTasks.delete(uri);
-                    }
                 }
             });
         } catch (e) {
@@ -166,19 +161,14 @@ function registerHandlers() {
         }
     });
 
-    function canVerificationBeStarted(uri: string, manuallyTriggered: boolean): boolean {
-        //check if there is already a verification task for that file
-        let task = Server.verificationTasks.get(uri);
-        if (!task) {
-            Log.error("No verification task found for file: " + uri);
-            return false;
-        } else if (!Server.nailgunService.isReady()) {
-            if (manuallyTriggered) Log.hint("The verification backend is not ready yet");
-            Log.error("The verification backend is not ready yet");
-            return false;
+    Server.connection.onNotification(Commands.FileClosed, (uri) => {
+        if (Server.verificationTasks.has(uri)) {
+            //remove no longer needed task
+            let task = Server.verificationTasks.get(uri);
+            task.resetDiagnostics();
+            Server.verificationTasks.delete(uri);
         }
-        return true;
-    }
+    });
 
     Server.connection.onNotification(Commands.Verify, (data: VerifyRequest) => {
         try {
@@ -296,15 +286,17 @@ function registerHandlers() {
         return new Promise((resolve, reject) => {
             try {
                 let task = Server.verificationTasks.get(uri);
-                task.abortVerificationIfRunning().then((success) => {
-                    Server.sendStateChangeNotification({
-                        newState: VerificationState.Ready,
-                        verificationCompleted: false,
-                        verificationNeeded: false,
-                        uri: uri
-                    }, task);
-                    resolve(success);
-                })
+                if (task) {
+                    task.abortVerificationIfRunning().then((success) => {
+                        Server.sendStateChangeNotification({
+                            newState: VerificationState.Ready,
+                            verificationCompleted: false,
+                            verificationNeeded: false,
+                            uri: uri
+                        }, task);
+                        resolve(success);
+                    })
+                }
             } catch (e) {
                 Log.error("Error handling stop verification request (critical): " + e);
                 resolve(false);
@@ -344,6 +336,20 @@ function registerHandlers() {
             }
         });
     });
+}
+
+function canVerificationBeStarted(uri: string, manuallyTriggered: boolean): boolean {
+    //check if there is already a verification task for that file
+    let task = Server.verificationTasks.get(uri);
+    if (!task) {
+        Log.error("No verification task found for file: " + uri);
+        return false;
+    } else if (!Server.nailgunService.isReady()) {
+        if (manuallyTriggered) Log.hint("The verification backend is not ready yet");
+        Log.error("The verification backend is not ready yet");
+        return false;
+    }
+    return true;
 }
 
 function checkSettingsAndStartNailgun(backendName: string) {

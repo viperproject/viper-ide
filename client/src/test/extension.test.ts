@@ -241,7 +241,7 @@ function ViperIdeTests() {
 
                 return waitForAbort();
             }).then(() => {
-                    return checkForRunningProcesses(true, false, true, true);
+                return checkForRunningProcesses(true, false, true, true);
             }).then(ok => {
                 //aborted
                 //reverify longDuration viper file
@@ -249,6 +249,33 @@ function ViperIdeTests() {
                 return waitForVerification(SILICON, LONG);
             }).then(() => {
                 //verified
+                checkForInternalErrorBefore(done);
+            })
+        });
+
+        it("Test closing files", function (done) {
+            log("Test closing files");
+            this.timeout(30000);
+            internalErrorDetected = false;
+
+            openFile(LONG).then(() => {
+                verify();
+                return wait(500)
+            }).then(() => {
+                return closeFile();
+            }).then(() => {
+                return openFile(SIMPLE);
+            }).then(() => {
+                return wait(200);
+            }).then(() => {
+                stopVerification();
+            }).then(() => {
+                return closeFile();
+            }).then(() => {
+                return openFile(LONG);
+            }).then(() => {
+                return waitForVerification(SILICON, LONG);
+            }).then(() => {
                 checkForInternalErrorBefore(done);
             })
         });
@@ -470,7 +497,7 @@ function TestVerificationOfAllFilesInWorkspace() {
     describe("Workspace tests:", function () {
         it("Test Verification of all files in folder", function (done) {
             log("Test Verification of all files in folder");
-            this.timeout(100000);
+            this.timeout(200000);
 
             executeCommand('workbench.action.closeAllEditors');
             waitForIdle().then(() => {
@@ -576,6 +603,12 @@ function openFile(fileName): Promise<vscode.TextDocument> {
             });
         });
     });
+}
+
+function closeFile(): Thenable<{}> {
+    let filePath = path.join(TestContext.DATA_ROOT, vscode.window.activeTextEditor.document.fileName);
+    log("close " + filePath);
+    return vscode.commands.executeCommand("workbench.action.closeActiveEditor");
 }
 
 class TestContext {
