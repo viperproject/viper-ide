@@ -692,7 +692,7 @@ function checkIfSettingsVersionsSpecified(): Thenable<SettingsError[]> {
                 resolve(null);
             }
         } catch (e) {
-            Log.error("Error checking Settings file " + path + ": " + e);
+            Log.error("Error checking Settings files: " + e);
             resolve(null);
         }
     })
@@ -740,11 +740,11 @@ function checkSettingsFile(path: string): SettingsError[] {
 function getUserSettingsPath(): string {
     let userSettingsPath;
     if (State.isWin) {
-        userSettingsPath = path.join(process.env['APPDATA'], "Code\User\settings.json");
+        userSettingsPath = path.join(process.env['APPDATA'], "Code", "User", "settings.json");
     } else if (State.isLinux) {
-        userSettingsPath = path.join(os.homedir(), ".config/Code/User/settings.json");
+        userSettingsPath = path.join(os.homedir(), ".config", "Code", "User", "settings.json");
     } else {
-        userSettingsPath = path.join(os.homedir(), "Library/Application Support/Code/User/settings.json");
+        userSettingsPath = path.join(os.homedir(), "Library", "Application Support", "Code", "User", "settings.json");
     }
     return userSettingsPath;
 }
