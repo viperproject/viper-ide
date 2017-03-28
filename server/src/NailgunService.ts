@@ -288,7 +288,7 @@ export class NailgunService {
             try {
                 if (Server.nailgunService.nailgunServerPid) {
                     if (Settings.isWin) {
-                        let killProcess = Common.spawner('wmic', ["process", "where", 'ParentProcessId=' + Server.nailgunService.nailgunServerPid + (ngPid ? ' or ParentProcessId=' + ngPid : ""), "call", "terminate"]);
+                        let killProcess = Common.spawner('wmic', ["process", "where", '"ParentProcessId=' + Server.nailgunService.nailgunServerPid + (ngPid ? ' or ParentProcessId=' + ngPid : "")+'"', "call", "terminate"]);
                         killProcess.on('exit', (code) => {
                             resolve(true);
                         });

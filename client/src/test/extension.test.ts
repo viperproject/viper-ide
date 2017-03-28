@@ -192,29 +192,29 @@ function ViperToolsUpdateTest() {
             });
         })
 
-        // it("Test abort of first verification after viper tools update", function (done) {
-        //     log("Test abort of first verification after viper tools update");
-        //     this.timeout(30000);
+        it("Test abort of first verification after viper tools update", function (done) {
+            log("Test abort of first verification after viper tools update");
+            this.timeout(30000);
 
-        //     internalErrorDetected = false;
+            internalErrorDetected = false;
 
-        //     //open a file that takes longer
-        //     openFile(LONG);
-        //     //stop the verification after 1000ms
-        //     setTimeout(() => {
-        //         stopVerification()
-        //     }, 1000)
+            //open a file that takes longer
+            openFile(LONG);
+            //stop the verification after 1000ms
+            setTimeout(() => {
+                stopVerification()
+            }, 1000)
 
-        //     waitForAbort().then(() => {
-        //         //aborted
-        //         //reverify longDuration viper file
-        //         verify()
-        //         return waitForVerification(SILICON, LONG);
-        //     }).then(() => {
-        //         //verified
-        //         checkForInternalErrorBefore(done);
-        //     })
-        // });
+            waitForAbort().then(() => {
+                //aborted
+                //reverify longDuration viper file
+                verify()
+                return waitForVerification(SILICON, LONG);
+            }).then(() => {
+                //verified
+                checkForInternalErrorBefore(done);
+            })
+        });
     })
 }
 
@@ -580,6 +580,7 @@ function checkForRunningProcesses(checkNg: boolean, checkJava: boolean, checkBoo
             let stringData = (<string>data).replace(/[\n\r]/g, " ");
             if (/^.*?(\d+).*/.test(stringData)) {
                 resolve(false);
+
                 throw new Error("Process found");
             }
         });
