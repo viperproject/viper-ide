@@ -59,7 +59,7 @@ StartViperIdeTests();
 ViperToolsUpdateTest();
 ViperIdeTests();
 ViperIdeStressTests();
-TestVerificationOfAllFilesInWorkspace();
+//TestVerificationOfAllFilesInWorkspace();
 
 //last test
 FinishViperIdeTests();
@@ -148,12 +148,15 @@ function StartViperIdeTests() {
 
         it("Language Detection, and Backend Startup test.", function (done) {
             log("Language Detection, and Backend Startup test.");
-            this.timeout(60000);
+            this.timeout(40000);
 
             openFile(SIMPLE).then(document => {
                 if (document.languageId != 'viper') {
                     throw new Error("The language of viper file was not detected correctly: should: viper, is: " + document.languageId);
                 }
+                return waitForBackendStarted();
+            }).then(() => {
+                selectBackend(CARBON);
                 return waitForBackendStarted();
             }).then(() => {
                 //backend ready
@@ -166,7 +169,7 @@ function StartViperIdeTests() {
             this.timeout(25000);
 
             //3. viper file should verify with silicon 
-            waitForVerification(SILICON, SIMPLE).then(() => {
+            waitForVerification(CARBON, SIMPLE).then(() => {
                 //verified
                 done();
             });
@@ -182,6 +185,8 @@ function ViperToolsUpdateTest() {
 
             executeCommand('viper.updateViperTools');
 
+            openFile(LONG);
+
             //wait until viper tools update done
             waitForViperToolsUpdate().then(success => {
                 //viper tools update done
@@ -195,22 +200,23 @@ function ViperToolsUpdateTest() {
 
         it("Test abort of first verification after viper tools update", function (done) {
             log("Test abort of first verification after viper tools update");
-            this.timeout(30000);
+            this.timeout(30000)
 
             internalErrorDetected = false;
 
-            //open a file that takes longer
-            openFile(LONG);
             //stop the verification after 1000ms
             setTimeout(() => {
                 stopVerification()
             }, 1000)
 
             waitForAbort().then(() => {
+                return checkForRunningProcesses(false, false, false, true);
+                //return wait(1000);
+            }).then(ok => {
                 //aborted
                 //reverify longDuration viper file
                 verify()
-                return waitForVerification(SILICON, LONG);
+                return waitForVerification(CARBON, LONG);
             }).then(() => {
                 //verified
                 checkForInternalErrorBefore(done);
@@ -232,7 +238,7 @@ function ViperIdeTests() {
             //open a file that takes longer
             openFile(LONG).then(() => {
                 verify();
-                return waitForVerification(SILICON, LONG);
+                return waitForVerification(CARBON, LONG);
             }).then(() => {
                 verify();
                 //stop the verification after 1000ms
@@ -247,7 +253,7 @@ function ViperIdeTests() {
                 //aborted
                 //reverify longDuration viper file
                 verify()
-                return waitForVerification(SILICON, LONG);
+                return waitForVerification(CARBON, LONG);
             }).then(() => {
                 //verified
                 checkForInternalErrorBefore(done);
@@ -259,7 +265,11 @@ function ViperIdeTests() {
             this.timeout(30000);
             internalErrorDetected = false;
 
-            openFile(LONG).then(() => {
+            selectBackend(SILICON);
+
+            waitForBackendStarted().then(() => {
+                return openFile(LONG);
+            }).then(() => {
                 verify();
                 return wait(500)
             }).then(() => {
@@ -291,7 +301,7 @@ function ViperIdeTests() {
                 done();
             }, 5000);
 
-            //reopen simple silicon file
+            //reopen simple viper file
             openFile(SIMPLE).then(() => {
                 if (simpleAlreadyOpen) return true;
                 return waitForVerification(SILICON, SIMPLE);
@@ -570,10 +580,12 @@ function checkForRunningProcesses(checkNg: boolean, checkJava: boolean, checkBoo
             if (checkZ3) terms.push('name="z3.exe"');
             command = `wmic process where '` + terms.join(' or ') + `' get ParentProcessId,ProcessId,Name,CommandLine`
         } else {
-            command = (checkNg ? 'pgrep -x -l -u "$UID" ng; ' : '')
-                + (checkZ3 ? 'pgrep -x -l -u "$UID" z3; ' : '')
-                + (checkJava ? 'pgrep -l -u "$UID" -f nailgun; ' : '')
-                + (checkBoogie ? 'pgrep -x -l -u "$UID" Boogie' : '');
+            let terms = [];
+            if (checkNg) terms.push('pgrep -x -l -u "$UID" ng');
+            if (checkZ3) terms.push('pgrep -x -l -u "$UID" z3')
+            if (checkJava) terms.push('pgrep -l -u "$UID" -f nailgun')
+            if (checkBoogie) terms.push('pgrep -x -l -u "$UID" Boogie');
+            command = terms.join('; ');
         }
         let pgrep = Common.executer(command);
         pgrep.stdout.on('data', data => {

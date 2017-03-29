@@ -288,7 +288,7 @@ export class NailgunService {
             try {
                 if (Server.nailgunService.nailgunServerPid) {
                     if (Settings.isWin) {
-                        let killProcess = Common.spawner('wmic', ["process", "where", '"ParentProcessId=' + Server.nailgunService.nailgunServerPid + (ngPid ? ' or ParentProcessId=' + ngPid : "")+'"', "call", "terminate"]);
+                        let killProcess = Common.spawner('wmic', ["process", "where", '"ParentProcessId=' + Server.nailgunService.nailgunServerPid + (ngPid ? ' or ParentProcessId=' + ngPid : "") + '"', "call", "terminate"]);
                         killProcess.on('exit', (code) => {
                             resolve(true);
                         });
@@ -297,10 +297,10 @@ export class NailgunService {
                         let killProcess = Common.spawner('pkill', ["-9", "-P", "" + Server.nailgunService.nailgunServerPid + (ngPid ? "," + ngPid : "")]);
                         killProcess.on('exit', (code) => {
                             if (ngPid) {
-                                killProcess = Common.spawner('kill', ['' + ngPid]);
-                                killProcess.on('exit', (code) => {
+                                // killProcess = Common.spawner('kill', ['-9','' + ngPid]);
+                                // killProcess.on('exit', (code) => {
                                     resolve(true);
-                                });
+                                // });
                             } else {
                                 resolve(true);
                             }
@@ -409,6 +409,7 @@ export class NailgunService {
         } else {
             //TODO: consider also killing the parent (its actually the shell process)
             Common.spawner('pkill', ["-9", "-P", "" + this.nailgunProcess.pid]);
+            Common.spawner('kill', ["-9", "" + this.nailgunProcess.pid]);
         }
 
         //this.nailgunProcess.kill('SIGINT');

@@ -33,17 +33,17 @@ export function activate(context: vscode.ExtensionContext) {
     Helper.loadViperFileExtensions();
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
 
-    let ownPackageJson = vscode.extensions.getExtension("viper-admin.viper").packageJSON;
+    let ownPackageJson = vscode.extensions.getExtension("rukaelin.viper").packageJSON;
     let defaultConfiguration = ownPackageJson.contributes.configuration.properties;
     Log.log('The current version of ' + ownPackageJson.displayName + ' is: v.' + ownPackageJson.version, LogLevel.Info);
 
     lastVersionWithSettingsChange = {
-        nailgunSettingsVersion: "1.0.0",
-        backendSettingsVersion: "1.0.0",
-        pathSettingsVersion: "1.0.0",
-        userPreferencesVersion: "1.0.0",
-        javaSettingsVersion: "1.0.0",
-        advancedFeaturesVersion: "1.0.0",
+        nailgunSettingsVersion: "0.6.0",
+        backendSettingsVersion: "0.6.0",
+        pathSettingsVersion: "0.6.0",
+        userPreferencesVersion: "0.6.0",
+        javaSettingsVersion: "0.6.0",
+        advancedFeaturesVersion: "0.6.0",
         defaultSettings: defaultConfiguration,
         extensionVersion: ownPackageJson.version
     }
@@ -291,7 +291,7 @@ function registerHandlers() {
                         let fileState = State.setLastActiveFile(uri, editor);
                         if (fileState) {
                             if (!fileState.verified) {
-                                Log.log("The active text editor changed, consider reverification of " + fileState.name(), LogLevel.Debug);
+                                //Log.log("The active text editor changed, consider reverification of " + fileState.name(), LogLevel.Debug);
                                 State.addToWorklist({ type: TaskType.Verify, uri: uri, manuallyTriggered: false })
                             } else {
                                 Log.log("Don't reverify, the file is already verified", LogLevel.Debug);

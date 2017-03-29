@@ -11,7 +11,7 @@ method test1(xs: Seq[Ref]) {
   assert xs[0].f != 0 
   assert xs[1].f != 1
   assert xs[2].f != 2
-}
+} 
 
 method test2(xs: Seq[Ref]) {
   inhale 10 < |xs|
