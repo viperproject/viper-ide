@@ -68,21 +68,23 @@ function log(msg: string) {
     console.log("[UnitTest " + Log.prettyUptime() + "] " + msg);
 }
 
-function waitForBackendStarted(): Promise<boolean> {
+function waitForBackendStarted(backend?: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
         State.unitTest.backendStarted = (b) => {
             log("Backend " + b + "started");
-            ready = true;
-            resolve(true);
+            if (!backend || b === backend) {
+                ready = true;
+                resolve(true);
+            }
         }
     });
 }
 
-function waitForVerification(backend: string, fileName: string): Promise<boolean> {
+function waitForVerification(fileName: string, backend?: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
         State.unitTest.verificationComplete = (b, f) => {
             log("Verification Completed: file: " + f + ", backend: " + b);
-            if (b === backend && f === fileName) {
+            if ((!backend || b === backend) && f === fileName) {
                 resolve(true);
             }
         }
@@ -154,11 +156,11 @@ function StartViperIdeTests() {
                 if (document.languageId != 'viper') {
                     throw new Error("The language of viper file was not detected correctly: should: viper, is: " + document.languageId);
                 }
-                return waitForBackendStarted();
+                return waitForBackendStarted(SILICON);
             }).then(() => {
-                selectBackend(CARBON);
-                return waitForBackendStarted();
-            }).then(() => {
+                //     selectBackend(CARBON);
+                //     return waitForBackendStarted(CARBON);
+                // }).then(() => {
                 //backend ready
                 done();
             });
@@ -169,7 +171,7 @@ function StartViperIdeTests() {
             this.timeout(25000);
 
             //3. viper file should verify with silicon 
-            waitForVerification(CARBON, SIMPLE).then(() => {
+            waitForVerification(SIMPLE).then(() => {
                 //verified
                 done();
             });
@@ -179,6 +181,7 @@ function StartViperIdeTests() {
 
 function ViperToolsUpdateTest() {
     describe("Viper Tools Update Test:", function () {
+        // //requires running backend
         it("Viper Tools Update Test", function (done) {
             log("Viper Tools Update Test");
             this.timeout(60000);
@@ -198,30 +201,31 @@ function ViperToolsUpdateTest() {
             });
         })
 
-        //     it("Test abort of first verification after viper tools update", function (done) {
-        //         log("Test abort of first verification after viper tools update");
-        //         this.timeout(30000)
+        // //requires running backend
+        // it("Test abort of first verification after viper tools update", function (done) {
+        //     log("Test abort of first verification after viper tools update");
+        //     this.timeout(30000)
 
-        //         internalErrorDetected = false;
+        //     internalErrorDetected = false;
 
-        //         //stop the verification after 1000ms
-        //         setTimeout(() => {
-        //             stopVerification()
-        //         }, 1000)
+        //     //stop the verification after 1000ms
+        //     setTimeout(() => {
+        //         stopVerification()
+        //     }, 1000)
 
-        //         waitForAbort().then(() => {
-        //             return checkForRunningProcesses(false, false, false, true);
-        //             //return wait(1000);
-        //         }).then(ok => {
-        //             //aborted
-        //             //reverify longDuration viper file
-        //             verify()
-        //             return waitForVerification(CARBON, LONG);
-        //         }).then(() => {
-        //             //verified
-        //             checkForInternalErrorBefore(done);
-        //         })
-        //     });
+        //     waitForAbort().then(() => {
+        //         return checkForRunningProcesses(false, false, false, true);
+        //         //return wait(1000);
+        //     }).then(ok => {
+        //         //aborted
+        //         //reverify longDuration viper file
+        //         verify()
+        //         return waitForVerification(LONG);
+        //     }).then(() => {
+        //         //verified
+        //         checkForInternalErrorBefore(done);
+        //     })
+        // });
     })
 }
 
@@ -229,6 +233,7 @@ function ViperIdeTests() {
     // Defines a Mocha test suite to group tests of similar kind together
     describe("ViperIDE tests:", function () {
 
+        // //requires running backend
         // it("Test abort", function (done) {
         //     log("Test abort");
         //     this.timeout(30000);
@@ -238,7 +243,7 @@ function ViperIdeTests() {
         //     //open a file that takes longer
         //     openFile(LONG).then(() => {
         //         verify();
-        //         return waitForVerification(CARBON, LONG);
+        //         return waitForVerification(LONG);
         //     }).then(() => {
         //         verify();
         //         //stop the verification after 1000ms
@@ -253,13 +258,14 @@ function ViperIdeTests() {
         //         //aborted
         //         //reverify longDuration viper file
         //         verify()
-        //         return waitForVerification(CARBON, LONG);
+        //         return waitForVerification(LONG);
         //     }).then(() => {
         //         //verified
         //         checkForInternalErrorBefore(done);
         //     })
         // });
 
+        // //requires running non-silicon backend
         // it("Test closing files", function (done) {
         //     log("Test closing files");
         //     this.timeout(30000);
@@ -267,7 +273,7 @@ function ViperIdeTests() {
 
         //     selectBackend(SILICON);
 
-        //     waitForBackendStarted().then(() => {
+        //     waitForBackendStarted(SILICON).then(() => {
         //         return openFile(LONG);
         //     }).then(() => {
         //         verify();
@@ -285,7 +291,7 @@ function ViperIdeTests() {
         //     }).then(() => {
         //         return openFile(LONG);
         //     }).then(() => {
-        //         return waitForVerification(SILICON, LONG);
+        //         return waitForVerification(LONG);
         //     }).then(() => {
         //         checkForInternalErrorBefore(done);
         //     })
@@ -304,7 +310,7 @@ function ViperIdeTests() {
             //reopen simple viper file
             openFile(SIMPLE).then(() => {
                 if (simpleAlreadyOpen) return true;
-                return waitForVerification(SILICON, SIMPLE);
+                return waitForVerification(SIMPLE);
             }).then(() => {
                 //simulate context switch by opening non-viper file
                 return openFile(EMPTY);
@@ -312,7 +318,7 @@ function ViperIdeTests() {
                 return openFile(SIMPLE);
             }).then(() => {
                 //wait 5000ms for verification
-                return waitForVerification(SILICON, SIMPLE);
+                return waitForVerification(SIMPLE);
             }).then(() => {
                 //verified
                 throw new Error("unwanted reverification of verified file after switching context");
@@ -427,9 +433,9 @@ function ViperIdeStressTests() {
                 verify();
             }
 
-            waitForVerification(SILICON, SIMPLE).then(() => {
+            waitForVerification(SIMPLE).then(() => {
                 verificationDone = true;
-                return waitForVerification(SILICON, SIMPLE);
+                return waitForVerification(SIMPLE);
             }).then(() => {
                 throw new Error("multiple verifications seen");
             });
@@ -451,7 +457,7 @@ function ViperIdeStressTests() {
 
             wait(500).then(() => {
                 selectBackend(SILICON);
-                return waitForVerification(SILICON, SIMPLE);
+                return waitForVerification(SIMPLE, SILICON);
             }).then(() => {
                 checkForInternalErrorBefore(done);
             });
@@ -466,7 +472,7 @@ function ViperIdeStressTests() {
             verify()
             stopVerification()
             verify()
-            waitForVerification(SILICON, SIMPLE).then(() => {
+            waitForVerification(SIMPLE).then(() => {
                 checkForInternalErrorBefore(done);
             });
         });
@@ -492,10 +498,10 @@ function ViperIdeStressTests() {
             openFile(SIMPLE).then(() => {
                 //change backend to carbon
                 selectBackend(CARBON);
-                return waitForBackendStarted()
+                return waitForBackendStarted(CARBON)
             }).then(() => {
                 //backend ready
-                return waitForVerification(CARBON, SIMPLE);
+                return waitForVerification(SIMPLE, CARBON);
             }).then(() => {
                 //verified
                 done();
