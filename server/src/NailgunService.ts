@@ -12,6 +12,8 @@ export class NailgunService {
     nailgunProcess: child_process.ChildProcess;
     nailgunServerPid: number;
     instanceCount: number = 0;
+    isNGSessionRunning = false;
+    ngSessionFinished = () => { };
 
     private _ready: boolean = false;
 
@@ -190,6 +192,9 @@ export class NailgunService {
                         Log.error("waitForNailgunToStart was rejected");
                         reject();
                     });
+                } else if (data.startsWith("NGSession") && (data.endsWith("disconnected") || data.indexOf('exited with status') >= 0)) {
+                    this.isNGSessionRunning = false;
+                    this.ngSessionFinished();
                 }
             });
         })
@@ -297,9 +302,9 @@ export class NailgunService {
                         let killProcess = Common.spawner('pkill', ["-9", "-P", "" + Server.nailgunService.nailgunServerPid + (ngPid ? "," + ngPid : "")]);
                         killProcess.on('exit', (code) => {
                             if (ngPid) {
-                                // killProcess = Common.spawner('kill', ['-9','' + ngPid]);
+                                // killProcess = Common.spawner('kill', ['-9', '' + ngPid]);
                                 // killProcess.on('exit', (code) => {
-                                    resolve(true);
+                                resolve(true);
                                 // });
                             } else {
                                 resolve(true);
@@ -457,6 +462,7 @@ export class NailgunService {
             verifyProcess.stdout.on('data', onData);
             verifyProcess.stderr.on('data', onError);
             verifyProcess.on('close', onClose);
+            this.isNGSessionRunning = true;
             return verifyProcess;
         } catch (e) {
             Log.error("Error starting stage process: " + e);

@@ -198,30 +198,30 @@ function ViperToolsUpdateTest() {
             });
         })
 
-        it("Test abort of first verification after viper tools update", function (done) {
-            log("Test abort of first verification after viper tools update");
-            this.timeout(30000)
+        //     it("Test abort of first verification after viper tools update", function (done) {
+        //         log("Test abort of first verification after viper tools update");
+        //         this.timeout(30000)
 
-            internalErrorDetected = false;
+        //         internalErrorDetected = false;
 
-            //stop the verification after 1000ms
-            setTimeout(() => {
-                stopVerification()
-            }, 1000)
+        //         //stop the verification after 1000ms
+        //         setTimeout(() => {
+        //             stopVerification()
+        //         }, 1000)
 
-            waitForAbort().then(() => {
-                return checkForRunningProcesses(false, false, false, true);
-                //return wait(1000);
-            }).then(ok => {
-                //aborted
-                //reverify longDuration viper file
-                verify()
-                return waitForVerification(CARBON, LONG);
-            }).then(() => {
-                //verified
-                checkForInternalErrorBefore(done);
-            })
-        });
+        //         waitForAbort().then(() => {
+        //             return checkForRunningProcesses(false, false, false, true);
+        //             //return wait(1000);
+        //         }).then(ok => {
+        //             //aborted
+        //             //reverify longDuration viper file
+        //             verify()
+        //             return waitForVerification(CARBON, LONG);
+        //         }).then(() => {
+        //             //verified
+        //             checkForInternalErrorBefore(done);
+        //         })
+        //     });
     })
 }
 
@@ -229,67 +229,67 @@ function ViperIdeTests() {
     // Defines a Mocha test suite to group tests of similar kind together
     describe("ViperIDE tests:", function () {
 
-        it("Test abort", function (done) {
-            log("Test abort");
-            this.timeout(30000);
+        // it("Test abort", function (done) {
+        //     log("Test abort");
+        //     this.timeout(30000);
 
-            internalErrorDetected = false;
+        //     internalErrorDetected = false;
 
-            //open a file that takes longer
-            openFile(LONG).then(() => {
-                verify();
-                return waitForVerification(CARBON, LONG);
-            }).then(() => {
-                verify();
-                //stop the verification after 1000ms
-                setTimeout(() => {
-                    stopVerification()
-                }, 1000)
+        //     //open a file that takes longer
+        //     openFile(LONG).then(() => {
+        //         verify();
+        //         return waitForVerification(CARBON, LONG);
+        //     }).then(() => {
+        //         verify();
+        //         //stop the verification after 1000ms
+        //         setTimeout(() => {
+        //             stopVerification()
+        //         }, 1000)
 
-                return waitForAbort();
-            }).then(() => {
-                return checkForRunningProcesses(true, false, true, true);
-            }).then(ok => {
-                //aborted
-                //reverify longDuration viper file
-                verify()
-                return waitForVerification(CARBON, LONG);
-            }).then(() => {
-                //verified
-                checkForInternalErrorBefore(done);
-            })
-        });
+        //         return waitForAbort();
+        //     }).then(() => {
+        //         return checkForRunningProcesses(true, false, true, true);
+        //     }).then(ok => {
+        //         //aborted
+        //         //reverify longDuration viper file
+        //         verify()
+        //         return waitForVerification(CARBON, LONG);
+        //     }).then(() => {
+        //         //verified
+        //         checkForInternalErrorBefore(done);
+        //     })
+        // });
 
-        it("Test closing files", function (done) {
-            log("Test closing files");
-            this.timeout(30000);
-            internalErrorDetected = false;
+        // it("Test closing files", function (done) {
+        //     log("Test closing files");
+        //     this.timeout(30000);
+        //     internalErrorDetected = false;
 
-            selectBackend(SILICON);
+        //     selectBackend(SILICON);
 
-            waitForBackendStarted().then(() => {
-                return openFile(LONG);
-            }).then(() => {
-                verify();
-                return wait(500)
-            }).then(() => {
-                return closeFile();
-            }).then(() => {
-                return openFile(SIMPLE);
-            }).then(() => {
-                return wait(200);
-            }).then(() => {
-                stopVerification();
-            }).then(() => {
-                return closeFile();
-            }).then(() => {
-                return openFile(LONG);
-            }).then(() => {
-                return waitForVerification(SILICON, LONG);
-            }).then(() => {
-                checkForInternalErrorBefore(done);
-            })
-        });
+        //     waitForBackendStarted().then(() => {
+        //         return openFile(LONG);
+        //     }).then(() => {
+        //         verify();
+        //         return wait(500)
+        //     }).then(() => {
+        //         return closeFile();
+        //     }).then(() => {
+        //         return openFile(SIMPLE);
+        //     }).then(() => {
+        //         return wait(200);
+        //     }).then(() => {
+        //         stopVerification();
+        //     }).then(() => {
+        //         return closeFile();
+        //     }).then(() => {
+        //         return openFile(LONG);
+        //     }).then(() => {
+        //         return waitForVerification(SILICON, LONG);
+        //     }).then(() => {
+        //         checkForInternalErrorBefore(done);
+        //     })
+        // });
 
         it("Test not verifying verified files", function (done) {
             log("Test not verifying verified files");

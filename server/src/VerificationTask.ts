@@ -892,12 +892,25 @@ export class VerificationTask {
                 this.running = false;
                 this.lastSuccess = Success.Aborted;
 
-                Promise.all([ngClientEndPromise, deamonKillerPromise]).then(() => {
+                Promise.all([ngClientEndPromise, deamonKillerPromise, /*this.waitForNgServerToDetectShutDownClient()*/]).then(() => {
                     resolve(true);
                 });
             } catch (e) {
                 Log.error("Error aborting verification of " + this.filename + ": " + e);
                 resolve(false);
+            }
+        });
+    }
+
+    private waitForNgServerToDetectShutDownClient(): Promise<boolean> {
+        return new Promise((resolve, reject) => {
+            if (Server.nailgunService.isNGSessionRunning) {
+                resolve(true);
+            } else {
+                Server.nailgunService.ngSessionFinished = () => {
+                    Log.log("NGSession finished", LogLevel.Debug);
+                    resolve(true);
+                }
             }
         });
     }
