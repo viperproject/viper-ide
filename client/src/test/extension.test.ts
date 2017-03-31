@@ -219,6 +219,8 @@ function ViperToolsUpdateTest() {
                 if (success) return waitForBackendStarted();
                 else throw new Error("viper Tools Update failed");
             }).then(() => {
+                return waitForVerification(LONG);
+            }).then(() => {
                 //backend ready
                 done();
             });
