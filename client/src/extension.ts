@@ -109,9 +109,7 @@ function registerFormatter() {
 
 function toggleAutoVerify() {
     State.autoVerify = !State.autoVerify;
-    if (State.autoVerify) {
-        State.statusBarItem.update("Auto Verify is " + (State.autoVerify ? "on" : "off"), Color.SUCCESS);
-    }
+    State.statusBarItem.update("Auto Verify is " + (State.autoVerify ? "on" : "off"), Color.SUCCESS);
 }
 
 function startAutoSaver() {
@@ -294,7 +292,7 @@ function registerHandlers() {
                                 //Log.log("The active text editor changed, consider reverification of " + fileState.name(), LogLevel.Debug);
                                 State.addToWorklist({ type: TaskType.Verify, uri: uri, manuallyTriggered: false })
                             } else {
-                                Log.log("Don't reverify, the file is already verified", LogLevel.Debug);
+                                //Log.log("Don't reverify, the file is already verified", LogLevel.Debug);
                             }
                             //Log.log("Active viper file changed to " + fileState.name(), LogLevel.Info);
                         }

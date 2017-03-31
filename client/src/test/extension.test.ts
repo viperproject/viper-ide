@@ -37,6 +37,7 @@ export class UnitTestCallback {
     viperUpdateComplete = () => { };
     viperUpdateFailed = () => { };
     verificationStopped = () => { };
+    verificationStarted = (b, f) => { };
 }
 
 let internalErrorDetected: boolean;
@@ -91,6 +92,17 @@ function waitForVerification(fileName: string, backend?: string): Promise<boolea
     });
 }
 
+function waitForVerificationStart(fileName: string, backend?: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+        State.unitTest.verificationStarted = (b, f) => {
+            log("Verification Started: file: " + f + ", backend: " + b);
+            if ((!backend || b === backend) && f === fileName) {
+                resolve(true);
+            }
+        }
+    });
+}
+
 function waitForVerificationOfAllFilesInWorkspace(): Promise<boolean> {
     return new Promise((resolve, reject) => {
         State.unitTest.allFilesVerified = (res) => {
@@ -134,6 +146,17 @@ function waitForActivated(): Promise<boolean> {
         State.unitTest.activated = () => {
             resolve(true);
         }
+    });
+}
+
+function waitForTimeout(timeout, event: Promise<any>): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            resolve(true);
+        }, timeout)
+        event.then(() => {
+            resolve(false);
+        })
     });
 }
 
@@ -299,13 +322,9 @@ function ViperIdeTests() {
 
         it("Test not verifying verified files", function (done) {
             log("Test not verifying verified files");
-            this.timeout(6000);
+            this.timeout(40000);
 
             let simpleAlreadyOpen = path.basename(vscode.window.activeTextEditor.document.fileName) == SIMPLE
-
-            let timer = setTimeout(() => {
-                done();
-            }, 5000);
 
             //reopen simple viper file
             openFile(SIMPLE).then(() => {
@@ -317,11 +336,15 @@ function ViperIdeTests() {
             }).then(() => {
                 return openFile(SIMPLE);
             }).then(() => {
-                //wait 5000ms for verification
-                return waitForVerification(SIMPLE);
-            }).then(() => {
-                //verified
-                throw new Error("unwanted reverification of verified file after switching context");
+                //wait 1000ms for verification start
+                return waitForTimeout(1000, waitForVerificationStart(SIMPLE));
+            }).then(timeoutHit => {
+                if (timeoutHit) {
+                    done();
+                } else {
+                    //verified
+                    throw new Error("unwanted reverification of verified file after switching context");
+                }
             });
         });
 
@@ -329,21 +352,47 @@ function ViperIdeTests() {
             log("Test zooming");
             this.timeout(11000);
 
-            let timer = setTimeout(() => {
-                done();
-            }, 10000);
             executeCommand("workbench.action.zoomIn").then(() => {
                 return wait(500);
             }).then(() => {
                 return executeCommand("workbench.action.zoomOut");
             }).then(() => {
-                return waitForBackendStarted();
-            }).then(() => {
-                //verified
-                clearTimeout(timer);
+                return waitForTimeout(10000, waitForBackendStarted())
+            }).then((timeoutHit) => {
+                if (timeoutHit) {
+                    done();
+                } else {
+                    throw new Error("backend was restarted, but it should not be");
+                }
             });
         });
 
+        it("Test autoVerify", function (done) {
+            log("Test autoVerify");
+            this.timeout(2000);
+
+            //turn auto verify back on in the end 
+            let timer = setTimeout(() => {
+                executeCommand("viper.toggleAutoVerify")
+            }, 1500);
+
+            executeCommand("viper.toggleAutoVerify").then(() => {
+                return openFile(LONG)
+            }).then(() => {
+                return openFile(SIMPLE)
+            }).then(() => {
+                return waitForTimeout(1000, waitForVerificationStart(LONG))
+            }).then((timeoutHit) => {
+                if (timeoutHit) {
+                    clearTimeout(timer);
+                    executeCommand("viper.toggleAutoVerify").then(() => done())
+                } else {
+                    throw new Error("verification was started even if autoVerify is disabled");
+                }
+            })
+        });
+
+        //requires SIMPLE open
         it("Test Helper Methods", function (done) {
             log("Test Helper Methods");
             this.timeout(1000);

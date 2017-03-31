@@ -113,16 +113,20 @@ export class VerificationController {
                             viperToolsUpdateFound = true;
                             break;
                         case TaskType.Verify:
-                            //remove all older verify tasks
-                            if (verifyFound || stopFound) {
+                            if (!this.workList[i].manuallyTriggered && !State.autoVerify) {
                                 this.workList[i].type = NoOp;
                             } else {
-                                verifyFound = true;
-                                uriOfFoundVerfy = this.workList[i].uri;
-                            }
-                            if ((verificationComplete || verificationFailed) && Helper.uriEquals(completedOrFailedFileUri, this.workList[i].uri)) {
-                                //remove verification requests of just verified file
-                                this.workList[i].type = NoOp;
+                                //remove all older verify tasks
+                                if (verifyFound || stopFound) {
+                                    this.workList[i].type = NoOp;
+                                } else {
+                                    verifyFound = true;
+                                    uriOfFoundVerfy = this.workList[i].uri;
+                                }
+                                if ((verificationComplete || verificationFailed) && Helper.uriEquals(completedOrFailedFileUri, this.workList[i].uri)) {
+                                    //remove verification requests of just verified file
+                                    this.workList[i].type = NoOp;
+                                }
                             }
                             break;
                         case TaskType.StopVerification:
@@ -172,7 +176,6 @@ export class VerificationController {
                             }
                             stopBackendFound = true;
                             clear = true;
-                            stopFound = true;
                             break;
                         case TaskType.BackendStarted:
                             this.workList[i].type = NoOp;
@@ -204,19 +207,24 @@ export class VerificationController {
                     let fileState = State.getFileState(task.uri); //might be null
                     switch (task.type) {
                         case TaskType.Verify:
-                            let canVerify = this.canStartVerification(task);
-                            if (canVerify.result) {
-                                Log.logWithOrigin("workList", "Verifying", LogLevel.LowLevelDebug);
-                                task.type = TaskType.Verifying;
-                                this.verify(fileState, task.manuallyTriggered);
-                            } else if (canVerify.reason && (canVerify.reason != this.lastCanStartVerificationReason || (task.uri && !Helper.uriEquals(task.uri, this.lastCanStartVerificationUri)))) {
-                                Log.log(canVerify.reason, LogLevel.Info);
-                                this.lastCanStartVerificationReason = canVerify.reason;
-                                if (canVerify.removeRequest) {
-                                    task.type = NoOp;
+                            if (!State.autoVerify && !task.manuallyTriggered) {
+                                task.type = TaskType.NoOp;
+                            } else {
+                                let canVerify = this.canStartVerification(task);
+                                if (canVerify.result) {
+                                    Log.logWithOrigin("workList", "Verifying", LogLevel.LowLevelDebug);
+                                    if (State.unitTest) State.unitTest.verificationStarted(State.activeBackend, path.basename(task.uri.toString()));
+                                    task.type = TaskType.Verifying;
+                                    this.verify(fileState, task.manuallyTriggered);
+                                } else if (canVerify.reason && (canVerify.reason != this.lastCanStartVerificationReason || (task.uri && !Helper.uriEquals(task.uri, this.lastCanStartVerificationUri)))) {
+                                    Log.log(canVerify.reason, LogLevel.Info);
+                                    this.lastCanStartVerificationReason = canVerify.reason;
+                                    if (canVerify.removeRequest) {
+                                        task.type = NoOp;
+                                    }
                                 }
+                                this.lastCanStartVerificationUri = task.uri;
                             }
-                            this.lastCanStartVerificationUri = task.uri;
                             break;
                         case TaskType.Verifying:
                             if (!State.isVerifying) {
@@ -224,7 +232,11 @@ export class VerificationController {
                                 State.hideProgress();
                             } else {
                                 //if another verification is requested, the current one must be stopped
-                                if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri)) || stopFound || viperToolsUpdateFound || startBackendFound || stopBackendFound) {
+                                if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri))
+                                    || stopFound
+                                    || viperToolsUpdateFound
+                                    || startBackendFound
+                                    || stopBackendFound) {
                                     Log.logWithOrigin("workList", "StopVerifying", LogLevel.LowLevelDebug);
                                     task.type = TaskType.StopVerifying;
                                     Log.log("Stop the running verification of " + path.basename(Common.uriToPath(task.uri.toString())), LogLevel.Debug);
@@ -504,7 +516,7 @@ export class VerificationController {
             } else {
                 Log.log(msg, LogLevel.Debug);
             }
-            State.addToWorklist({ type: TaskType.StopVerification, uri: null, manuallyTriggered: false });
+            State.addToWorklist({ type: TaskType.VerificationStopped, uri: null, manuallyTriggered: false });
         }
     }
 
