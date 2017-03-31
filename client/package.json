@@ -1,7 +1,7 @@
 {
     "name": "viper",
     "displayName": "Viper",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "publisher": "rukaelin",
     "description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
     "license": "MIT",
@@ -195,7 +195,7 @@
                 "command": "viper.toggleAutoVerify",
                 "key": "ctrl+k ctrl+a",
                 "mac": "cmd+k cmd+a",
-                "when": "editorTextFocus" 
+                "when": "editorTextFocus"
             }
         ],
         "configuration": {
