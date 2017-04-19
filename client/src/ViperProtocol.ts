@@ -492,6 +492,7 @@ export class BackendOutputType {
     static Error = "Error";
     static Outline = "Outline";
     static Success = "Success";
+    static Stopped = "Stopped";
 }
 
 export interface BackendOutput {
