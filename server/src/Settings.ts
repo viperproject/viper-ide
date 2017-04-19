@@ -5,7 +5,9 @@ import * as pathHelper from 'path';
 import { Log } from './Log';
 import { Versions, PlatformDependentURL, PlatformDependentPath, SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel } from './ViperProtocol';
 import { Server } from './ServerClass';
-var CryptoJs = require("crypto-js");
+import { BackendService } from './BackendService';
+import { ViperServerService } from './ViperServerService';
+import { NailgunService } from './NailgunService';
 const os = require('os');
 var portfinder = require('portfinder');
 
@@ -61,8 +63,9 @@ export class Settings {
         }
         let same = a.stages.length === b.stages.length;
         same = same && a.name === b.name;
+        same = same && a.type === b.type;
         same = same && a.timeout === b.timeout;
-        same = same && a.useNailgun === b.useNailgun;
+        same = same && this.resolveEngine(a.engine) === this.resolveEngine(b.engine);
         a.stages.forEach((element, i) => {
             same = same && this.stageEquals(element, b.stages[i]);
         });
@@ -71,6 +74,24 @@ export class Settings {
             same = same && a.paths[i] === b.paths[i];
         }
         return same;
+    }
+
+    private static resolveEngine(engine: string) {
+        if (engine && (engine.toLowerCase() == "viperserver" || engine.toLowerCase() == "nailgun")) {
+            return engine;
+        } else {
+            return "none";
+        }
+    }
+
+    public static useNailgunServer(backend: Backend) {
+        if (!backend || !backend.engine) return false;
+        return backend.engine.toLowerCase() == "nailgun";
+    }
+
+    public static useViperServer(backend: Backend) {
+        if (!backend || !backend.engine) return false;
+        return backend.engine.toLowerCase() == "viperserver";
     }
 
     private static stageEquals(a: Stage, b: Stage): boolean {
@@ -93,17 +114,16 @@ export class Settings {
         return same;
     }
 
-    static expandCustomArguments(program: string, stage: Stage, fileToVerify: string, backend: Backend): string {
-        let args = program + " " + stage.mainMethod + " " + (backend.useNailgun ? "--nailgun-port $nailgunPort$ " : "") + stage.customArguments;
-        if (!args || args.length == 0) return "";
+    static expandCustomArguments(args: string, stage: Stage, fileToVerify: string, backend: Backend): string {
         args = args.replace(/\s+/g, ' '); //remove multiple spaces
         args = args.replace(/\$z3Exe\$/g, '"' + this.settings.paths.z3Executable + '"');
+        args = args.replace(/\$ngExe\$/g, '"' + this.settings.nailgunSettings.clientExecutable + '"');
         args = args.replace(/\$boogieExe\$/g, '"' + this.settings.paths.boogieExecutable + '"');
         args = args.replace(/\$mainMethod\$/g, stage.mainMethod);
         args = args.replace(/\$nailgunPort\$/g, this.settings.nailgunSettings.port);
         args = args.replace(/\$fileToVerify\$/g, '"' + fileToVerify + '"');
         args = args.replace(/\$backendPaths\$/g, Settings.backendJars(backend))
-        return args;
+        return args.trim();
     }
 
     static expandViperToolsPath(path: string): string {
@@ -172,12 +192,14 @@ export class Settings {
         Settings.checkSettings(viperToolsUpdated).then(() => {
             if (Settings.valid()) {
                 let newBackend = Settings.selectBackend(Settings.settings, selectedBackend);
+
                 if (newBackend) {
                     //only restart the backend after settings changed if the active backend was affected
-                    let restartBackend = !Server.nailgunService.isReady() //backend is not ready -> restart
+                    let restartBackend = !Server.backendService.isReady() //backend is not ready -> restart
                         || !Settings.backendEquals(Server.backend, newBackend) //change in backend
-                        || (oldSettings && (newBackend.useNailgun && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings)))) //backend needs nailgun and nailgun settings changed
-                        || viperToolsUpdated; //Viper Tools Update might have modified the binaries
+                        || (oldSettings && (this.useNailgunServer(newBackend) && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings)))) //backend needs nailgun and nailgun settings changed
+                        || viperToolsUpdated //Viper Tools Update might have modified the binaries
+                        || (Server.backendService.isViperServerService != this.useViperServer(newBackend)); //the new backend requires another engine type
                     if (restartBackend) {
                         Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info);
                         Server.backend = newBackend;
@@ -189,13 +211,17 @@ export class Settings {
                         if (oldSettings) { Settings.settings.nailgunSettings.port = oldSettings.nailgunSettings.port; }
                         Log.log("No need to restart backend. It is still the same", LogLevel.Debug)
                         Server.backend = newBackend;
-                        Server.sendBackendReadyNotification({ name: Server.backend.name, restarted: false });
+                        Server.sendBackendReadyNotification({
+                            name: Server.backend.name,
+                            restarted: false,
+                            isViperServer: Settings.useViperServer(newBackend)
+                        });
                     }
                 } else {
                     Log.error("No backend, even though the setting check succeeded.");
                 }
             } else {
-                Server.nailgunService.stopNailgunServer();
+                Server.backendService.stop();
             }
         });
     }
@@ -305,7 +331,7 @@ export class Settings {
                         this.addError("Old viper settings detected: " + affectedSettings + " please replace the old settings with the new default settings.");
                         resolve(false); return;
                     }
-                    
+
                     this._upToDate = true;
 
                     //Check viperToolsProvider
@@ -326,10 +352,11 @@ export class Settings {
                         }
                         return;
                     }
+
                     //check z3 Executable
-                    settings.paths.z3Executable = this.checkPath(settings.paths.z3Executable, "z3 Executable:", true, true).path;
+                    settings.paths.z3Executable = this.checkPath(settings.paths.z3Executable, "z3 Executable:", true, true, true).path;
                     //check boogie executable
-                    settings.paths.boogieExecutable = this.checkPath(settings.paths.boogieExecutable, `Boogie Executable: (If you don't need boogie, set it to "")`, true, true).path;
+                    settings.paths.boogieExecutable = this.checkPath(settings.paths.boogieExecutable, `Boogie Executable: (If you don't need boogie, set it to "")`, true, true, true).path;
 
                     //check backends
                     if (!settings.verificationBackends || settings.verificationBackends.length == 0) {
@@ -348,10 +375,16 @@ export class Settings {
                     }
                     Settings.checkBackends(settings.verificationBackends);
                     //check nailgun settings
-                    let useNailgun = settings.verificationBackends.some(elem => elem.useNailgun);
-
-                    if (useNailgun) {
+                    let nailgunRequired = settings.verificationBackends.some(elem => this.useNailgunServer(elem));
+                    if (nailgunRequired) {
                         this.checkNailgunSettings(settings.nailgunSettings);
+                    }
+
+                    //check ViperServer related settings
+                    let viperServerRequired = settings.verificationBackends.some(elem => this.useViperServer(elem));
+                    if (viperServerRequired) {
+                        //check viperServer path
+                        settings.paths.viperServerPath = this.checkPath(settings.paths.viperServerPath, "viperServerPath:", true, true, true).path;
                     }
 
                     //no need to check preferences
@@ -385,7 +418,8 @@ export class Settings {
         if (!custom.stages) custom.stages = def.stages
         else this.mergeStages(custom.stages, def.stages);
         if (!custom.timeout) custom.timeout = def.timeout;
-        if (custom.useNailgun === undefined) custom.useNailgun = def.useNailgun;
+        if (!custom.engine || custom.engine.length == 0) custom.engine = def.engine;
+        if (!custom.type || custom.type.length == 0) custom.type = def.type;
     }
 
     private static mergeStages(custom: Stage[], defaultStages: Stage[]) {
@@ -426,9 +460,9 @@ export class Settings {
         return stringURL;
     }
 
-    private static checkPath(path: (string | PlatformDependentPath), prefix: string, executable: boolean, allowPlatformDependentPath: boolean, allowStringPath: boolean = true): ResolvedPath {
+    private static checkPath(path: (string | PlatformDependentPath), prefix: string, executable: boolean, allowPlatformDependentPath: boolean, allowStringPath: boolean = true, allowMissingPath = false): ResolvedPath {
         if (!path) {
-            this.addError(prefix + " path is missing");
+            if (!allowMissingPath) this.addError(prefix + " path is missing");
             return { path: null, exists: false };
         }
         let stringPath: string;
@@ -456,7 +490,9 @@ export class Settings {
         }
 
         if (!stringPath || stringPath.length == 0) {
-            this.addError(prefix + ' path has wrong type: expected: string' + (executable ? ' or {windows:string, mac:string, linux:string}' : "") + ', found: ' + typeof path + " at path: " + JSON.stringify(path));
+            if (!allowMissingPath) {
+                this.addError(prefix + ' path has wrong type: expected: string' + (executable ? ' or {windows:string, mac:string, linux:string}' : "") + ', found: ' + typeof path + " at path: " + JSON.stringify(path));
+            }
             return { path: stringPath, exists: false };
         }
         let resolvedPath = Settings.resolvePath(stringPath, executable);
@@ -485,7 +521,7 @@ export class Settings {
                 backend.name = "backend" + (i + 1);
             }
             let backendName = "Backend " + backend.name + ":";
-            //check for dublicate backends
+            //check for duplicate backends
             if (backendNames.has(backend.name)) this.addError("Dublicated backend name: " + backend.name);
             backendNames.add(backend.name);
 
@@ -494,6 +530,13 @@ export class Settings {
                 this.addError(backendName + " The backend setting needs at least one stage");
                 continue;
             }
+
+            backend.engine = this.resolveEngine(backend.engine);
+            //check engine and type
+            if (this.useViperServer(backend) && !ViperServerService.isSupportedType(backend.type)) {
+                this.addError(backendName + "the backend type " + backend.type + " is not supported, try " + ViperServerService.supportedTypes);
+            }
+
             let stages: Set<string> = new Set<string>();
             let verifyStageFound = false;
             for (let i = 0; i < backend.stages.length; i++) {
@@ -701,7 +744,7 @@ class Version {
     public static createFromHash(hash) {
         try {
             if (hash) {
-                let version = CryptoJs.AES.decrypt(hash, Version.Key).toString(CryptoJs.enc.Utf8);
+                let version = this.decrypt(hash, Version.Key);
                 //Log.log("hash: " + hash + " decrypted version: " + version, LogLevel.LowLevelDebug);
                 return this.createFromVersion(version);
             }
@@ -711,12 +754,63 @@ class Version {
         return new Version();
     }
 
+    private static encrypt(msg: string, key: string): string {
+        let res: string = ""
+        let parity: number = 0;
+        for (let i = 0; i < msg.length; i++) {
+            let keyChar: number = key.charCodeAt(i % key.length);
+            //Log.log("keyChar " + key.charAt(i % key.length),LogLevel.LowLevelDebug);
+            let char: number = msg.charCodeAt(i);
+            //Log.log("char " + msg.charAt(i) + " charCode: " + char,LogLevel.LowLevelDebug);
+            let cypher: number = (char ^ keyChar)
+            parity = (parity + cypher % (16 * 16)) % (16 * 16);
+            //Log.log("cypher " + (char ^ keyChar).toString() + " hex: "+ cypher,LogLevel.LowLevelDebug);
+            res += this.pad(cypher);
+        }
+        return res + this.pad(parity);
+    }
+
+    private static pad(n: number): string {
+        let s = n.toString(16);
+        return (s.length == 1 ? "0" : "") + s;
+    }
+
+    private static decrypt(cypher: string, key: string): string {
+        //Log.log("decrypt",LogLevel.LowLevelDebug);
+        let res: string = ""
+        let parity: number = 0;
+        if (!cypher || cypher.length < 2 || cypher.length % 2 != 0) {
+            return "";
+        }
+        for (let i = 0; i < cypher.length - 2; i += 2) {
+            let keyChar: number = key.charCodeAt((i / 2) % key.length);
+            //Log.log("keyChar " + key.charAt(i % key.length),LogLevel.LowLevelDebug);
+            let char: number = (16 * parseInt(cypher.charAt(i), 16)) + parseInt(cypher.charAt(i + 1), 16)
+            parity = (parity + char % (16 * 16)) % (16 * 16);
+            //Log.log("char " + char,LogLevel.LowLevelDebug);
+            //Log.log("encChar " + String.fromCharCode(char ^ keyChar) + " charCode: "+(char ^ keyChar),LogLevel.LowLevelDebug);
+            res += String.fromCharCode(char ^ keyChar)
+        }
+        if (parity != (16 * parseInt(cypher.charAt(cypher.length - 2), 16)) + parseInt(cypher.charAt(cypher.length - 1), 16)) {
+            return ""
+        } else {
+            return res
+        }
+    }
+
     toString(): string {
         return this.versionNumbers.join(".");
     }
 
+    public static testhash() {
+        let s = "1.0.0";
+        let en = this.encrypt(s, Version.Key);
+        let de = this.decrypt(en, Version.Key);
+        Log.log("Hash Test: " + s + " -> " + en + " -> " + de, LogLevel.LowLevelDebug)
+    }
+
     public static hash(version: string): string {
-        let hash = CryptoJs.AES.encrypt(version, Version.Key).toString();
+        let hash = this.encrypt(version, Version.Key);
         //Log.log("version: " + version + " hash: " + hash, LogLevel.LowLevelDebug);
         return hash;
     }

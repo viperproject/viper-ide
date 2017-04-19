@@ -164,6 +164,7 @@ export interface BackendReadyParams {
     name: string;
     //should the open file be reverified
     restarted: boolean;
+    isViperServer: boolean;
 }
 
 export interface VerifyRequest {
@@ -341,10 +342,12 @@ export interface NailgunSettings extends VersionedSettings {
 export interface Backend extends VersionedSettings {
     //The unique name of this backend
     name: string;
+    //The type of the backend: "silicon", "carbon", or "other"
+    type: string;
     //List of paths locating all used jar files, the files can be addressed directly or via folder, in which case all jar files in the folder are included
     paths: string[];
-    //Enable to run the backend through nailgun, speeding up the process by reusing the same Java Virtual Machine
-    useNailgun: boolean;
+    //The engine used for verification: "ViperServer", "Nailgun", or "none"
+    engine: string;
     //After timeout ms the verification is expected to be non terminating and is thus aborted.
     timeout: number;
     //A list of verification stages
@@ -373,6 +376,8 @@ export interface Stage {
 export interface PathSettings extends VersionedSettings {
     //Path to the folder containing all the ViperTools
     viperToolsPath: string | PlatformDependentPath;
+    //Path to the ViperServer
+    viperServerPath: string | PlatformDependentPath;
     //The path to the z3 executable
     z3Executable: string | PlatformDependentPath;
     //The path to the boogie executable
@@ -605,5 +610,18 @@ export class Common {
         } catch (e) {
             Log.error("Error spawning command: " + e);
         }
+    }
+
+    public static backendRestartNeeded(settings: ViperSettings, oldBackendName: string, newBackendName: string) {
+        if (!settings)
+            return true;
+        
+        let oldBackend = settings.verificationBackends.find(value => value.name == oldBackendName);
+        let newBackend = settings.verificationBackends.find(value => value.name == newBackendName);
+
+        if (!oldBackend || !newBackend)
+            return true;
+        if (oldBackend.engine.toLowerCase() == 'viperserver' && newBackend.engine == 'viperserver')
+            return false;
     }
 }

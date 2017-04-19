@@ -38,12 +38,12 @@ export function activate(context: vscode.ExtensionContext) {
     Log.log('The current version of ' + ownPackageJson.displayName + ' is: v.' + ownPackageJson.version, LogLevel.Info);
 
     lastVersionWithSettingsChange = {
-        nailgunSettingsVersion: "0.6.0",
-        backendSettingsVersion: "0.6.0",
-        pathSettingsVersion: "0.6.0",
-        userPreferencesVersion: "0.6.0",
-        javaSettingsVersion: "0.6.0",
-        advancedFeaturesVersion: "0.6.0",
+        nailgunSettingsVersion: "0.6.1",
+        backendSettingsVersion: "0.6.2",
+        pathSettingsVersion: "0.6.1",
+        userPreferencesVersion: "0.6.1",
+        javaSettingsVersion: "0.6.1",
+        advancedFeaturesVersion: "0.6.1",
         defaultSettings: defaultConfiguration,
         extensionVersion: ownPackageJson.version
     }
@@ -141,6 +141,7 @@ function resetAutoSaver() {
 
 function handleSettingsCheckResult(params: SettingsCheckedParams) {
     if (params.errors && params.errors.length > 0) {
+        State.checkedSettings = params.settings;
         let nofErrors = 0;
         let nofWarnings = 0;
         let message = "";
@@ -396,8 +397,13 @@ function registerHandlers() {
             State.verificationController.stopDebuggingLocally();
         });
 
-        State.client.onNotification(Commands.StartBackend, (backend) => {
-            State.addToWorklist({ type: TaskType.StartBackend, backend: backend, manuallyTriggered: false });
+        State.client.onNotification(Commands.StartBackend, (backend: string) => {
+            State.addToWorklist({
+                type: TaskType.StartBackend,
+                backend: backend,
+                manuallyTriggered: false,
+                isViperServerEngine: false //TODO: how to set that correctly
+            });
             State.activeBackend = backend;
             State.backendStatusBar.update(backend, Color.READY);
             State.hideProgress();
@@ -564,7 +570,12 @@ function canStartDebugging(): CheckResult {
 
 function considerStartingBackend(backendName: string) {
     if (backendName && (!State.isBackendReady || State.activeBackend != backendName)) {
-        State.addToWorklist({ type: TaskType.StartBackend, backend: backendName, manuallyTriggered: true })
+        State.addToWorklist({
+            type: TaskType.StartBackend,
+            backend: backendName,
+            manuallyTriggered: true,
+            isViperServerEngine: false //TODO: how to set that correctly
+        })
     } else {
         Log.log("No need to restart backend " + backendName, LogLevel.Info);
     }

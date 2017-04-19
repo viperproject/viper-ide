@@ -1,0 +1,12 @@
+method m1(){
+    assert false;
+}
+method m2(){    
+    assert 1==0; 
+}
+function f1():Int
+requires 1==1
+ensures 2==3
+// domain D {
+// axiom ax{false}
+// }

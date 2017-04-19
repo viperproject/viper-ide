@@ -6,7 +6,7 @@ import * as language_server from 'vscode-languageserver';
 import { Settings } from './Settings'
 import { Member, Common, ExecutionTrace, BackendOutput, BackendOutputType, SymbExLogEntry, Stage, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, Range, HeapGraph, VerificationState, LogLevel, Success } from './ViperProtocol'
 import { Log } from './Log';
-import { NailgunService } from './NailgunService';
+import { BackendService } from './BackendService';
 import { Statement } from './Statement';
 import { Model } from './Model';
 import * as pathHelper from 'path';
@@ -19,7 +19,6 @@ import { Verifiable } from './Verifiable';
 
 export class VerificationTask {
     //state that is valid across verifications
-    nailgunService: NailgunService;
     verificationCount: number = 0;
     // file under verification
     fileUri: string;
@@ -58,9 +57,8 @@ export class VerificationTask {
 
     symbolInformation: SymbolInformation[];
 
-    constructor(fileUri: string, nailgunService: NailgunService) {
+    constructor(fileUri: string) {
         this.fileUri = fileUri;
-        this.nailgunService = nailgunService;
     }
 
     public getHeapGraphDescription(clientIndex: number, isHeapNeeded: boolean): HeapGraph {
@@ -296,7 +294,7 @@ export class VerificationTask {
         }, this);
 
         this.startVerificationTimeout(this.verificationCount);
-        this.verifierProcess = this.nailgunService.startStageProcess(path, stage, this.stdOutHandler.bind(this), this.stdErrHandler.bind(this), this.completionHandler.bind(this));
+        this.verifierProcess = Server.backendService.startStageProcess(path, stage, this.stdOutHandler.bind(this), this.stdErrHandler.bind(this), this.completionHandler.bind(this));
         return true;
     }
 
@@ -367,7 +365,7 @@ export class VerificationTask {
                         Log.log(`Start stage ${newStage.name} after stage ${lastStage.name}, success was: ${successMessage}`, LogLevel.Info);
                         Server.executedStages.push(newStage);
                         let path = Common.uriToPath(this.fileUri);
-                        Server.nailgunService.startStageProcess(path, newStage, this.stdOutHandler.bind(this), this.stdErrHandler.bind(this), this.completionHandler.bind(this));
+                        Server.backendService.startStageProcess(path, newStage, this.stdOutHandler.bind(this), this.stdErrHandler.bind(this), this.completionHandler.bind(this));
                         return;
                     }
                 }
@@ -422,7 +420,7 @@ export class VerificationTask {
                     Log.log("Verification Backend Terminated Abnormaly: with code " + code, LogLevel.Debug);
                     if (code == null) {
                         //this.nailgunService.setStopping();
-                        this.nailgunService.killNGAndZ3()
+                        Server.backendService.stopVerification()
                         // .then(resolve => {
                         //     this.nailgunService.startOrRestartNailgunServer(Server.backend, false);
                         // });
@@ -479,7 +477,6 @@ export class VerificationTask {
         try {
             data = data.trim();
             if (data.length == 0) return;
-
 
             Log.toLogFile(data, LogLevel.LowLevelDebug);
             //hide scala/java stacktraces
@@ -539,7 +536,14 @@ export class VerificationTask {
         }
     }
 
-    private isMessageComplete(json: BackendOutput): boolean {
+    public static parseJsonMessage(line: string): BackendOutput {
+        let json: BackendOutput;
+        try {
+            json = JSON.parse(line);
+        } catch (e) {
+            Log.error("Error handling json message: " + e + " raw: " + line);
+            return null;
+        }
         let error: string;
         if (!json || !json.type) {
             error = "Message has no type, raw: " + JSON.stringify(json);
@@ -557,7 +561,7 @@ export class VerificationTask {
                         error = "The VerificationStart message needs to contain nofPredicates, nofMethods, and nofFunctions.";
                     }
                     break;
-                case BackendOutputType.Success: case BackendOutputType.FunctionVerified: case BackendOutputType.MethodVerified: case BackendOutputType.PredicateVerified:
+                case BackendOutputType.Stopped: case BackendOutputType.Success: case BackendOutputType.FunctionVerified: case BackendOutputType.MethodVerified: case BackendOutputType.PredicateVerified:
                     //nothing
                     break;
                 case BackendOutputType.Error:
@@ -587,12 +591,12 @@ export class VerificationTask {
                 default:
                     error = "Unknown message type: " + json.type;
             }
-            if (error) {
-                Log.error("Malformed backend message: " + error);
-                return false;
-            } else {
-                return true;
-            }
+        }
+        if (error) {
+            Log.error("Malformed backend message: " + error);
+            return null;
+        } else {
+            return json;
         }
     }
 
@@ -614,85 +618,105 @@ export class VerificationTask {
                     //json message
                     if (line.startsWith("{\"") && line.endsWith("}")) {
                         Log.toLogFile(`[${Server.backend.name}: ${stage.name}: stdout]: ${line}`, LogLevel.LowLevelDebug);
-                        try {
-                            let json: BackendOutput = JSON.parse(line);
-                            if (!this.isMessageComplete(json)) {
-                                return;
-                            }
-                            switch (json.type) {
-                                case BackendOutputType.Start:
-                                    this.backendType = json.backendType;
-                                    break;
-                                case BackendOutputType.VerificationStart:
-                                    this.progress = new Progress(json);
-                                    Server.sendStateChangeNotification({
-                                        newState: VerificationState.VerificationRunning,
-                                        progress: 0,
-                                        filename: this.filename
-                                    }, this);
-                                    break;
-                                case BackendOutputType.FunctionVerified: case BackendOutputType.MethodVerified: case BackendOutputType.PredicateVerified:
-                                    if (!this.progress) {
-                                        Log.error("The backend must send a VerificationStart message before the ...Verified message.");
-                                        return;
-                                    }
-                                    this.progress.updateProgress(json);
-                                    let progressInPercent = this.progress.toPercent();
-                                    Server.sendStateChangeNotification({
-                                        newState: VerificationState.VerificationRunning,
-                                        progress: progressInPercent,
-                                        filename: this.filename
-                                    }, this);
-                                    break;
-                                case BackendOutputType.Error:
-                                    json.errors.forEach(err => {
-                                        if (err.tag && err.tag == "typechecker.error") {
-                                            this.typeCheckingCompleted = false;
-                                        }
-                                        else if (err.tag && err.tag == "parser.error") {
-                                            this.parsingCompleted = false;
-                                            this.typeCheckingCompleted = false;
-                                        }
-                                        let range = Server.extractRange(err.start, err.end);
-                                        Log.log(`Error: [${Server.backend.name}] ${err.tag ? "[" + err.tag + "] " : ""}${range.start.line + 1}:${range.start.character + 1} ${err.message}`, LogLevel.Default);
-                                        this.diagnostics.push({
-                                            range: range,
-                                            source: null, //Server.backend.name
-                                            severity: language_server.DiagnosticSeverity.Error,
-                                            message: err.message
-                                        });
-                                    });
-                                    break;
-                                case BackendOutputType.End:
-                                    this.state = VerificationState.VerificationReporting;
-                                    this.time = Server.extractNumber(json.time);
-                                    break;
-                                case BackendOutputType.Outline:
-                                    this.symbolInformation = [];
-                                    json.members.forEach((m: Member) => {
-                                        let pos = Server.extractPosition(m.location);
-                                        let range = !pos
-                                            ? language_server.Range.create(0, 0, 0, 0)
-                                            : language_server.Range.create(pos.pos.line, pos.pos.character, pos.pos.line, pos.pos.character);
-                                        let location: language_server.Location = { uri: this.fileUri, range: range };
-                                        let kind: SymbolKind;
-                                        let className = m.type.substring(m.type.lastIndexOf('.') + 1, m.type.length);
-                                        switch (className) {
-                                            case "Method": kind = SymbolKind.Method; break;
-                                            case "Function": kind = SymbolKind.Function; break;
-                                            case "Field": kind = SymbolKind.Field; break;
-                                            case "Predicate": kind = SymbolKind.Interface; break;
-                                            case "Domain": kind = SymbolKind.Class; break;
-                                            default: kind = SymbolKind.Enum;
-                                        }
-                                        let info: SymbolInformation = { name: m.name, kind: kind, location: location }
-                                        this.symbolInformation.push(info);
-                                    })
-                                    break;
-                            }
-                        } catch (e) {
-                            Log.error("Error handling json message: " + e + " raw: " + line);
+                        let json = VerificationTask.parseJsonMessage(line);
+                        if (!json) {
+                            return;
                         }
+
+                        switch (json.type) {
+                            case BackendOutputType.Start:
+                                this.backendType = json.backendType;
+                                break;
+                            case BackendOutputType.VerificationStart:
+                                this.progress = new Progress(json);
+                                Server.sendStateChangeNotification({
+                                    newState: VerificationState.VerificationRunning,
+                                    progress: 0,
+                                    filename: this.filename
+                                }, this);
+                                break;
+                            case BackendOutputType.FunctionVerified: case BackendOutputType.MethodVerified: case BackendOutputType.PredicateVerified:
+                                if (!this.progress) {
+                                    Log.error("The backend must send a VerificationStart message before the ...Verified message.");
+                                    return;
+                                }
+                                this.progress.updateProgress(json);
+                                let progressInPercent = this.progress.toPercent();
+                                Server.sendStateChangeNotification({
+                                    newState: VerificationState.VerificationRunning,
+                                    progress: progressInPercent,
+                                    filename: this.filename
+                                }, this);
+                                break;
+                            case BackendOutputType.Error:
+                                json.errors.forEach(err => {
+                                    if (err.tag && err.tag == "typechecker.error") {
+                                        this.typeCheckingCompleted = false;
+                                    }
+                                    else if (err.tag && err.tag == "parser.error") {
+                                        this.parsingCompleted = false;
+                                        this.typeCheckingCompleted = false;
+                                    }
+                                    let range = Server.extractRange(err.start, err.end);
+                                    Log.log(`Error: [${Server.backend.name}] ${err.tag ? "[" + err.tag + "] " : ""}${range.start.line + 1}:${range.start.character + 1} ${err.message}`, LogLevel.Default);
+                                    this.diagnostics.push({
+                                        range: range,
+                                        source: null, //Server.backend.name
+                                        severity: language_server.DiagnosticSeverity.Error,
+                                        message: err.message
+                                    });
+
+                                    //since the viper server keeps running, 
+                                    //we need to trigger the verification completion event manually
+                                    if (Server.backendService.isViperServerService) {
+                                        Server.backendService.isSessionRunning = false;
+                                        this.completionHandler(0);
+                                    }
+                                });
+                                break;
+                            case BackendOutputType.Success:
+                                //since the server keeps running, 
+                                //we need to trigger the verification completion event manually
+                                if (Server.backendService.isViperServerService) {
+                                    Server.backendService.isSessionRunning = false;
+                                    this.completionHandler(0);
+                                }
+                                break;
+                            case BackendOutputType.End:
+                                this.state = VerificationState.VerificationReporting;
+                                this.time = Server.extractNumber(json.time);
+                                break;
+                            case BackendOutputType.Stopped:
+                                Log.log("Stopped message found", LogLevel.Debug);
+                                if (Server.backendService.isViperServerService && Server.backendService.isSessionRunning) {
+                                    Server.backendService.isSessionRunning = false;
+                                    this.completionHandler(1);
+                                }
+                                break;
+                            case BackendOutputType.Outline:
+                                this.symbolInformation = [];
+                                json.members.forEach((m: Member) => {
+                                    let pos = Server.extractPosition(m.location);
+                                    let range = !pos
+                                        ? language_server.Range.create(0, 0, 0, 0)
+                                        : language_server.Range.create(pos.pos.line, pos.pos.character, pos.pos.line, pos.pos.character);
+                                    let location: language_server.Location = { uri: this.fileUri, range: range };
+                                    let kind: SymbolKind;
+                                    let className = m.type.substring(m.type.lastIndexOf('.') + 1, m.type.length);
+                                    switch (className) {
+                                        case "Method": kind = SymbolKind.Method; break;
+                                        case "Function": kind = SymbolKind.Function; break;
+                                        case "Field": kind = SymbolKind.Field; break;
+                                        case "Predicate": kind = SymbolKind.Interface; break;
+                                        case "Domain": kind = SymbolKind.Class; break;
+                                        default: kind = SymbolKind.Enum;
+                                    }
+                                    let info: SymbolInformation = { name: m.name, kind: kind, location: location }
+                                    this.symbolInformation.push(info);
+                                })
+                                break;
+                        }
+
                         //no need to handle old ouput, if it is in json format
                         continue;
                     } else if (line.startsWith('"')) {
@@ -874,27 +898,31 @@ export class VerificationTask {
                 Log.log('Abort running verification', LogLevel.Info);
                 this.aborting = true;
 
-                //remove impact of child_process to kill
-                this.verifierProcess.removeAllListeners('close');
-                this.verifierProcess.stdout.removeAllListeners('data');
-                this.verifierProcess.stderr.removeAllListeners('data');
+                if (this.verifierProcess) {
+                    //remove impact of child_process to kill
+                    this.verifierProcess.removeAllListeners('close');
+                    this.verifierProcess.stdout.removeAllListeners('data');
+                    this.verifierProcess.stderr.removeAllListeners('data');
 
-                //log the exit of the child_process to kill
-                let ngClientEndPromise = new Promise((res, rej) => {
-                    this.verifierProcess.on('exit', (code, signal) => {
-                        Log.log(`Child process exited with code ${code} and signal ${signal}`, LogLevel.Debug);
-                        res(true);
+                    //log the exit of the child_process to kill
+                    let ngClientEndPromise = new Promise((res, rej) => {
+                        this.verifierProcess.on('exit', (code, signal) => {
+                            Log.log(`Child process exited with code ${code} and signal ${signal}`, LogLevel.Debug);
+                            res(true);
+                        })
+                    });
+                    let deamonKillerPromise = Server.backendService.stopVerification(this.verifierProcess.pid);
+                    Promise.all([ngClientEndPromise, deamonKillerPromise, /*this.waitForNgServerToDetectShutDownClient()*/]).then(() => {
+                        resolve(true);
+                    });
+                } else {
+                    Server.backendService.stopVerification().then(() => {
+                        resolve(true);
                     })
-                });
-                let deamonKillerPromise = Server.nailgunService.killNGAndZ3(this.verifierProcess.pid);
-                //let l = this.verifierProcess.listeners;
+                }
                 this.verifierProcess = null;
                 this.running = false;
                 this.lastSuccess = Success.Aborted;
-
-                Promise.all([ngClientEndPromise, deamonKillerPromise, /*this.waitForNgServerToDetectShutDownClient()*/]).then(() => {
-                    resolve(true);
-                });
             } catch (e) {
                 Log.error("Error aborting verification of " + this.filename + ": " + e);
                 resolve(false);
@@ -904,10 +932,10 @@ export class VerificationTask {
 
     private waitForNgServerToDetectShutDownClient(): Promise<boolean> {
         return new Promise((resolve, reject) => {
-            if (Server.nailgunService.isNGSessionRunning) {
+            if (!Server.backendService.isSessionRunning) {
                 resolve(true);
             } else {
-                Server.nailgunService.ngSessionFinished = () => {
+                Server.backendService.ngSessionFinished = () => {
                     Log.log("NGSession finished", LogLevel.Debug);
                     resolve(true);
                 }

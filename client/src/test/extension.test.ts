@@ -226,31 +226,33 @@ function ViperToolsUpdateTest() {
             });
         })
 
-        // //requires running backend
-        // it("Test abort of first verification after viper tools update", function (done) {
-        //     log("Test abort of first verification after viper tools update");
-        //     this.timeout(30000)
+        //requires running backend
+        it("Test abort of first verification after viper tools update", function (done) {
+            log("Test abort of first verification after viper tools update");
+            this.timeout(30000)
 
-        //     internalErrorDetected = false;
+            internalErrorDetected = false;
 
-        //     //stop the verification after 1000ms
-        //     setTimeout(() => {
-        //         stopVerification()
-        //     }, 1000)
+            //stop the verification after 1000ms
+            setTimeout(() => {
+                stopVerification()
+            }, 1000)
+            
+            verify();
 
-        //     waitForAbort().then(() => {
-        //         return checkForRunningProcesses(false, false, false, true);
-        //         //return wait(1000);
-        //     }).then(ok => {
-        //         //aborted
-        //         //reverify longDuration viper file
-        //         verify()
-        //         return waitForVerification(LONG);
-        //     }).then(() => {
-        //         //verified
-        //         checkForInternalErrorBefore(done);
-        //     })
-        // });
+            waitForAbort().then(() => {
+                return checkForRunningProcesses(false, false, false, true);
+                //return wait(1000);
+            }).then(ok => {
+                //aborted
+                //reverify longDuration viper file
+                verify()
+                return waitForVerification(LONG);
+            }).then(() => {
+                //verified
+                checkForInternalErrorBefore(done);
+            });
+        });
     })
 }
 
@@ -258,69 +260,67 @@ function ViperIdeTests() {
     // Defines a Mocha test suite to group tests of similar kind together
     describe("ViperIDE tests:", function () {
 
-        // //requires running backend
-        // it("Test abort", function (done) {
-        //     log("Test abort");
-        //     this.timeout(30000);
+        //requires running backend
+        it("Test abort", function (done) {
+            log("Test abort");
+            this.timeout(30000);
 
-        //     internalErrorDetected = false;
+            internalErrorDetected = false;
 
-        //     //open a file that takes longer
-        //     openFile(LONG).then(() => {
-        //         verify();
-        //         return waitForVerification(LONG);
-        //     }).then(() => {
-        //         verify();
-        //         //stop the verification after 1000ms
-        //         setTimeout(() => {
-        //             stopVerification()
-        //         }, 1000)
+            //open a file that takes longer
+            openFile(LONG).then(() => {
+                verify();
+                return waitForVerification(LONG);
+            }).then(() => {
+                verify();
+                //stop the verification after 1000ms
+                setTimeout(() => {
+                    stopVerification()
+                }, 1000)
 
-        //         return waitForAbort();
-        //     }).then(() => {
-        //         return checkForRunningProcesses(true, false, true, true);
-        //     }).then(ok => {
-        //         //aborted
-        //         //reverify longDuration viper file
-        //         verify()
-        //         return waitForVerification(LONG);
-        //     }).then(() => {
-        //         //verified
-        //         checkForInternalErrorBefore(done);
-        //     })
-        // });
+                return waitForAbort();
+            }).then(() => {
+                return checkForRunningProcesses(true, false, true, true);
+            }).then(ok => {
+                //aborted
+                //reverify longDuration viper file
+                verify()
+                return waitForVerification(LONG);
+            }).then(() => {
+                //verified
+                checkForInternalErrorBefore(done);
+            })
+        });
 
-        // //requires running non-silicon backend
-        // it("Test closing files", function (done) {
-        //     log("Test closing files");
-        //     this.timeout(30000);
-        //     internalErrorDetected = false;
+        //requires running non-silicon backend
+        it("Test closing files", function (done) {
+            log("Test closing files");
+            this.timeout(30000);
+            internalErrorDetected = false;
 
-        //     selectBackend(SILICON);
-
-        //     waitForBackendStarted(SILICON).then(() => {
-        //         return openFile(LONG);
-        //     }).then(() => {
-        //         verify();
-        //         return wait(500)
-        //     }).then(() => {
-        //         return closeFile();
-        //     }).then(() => {
-        //         return openFile(SIMPLE);
-        //     }).then(() => {
-        //         return wait(200);
-        //     }).then(() => {
-        //         stopVerification();
-        //     }).then(() => {
-        //         return closeFile();
-        //     }).then(() => {
-        //         return openFile(LONG);
-        //     }).then(() => {
-        //         return waitForVerification(LONG);
-        //     }).then(() => {
-        //         checkForInternalErrorBefore(done);
-        //     })
-        // });
+            //selectBackend(SILICON);
+            //waitForBackendStarted(SILICON).then(() => {
+            openFile(LONG).then(() => {
+                verify();
+                return wait(500)
+            }).then(() => {
+                return closeFile();
+            }).then(() => {
+                return openFile(SIMPLE);
+            }).then(() => {
+                return wait(200);
+            }).then(() => {
+                stopVerification();
+            }).then(() => {
+                return closeFile();
+            }).then(() => {
+                return openFile(LONG);
+            }).then(() => {
+                return waitForVerification(LONG);
+            }).then(() => {
+                checkForInternalErrorBefore(done);
+            })
+        });
 
         it("Test not verifying verified files", function (done) {
             log("Test not verifying verified files");
@@ -352,14 +352,14 @@ function ViperIdeTests() {
 
         it("Test zooming", function (done) {
             log("Test zooming");
-            this.timeout(11000);
+            this.timeout(20000);
 
             executeCommand("workbench.action.zoomIn").then(() => {
                 return wait(500);
             }).then(() => {
                 return executeCommand("workbench.action.zoomOut");
             }).then(() => {
-                return waitForTimeout(10000, waitForBackendStarted())
+                return waitForTimeout(9000, waitForBackendStarted())
             }).then((timeoutHit) => {
                 if (timeoutHit) {
                     done();
@@ -477,7 +477,7 @@ function ViperIdeStressTests() {
                 } else {
                     checkForInternalErrorBefore(done);
                 }
-            }, 10000);
+            }, 9000);
 
             //submit 10 verification requests
             for (let i = 0; i < 10; i++) {

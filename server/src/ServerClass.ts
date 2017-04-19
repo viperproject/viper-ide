@@ -1,8 +1,10 @@
 'use strict'
+import { ViperServerService } from './ViperServerService';
 
 import { IConnection, TextDocuments, PublishDiagnosticsParams } from 'vscode-languageserver';
 import { Common, ProgressParams, Command, LogParams, SettingsCheckedParams, Position, Range, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel } from './ViperProtocol'
 import { NailgunService } from './NailgunService';
+import { BackendService } from './BackendService';
 import { VerificationTask } from './VerificationTask';
 import { Log } from './Log';
 import { Settings } from './Settings';
@@ -28,7 +30,7 @@ export class Server {
     static connection: IConnection;
     static documents: TextDocuments = new TextDocuments();
     static verificationTasks: Map<string, VerificationTask> = new Map();
-    static nailgunService: NailgunService;
+    static backendService: BackendService = new ViperServerService();
     static debuggedVerificationTask: VerificationTask;
     //static usedNailgunPort: string;
 

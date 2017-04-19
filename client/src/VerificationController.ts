@@ -20,6 +20,7 @@ export interface Task {
     backend?: string;
     manuallyTriggered?: boolean;
     success?: Success;
+    isViperServerEngine?: boolean;
 }
 
 export enum TaskType {
@@ -296,6 +297,10 @@ export class VerificationController {
                             }
                             break;
                         case TaskType.StartBackend:
+                            //if the backend remains a viperServer engine, there is no need to restart.
+                            if (State.isActiveViperEngine && task.isViperServerEngine) {
+                                task.type = NoOp;
+                            }
                             if (State.isBackendReady) {
                                 this.workList.unshift({ type: TaskType.StopBackend, manuallyTriggered: task.manuallyTriggered })
                             } else {
@@ -377,7 +382,12 @@ export class VerificationController {
                 if (!State.isBackendReady) {
                     reason = "Backend is not ready, wait for backend to start.";
                     if (State.activeBackend) {
-                        this.addToWorklist({ type: TaskType.StartBackend, backend: State.activeBackend, manuallyTriggered: false });
+                        this.addToWorklist({
+                            type: TaskType.StartBackend,
+                            backend: State.activeBackend,
+                            manuallyTriggered: false,
+                            isViperServerEngine: State.isActiveViperEngine
+                        });
                     }
                     removeRequest = false;
                 } else {

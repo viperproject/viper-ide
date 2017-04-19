@@ -1,5 +1,6 @@
 // Place your settings in this file to overwrite default and user settings.
 {
+    "typescript.implementationsCodeLens.enabled": true
     //"files.trimTrailingWhitespace": true
-    "typescript.tsdk": "./node_modules/typescript/lib"
+    //"typescript.tsdk": "./node_modules/typescript/lib"
 }

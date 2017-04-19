@@ -7,12 +7,13 @@ import { settings } from 'cluster';
 import { IPCMessageReader, IPCMessageWriter, Location, Position, Range, createConnection, InitializeResult, SymbolInformation } from 'vscode-languageserver';
 import { Log } from './Log';
 import { Settings } from './Settings'
-import { Common, StateColors, ExecutionTrace, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams } from './ViperProtocol'
+import { Backend, Common, StateColors, ExecutionTrace, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams } from './ViperProtocol'
 import { NailgunService } from './NailgunService';
 import { VerificationTask } from './VerificationTask';
 import { Statement } from './Statement';
 import { DebugServer } from './DebugServer';
 import { Server } from './ServerClass';
+import { ViperServerService } from './ViperServerService';
 import * as fs from 'fs';
 import * as pathHelper from 'path';
 
@@ -32,11 +33,6 @@ function registerHandlers() {
         try {
             Log.log("Debug Server is initializing", LogLevel.LowLevelDebug);
             DebugServer.initialize();
-
-            //Server.refreshEndings();
-
-            //Server.workspaceRoot = params.rootPath;
-            Server.nailgunService = new NailgunService();
             return {
                 capabilities: {
                     documentSymbolProvider: true
@@ -50,7 +46,7 @@ function registerHandlers() {
     Server.connection.onShutdown(() => {
         try {
             Log.log("On Shutdown", LogLevel.Debug);
-            Server.nailgunService.stopNailgunServer();
+            Server.backendService.stop();
         } catch (e) {
             Log.error("Error handling shutdown: " + e);
         }
@@ -96,7 +92,7 @@ function registerHandlers() {
             if (!selectedBackend || selectedBackend.length == 0) {
                 Log.log("No backend was chosen, don't restart backend", LogLevel.Debug);
             } else {
-                checkSettingsAndStartNailgun(selectedBackend);
+                checkSettingsAndStartServer(selectedBackend);
             }
         } catch (e) {
             Log.error("Error handling select backend request: " + e);
@@ -105,7 +101,7 @@ function registerHandlers() {
 
     Server.connection.onNotification(Commands.StopBackend, () => {
         try {
-            Server.nailgunService.stopNailgunServer();
+            Server.backendService.stop();
         } catch (e) {
             Log.error("Error handling stop backend request: " + e);
         }
@@ -137,7 +133,7 @@ function registerHandlers() {
                     Server.sendFileOpenedNotification(params.textDocument.uri);
                     if (!Server.verificationTasks.has(uri)) {
                         //create new task for opened file
-                        let task = new VerificationTask(uri, Server.nailgunService);
+                        let task = new VerificationTask(uri);
                         Server.verificationTasks.set(uri, task);
                     }
                 }
@@ -207,15 +203,19 @@ function registerHandlers() {
             try {
                 //if there are running verifications, stop related processes
                 Server.verificationTasks.forEach(task => {
-                    if (task.running && task.verifierProcess) {
+                    if (task.running) {
                         Log.log("stop verification of " + task.filename, LogLevel.Default);
-                        task.nailgunService.killNGAndZ3(task.verifierProcess.pid);
+                        if (task.verifierProcess) {
+                            Server.backendService.stopVerification(task.verifierProcess.pid);
+                        } else {
+                            Server.backendService.stopVerification();
+                        }
                     }
                 });
 
                 //Server.nailgunService.stopNailgunServer();
                 console.log("dispose language server");
-                Server.nailgunService.killNailgunServer();
+                Server.backendService.kill();
                 resolve();
             } catch (e) {
                 Log.error("Error handling dispose request: " + e);
@@ -344,7 +344,7 @@ function canVerificationBeStarted(uri: string, manuallyTriggered: boolean): bool
     if (!task) {
         Log.error("No verification task found for file: " + uri);
         return false;
-    } else if (!Server.nailgunService.isReady()) {
+    } else if (!Server.backendService.isReady()) {
         if (manuallyTriggered) Log.hint("The verification backend is not ready yet");
         Log.error("The verification backend is not ready yet");
         return false;
@@ -352,13 +352,14 @@ function canVerificationBeStarted(uri: string, manuallyTriggered: boolean): bool
     return true;
 }
 
-function checkSettingsAndStartNailgun(backendName: string) {
+function checkSettingsAndStartServer(backendName: string) {
     let backend;
     Settings.checkSettings(false).then(() => {
         if (Settings.valid()) {
             backend = Settings.selectBackend(Settings.settings, backendName);
             if (backend) {
-                return Server.nailgunService.startNailgunServer(backend);
+                changeBackendEngineIfNeeded(backend);
+                return Server.backendService.start(backend);
             } else {
                 Log.error("cannot start backend " + backendName + ", no configuration found.");
                 return false;
@@ -368,13 +369,27 @@ function checkSettingsAndStartNailgun(backendName: string) {
         }
     }).then(success => {
         if (success) {
-            Server.nailgunService.setReady(backend);
+            Server.backendService.setReady(backend);
         } else {
-            Server.nailgunService.setStopped();
+            Server.backendService.setStopped();
             Log.log("The nailgun server could not be started.", LogLevel.Debug);
         }
     }).catch(reason => {
         Log.error("startNailgunServer failed: " + reason);
-        Server.nailgunService.killNailgunServer();
+        Server.backendService.kill();
     });
+}
+
+function changeBackendEngineIfNeeded(backend: Backend) {
+    if (Settings.useViperServer(backend) && (!Server.backendService || !Server.backendService.isViperServerService)) {
+        if (Server.backendService.isSessionRunning) {
+            Log.error("A backend change should not happen during an active verification.")
+        }
+        Server.backendService = new ViperServerService();
+    } else if (Settings.useNailgunServer(backend) && (!Server.backendService || Server.backendService.isViperServerService)) {
+        if (Server.backendService.isSessionRunning) {
+            Log.error("A backend change should not happen during an active verification.")
+        }
+        Server.backendService = new NailgunService();
+    }
 }

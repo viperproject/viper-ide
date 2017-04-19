@@ -3,7 +3,7 @@ import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } f
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Commands, LogLevel } from './ViperProtocol';
+import { Commands, LogLevel, ViperSettings } from './ViperProtocol';
 import { Log } from './Log';
 import { ViperFileState } from './ViperFileState';
 import Uri from 'vscode-uri/lib/index';
@@ -30,6 +30,7 @@ export class State {
     public static verificationController: VerificationController;
 
     public static activeBackend: string;
+    public static isActiveViperEngine: boolean = true;
 
     public static unitTest: UnitTestCallback;
 
@@ -40,6 +41,8 @@ export class State {
     public static statusBarProgress: StatusBar;
     public static backendStatusBar: StatusBar;
     public static abortButton: StatusBar;
+
+    public static checkedSettings:ViperSettings;
 
     // public static createState(): State {
     //     if (State.instance) {

@@ -1,0 +1,4 @@
+//intentionally empty line
+//import "longDuration.vpr"
+import "fieldOnly.vpr"
+field f:Int
