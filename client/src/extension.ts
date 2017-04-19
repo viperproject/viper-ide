@@ -140,8 +140,8 @@ function resetAutoSaver() {
 }
 
 function handleSettingsCheckResult(params: SettingsCheckedParams) {
+    State.checkedSettings = params.settings;
     if (params.errors && params.errors.length > 0) {
-        State.checkedSettings = params.settings;
         let nofErrors = 0;
         let nofWarnings = 0;
         let message = "";
@@ -304,7 +304,7 @@ function registerHandlers() {
             }
         }));
 
-        State.client.onNotification(Commands.BackendReady, (params: BackendReadyParams) => handleBackendReadyNotification(params));
+        State.client.onNotification(Commands.BackendReady, (params: BackendReadyParams) => State.verificationController.handleBackendReadyNotification(params));
 
         //Heap visualization
         State.client.onNotification(Commands.StepsAsDecorationOptions, params => {
@@ -624,29 +624,6 @@ function startDebugging() {
         }
     } catch (e) {
         Log.error("Error starting debug session: " + e);
-    }
-}
-
-function handleBackendReadyNotification(params: BackendReadyParams) {
-    try {
-        if (!State.isVerifying) {
-            State.statusBarItem.update("ready", Color.READY);
-        }
-        if (params.restarted) {
-            //no file is verifying
-            State.resetViperFiles()
-            State.addToWorklist({ type: TaskType.Clear, uri: Helper.getActiveFileUri(), manuallyTriggered: false });
-            if (Helper.getConfiguration('preferences').autoVerifyAfterBackendChange === true) {
-                Log.log("AutoVerify after backend change", LogLevel.Info);
-                State.addToWorklist({ type: TaskType.Verify, uri: Helper.getActiveFileUri(), manuallyTriggered: false });
-            }
-            if (State.unitTest) State.unitTest.backendStarted(params.name);
-        }
-        Log.log("Backend ready: " + params.name, LogLevel.Info);
-        State.addToWorklist({ type: TaskType.BackendStarted, backend: params.name, manuallyTriggered: true });
-        State.isBackendReady = true;
-    } catch (e) {
-        Log.error("Error handling backend started notification: " + e);
     }
 }
 

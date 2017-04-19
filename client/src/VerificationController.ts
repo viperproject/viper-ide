@@ -301,12 +301,24 @@ export class VerificationController {
                             if (State.isActiveViperEngine && task.isViperServerEngine) {
                                 task.type = NoOp;
                             }
-                            if (State.isBackendReady) {
+                            let stoppingNeeded = State.isBackendReady && Common.backendRestartNeeded(State.checkedSettings, State.activeBackend, task.backend);
+                            let startingNeeded = !State.isBackendReady || stoppingNeeded;
+                            //no need to restart when switching between 
+                            if (stoppingNeeded) {
                                 this.workList.unshift({ type: TaskType.StopBackend, manuallyTriggered: task.manuallyTriggered })
-                            } else {
+                            }
+                            if (startingNeeded) {
                                 Log.logWithOrigin("workList", "StartingBackend", LogLevel.LowLevelDebug);
                                 task.type = TaskType.StartingBackend;
                                 State.client.sendNotification(Commands.StartBackend, task.backend);
+                            } else {
+                                let params: BackendReadyParams = {
+                                    name: task.backend,
+                                    restarted: true, //the backend changed -> true
+                                    isViperServer: true, //only for the ViperServer restarts can be skipped
+                                }
+                                this.handleBackendReadyNotification(params);
+                                task.type = NoOp;
                             }
                             break;
                         case TaskType.StartingBackend:
@@ -608,6 +620,29 @@ export class VerificationController {
             return progress;
         } catch (e) {
             Log.error("Error computing progress: " + e);
+        }
+    }
+
+    public handleBackendReadyNotification(params: BackendReadyParams) {
+        try {
+            if (!State.isVerifying) {
+                State.statusBarItem.update("ready", Color.READY);
+            }
+            if (params.restarted) {
+                //no file is verifying
+                State.resetViperFiles()
+                State.addToWorklist({ type: TaskType.Clear, uri: Helper.getActiveFileUri(), manuallyTriggered: false });
+                if (Helper.getConfiguration('preferences').autoVerifyAfterBackendChange === true) {
+                    Log.log("AutoVerify after backend change", LogLevel.Info);
+                    State.addToWorklist({ type: TaskType.Verify, uri: Helper.getActiveFileUri(), manuallyTriggered: false });
+                }
+                if (State.unitTest) State.unitTest.backendStarted(params.name);
+            }
+            Log.log("Backend ready: " + params.name, LogLevel.Info);
+            State.addToWorklist({ type: TaskType.BackendStarted, backend: params.name, manuallyTriggered: true });
+            State.isBackendReady = true;
+        } catch (e) {
+            Log.error("Error handling backend started notification: " + e);
         }
     }
 

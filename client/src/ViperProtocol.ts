@@ -622,7 +622,7 @@ export class Common {
 
         if (!oldBackend || !newBackend)
             return true;
-        if (oldBackend.engine.toLowerCase() == 'viperserver' && newBackend.engine == 'viperserver')
+        if (oldBackend.engine.toLowerCase() == 'viperserver' && newBackend.engine.toLowerCase() == 'viperserver')
             return false;
     }
 }
