@@ -19,7 +19,6 @@ import * as child_process from 'child_process';
 import * as mocha from 'mocha';
 import { Helper } from '../Helper';
 import { Log } from '../Log';
-var CryptoJs = require("crypto-js");
 
 let ready = false;
 //let verified = false;
@@ -60,7 +59,7 @@ StartViperIdeTests();
 ViperToolsUpdateTest();
 ViperIdeTests();
 ViperIdeStressTests();
-//TestVerificationOfAllFilesInWorkspace();
+TestVerificationOfAllFilesInWorkspace();
 
 //last test
 FinishViperIdeTests();
@@ -72,7 +71,7 @@ function log(msg: string) {
 function waitForBackendStarted(backend?: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
         State.unitTest.backendStarted = (b) => {
-            log("Backend " + b + "started");
+            log("Backend " + b + " started");
             if (!backend || b === backend) {
                 ready = true;
                 resolve(true);
@@ -355,7 +354,7 @@ function ViperIdeTests() {
             this.timeout(20000);
 
             executeCommand("workbench.action.zoomIn").then(() => {
-                return wait(500);
+                return wait(5000);
             }).then(() => {
                 return executeCommand("workbench.action.zoomOut");
             }).then(() => {
@@ -405,13 +404,6 @@ function ViperIdeTests() {
             checkAssert(Helper.isViperSourceFile("..\\.\\folder\\file.sil"), true, "isViperSourceFile relavive windows path");
             checkAssert(!Helper.isViperSourceFile("C:\\absolute\\path\\file.ts"), true, "isViperSourceFile absolute windows path");
             checkAssert(path.basename(Helper.uriToString(Helper.getActiveFileUri())), SIMPLE, "active file");
-
-            //crypto test:
-            let clearText = "1.0.0";
-            let key = "VdafSZVOWpe";
-            let cypher = CryptoJs.AES.encrypt(clearText, key).toString();
-            let decyphered = CryptoJs.AES.decrypt(cypher, key).toString(CryptoJs.enc.Utf8);
-            checkAssert(decyphered, clearText, "crypto fails");
 
             done();
         });
@@ -549,8 +541,6 @@ function ViperIdeStressTests() {
             openFile(SIMPLE).then(() => {
                 //change backend to carbon
                 selectBackend(CARBON);
-                return waitForBackendStarted(CARBON)
-            }).then(() => {
                 //backend ready
                 return waitForVerification(SIMPLE, CARBON);
             }).then(() => {

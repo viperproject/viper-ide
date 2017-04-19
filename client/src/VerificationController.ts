@@ -317,6 +317,7 @@ export class VerificationController {
                                     restarted: true, //the backend changed -> true
                                     isViperServer: true, //only for the ViperServer restarts can be skipped
                                 }
+                                State.activeBackend = task.backend;
                                 this.handleBackendReadyNotification(params);
                                 task.type = NoOp;
                             }
