@@ -107,6 +107,14 @@ function registerHandlers() {
         }
     });
 
+    Server.connection.onNotification(Commands.SwapBackend, (backendName:string) => {
+        try {
+            Server.backendService.swapBackend(Settings.getBackend(backendName));
+        } catch (e) {
+            Log.error("Error handling swap backend request: " + e);
+        }
+    });
+
     //returns the a list of all backend names
     Server.connection.onRequest(Commands.RequestBackendNames, () => {
         return new Promise((resolve, reject) => {
@@ -382,11 +390,13 @@ function checkSettingsAndStartServer(backendName: string) {
 
 function changeBackendEngineIfNeeded(backend: Backend) {
     if (Settings.useViperServer(backend) && (!Server.backendService || !Server.backendService.isViperServerService)) {
+        Log.log("Start new ViperServerService",LogLevel.LowLevelDebug)
         if (Server.backendService.isSessionRunning) {
             Log.error("A backend change should not happen during an active verification.")
         }
         Server.backendService = new ViperServerService();
     } else if (Settings.useNailgunServer(backend) && (!Server.backendService || Server.backendService.isViperServerService)) {
+        Log.log("Start new NailgunService",LogLevel.LowLevelDebug)
         if (Server.backendService.isSessionRunning) {
             Log.error("A backend change should not happen during an active verification.")
         }

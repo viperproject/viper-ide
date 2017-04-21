@@ -58,6 +58,8 @@ export class Commands {
     static StartBackend = "StartBackend";//backendName:string
     //client asks Server to stop the backend
     static StopBackend = "StopBackend";//void
+    //swap backend without restarting
+    static SwapBackend = "SwapBackend";//backendName:string
     //Request a list of all states that led to the current state
     static GetExecutionTrace = "GetExecutionTrace";//GetExecutionTraceParams -> trace:ExecutionTrace[]
     //Request the path to the dot executable from the language server
@@ -616,13 +618,13 @@ export class Common {
     public static backendRestartNeeded(settings: ViperSettings, oldBackendName: string, newBackendName: string) {
         if (!settings)
             return true;
-        
+
         let oldBackend = settings.verificationBackends.find(value => value.name == oldBackendName);
         let newBackend = settings.verificationBackends.find(value => value.name == newBackendName);
 
-        if (!oldBackend || !newBackend)
-            return true;
-        if (oldBackend.engine.toLowerCase() == 'viperserver' && newBackend.engine.toLowerCase() == 'viperserver')
+        if (oldBackend && newBackend && oldBackend.engine.toLowerCase() == 'viperserver' && newBackend.engine.toLowerCase() == 'viperserver')
             return false;
+
+        return true;
     }
 }

@@ -307,19 +307,14 @@ export class VerificationController {
                             if (stoppingNeeded) {
                                 this.workList.unshift({ type: TaskType.StopBackend, manuallyTriggered: task.manuallyTriggered })
                             }
-                            if (startingNeeded) {
+                            else if (startingNeeded) {
                                 Log.logWithOrigin("workList", "StartingBackend", LogLevel.LowLevelDebug);
                                 task.type = TaskType.StartingBackend;
                                 State.client.sendNotification(Commands.StartBackend, task.backend);
                             } else {
-                                let params: BackendReadyParams = {
-                                    name: task.backend,
-                                    restarted: true, //the backend changed -> true
-                                    isViperServer: true, //only for the ViperServer restarts can be skipped
-                                }
-                                State.activeBackend = task.backend;
-                                this.handleBackendReadyNotification(params);
-                                task.type = NoOp;
+                                //swap backend without restarting it
+                                State.client.sendNotification(Commands.SwapBackend, task.backend);
+                                task.type = TaskType.StartingBackend;
                             }
                             break;
                         case TaskType.StartingBackend:

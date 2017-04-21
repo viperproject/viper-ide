@@ -25,7 +25,7 @@ export class NailgunService extends BackendService {
      */
     public start(backend: Backend): Promise<boolean> {
         return new Promise((resolve, reject) => {
-            if (NailgunService.startingOrRestarting || this.isReady()) {
+            if (Server.startingOrRestarting || this.isReady()) {
                 Log.error("Cannot start server, it is not stopped.", LogLevel.Debug);
                 resolve(false);
                 return;
@@ -48,6 +48,7 @@ export class NailgunService extends BackendService {
                 Log.log('starting nailgun server', LogLevel.Info);
                 //notify client
                 Server.sendStateChangeNotification({ newState: VerificationState.Starting, backendName: backend.name });
+                Server.startingOrRestarting = true;
                 return this.doStartNailgunServer(backend);
             }).then(success => {
                 resolve(success);
@@ -59,7 +60,6 @@ export class NailgunService extends BackendService {
 
     private doStartNailgunServer(backend: Backend): Promise<boolean> {
         return new Promise((resolve, reject) => {
-            NailgunService.startingOrRestarting = true;
 
             let command = this.getNailgunStartCommand(backend);
             Log.log(command, LogLevel.Debug)
@@ -98,7 +98,7 @@ export class NailgunService extends BackendService {
     private waitForNailgunToStart(retriesLeft: number): Promise<boolean> {
         return new Promise((resolve, reject) => {
             try {
-                if (!NailgunService.startingOrRestarting) {
+                if (!Server.startingOrRestarting) {
                     //this can happen due to a timeout
                     Log.log("WARNING: while waiting for nailgun server to start, the start is aborted, possibly due to a timeout.", LogLevel.Debug);
                     resolve(false); return;
@@ -133,7 +133,7 @@ export class NailgunService extends BackendService {
             try {
                 clearTimeout(this.timeout);
                 if (Settings.settings.nailgunSettings.port == '*') {
-                    if (this.isReady() || NailgunService.startingOrRestarting) {
+                    if (this.isReady() || Server.startingOrRestarting) {
                         Log.error("Error: inconsistent state detected, the nailgun port is * but the nailgun server is not stopped.");
                         Log.error("This potentially leaks a java process.");
                         resolve(false);

@@ -32,6 +32,8 @@ export class Server {
     static verificationTasks: Map<string, VerificationTask> = new Map();
     static backendService: BackendService = new ViperServerService();
     static debuggedVerificationTask: VerificationTask;
+
+    static startingOrRestarting: boolean = false;
     //static usedNailgunPort: string;
 
     static viperFileEndings: string[];
@@ -86,9 +88,9 @@ export class Server {
     static sendStopDebuggingNotification() {
         this.connection.sendNotification(Commands.StopDebugging);
     }
-    static sendBackendChangeNotification(name: string) {
-        this.connection.sendNotification(Commands.BackendChange, name);
-    }
+    // static sendBackendChangeNotification(name: string) {
+    //     this.connection.sendNotification(Commands.BackendChange, name);
+    // }
     static sendSettingsCheckedNotification(errors: SettingsCheckedParams) {
         this.connection.sendNotification(Commands.SettingsChecked, errors);
     }

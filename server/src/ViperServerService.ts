@@ -22,6 +22,7 @@ export class ViperServerService extends BackendService {
             let command = this.getViperServerStartCommand();
             Log.log(command, LogLevel.Debug)
 
+            Server.startingOrRestarting = true;
             this.startTimeout(++this.instanceCount);
             this.backendProcess = child_process.exec(command, { maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, cwd: Server.backendOutputDirectory });
             this.backendProcess.stdout.on('data', (data: string) => {
@@ -74,10 +75,10 @@ export class ViperServerService extends BackendService {
             this.backendProcess.stdout.on('data', (data: string) => {
                 data = data.trim();
                 if (data.startsWith("{\"") && data.endsWith("}")) {
-                    Log.logWithOrigin("VS",data,LogLevel.LowLevelDebug);
+                    Log.logWithOrigin("VS", data, LogLevel.LowLevelDebug);
                     let json = VerificationTask.parseJsonMessage(data);
-                    if(json && json.type == BackendOutputType.Stopped){
-                    resolve(true);
+                    if (json && json.type == BackendOutputType.Stopped) {
+                        resolve(true);
                     }
                 }
             });
@@ -86,6 +87,10 @@ export class ViperServerService extends BackendService {
             this.emit('stop');
             Log.log("Request verification stop from ViperServer", LogLevel.Debug);
         });
+    }
+
+    public swapBackend(newBackend: Backend) {
+        this.setReady(newBackend);
     }
 
     private removeAllListeners() {

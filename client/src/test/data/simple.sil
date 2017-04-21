@@ -1,5 +1,7 @@
 field f: Int
 
+method test0()
+
 method test1(xs: Seq[Ref]) {
   inhale 10 < |xs|
   inhale forall i: Int :: 0 <= i && i < |xs| ==> acc(xs[i].f)
@@ -10,12 +12,12 @@ method test1(xs: Seq[Ref]) {
 
   assert xs[0].f != 0 
   assert xs[1].f != 1 
-  assert xs[2].f != 2 
+  assert xs[2].f != 2
 } 
 
 method test2(xs: Seq[Ref]) {
   inhale 10 < |xs|
-  inhale forall i: Int :: 0 <= i && i < |xs| ==> acc(xs[i].f)
+  //inhale forall i: Int :: 0 <= i && i < |xs| ==> acc(xs[i].f)
 
   inhale xs[0].f == 0
 

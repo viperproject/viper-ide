@@ -20,7 +20,6 @@ export abstract class BackendService {
     private _ready: boolean = false;
 
     static REQUIRED_JAVA_VERSION = 8;
-    static startingOrRestarting: boolean = false;
 
     protected timeout;
     protected engine: string;
@@ -35,6 +34,11 @@ export abstract class BackendService {
     public abstract stopVerification(ngPid?: number, secondTry?: boolean): Promise<boolean>;
     protected isBackendCompatible(backend: Backend): boolean {
         return Server.backend.engine.toLowerCase() != this.engine.toLowerCase();
+    }
+
+    public swapBackend(newBackend: Backend) {
+        Log.error("The current backend service does not support swaping backends, stop the backend instead.")
+        this.stop();
     }
 
     public kill() {
@@ -123,7 +127,7 @@ export abstract class BackendService {
     public setReady(backend: Backend) {
         this._ready = true;
         Server.backend = backend;
-        BackendService.startingOrRestarting = false;
+        Server.startingOrRestarting = false;
         Log.log("The backend is ready for verification", LogLevel.Info);
         Server.sendBackendReadyNotification({
             name: Server.backend.name,
@@ -148,14 +152,14 @@ export abstract class BackendService {
 
     public setStopping() {
         this._ready = false;
-        BackendService.startingOrRestarting = false;
+        Server.startingOrRestarting = false;
         Server.sendStateChangeNotification({ newState: VerificationState.Stopping });
     }
 
     public setStopped() {
         Log.log("Set Stopped ", LogLevel.Debug);
         this._ready = false;
-        BackendService.startingOrRestarting = false;
+        Server.startingOrRestarting = false;
         Server.sendStateChangeNotification({ newState: VerificationState.Stopped });
     }
 

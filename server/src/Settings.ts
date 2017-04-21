@@ -163,6 +163,10 @@ export class Settings {
         return backendNames;
     }
 
+    public static getBackend(backendName:string):Backend{
+        return Settings.settings.verificationBackends.find(b=>{return b.name == backendName});
+    }
+
     public static valid(): boolean {
         Server.sendSettingsCheckedNotification({ ok: this._valid, errors: this._errors, settings: this.settings });
         return this._valid;
