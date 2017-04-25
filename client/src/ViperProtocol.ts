@@ -615,16 +615,15 @@ export class Common {
         }
     }
 
-    public static backendRestartNeeded(settings: ViperSettings, oldBackendName: string, newBackendName: string) {
+    public static isViperServer(settings: ViperSettings, newBackendName: string) {
         if (!settings)
-            return true;
-
-        let oldBackend = settings.verificationBackends.find(value => value.name == oldBackendName);
-        let newBackend = settings.verificationBackends.find(value => value.name == newBackendName);
-
-        if (oldBackend && newBackend && oldBackend.engine.toLowerCase() == 'viperserver' && newBackend.engine.toLowerCase() == 'viperserver')
             return false;
 
-        return true;
+        let newBackend = settings.verificationBackends.find(value => value.name == newBackendName);
+
+        if (newBackend && newBackend.engine.toLowerCase() == 'viperserver')
+            return true;
+
+        return false;
     }
 }

@@ -181,7 +181,6 @@ export class VerificationController {
                         case TaskType.BackendStarted:
                             this.workList[i].type = NoOp;
                             backendStarted = true;
-                            State.isBackendReady = true;
                             break;
                         case TaskType.BackendStopped:
                             this.workList[i].type = NoOp;
@@ -297,11 +296,7 @@ export class VerificationController {
                             }
                             break;
                         case TaskType.StartBackend:
-                            //if the backend remains a viperServer engine, there is no need to restart.
-                            if (State.isActiveViperEngine && task.isViperServerEngine) {
-                                task.type = NoOp;
-                            }
-                            let stoppingNeeded = State.isBackendReady && Common.backendRestartNeeded(State.checkedSettings, State.activeBackend, task.backend);
+                            let stoppingNeeded = State.isBackendReady && !(Common.isViperServer(State.checkedSettings, task.backend) && State.isActiveViperEngine);
                             let startingNeeded = !State.isBackendReady || stoppingNeeded;
                             //no need to restart when switching between 
                             if (stoppingNeeded) {
@@ -637,6 +632,7 @@ export class VerificationController {
             Log.log("Backend ready: " + params.name, LogLevel.Info);
             State.addToWorklist({ type: TaskType.BackendStarted, backend: params.name, manuallyTriggered: true });
             State.isBackendReady = true;
+            State.isActiveViperEngine = params.isViperServer;
         } catch (e) {
             Log.error("Error handling backend started notification: " + e);
         }
