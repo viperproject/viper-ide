@@ -498,22 +498,22 @@ export class BackendOutputType {
 }
 
 export interface BackendOutput {
-    type: string,
+    type: string;
     //for ...Verified:
-    name?: string,
+    name?: string;
     //for Start:
-    backendType?: string,
+    backendType?: string;
     //for VerificationStart:
-    nofMethods?: number,
-    nofPredicates?: number,
-    nofFunctions?: number,
+    nofMethods?: number;
+    nofPredicates?: number;
+    nofFunctions?: number;
     //for End:
-    time?: string,
+    time?: string;
     //for Error:
-    file?: string,
-    errors?: Error[],
+    file?: string;
+    errors?: Error[];
     //for Outline
-    members?: Member[]
+    members?: Member[];
 }
 
 export interface Member {
@@ -533,6 +533,7 @@ export interface Error {
     end: string,
     tag: string,
     message: string
+    cached?: boolean;
 }
 
 export interface TimingInfo {
@@ -626,5 +627,17 @@ export class Common {
             return false;
 
         return true;
+    }
+
+    public static isViperServer(settings: ViperSettings, newBackendName: string) {
+        if (!settings)
+            return false;
+
+        let newBackend = settings.verificationBackends.find(value => value.name == newBackendName);
+
+        if (newBackend && newBackend.engine.toLowerCase() == 'viperserver')
+            return true;
+
+        return false;
     }
 }

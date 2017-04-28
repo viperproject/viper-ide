@@ -663,7 +663,7 @@ export class VerificationTask {
                                         range: range,
                                         source: null, //Server.backend.name
                                         severity: language_server.DiagnosticSeverity.Error,
-                                        message: err.message
+                                        message: err.message + (err.cached ? " (cached)" : "")
                                     });
 
                                     //since the viper server keeps running, 

@@ -2,6 +2,7 @@ field f: Int
 
 method test0()
 
+
 method test1(xs: Seq[Ref]) {
   inhale 10 < |xs|
   inhale forall i: Int :: 0 <= i && i < |xs| ==> acc(xs[i].f)
