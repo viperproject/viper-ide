@@ -379,7 +379,7 @@ export interface PathSettings extends VersionedSettings {
     //Path to the folder containing all the ViperTools
     viperToolsPath: string | PlatformDependentPath;
     //Path to the ViperServer
-    viperServerPath: string | PlatformDependentPath;
+    viperServerPaths: string | string[] | PlatformDependentPath | PlatformDependentListOfPaths;
     //The path to the z3 executable
     z3Executable: string | PlatformDependentPath;
     //The path to the boogie executable
@@ -429,6 +429,12 @@ export interface PlatformDependentPath {
     windows?: string;
     mac?: string;
     linux?: string;
+}
+
+export interface PlatformDependentListOfPaths {
+    windows?: string[];
+    mac?: string[];
+    linux?: string[];
 }
 
 export interface PlatformDependentURL {

@@ -33,14 +33,14 @@ export function activate(context: vscode.ExtensionContext) {
     Helper.loadViperFileExtensions();
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
 
-    let ownPackageJson = vscode.extensions.getExtension("rukaelin.viper").packageJSON;
+    let ownPackageJson = vscode.extensions.getExtension("viper-admin.viper-experimental").packageJSON;
     let defaultConfiguration = ownPackageJson.contributes.configuration.properties;
     Log.log('The current version of ' + ownPackageJson.displayName + ' is: v.' + ownPackageJson.version, LogLevel.Info);
 
     lastVersionWithSettingsChange = {
         nailgunSettingsVersion: "0.6.1",
         backendSettingsVersion: "0.6.2",
-        pathSettingsVersion: "0.6.1",
+        pathSettingsVersion: "1.0.0",
         userPreferencesVersion: "0.6.1",
         javaSettingsVersion: "0.6.1",
         advancedFeaturesVersion: "0.6.1",
@@ -172,7 +172,6 @@ function handleSettingsCheckResult(params: SettingsCheckedParams) {
 
         if (nofErrors + nofWarnings > 1)
             message = "see View->Output->Viper";
-
         Log.hint(errorCounts + ": " + message, "Viper Settings", true, true);
     }
 }

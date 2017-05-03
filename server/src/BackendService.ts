@@ -81,7 +81,7 @@ export abstract class BackendService {
     protected getServerPid(): Promise<number> {
         Log.log("Determining the backend server PID", LogLevel.LowLevelDebug);
         if (!this.backendProcess) {
-            Log.error("The backendProcess should be set before determining its PID");
+            return Promise.reject("The backendProcess should be set before determining its PID");
         }
 
         return new Promise((resolve, reject) => {

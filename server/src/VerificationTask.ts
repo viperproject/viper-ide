@@ -668,11 +668,11 @@ export class VerificationTask {
 
                                     //since the viper server keeps running, 
                                     //we need to trigger the verification completion event manually
-                                    if (Server.backendService.isViperServerService) {
-                                        Server.backendService.isSessionRunning = false;
-                                        this.completionHandler(0);
-                                    }
                                 });
+                                if (Server.backendService.isViperServerService) {
+                                    Server.backendService.isSessionRunning = false;
+                                    this.completionHandler(0);
+                                }
                                 break;
                             case BackendOutputType.Success:
                                 //since the server keeps running, 

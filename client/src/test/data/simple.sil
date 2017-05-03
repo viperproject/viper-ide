@@ -2,7 +2,6 @@ field f: Int
 
 method test0()
 
-
 method test1(xs: Seq[Ref]) {
   inhale 10 < |xs|
   inhale forall i: Int :: 0 <= i && i < |xs| ==> acc(xs[i].f)
@@ -19,7 +18,7 @@ method test1(xs: Seq[Ref]) {
 method test2(xs: Seq[Ref]) {
   inhale 10 < |xs|
   inhale forall i: Int :: 0 <= i && i < |xs| ==> acc(xs[i].f)
-
+  
   inhale xs[0].f == 0
 
   assert xs[0].f == 0

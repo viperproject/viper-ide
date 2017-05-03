@@ -1,3 +1,5 @@
+method a()
+
 method m() {
     assert false
 }

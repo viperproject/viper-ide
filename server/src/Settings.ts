@@ -3,7 +3,7 @@
 import fs = require('fs');
 import * as pathHelper from 'path';
 import { Log } from './Log';
-import { Versions, PlatformDependentURL, PlatformDependentPath, SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel } from './ViperProtocol';
+import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel } from './ViperProtocol';
 import { Server } from './ServerClass';
 import { BackendService } from './BackendService';
 import { ViperServerService } from './ViperServerService';
@@ -163,8 +163,8 @@ export class Settings {
         return backendNames;
     }
 
-    public static getBackend(backendName:string):Backend{
-        return Settings.settings.verificationBackends.find(b=>{return b.name == backendName});
+    public static getBackend(backendName: string): Backend {
+        return Settings.settings.verificationBackends.find(b => { return b.name == backendName });
     }
 
     public static valid(): boolean {
@@ -191,6 +191,18 @@ export class Settings {
         });
     }
 
+    private static viperServerPathsChanged(oldSettings: ViperSettings) {
+        if (!oldSettings) return true;
+        if ((<string[]>oldSettings.paths.viperServerPaths).length != (<string[]>this.settings.paths.viperServerPaths).length)
+            return true;
+        (<string[]>oldSettings.paths.viperServerPaths).forEach((path, index) => {
+            if (path != (<string[]>this.settings.paths.viperServerPaths)[index]) {
+                return true;
+            }
+        })
+        return false;
+    }
+
     //tries to restart backend, 
     public static initiateBackendRestartIfNeeded(oldSettings?: ViperSettings, selectedBackend?: string, viperToolsUpdated: boolean = false) {
         Settings.checkSettings(viperToolsUpdated).then(() => {
@@ -199,11 +211,14 @@ export class Settings {
 
                 if (newBackend) {
                     //only restart the backend after settings changed if the active backend was affected
+
+
                     let restartBackend = !Server.backendService.isReady() //backend is not ready -> restart
                         || !Settings.backendEquals(Server.backend, newBackend) //change in backend
                         || (oldSettings && (this.useNailgunServer(newBackend) && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings)))) //backend needs nailgun and nailgun settings changed
                         || viperToolsUpdated //Viper Tools Update might have modified the binaries
-                        || (Server.backendService.isViperServerService != this.useViperServer(newBackend)); //the new backend requires another engine type
+                        || (Server.backendService.isViperServerService != this.useViperServer(newBackend)) //the new backend requires another engine type
+                        || (Settings.useViperServer(newBackend) && this.viperServerPathsChanged(oldSettings)) // the viperServerPaths changed
                     if (restartBackend) {
                         Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info);
                         Server.backend = newBackend;
@@ -388,7 +403,8 @@ export class Settings {
                     let viperServerRequired = settings.verificationBackends.some(elem => this.useViperServer(elem));
                     if (viperServerRequired) {
                         //check viperServer path
-                        settings.paths.viperServerPath = this.checkPath(settings.paths.viperServerPath, "viperServerPath:", true, true, true).path;
+                        settings.paths.viperServerPaths = this.checkPaths(settings.paths.viperServerPaths, "viperServerPath:");
+                        //Log.log("viperServerPaths: " + JSON.stringify(settings.paths.viperServerPaths), LogLevel.LowLevelDebug);
                     }
 
                     //no need to check preferences
@@ -418,7 +434,7 @@ export class Settings {
 
     private static mergeBackend(custom: Backend, def: Backend) {
         if (!custom || !def || custom.name != def.name) return;
-        if (!custom.paths || custom.paths.length == 0) custom.paths = def.paths;
+        if (!custom.paths) custom.paths = def.paths;
         if (!custom.stages) custom.stages = def.stages
         else this.mergeStages(custom.stages, def.stages);
         if (!custom.timeout) custom.timeout = def.timeout;
@@ -462,6 +478,53 @@ export class Settings {
         }
         //TODO: check url format
         return stringURL;
+    }
+
+    private static checkPaths(paths: (string | string[] | PlatformDependentPath | PlatformDependentListOfPaths), prefix: string): string[] {
+        //Log.log("checkPaths(" + JSON.stringify(paths) + ")", LogLevel.LowLevelDebug);
+        let result: string[] = []
+        let stringPaths: string[] = []
+        if (!paths) {
+            this.addError(prefix + " paths are missing");
+        } else if (typeof paths === "string") {
+            stringPaths.push(paths)
+        } else if (paths instanceof Array) {
+            paths.forEach(path => {
+                if (typeof path === "string") {
+                    stringPaths.push(path)
+                }
+            })
+        } else {
+            let platformDependentPath: PlatformDependentPath = <PlatformDependentPath>paths;
+            if (Settings.isLinux) {
+                return this.checkPaths(platformDependentPath.linux, prefix);
+            } else if (Settings.isMac) {
+                return this.checkPaths(platformDependentPath.mac, prefix);
+            } else if (Settings.isWin) {
+                return this.checkPaths(platformDependentPath.windows, prefix);
+            } else {
+                Log.error("Operation System detection failed, Its not Mac, Windows or Linux");
+            }
+            return result;
+        }
+
+        if (stringPaths.length == 0) {
+            this.addError(prefix + ' path has wrong type: expected: string | string[] | {windows:(string|string[]), mac:(string|string[]), linux:(string|string[])}, found: ' + typeof paths + " at path: " + JSON.stringify(paths));
+        }
+        stringPaths = stringPaths.filter(stringPath => {
+            let resolvedPath = Settings.resolvePath(stringPath, false);
+            if (!resolvedPath.exists) {
+                this.addError(prefix + ' path not found: "' + stringPath + '"' + (resolvedPath.path != stringPath ? ' which expands to "' + resolvedPath.path + '"' : "") + (" " + (resolvedPath.error || "")));
+                return false;
+            } else {
+                return true
+            }
+        });
+        // Log.log("resolved Paths: " + JSON.stringify(stringPaths), LogLevel.LowLevelDebug);
+        result.push(...this.getAllJarsInPaths(stringPaths, false));
+
+        // Log.log("jarFiles Paths: " + JSON.stringify(result), LogLevel.LowLevelDebug);
+        return result;
     }
 
     private static checkPath(path: (string | PlatformDependentPath), prefix: string, executable: boolean, allowPlatformDependentPath: boolean, allowStringPath: boolean = true, allowMissingPath = false): ResolvedPath {
@@ -593,7 +656,7 @@ export class Settings {
 
             //check paths
             if (!backend.paths || backend.paths.length == 0) {
-                this.addError(backendName + " The backend setting needs at least one path");
+                if (!this.useViperServer(backend)) this.addError(backendName + " The backend setting needs at least one path");
             } else {
                 if (typeof backend.paths == 'string') {
                     let temp = backend.paths;
@@ -617,24 +680,51 @@ export class Settings {
     }
 
     public static backendJars(backend: Backend): string {
-        let backendJars = "";
+        let jarFiles = this.getAllJarsInPaths(backend.paths, false);
+        return this.buildDependencyString(jarFiles);
+    }
 
+    public static buildDependencyString(jarFiles: string[]): string {
+        let dependencies = "";
         let concatenationSymbol = Settings.isWin ? ";" : ":";
-        backend.paths.forEach(path => {
-            if (this.isJar(path)) {
-                //its a jar file
-                backendJars = backendJars + concatenationSymbol + '"' + path + '"';
-            } else {
-                //its a folder
-                let files = fs.readdirSync(path);
-                files.forEach(file => {
-                    if (this.isJar(file)) {
-                        backendJars = backendJars + concatenationSymbol + '"' + pathHelper.join(path, file) + '"';
+        if (jarFiles.length > 0) {
+            dependencies = dependencies + concatenationSymbol + '"' + jarFiles.join('"' + concatenationSymbol + '"') + '"'
+        }
+        return dependencies;
+    }
+
+    public static getAllJarsInPaths(paths: string[], recursive: boolean): string[] {
+        let result: string[] = [];
+        try {
+            paths.forEach(path => {
+                if (fs.lstatSync(path).isDirectory()) {
+                    let files = fs.readdirSync(path);
+                    let folders = []
+                    files.forEach(child => {
+                        child = pathHelper.join(path, child)
+                        if (!fs.lstatSync(child).isDirectory()) {
+                            //child is a file
+                            if (this.isJar(child)) {
+                                //child is a jar file
+                                result.push(child);
+                            }
+                        } else {
+                            folders.push(child);
+                        }
+                    })
+                    if (recursive) {
+                        result.push(...this.getAllJarsInPaths(folders, recursive));
                     }
-                });
-            }
-        });
-        return backendJars;
+                } else {
+                    if (this.isJar(path)) {
+                        result.push(path)
+                    }
+                }
+            })
+        } catch (e) {
+            Log.error("Error getting all Jars in Paths: " + e);
+        }
+        return result;
     }
 
     private static isJar(file: string): boolean {

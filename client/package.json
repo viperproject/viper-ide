@@ -1,8 +1,8 @@
 {
-    "name": "viper",
-    "displayName": "Viper",
-    "version": "0.6.2",
-    "publisher": "rukaelin",
+    "name": "viper-experimental",
+    "displayName": "Viper experimental",
+    "version": "1.0.0",
+    "publisher": "viper-admin",
     "description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
     "license": "MIT",
     "repository": "bitbucket:viperproject/viper-ide",
@@ -204,7 +204,7 @@
                 "viperSettings.nailgunSettings": {
                     "type": "object",
                     "default": {
-                        "v": "664a574861b0",
+                        "v": "674a514863ad",
                         "serverJar": "$viperTools$/nailgun/nailgun.jar",
                         "clientExecutable": "$viperTools$/nailgun/ng",
                         "port": "*",
@@ -216,7 +216,7 @@
                     "type": "array",
                     "default": [
                         {
-                            "v": "664a574861b0",
+                            "v": "674a514863ad",
                             "name": "silicon",
                             "type": "silicon",
                             "paths": [
@@ -234,7 +234,7 @@
                             ]
                         },
                         {
-                            "v": "664a574861b0",
+                            "v": "674a514863ad",
                             "name": "carbon",
                             "type": "carbon",
                             "paths": [
@@ -257,16 +257,16 @@
                 "viperSettings.paths": {
                     "type": "object",
                     "default": {
-                        "v": "664a574861b0",
+                        "v": "674a514863ad",
                         "viperToolsPath": {
                             "windows": "%ProgramFiles%\\Viper\\",
                             "linux": "/usr/local/Viper",
                             "mac": "/usr/local/Viper"
                         },
-                        "viperServerPath": {
-                            "windows": "",
-                            "linux": "",
-                            "mac": ""
+                        "viperServerPaths": {
+                            "windows": "$viperTools$/backends/viper.jar",
+                            "linux": "$viperTools$/backends/viper.jar",
+                            "mac": "$viperTools$/backends/viper.jar"
                         },
                         "z3Executable": {
                             "windows": "$viperTools$/z3/bin/z3.exe",
@@ -284,7 +284,7 @@
                 "viperSettings.preferences": {
                     "type": "object",
                     "default": {
-                        "v": "664a574861b0",
+                        "v": "674a514863ad",
                         "autoSave": true,
                         "logLevel": 5,
                         "autoVerifyAfterBackendChange": true,
@@ -300,7 +300,7 @@
                 "viperSettings.javaSettings": {
                     "type": "object",
                     "default": {
-                        "v": "664a574861b0",
+                        "v": "674a514863ad",
                         "customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$"
                     },
                     "description": "Settings used for running Java commands. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Java%20Settings"
@@ -308,7 +308,7 @@
                 "viperSettings.advancedFeatures": {
                     "type": "object",
                     "default": {
-                        "v": "664a574861b0",
+                        "v": "674a514863ad",
                         "enabled": false,
                         "showSymbolicState": false,
                         "simpleMode": true,

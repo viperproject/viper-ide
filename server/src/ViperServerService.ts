@@ -101,7 +101,8 @@ export class ViperServerService extends BackendService {
 
     private getViperServerStartCommand(): string {
         let command = 'java ' + Settings.settings.javaSettings.customArguments + " -server viper.server.ViperServerRunner";
-        command = command.replace(/\$backendPaths\$/g, '"' + Settings.settings.paths.viperServerPath + '"');
+        let jarDependencies = Settings.buildDependencyString(<string[]>Settings.settings.paths.viperServerPaths)
+        command = command.replace(/\$backendPaths\$/g, jarDependencies);
         return command;
     }
 
