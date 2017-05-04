@@ -293,7 +293,7 @@ export class VerificationTask {
             filename: this.filename
         }, this);
 
-        this.startVerificationTimeout(this.verificationCount);
+        //this.startVerificationTimeout(this.verificationCount);
         this.verifierProcess = Server.backendService.startStageProcess(path, stage, this.stdOutHandler.bind(this), this.stdErrHandler.bind(this), this.completionHandler.bind(this));
         return true;
     }
@@ -307,27 +307,30 @@ export class VerificationTask {
         this.lastSuccess = Success.None;
     }
 
-    private startVerificationTimeout(verificationCount: number) {
-        if (Server.backend.timeout) {
-            setTimeout(() => {
-                //Log.log("check for verification timeout", LogLevel.Debug);
-                if (this.running && this.verificationCount == verificationCount) {
-                    Log.hint("The verification timed out after " + Server.backend.timeout + "ms");
-                    this.abortVerificationIfRunning().then(() => {
-                        //wait for verification to terminate
-                        Server.sendStateChangeNotification({
-                            newState: VerificationState.Ready,
-                            verificationCompleted: false,
-                            success: Success.Timeout,
-                            verificationNeeded: false,
-                            uri: this.fileUri
-                        }, this);
-                    });
-                }
-                this.running = false;
-            }, Server.backend.timeout);
-        }
-    }
+    // private startVerificationTimeout(verificationCount: number) {
+    //     if (Server.backend.timeout) {
+    //         Log.log("Set verification timeout to " + Server.backend.timeout, LogLevel.LowLevelDebug);
+    //         setTimeout(() => {
+    //             //Log.log("check for verification timeout", LogLevel.Debug);
+    //             if (this.running && this.verificationCount == verificationCount) {
+    //                 Log.hint("The verification timed out after " + Server.backend.timeout + "ms");
+    //                 this.abortVerificationIfRunning().then(() => {
+    //                     //wait for verification to terminate
+    //                     Server.sendStateChangeNotification({
+    //                         newState: VerificationState.Ready,
+    //                         verificationCompleted: false,
+    //                         success: Success.Timeout,
+    //                         verificationNeeded: false,
+    //                         uri: this.fileUri
+    //                     }, this);
+    //                 });
+    //             }
+    //             this.running = false;
+    //         }, Server.backend.timeout);
+    //     } else {
+    //         Log.log("No verification timeout set", LogLevel.LowLevelDebug);
+    //     }
+    // }
 
     private completionHandler(code) {
         try {

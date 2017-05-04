@@ -55,6 +55,16 @@ export class State {
     //     }
     // }
 
+    public static getTimeoutOfActiveBackend():number{
+        if(!this.checkedSettings){
+            Log.error("Error getting timeout, there are no checked Settings available, default to no timeout.");
+            return 0;
+        }else{
+            let backend = this.checkedSettings.verificationBackends.find(b => b.name == this.activeBackend);
+            return backend.timeout;
+        }
+    }
+
     public static addToWorklist(task: Task) {
         this.verificationController.addToWorklist(task);
     }

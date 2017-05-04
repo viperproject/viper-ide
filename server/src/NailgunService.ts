@@ -89,9 +89,10 @@ export class NailgunService extends BackendService {
     }
 
     private getNailgunStartCommand(backend: Backend): string {
-        let command = 'java ' + Settings.settings.javaSettings.customArguments + " -server com.martiansoftware.nailgun.NGServer 127.0.0.1:" + Settings.settings.nailgunSettings.port;
+        let command = 'java ' + Settings.settings.javaSettings.customArguments + " 127.0.0.1:" + Settings.settings.nailgunSettings.port;
         let backendJars = Settings.backendJars(backend);
         command = command.replace(/\$backendPaths\$/g, '"' + Settings.settings.nailgunSettings.serverJar + '"' + backendJars);
+        command = command.replace(/\$mainMethod\$/g, "com.martiansoftware.nailgun.NGServer"); 
         return command;
     }
 

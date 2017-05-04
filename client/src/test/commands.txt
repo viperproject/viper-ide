@@ -8,3 +8,11 @@ silicon --ideMode --disableCaching --z3Exe "C:\Program Files (x86)\Viper\z3\bin\
 
 carbon --ideMode --z3Exe "C:\Program Files (x86)\Viper\z3\bin\z3.exe" --boogieExe "C:\Program Files (x86)\Viper\boogie\Binaries\Boogie.exe" "c:\Users\Neptun\Documents\ETH\viper-ide\client\src\test\data\simplest.vpr"
 
+
+
+//missing reason offending node
+ 
+
+carbon --ideMode --z3Exe "C:\Program Files (x86)\Viper\z3\bin\z3.exe" --boogieExe "C:\Program Files (x86)\Viper\boogie\Binaries\Boogie.exe" "c:\Users\Neptun\Documents\ETH\viper-ide\client\src\test\data\trclo_append_missing_reasonOffendingNode.vpr"
+
+

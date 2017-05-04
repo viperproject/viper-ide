@@ -76,6 +76,8 @@ export class Commands {
     static ViperUpdateComplete = "ViperUpdateComplete";
 
     static CheckIfSettingsVersionsSpecified = "CheckIfSettingsVersionsSpecified";
+
+    static FlushCache = "FlushCache";
 }
 
 export interface GetExecutionTraceParams {
@@ -316,6 +318,8 @@ export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE, UNKONWN };
 export interface ViperSettings {
     //All nailgun related settings
     nailgunSettings: NailgunSettings;
+    //All viperServer related settings
+    viperServerSettings: ViperServerSettings;
     //Description of backends
     verificationBackends: Backend[];
     //Used paths
@@ -337,6 +341,19 @@ export interface NailgunSettings extends VersionedSettings {
     clientExecutable: string | PlatformDependentPath;
     //The port used for the communication between nailgun client and server
     port: string;
+    //After timeout ms the startup of the nailgun server is expected to have failed and thus aborted
+    timeout: number;
+}
+
+export interface ViperServerSettings extends VersionedSettings {
+    //Locator to the ViperServer jars
+    serverJars: string | string[] | PlatformDependentPath | PlatformDependentListOfPaths;
+    //custom commandLine arguments
+    customArguments: string;
+    //it set to false, cached errors are reused across backends
+    backendSpecificCache: boolean;
+    //disable the caching mechanism
+    disableCaching: boolean;
     //After timeout ms the startup of the nailgun server is expected to have failed and thus aborted
     timeout: number;
 }
@@ -378,8 +395,6 @@ export interface Stage {
 export interface PathSettings extends VersionedSettings {
     //Path to the folder containing all the ViperTools
     viperToolsPath: string | PlatformDependentPath;
-    //Path to the ViperServer
-    viperServerPaths: string | string[] | PlatformDependentPath | PlatformDependentListOfPaths;
     //The path to the z3 executable
     z3Executable: string | PlatformDependentPath;
     //The path to the boogie executable
@@ -460,6 +475,7 @@ export interface Progress {
 
 export interface Versions {
     nailgunSettingsVersion: string;
+    viperServerSettingsVersion: string;
     backendSettingsVersion: string;
     pathSettingsVersion: string;
     userPreferencesVersion: string;

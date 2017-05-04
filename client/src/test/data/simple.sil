@@ -8,7 +8,7 @@ method test1(xs: Seq[Ref]) {
 
   inhale forall i: Int :: 0 <= i && i < |xs| ==> xs[i].f != 0
   inhale forall i: Int :: 0 <= i && i < |xs| ==> xs[i].f != 1
-  inhale forall i: Int :: 0 <= i && i < |xs| ==> xs[i].f != 2
+  //inhale forall i: Int :: 0 <= i && i < |xs| ==> xs[i].f != 2
 
   assert xs[0].f != 0 
   assert xs[1].f != 1 

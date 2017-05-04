@@ -122,7 +122,8 @@ export class Settings {
         args = args.replace(/\$mainMethod\$/g, stage.mainMethod);
         args = args.replace(/\$nailgunPort\$/g, this.settings.nailgunSettings.port);
         args = args.replace(/\$fileToVerify\$/g, '"' + fileToVerify + '"');
-        args = args.replace(/\$backendPaths\$/g, Settings.backendJars(backend))
+        args = args.replace(/\$backendPaths\$/g, Settings.backendJars(backend));
+        args = args.replace(/\$disableCaching\$/g, (Settings.settings.viperServerSettings.disableCaching === true ? "--disableCaching" : ""));
         return args.trim();
     }
 
@@ -193,10 +194,10 @@ export class Settings {
 
     private static viperServerPathsChanged(oldSettings: ViperSettings) {
         if (!oldSettings) return true;
-        if ((<string[]>oldSettings.paths.viperServerPaths).length != (<string[]>this.settings.paths.viperServerPaths).length)
+        if ((<string[]>oldSettings.viperServerSettings.serverJars).length != (<string[]>this.settings.viperServerSettings.serverJars).length)
             return true;
-        (<string[]>oldSettings.paths.viperServerPaths).forEach((path, index) => {
-            if (path != (<string[]>this.settings.paths.viperServerPaths)[index]) {
+        (<string[]>oldSettings.viperServerSettings.serverJars).forEach((path, index) => {
+            if (path != (<string[]>this.settings.viperServerSettings.serverJars)[index]) {
                 return true;
             }
         })
@@ -211,7 +212,6 @@ export class Settings {
 
                 if (newBackend) {
                     //only restart the backend after settings changed if the active backend was affected
-
 
                     let restartBackend = !Server.backendService.isReady() //backend is not ready -> restart
                         || !Settings.backendEquals(Server.backend, newBackend) //change in backend
@@ -265,14 +265,10 @@ export class Settings {
         } else {
             nailgunSettings.serverJar = Settings.checkPath(nailgunSettings.serverJar, "Nailgun Server:", false, false).path
         }
-
         //check nailgun client
         nailgunSettings.clientExecutable = Settings.checkPath(nailgunSettings.clientExecutable, "Nailgun Client:", true, true).path
-
         //check nailgun timeout
-        if (!nailgunSettings.timeout || (nailgunSettings.timeout && nailgunSettings.timeout <= 0)) {
-            nailgunSettings.timeout = null;
-        }
+        nailgunSettings.timeout = this.checkTimeout(nailgunSettings.timeout, "nailgunSettings:");
         return null;
     }
 
@@ -300,6 +296,9 @@ export class Settings {
             }
             if (Version.createFromVersion(requiredVersions.nailgunSettingsVersion).compare(Version.createFromHash(settings.nailgunSettings.v)) > 0) {
                 oldSettings.push("nailgunSettings");
+            }
+            if (Version.createFromVersion(requiredVersions.viperServerSettingsVersion).compare(Version.createFromHash(settings.viperServerSettings.v)) > 0) {
+                oldSettings.push("viperServerSettings");
             }
             if (Version.createFromVersion(requiredVersions.pathSettingsVersion).compare(Version.createFromHash(settings.paths.v)) > 0) {
                 oldSettings.push("paths");
@@ -403,17 +402,16 @@ export class Settings {
                     let viperServerRequired = settings.verificationBackends.some(elem => this.useViperServer(elem));
                     if (viperServerRequired) {
                         //check viperServer path
-                        settings.paths.viperServerPaths = this.checkPaths(settings.paths.viperServerPaths, "viperServerPath:");
-                        //Log.log("viperServerPaths: " + JSON.stringify(settings.paths.viperServerPaths), LogLevel.LowLevelDebug);
+                        settings.viperServerSettings.serverJars = this.checkPaths(settings.viperServerSettings.serverJars, "viperServerPath:");
+                        //check viperServerTimeout
+                        settings.viperServerSettings.timeout = this.checkTimeout(settings.viperServerSettings.timeout, "viperServerSettings:");
+                        //check the customArguments
                     }
 
                     //no need to check preferences
                     //check java settings
                     if (!settings.javaSettings.customArguments) {
-                        settings.javaSettings.customArguments = defaultSettings["viperSettings.javaSettings"].default.customArguments;
-                        if (!settings.javaSettings.customArguments) {
-                            this.addError("The customArguments are missing in the java settings");
-                        }
+                        this.addError("The customArguments are missing in the java settings");
                     }
 
                     //checks done
@@ -669,14 +667,19 @@ export class Settings {
             }
 
             //check verification timeout
-            if (!backend.timeout || (backend.timeout && backend.timeout <= 0)) {
-                if (backend.timeout && backend.timeout < 0) {
-                    this.addWarning(backendName + " The timeout of " + backend.timeout + " is interpreted as no timeout.");
-                }
-                backend.timeout = null;
-            }
+            backend.timeout = this.checkTimeout(backend.timeout, "Backend " + backendName + ":");
         }
         return null;
+    }
+
+    private static checkTimeout(timeout: number, prefix: string): number {
+        if (!timeout || (timeout && timeout <= 0)) {
+            if (timeout && timeout < 0) {
+                this.addWarning(prefix + " The timeout of " + timeout + " is interpreted as no timeout.");
+            }
+            return null;
+        }
+        return timeout;
     }
 
     public static backendJars(backend: Backend): string {

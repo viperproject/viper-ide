@@ -15,7 +15,7 @@ import { Helper } from './Helper';
 import { ViperFormatter } from './ViperFormatter';
 import { ViperFileState } from './ViperFileState';
 import { StatusBar, Color } from './StatusBar';
-import { VerificationController, TaskType, CheckResult } from './VerificationController';
+import { VerificationController, TaskType, Task, CheckResult } from './VerificationController';
 let stripJSONComments = require('strip-json-comments');
 const os = require('os');
 
@@ -39,6 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     lastVersionWithSettingsChange = {
         nailgunSettingsVersion: "0.6.1",
+        viperServerSettingsVersion: "1.0.0",
         backendSettingsVersion: "0.6.2",
         pathSettingsVersion: "1.0.0",
         userPreferencesVersion: "0.6.1",
@@ -209,7 +210,7 @@ function registerHandlers() {
                 if (State.unitTest) State.unitTest.viperUpdateFailed();
 
             }
-            State.addToWorklist({ type: TaskType.ViperToolsUpdateComplete, uri: null, manuallyTriggered: false });
+            State.addToWorklist(new Task({ type: TaskType.ViperToolsUpdateComplete, uri: null, manuallyTriggered: false }));
             State.hideProgress();
         });
         State.client.onNotification(Commands.FileOpened, (uri: string) => {
@@ -220,7 +221,7 @@ function registerHandlers() {
                 if (fileState) {
                     fileState.open = true;
                     fileState.verifying = false;
-                    State.addToWorklist({ type: TaskType.Verify, uri: uriObject, manuallyTriggered: false });
+                    State.addToWorklist(new Task({ type: TaskType.Verify, uri: uriObject, manuallyTriggered: false }));
                 }
             } catch (e) {
                 Log.error("Error handling file opened notification: " + e);
@@ -236,7 +237,7 @@ function registerHandlers() {
                     fileState.verified = false;
                 }
                 fileState.stateVisualizer.removeSpecialCharsFromClosedDocument(() => { });
-                State.addToWorklist({ type: TaskType.FileClosed, uri: fileState.uri });
+                State.addToWorklist(new Task({ type: TaskType.FileClosed, uri: fileState.uri }));
             } catch (e) {
                 Log.error("Error handling file closed notification: " + e);
             }
@@ -253,7 +254,7 @@ function registerHandlers() {
         });
         State.context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
             try {
-                State.addToWorklist({ type: TaskType.Save, uri: params.uri });
+                State.addToWorklist(new Task({ type: TaskType.Save, uri: params.uri }));
             } catch (e) {
                 Log.error("Error handling saved document: " + e);
             }
@@ -290,7 +291,7 @@ function registerHandlers() {
                         if (fileState) {
                             if (!fileState.verified) {
                                 //Log.log("The active text editor changed, consider reverification of " + fileState.name(), LogLevel.Debug);
-                                State.addToWorklist({ type: TaskType.Verify, uri: uri, manuallyTriggered: false })
+                                State.addToWorklist(new Task({ type: TaskType.Verify, uri: uri, manuallyTriggered: false }))
                             } else {
                                 //Log.log("Don't reverify, the file is already verified", LogLevel.Debug);
                             }
@@ -386,7 +387,7 @@ function registerHandlers() {
                     file.verifying = false;
                 });
                 State.isVerifying = false;
-                State.addToWorklist({ type: TaskType.VerificationFailed, uri: Uri.parse(<string>uri), manuallyTriggered: true });
+                State.addToWorklist(new Task({ type: TaskType.VerificationFailed, uri: Uri.parse(<string>uri), manuallyTriggered: true }));
             } catch (e) {
                 Log.error("Error handling verification not started request: " + e);
             }
@@ -397,12 +398,12 @@ function registerHandlers() {
         });
 
         State.client.onNotification(Commands.StartBackend, (backend: string) => {
-            State.addToWorklist({
+            State.addToWorklist(new Task({
                 type: TaskType.StartBackend,
                 backend: backend,
                 manuallyTriggered: false,
                 isViperServerEngine: false //TODO: how to set that correctly
-            });
+            }));
             State.activeBackend = backend;
             State.backendStatusBar.update(backend, Color.READY);
             State.hideProgress();
@@ -417,7 +418,7 @@ function registerHandlers() {
             } else if (!Helper.isViperSourceFile(fileUri)) {
                 Log.log("Cannot verify the active file, its not a viper file.", LogLevel.Info);
             } else {
-                State.addToWorklist({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: true });
+                State.addToWorklist(new Task({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: true }));
             }
         }));
 
@@ -436,6 +437,10 @@ function registerHandlers() {
                 }
             }
         }));
+
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.flushCache', () => flushCache(true)));
+
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.flushCacheOfActiveFile', () => flushCache(false)));
 
         //selectBackend
         State.context.subscriptions.push(vscode.commands.registerCommand('viper.selectBackend', (selectBackend) => {
@@ -474,7 +479,7 @@ function registerHandlers() {
 
         //stopVerification
         State.context.subscriptions.push(vscode.commands.registerCommand('viper.stopVerification', () => {
-            State.addToWorklist({ type: TaskType.StopVerification, uri: null, manuallyTriggered: true });
+            State.addToWorklist(new Task({ type: TaskType.StopVerification, uri: null, manuallyTriggered: true }));
         }));
 
         //format
@@ -494,9 +499,29 @@ function registerHandlers() {
 
         //automatic installation and updating of viper tools
         State.context.subscriptions.push(vscode.commands.registerCommand('viper.updateViperTools', () => {
-            State.addToWorklist({ type: TaskType.UpdateViperTools, uri: null, manuallyTriggered: false });
+            State.addToWorklist(new Task({ type: TaskType.UpdateViperTools, uri: null, manuallyTriggered: false }));
         }));
     });
+}
+
+function flushCache(allFiles: boolean) {
+    if (!State.isActiveViperEngine) {
+        Log.log("Cannot flush cache, the active backend-engine is not the ViperServer", LogLevel.Info);
+        return;
+    }
+
+    if (!allFiles) {
+        let fileUri = Helper.getActiveFileUri();
+        if (!fileUri) {
+            Log.log("Cannot flush cache, no active viper file found", LogLevel.Info);
+        } else {
+            Log.log("Request to flush the cache of " + path.basename(fileUri.fsPath), LogLevel.Info);
+            State.client.sendNotification(Commands.FlushCache, fileUri.fsPath);
+        }
+    } else {
+        Log.log("Request to flush the entire cache", LogLevel.Info);
+        State.client.sendNotification(Commands.FlushCache, null);
+    }
 }
 
 function openLogFile() {
@@ -540,7 +565,7 @@ function canStartDebugging(): CheckResult {
                 reason = dontDebugString + "a verification is running", LogLevel.Debug;
             } else if (!fileState.verified) {
                 reason = dontDebugString + "the file is not verified, the verificaion will be started.", LogLevel.Debug;
-                State.addToWorklist({ type: TaskType.Verify, uri: uri, manuallyTriggered: false });
+                State.addToWorklist(new Task({ type: TaskType.Verify, uri: uri, manuallyTriggered: false }));
             } else if (!fileState.stateVisualizer.readyToDebug) {
                 reason = dontDebugString + "the verification provided no states";
             } else if (Helper.getConfiguration("advancedFeatures").simpleMode === true && !fileState.stateVisualizer.decorationOptions.some(option => option.isErrorState)) {
@@ -569,12 +594,12 @@ function canStartDebugging(): CheckResult {
 
 function considerStartingBackend(backendName: string) {
     if (backendName && (!State.isBackendReady || State.activeBackend != backendName)) {
-        State.addToWorklist({
+        State.addToWorklist(new Task({
             type: TaskType.StartBackend,
             backend: backendName,
             manuallyTriggered: true,
             isViperServerEngine: false //TODO: how to set that correctly
-        })
+        }));
     } else {
         Log.log("No need to restart backend " + backendName, LogLevel.Info);
     }

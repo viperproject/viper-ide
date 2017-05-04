@@ -9,7 +9,6 @@ import { Server } from './ServerClass';
 import { VerificationTask } from './VerificationTask'
 
 export abstract class BackendService {
-
     backendProcess: child_process.ChildProcess;
     verifyProcess: child_process.ChildProcess;
     backendServerPid: number;

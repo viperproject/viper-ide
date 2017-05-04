@@ -100,9 +100,11 @@ export class ViperServerService extends BackendService {
     }
 
     private getViperServerStartCommand(): string {
-        let command = 'java ' + Settings.settings.javaSettings.customArguments + " -server viper.server.ViperServerRunner";
-        let jarDependencies = Settings.buildDependencyString(<string[]>Settings.settings.paths.viperServerPaths)
+        let command = 'java ' + Settings.settings.javaSettings.customArguments + " " + Settings.settings.viperServerSettings.customArguments;
+        let jarDependencies = Settings.buildDependencyString(<string[]>Settings.settings.viperServerSettings.serverJars)
         command = command.replace(/\$backendPaths\$/g, jarDependencies);
+        command = command.replace(/\$backendSpecificCache\$/g, (Settings.settings.viperServerSettings.backendSpecificCache === true ? "--backendSpecificCache" : ""));
+        command = command.replace(/\$mainMethod\$/g, "viper.server.ViperServerRunner");
         return command;
     }
 
@@ -120,6 +122,11 @@ export class ViperServerService extends BackendService {
 
     private emit(msg: string) {
         this.backendProcess.stdin.write(msg + '\n');
+    }
+
+    public flushCache(filePath?:string){
+        Log.log("Request flushing cache from ViperServer",LogLevel.Debug);
+        this.emit("flushCache "+(filePath?filePath:""))
     }
 
     public static isSupportedType(type: string) {

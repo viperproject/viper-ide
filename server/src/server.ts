@@ -107,7 +107,7 @@ function registerHandlers() {
         }
     });
 
-    Server.connection.onNotification(Commands.SwapBackend, (backendName:string) => {
+    Server.connection.onNotification(Commands.SwapBackend, (backendName: string) => {
         try {
             Server.backendService.swapBackend(Settings.getBackend(backendName));
         } catch (e) {
@@ -204,6 +204,16 @@ function registerHandlers() {
 
     Server.connection.onNotification(Commands.UpdateViperTools, () => {
         Server.updateViperTools(false);
+    });
+
+    Server.connection.onNotification(Commands.FlushCache, file => {
+        try {
+            if (Server.backendService.isViperServerService) {
+                (<ViperServerService>Server.backendService).flushCache(file);
+            }
+        } catch (e) {
+            Log.error("Error flushing cache: " + e);
+        }
     });
 
     Server.connection.onRequest(Commands.Dispose, () => {
@@ -390,13 +400,13 @@ function checkSettingsAndStartServer(backendName: string) {
 
 function changeBackendEngineIfNeeded(backend: Backend) {
     if (Settings.useViperServer(backend) && (!Server.backendService || !Server.backendService.isViperServerService)) {
-        Log.log("Start new ViperServerService",LogLevel.LowLevelDebug)
+        Log.log("Start new ViperServerService", LogLevel.LowLevelDebug)
         if (Server.backendService.isSessionRunning) {
             Log.error("A backend change should not happen during an active verification.")
         }
         Server.backendService = new ViperServerService();
     } else if (Settings.useNailgunServer(backend) && (!Server.backendService || Server.backendService.isViperServerService)) {
-        Log.log("Start new NailgunService",LogLevel.LowLevelDebug)
+        Log.log("Start new NailgunService", LogLevel.LowLevelDebug)
         if (Server.backendService.isSessionRunning) {
             Log.error("A backend change should not happen during an active verification.")
         }
