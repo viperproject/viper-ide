@@ -18,8 +18,8 @@ var DecompressZip = require('decompress-zip');
 
 export class Server {
     static backend: Backend;
-    static tempDirectory: string = pathHelper.join(os.tmpDir(), ".vscode");
-    static backendOutputDirectory: string = os.tmpDir();
+    static tempDirectory: string = pathHelper.join(os.tmpdir(), ".vscode");
+    static backendOutputDirectory: string = os.tmpdir();
     static executedStages: Stage[];
     static stage(): Stage {
         if (this.executedStages && this.executedStages.length > 0) {
@@ -119,8 +119,8 @@ export class Server {
         this.connection.sendNotification(Commands.Progress, params);
     }
 
-    static sendStartBackendMessage(backend: string) {
-        this.connection.sendNotification(Commands.StartBackend, backend);
+    static sendStartBackendMessage(backend: string, forceRestart: boolean, isViperServer: boolean) {
+        this.connection.sendNotification(Commands.StartBackend, { backend: backend, forceRestart: forceRestart, isViperServer: isViperServer });
     }
 
     static containsNumber(s: string): boolean {

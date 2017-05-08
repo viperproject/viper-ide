@@ -124,9 +124,11 @@ export class ViperServerService extends BackendService {
         this.backendProcess.stdin.write(msg + '\n');
     }
 
-    public flushCache(filePath?:string){
-        Log.log("Request flushing cache from ViperServer",LogLevel.Debug);
-        this.emit("flushCache "+(filePath?filePath:""))
+    public flushCache(filePath?: string) {
+        Log.log("Request flushing cache from ViperServer", LogLevel.Debug);
+        let command = 'flushCache ' + (filePath ? '"' + filePath + '"' : "")
+        Log.log("Emit to ViperServer: " + command, LogLevel.LowLevelDebug)
+        this.emit(command)
     }
 
     public static isSupportedType(type: string) {

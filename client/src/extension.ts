@@ -39,8 +39,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     lastVersionWithSettingsChange = {
         nailgunSettingsVersion: "0.6.1",
-        viperServerSettingsVersion: "1.0.0",
-        backendSettingsVersion: "0.6.2",
+        viperServerSettingsVersion: "1.0.1",
+        backendSettingsVersion: "1.0.1",
         pathSettingsVersion: "1.0.0",
         userPreferencesVersion: "0.6.1",
         javaSettingsVersion: "0.6.1",
@@ -397,15 +397,16 @@ function registerHandlers() {
             State.verificationController.stopDebuggingLocally();
         });
 
-        State.client.onNotification(Commands.StartBackend, (backend: string) => {
+        State.client.onNotification(Commands.StartBackend, data => {
             State.addToWorklist(new Task({
                 type: TaskType.StartBackend,
-                backend: backend,
+                backend: data.backend,
+                forceRestart: data.forceRestart,
                 manuallyTriggered: false,
-                isViperServerEngine: false //TODO: how to set that correctly
+                isViperServerEngine: data.isViperServer
             }));
-            State.activeBackend = backend;
-            State.backendStatusBar.update(backend, Color.READY);
+            State.activeBackend = data.backend;
+            State.backendStatusBar.update(data.backend, Color.READY);
             State.hideProgress();
         });
 
@@ -598,7 +599,9 @@ function considerStartingBackend(backendName: string) {
             type: TaskType.StartBackend,
             backend: backendName,
             manuallyTriggered: true,
+            forceRestart: false,
             isViperServerEngine: false //TODO: how to set that correctly
+            
         }));
     } else {
         Log.log("No need to restart backend " + backendName, LogLevel.Info);

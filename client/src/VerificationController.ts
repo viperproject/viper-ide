@@ -22,6 +22,7 @@ export interface ITask {
     success?: Success;
     isViperServerEngine?: boolean;
     timeout?: number;
+    forceRestart?: boolean;
 }
 
 export class Task implements ITask {
@@ -33,6 +34,7 @@ export class Task implements ITask {
     isViperServerEngine?: boolean;
     timeout?: number;
     private startTime?: number = 0;
+    forceRestart?: boolean;
 
     constructor(task: ITask) {
         this.type = task.type;
@@ -42,6 +44,7 @@ export class Task implements ITask {
         this.success = task.success;
         this.isViperServerEngine = task.isViperServerEngine;
         this.timeout = task.timeout;
+        this.forceRestart = task.forceRestart;
     }
 
     markStarted(type: TaskType) {
@@ -271,11 +274,11 @@ export class VerificationController {
                                     || stopBackendFound
                                     || timedOut) {
                                     if (timedOut) {
-                                        Log.hint("Verification of " + path.basename(task.uri.toString()) + " timed out after " + task.timeout + "ms");
+                                        Log.hint("Verification of " + path.basename(task.uri.fsPath) + " timed out after " + task.timeout + "ms");
                                     }
                                     Log.logWithOrigin("workList", "StopVerifying", LogLevel.LowLevelDebug);
                                     task.type = TaskType.StopVerifying;
-                                    Log.log("Stop the running verification of " + path.basename(Common.uriToPath(task.uri.toString())), LogLevel.Debug);
+                                    Log.log("Stop the running verification of " + path.basename(Common.uriToPath(task.uri.fsPath)), LogLevel.Debug);
                                     this.stopVerification(task.uri.toString(), isStopManuallyTriggered);
                                     State.hideProgress();
                                 }
@@ -332,7 +335,7 @@ export class VerificationController {
                             }
                             break;
                         case TaskType.StartBackend:
-                            let stoppingNeeded = State.isBackendReady && !(Common.isViperServer(State.checkedSettings, task.backend) && State.isActiveViperEngine);
+                            let stoppingNeeded = State.isBackendReady && (!(Common.isViperServer(State.checkedSettings, task.backend) && State.isActiveViperEngine) || task.forceRestart);
                             let startingNeeded = !State.isBackendReady || stoppingNeeded;
                             //no need to restart when switching between 
                             if (stoppingNeeded) {

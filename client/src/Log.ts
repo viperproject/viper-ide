@@ -10,7 +10,7 @@ const os = require('os');
 const unusedFilename = require('unused-filename');
 
 export class Log {
-    static tempDirectory = path.join(os.tmpDir(), ".vscode");
+    static tempDirectory = path.join(os.tmpdir(), ".vscode");
     static logFilePath: string;
     static logFile: fs.WriteStream;
     static outputChannel = vscode.window.createOutputChannel('Viper');

@@ -1,6 +1,6 @@
 'use strict';
-import { clearTimeout } from 'timers';
 
+import { clearTimeout } from 'timers';
 import child_process = require('child_process');
 import { Log } from './Log'
 import { Settings } from './Settings'

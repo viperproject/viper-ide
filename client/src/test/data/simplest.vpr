@@ -1,5 +1,5 @@
 method a()
 
-method m() {
+method m() { 
     assert false
 }

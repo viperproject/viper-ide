@@ -115,15 +115,19 @@ export class Settings {
     }
 
     static expandCustomArguments(args: string, stage: Stage, fileToVerify: string, backend: Backend): string {
+        Log.log("Command before expanding: " + args,LogLevel.LowLevelDebug);
         args = args.replace(/\s+/g, ' '); //remove multiple spaces
         args = args.replace(/\$z3Exe\$/g, '"' + this.settings.paths.z3Executable + '"');
         args = args.replace(/\$ngExe\$/g, '"' + this.settings.nailgunSettings.clientExecutable + '"');
         args = args.replace(/\$boogieExe\$/g, '"' + this.settings.paths.boogieExecutable + '"');
         args = args.replace(/\$mainMethod\$/g, stage.mainMethod);
         args = args.replace(/\$nailgunPort\$/g, this.settings.nailgunSettings.port);
-        args = args.replace(/\$fileToVerify\$/g, '"' + fileToVerify + '"');
         args = args.replace(/\$backendPaths\$/g, Settings.backendJars(backend));
         args = args.replace(/\$disableCaching\$/g, (Settings.settings.viperServerSettings.disableCaching === true ? "--disableCaching" : ""));
+        args = args.replace(/\$fileToVerify\$/g, '"' + fileToVerify + '"');
+        args = args.replace(/\s+/g, ' '); //remove multiple spaces
+        Log.log("Command after expanding: " + args.trim(),LogLevel.LowLevelDebug);
+        
         return args.trim();
     }
 
@@ -192,7 +196,7 @@ export class Settings {
         });
     }
 
-    private static viperServerPathsChanged(oldSettings: ViperSettings) {
+    private static viperServerRelatedSettingsChanged(oldSettings: ViperSettings) {
         if (!oldSettings) return true;
         if ((<string[]>oldSettings.viperServerSettings.serverJars).length != (<string[]>this.settings.viperServerSettings.serverJars).length)
             return true;
@@ -201,6 +205,14 @@ export class Settings {
                 return true;
             }
         })
+        if (oldSettings.viperServerSettings.backendSpecificCache != this.settings.viperServerSettings.backendSpecificCache
+            || oldSettings.viperServerSettings.customArguments != this.settings.viperServerSettings.customArguments
+            //|| oldSettings.viperServerSettings.disableCaching != this.settings.viperServerSettings.disableCaching //no need to restart the ViperServer if only that changes
+            || oldSettings.viperServerSettings.timeout != this.settings.viperServerSettings.timeout
+        ) {
+            return true;
+        }
+        Log.log("ViperServer settings did not change", LogLevel.LowLevelDebug);
         return false;
     }
 
@@ -213,18 +225,18 @@ export class Settings {
                 if (newBackend) {
                     //only restart the backend after settings changed if the active backend was affected
 
-                    let restartBackend = !Server.backendService.isReady() //backend is not ready -> restart
-                        || !Settings.backendEquals(Server.backend, newBackend) //change in backend
+                    Log.log("check if restart needed", LogLevel.LowLevelDebug);
+                    let backendChanged = !Settings.backendEquals(Server.backend, newBackend) //change in backend
+                    let mustRestartBackend = !Server.backendService.isReady() //backend is not ready -> restart
                         || (oldSettings && (this.useNailgunServer(newBackend) && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings)))) //backend needs nailgun and nailgun settings changed
                         || viperToolsUpdated //Viper Tools Update might have modified the binaries
                         || (Server.backendService.isViperServerService != this.useViperServer(newBackend)) //the new backend requires another engine type
-                        || (Settings.useViperServer(newBackend) && this.viperServerPathsChanged(oldSettings)) // the viperServerPaths changed
-                    if (restartBackend) {
+                        || (Settings.useViperServer(newBackend) && this.viperServerRelatedSettingsChanged(oldSettings)) // the viperServerSettings changed
+                    if (mustRestartBackend || backendChanged) {
                         Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info);
                         Server.backend = newBackend;
                         Server.verificationTasks.forEach(task => task.resetLastSuccess());
-                        Server.sendStartBackendMessage(Server.backend.name);
-                        //Server.nailgunService.startOrRestartNailgunServer(Server.backend, true);
+                        Server.sendStartBackendMessage(Server.backend.name, mustRestartBackend, Settings.useViperServer(newBackend));
                     } else {
                         //In case the backend does not need to be restarted, retain the port
                         if (oldSettings) { Settings.settings.nailgunSettings.port = oldSettings.nailgunSettings.port; }
