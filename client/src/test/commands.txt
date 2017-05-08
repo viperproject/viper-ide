@@ -16,3 +16,5 @@ carbon --ideMode --z3Exe "C:\Program Files (x86)\Viper\z3\bin\z3.exe" --boogieEx
 carbon --ideMode --z3Exe "C:\Program Files (x86)\Viper\z3\bin\z3.exe" --boogieExe "C:\Program Files (x86)\Viper\boogie\Binaries\Boogie.exe" "c:\Users\Neptun\Documents\ETH\viper-ide\client\src\test\data\trclo_append_missing_reasonOffendingNode.vpr"
 
 
+silicon --ideMode --z3Exe "C:\Program Files (x86)\Viper\z3\bin\z3.exe" "c:\Users\Neptun\Documents\ETH\viper-ide\client\src\test\data\cachingTest.vpr"
+
