@@ -371,6 +371,8 @@ export interface Backend extends VersionedSettings {
     timeout: number;
     //A list of verification stages
     stages: Stage[];
+    //the timeout in ms after which stopping a verification is considered failed.
+    stoppingTimeout: number;
 }
 
 export interface Stage {

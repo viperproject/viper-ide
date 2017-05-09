@@ -47,9 +47,12 @@ export class Task implements ITask {
         this.forceRestart = task.forceRestart;
     }
 
-    markStarted(type: TaskType) {
+    markStarted(type: TaskType, timeout?: number) {
         this.type = type;
         this.startTime = Date.now();
+        if (timeout) {
+            this.timeout = timeout;
+        }
     }
 
     hasTimedOut(): boolean {
@@ -72,6 +75,8 @@ export interface CheckResult {
 }
 
 let NoOp: TaskType = TaskType.NoOp;
+
+let STOPPING_TIMEOUT = 5000;
 
 export class VerificationController {
 
@@ -277,7 +282,7 @@ export class VerificationController {
                                         Log.hint("Verification of " + path.basename(task.uri.fsPath) + " timed out after " + task.timeout + "ms");
                                     }
                                     Log.logWithOrigin("workList", "StopVerifying", LogLevel.LowLevelDebug);
-                                    task.type = TaskType.StopVerifying;
+                                    task.markStarted(TaskType.StopVerifying, this.getStoppingTimeout());
                                     Log.log("Stop the running verification of " + path.basename(Common.uriToPath(task.uri.fsPath)), LogLevel.Debug);
                                     this.stopVerification(task.uri.toString(), isStopManuallyTriggered);
                                     State.hideProgress();
@@ -294,11 +299,24 @@ export class VerificationController {
                             }
                             break;
                         case TaskType.StopVerifying:
-                            //block until verification is stoped;
-                            if (verificationStopped) {
-                                Log.logWithOrigin("workList", "VerificationStopped", LogLevel.LowLevelDebug);
+                            let timedOut = task.hasTimedOut();
+                            if (timedOut) {
+                                Log.error("stopping timed out");
                                 task.type = NoOp;
-                                if (State.unitTest) State.unitTest.verificationStopped();
+                                this.addToWorklist(new Task({
+                                    type: TaskType.StartBackend,
+                                    backend: State.activeBackend,
+                                    manuallyTriggered: false,
+                                    isViperServerEngine: State.isActiveViperEngine,
+                                    forceRestart: true
+                                }));
+                            } else {
+                                //block until verification is stoped;
+                                if (verificationStopped) {
+                                    Log.logWithOrigin("workList", "VerificationStopped", LogLevel.LowLevelDebug);
+                                    task.type = NoOp;
+                                    if (State.unitTest) State.unitTest.verificationStopped();
+                                }
                             }
                             break;
                         case TaskType.FileClosed:
@@ -397,6 +415,12 @@ export class VerificationController {
             }
         }, verificationTimeout);
         State.context.subscriptions.push(this.controller);
+    }
+
+    private getStoppingTimeout():number{
+        let backendName = State.activeBackend;
+        let backendSettings = State.checkedSettings.verificationBackends.find(config => config.name == backendName)
+        return backendSettings.stoppingTimeout;
     }
 
     private handleSaveTask(fileState: ViperFileState) {

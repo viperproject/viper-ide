@@ -115,7 +115,7 @@ export class Settings {
     }
 
     static expandCustomArguments(args: string, stage: Stage, fileToVerify: string, backend: Backend): string {
-        Log.log("Command before expanding: " + args,LogLevel.LowLevelDebug);
+        //Log.log("Command before expanding: " + args,LogLevel.LowLevelDebug);
         args = args.replace(/\s+/g, ' '); //remove multiple spaces
         args = args.replace(/\$z3Exe\$/g, '"' + this.settings.paths.z3Executable + '"');
         args = args.replace(/\$ngExe\$/g, '"' + this.settings.nailgunSettings.clientExecutable + '"');
@@ -126,7 +126,7 @@ export class Settings {
         args = args.replace(/\$disableCaching\$/g, (Settings.settings.viperServerSettings.disableCaching === true ? "--disableCaching" : ""));
         args = args.replace(/\$fileToVerify\$/g, '"' + fileToVerify + '"');
         args = args.replace(/\s+/g, ' '); //remove multiple spaces
-        Log.log("Command after expanding: " + args.trim(),LogLevel.LowLevelDebug);
+        //Log.log("Command after expanding: " + args.trim(),LogLevel.LowLevelDebug);
         
         return args.trim();
     }

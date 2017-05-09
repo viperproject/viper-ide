@@ -1,7 +1,7 @@
 {
     "name": "viper-experimental",
     "displayName": "Viper experimental",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "publisher": "viper-admin",
     "description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
     "license": "MIT",
@@ -212,7 +212,7 @@
                 "viperSettings.nailgunSettings": {
                     "type": "object",
                     "default": {
-                        "v": "674a514862ac",
+                        "v": "674a514861ab",
                         "serverJar": "$viperTools$/nailgun/nailgun.jar",
                         "clientExecutable": "$viperTools$/nailgun/ng",
                         "port": "*",
@@ -223,7 +223,7 @@
                 "viperSettings.viperServerSettings": {
                     "type": "object",
                     "default": {
-                        "v": "674a514862ac",
+                        "v": "674a514861ab",
                         "serverJars": {
                             "windows": "$viperTools$/backends/viper.jar",
                             "linux": "$viperTools$/backends/viper.jar",
@@ -240,7 +240,7 @@
                     "type": "array",
                     "default": [
                         {
-                            "v": "674a514862ac",
+                            "v": "674a514861ab",
                             "name": "silicon",
                             "type": "silicon",
                             "paths": [
@@ -255,10 +255,11 @@
                                     "mainMethod": "viper.silicon.SiliconRunner",
                                     "customArguments": "--ideMode --z3Exe $z3Exe$ $disableCaching$ $fileToVerify$"
                                 }
-                            ]
+                            ],
+                            "stoppingTimeout": 5000
                         },
                         {
-                            "v": "674a514862ac",
+                            "v": "674a514861ab",
                             "name": "carbon",
                             "type": "carbon",
                             "paths": [
@@ -273,7 +274,8 @@
                                     "mainMethod": "viper.carbon.Carbon",
                                     "customArguments": "--ideMode --z3Exe $z3Exe$ --boogieExe $boogieExe$ $disableCaching$ $fileToVerify$"
                                 }
-                            ]
+                            ],
+                            "stoppingTimeout": 5000
                         }
                     ],
                     "description": "The list of verification backends. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Verification%20Backends"
@@ -281,7 +283,7 @@
                 "viperSettings.paths": {
                     "type": "object",
                     "default": {
-                        "v": "674a514862ac",
+                        "v": "674a514861ab",
                         "viperToolsPath": {
                             "windows": "%ProgramFiles%\\Viper\\",
                             "linux": "/usr/local/Viper",
@@ -303,7 +305,7 @@
                 "viperSettings.preferences": {
                     "type": "object",
                     "default": {
-                        "v": "674a514862ac",
+                        "v": "674a514861ab",
                         "autoSave": true,
                         "logLevel": 5,
                         "autoVerifyAfterBackendChange": true,
@@ -319,7 +321,7 @@
                 "viperSettings.javaSettings": {
                     "type": "object",
                     "default": {
-                        "v": "674a514862ac",
+                        "v": "674a514861ab",
                         "customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$ -server $mainMethod$"
                     },
                     "description": "Settings used for running Java commands. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Java%20Settings"
@@ -327,7 +329,7 @@
                 "viperSettings.advancedFeatures": {
                     "type": "object",
                     "default": {
-                        "v": "674a514862ac",
+                        "v": "674a514861ab",
                         "enabled": false,
                         "showSymbolicState": false,
                         "simpleMode": true,
