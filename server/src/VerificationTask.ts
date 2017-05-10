@@ -4,7 +4,7 @@ import { SymbolInformation, SymbolKind } from 'vscode-languageserver-types/lib/m
 import child_process = require('child_process');
 import * as language_server from 'vscode-languageserver';
 import { Settings } from './Settings'
-import { Member, Common, ExecutionTrace, BackendOutput, BackendOutputType, SymbExLogEntry, Stage, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, Range, HeapGraph, VerificationState, LogLevel, Success } from './ViperProtocol'
+import { IDefinition, Definition, Member, Common, ExecutionTrace, BackendOutput, BackendOutputType, SymbExLogEntry, Stage, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, Range, HeapGraph, VerificationState, LogLevel, Success } from './ViperProtocol'
 import { Log } from './Log';
 import { BackendService } from './BackendService';
 import { Statement } from './Statement';
@@ -56,6 +56,7 @@ export class VerificationTask {
     shownExecutionTrace: ExecutionTrace[];
 
     symbolInformation: SymbolInformation[];
+    definitions: Definition[];
 
     constructor(fileUri: string) {
         this.fileUri = fileUri;
@@ -144,19 +145,6 @@ export class VerificationTask {
             return -1;
         } else if (a.position.line === b.position.line && a.position.character === b.position.character) {
             return (a.index < b.index) ? -1 : 1;
-        } else {
-            return 1;
-        }
-    }
-
-    private comparePosition(a: Position, b: Position): number {
-        if (!a && !b) return 0;
-        if (!a) return -1;
-        if (!b) return 1;
-        if (a.line < b.line || (a.line === b.line && a.character < b.character)) {
-            return -1;
-        } else if (a.line === b.line && a.character === b.character) {
-            return 0;
         } else {
             return 1;
         }
@@ -591,6 +579,12 @@ export class VerificationTask {
                         error = "The outline message needs to provide a list of members";
                     }
                     break;
+                case BackendOutputType.Definitions:
+                    //symbolInformation
+                    if (!json.definitions) {
+                        error = "The definitions message needs to provide a list of definitions";
+                    }
+                    break;
                 default:
                     error = "Unknown message type: " + json.type;
             }
@@ -716,6 +710,22 @@ export class VerificationTask {
                                     }
                                     let info: SymbolInformation = { name: m.name, kind: kind, location: location }
                                     this.symbolInformation.push(info);
+                                })
+                                break;
+                            case BackendOutputType.Definitions:
+                                this.definitions = [];
+                                json.definitions.forEach((def: IDefinition) => {
+                                    let start = (def.scopeStart == "global") ? null : Server.extractPosition(def.scopeStart);
+                                    let end = (def.scopeEnd == "global") ? null : Server.extractPosition(def.scopeEnd);
+                                    let pos = Server.extractPosition(def.location);
+                                    let location = language_server.Range.create(pos.pos.line, pos.pos.character, pos.pos.line, pos.pos.character);
+                                    let range: Range = null
+                                    if (start && end) {
+                                        range = language_server.Range.create(start.pos.line, start.pos.character, end.pos.line, end.pos.character);
+                                    }
+                                    let definition: Definition = new Definition(def, location, range);
+                                    this.definitions.push(definition);
+                                    //Log.log("Definition: " + JSON.stringify(definition), LogLevel.LowLevelDebug);
                                 })
                                 break;
                         }
@@ -868,7 +878,7 @@ export class VerificationTask {
             //TODO: is the detection right?
             for (let j = 0; j < this.diagnostics.length; j++) {
                 let diagnostic = this.diagnostics[j];
-                if (this.comparePosition(diagnostic.range.start, element.position) == 0) {
+                if (Common.comparePosition(diagnostic.range.start, element.position) == 0) {
                     element.isErrorState = true;
                     element.fillInConcreteValues(this.model);
                     break;

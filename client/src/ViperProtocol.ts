@@ -78,6 +78,8 @@ export class Commands {
     static CheckIfSettingsVersionsSpecified = "CheckIfSettingsVersionsSpecified";
 
     static FlushCache = "FlushCache";
+
+    static GetIdentifier = "GetIdentifier";
 }
 
 export interface GetExecutionTraceParams {
@@ -517,6 +519,7 @@ export class BackendOutputType {
     static PredicateVerified = "PredicateVerified";
     static Error = "Error";
     static Outline = "Outline";
+    static Definitions = "Definitions";
     static Success = "Success";
     static Stopped = "Stopped";
 }
@@ -538,6 +541,29 @@ export interface BackendOutput {
     errors?: Error[];
     //for Outline
     members?: Member[];
+    //for Definitions:
+    definitions?: IDefinition[];
+}
+
+export interface IDefinition {
+    type: string;
+    name: string;
+    location: string;
+    scopeStart: string;
+    scopeEnd: string;
+}
+
+export class Definition {
+    type: string;
+    name: string;
+    location: Range;
+    scope: Range;
+    constructor(def: IDefinition, location: Range, scope: Range) {
+        this.type = def.type;
+        this.name = def.name;
+        this.location = location
+        this.scope = scope;
+    }
 }
 
 export interface Member {
@@ -663,5 +689,18 @@ export class Common {
             return true;
 
         return false;
+    }
+
+    public static comparePosition(a: Position, b: Position): number {
+        if (!a && !b) return 0;
+        if (!a) return -1;
+        if (!b) return 1;
+        if (a.line < b.line || (a.line === b.line && a.character < b.character)) {
+            return -1;
+        } else if (a.line === b.line && a.character === b.character) {
+            return 0;
+        } else {
+            return 1;
+        }
     }
 }

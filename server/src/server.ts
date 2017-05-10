@@ -35,7 +35,8 @@ function registerHandlers() {
             DebugServer.initialize();
             return {
                 capabilities: {
-                    documentSymbolProvider: true
+                    documentSymbolProvider: true,
+                    definitionProvider: true
                 }
             }
         } catch (e) {
@@ -73,6 +74,7 @@ function registerHandlers() {
         let task = Server.verificationTasks.get(change.textDocument.uri.toString());
         if (task) {
             task.symbolInformation = [];
+            task.definitions = [];
         }
     });
 
@@ -82,6 +84,41 @@ function registerHandlers() {
             if (task) {
                 resolve(task.symbolInformation);
             } else {
+                reject();
+            }
+        })
+    });
+
+    Server.connection.onRequest('textDocument/definition', (args) => {
+        Log.log("Handling definitions request", LogLevel.Debug);
+        //Log.log("Args: "+ JSON.stringify(args), LogLevel.Debug);
+        return new Promise((resolve, reject) => {
+            try {
+                let document = args.textDocument;
+                let pos = args.position;
+                let task = Server.verificationTasks.get(document.uri.toString());
+                if (task) {
+                    //Log.log("Get Identifier", LogLevel.LowLevelDebug)
+                    Server.connection.sendRequest(Commands.GetIdentifier, pos).then((indentifier: string) => {
+                        //Log.log("Got Identifier", LogLevel.LowLevelDebug)
+                        task.definitions.forEach(def => {
+                            if (def.scope == null //global scope
+                                || (Common.comparePosition(def.scope.start, pos) <= 0 && Common.comparePosition(def.scope.end, pos) >= 0)) // in scope
+                            {
+                                if (indentifier == def.name) {
+                                    resolve({ uri: document.uri.toString(), range: def.location })
+                                    return;
+                                }
+                            }
+                        })
+                        reject("No definition found");
+                    })
+
+                } else {
+                    reject("file not found found");
+                }
+            } catch (e) {
+                Log.error("Error handling definitions request: " + e);
                 reject();
             }
         })

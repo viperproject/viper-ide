@@ -245,6 +245,18 @@ function registerHandlers() {
         State.client.onRequest(Commands.RequestRequiredVersion, () => {
             return getRequiredVersion();
         });
+        State.client.onRequest(Commands.GetIdentifier, (position) => {
+            try {
+                let range = vscode.window.activeTextEditor.document.getWordRangeAtPosition(new vscode.Position(position.line, position.character))
+                let res = vscode.window.activeTextEditor.document.getText(range);
+                if(res.indexOf(" ")> 0) return null
+                //Log.log("GetIdentifier: " + res, LogLevel.LowLevelDebug);
+                return res;
+            } catch (e) {
+                Log.error("Error getting indentifier: " + e);
+                return null;
+            }
+        });
         State.client.onRequest(Commands.CheckIfSettingsVersionsSpecified, () => {
             return checkIfSettingsVersionsSpecified();
         });
@@ -601,7 +613,7 @@ function considerStartingBackend(backendName: string) {
             manuallyTriggered: true,
             forceRestart: false,
             isViperServerEngine: false //TODO: how to set that correctly
-            
+
         }));
     } else {
         Log.log("No need to restart backend " + backendName, LogLevel.Info);

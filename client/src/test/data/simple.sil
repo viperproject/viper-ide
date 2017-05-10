@@ -23,3 +23,15 @@ method test2(xs: Seq[Ref]) {
   assert xs[0].f == 0
   assert forall i: Int :: 0 <= i && i <= 0 ==> xs[i].f == 0
 }
+
+method m() {
+  test0()
+  var a:Int := 1
+  if(a > 0){
+    var b:Int := 2
+  }else{
+    var c:Int := 3
+  }
+  c :=4
+}
+
