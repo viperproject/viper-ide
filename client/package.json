@@ -1,7 +1,7 @@
 {
     "name": "viper-experimental",
     "displayName": "Viper experimental",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "publisher": "viper-admin",
     "description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
     "license": "MIT",
@@ -212,7 +212,7 @@
                 "viperSettings.nailgunSettings": {
                     "type": "object",
                     "default": {
-                        "v": "674a514861ab",
+                        "v": "674a514867b1",
                         "serverJar": "$viperTools$/nailgun/nailgun.jar",
                         "clientExecutable": "$viperTools$/nailgun/ng",
                         "port": "*",
@@ -223,11 +223,17 @@
                 "viperSettings.viperServerSettings": {
                     "type": "object",
                     "default": {
-                        "v": "674a514861ab",
+                        "v": "674a514867b1",
                         "serverJars": {
-                            "windows": "$viperTools$/backends/viper.jar",
-                            "linux": "$viperTools$/backends/viper.jar",
-                            "mac": "$viperTools$/backends/viper.jar"
+                            "windows": [
+                                "$viperTools$/backends"
+                            ],
+                            "linux": [
+                                "$viperTools$/backends"
+                            ],
+                            "mac": [
+                                "$viperTools$/backends"
+                            ]
                         },
                         "customArguments": "--ideMode $backendSpecificCache$",
                         "backendSpecificCache": false,
@@ -240,7 +246,7 @@
                     "type": "array",
                     "default": [
                         {
-                            "v": "674a514861ab",
+                            "v": "674a514867b1",
                             "name": "silicon",
                             "type": "silicon",
                             "paths": [
@@ -259,7 +265,7 @@
                             "stoppingTimeout": 5000
                         },
                         {
-                            "v": "674a514861ab",
+                            "v": "674a514867b1",
                             "name": "carbon",
                             "type": "carbon",
                             "paths": [
@@ -283,7 +289,7 @@
                 "viperSettings.paths": {
                     "type": "object",
                     "default": {
-                        "v": "674a514861ab",
+                        "v": "674a514867b1",
                         "viperToolsPath": {
                             "windows": "%ProgramFiles%\\Viper\\",
                             "linux": "/usr/local/Viper",
@@ -305,7 +311,7 @@
                 "viperSettings.preferences": {
                     "type": "object",
                     "default": {
-                        "v": "674a514861ab",
+                        "v": "674a514867b1",
                         "autoSave": true,
                         "logLevel": 5,
                         "autoVerifyAfterBackendChange": true,
@@ -321,7 +327,7 @@
                 "viperSettings.javaSettings": {
                     "type": "object",
                     "default": {
-                        "v": "674a514861ab",
+                        "v": "674a514867b1",
                         "customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$ -server $mainMethod$"
                     },
                     "description": "Settings used for running Java commands. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Java%20Settings"
@@ -329,7 +335,7 @@
                 "viperSettings.advancedFeatures": {
                     "type": "object",
                     "default": {
-                        "v": "674a514861ab",
+                        "v": "674a514867b1",
                         "enabled": false,
                         "showSymbolicState": false,
                         "simpleMode": true,

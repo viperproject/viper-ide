@@ -93,7 +93,6 @@ export class VerificationController {
     private progressUpdater;
     private progressLabel = "";
     private lastProgress: number;
-
     private lastState: VerificationState = VerificationState.Stopped;
 
     //for autoverify all viper files in workspace
@@ -268,10 +267,12 @@ export class VerificationController {
                             break;
                         case TaskType.Verifying:
                             if (!State.isVerifying) {
+                                //verification done
                                 task.type = NoOp;
                                 State.hideProgress();
                             } else {
                                 let timedOut = task.hasTimedOut();
+                                //should the verification be aborted?
                                 if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri))//if another verification is requested, the current one must be stopped
                                     || stopFound
                                     || viperToolsUpdateFound

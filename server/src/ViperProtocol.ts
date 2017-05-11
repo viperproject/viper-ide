@@ -27,8 +27,6 @@ export class Commands {
     static Hint = "Hint";//message: string
     //Server tells client to show progress
     static Progress = "Progress";//message: {domain:string, curr:number, total:number}
-    //Server informs client about ongoing backend change
-    static BackendChange = "BackendChange";//name: string
     //Server is informing client about opened file
     static FileOpened = "FileOpened";//uri: string
     //Server is informing client about closed file
@@ -41,10 +39,8 @@ export class Commands {
     static BackendReady = "BackendReady";//BackendReadyParams
     static StepsAsDecorationOptions = "StepsAsDecorationOptions";//StepsAsDecorationOptionsResult
     static HeapGraph = "HeapGraph";//HeapGraph
-    //static StateSelected = "StateSelected";
 
     //CLIENT TO SERVER
-    //static SelectBackend = "SelectBackend";
     //Client asks server for the list of backend names
     static RequestBackendNames = "RequestBackendNames";//void
     //Client tells server to dispose itself
@@ -62,23 +58,21 @@ export class Commands {
     static SwapBackend = "SwapBackend";//backendName:string
     //Request a list of all states that led to the current state
     static GetExecutionTrace = "GetExecutionTrace";//GetExecutionTraceParams -> trace:ExecutionTrace[]
-    //Request the path to the dot executable from the language server
-    //static GetDotExecutable = "GetDotExecutable";//void -> dotExecutable:string
 
     //remove the diagnostics in the file specified by uri
     static RemoveDiagnostics = "RemoveDiagnostics";
 
     //update the viper tools
     static UpdateViperTools = "UpdateViperTools";
-
+    //The server requests the custom file endings specified in the configuration
     static GetViperFileEndings = "GetViperFileEndings";
-
+    //The server notifies the client about the completed update
     static ViperUpdateComplete = "ViperUpdateComplete";
-
+    //the server requests a check of the settings.json files from the client
     static CheckIfSettingsVersionsSpecified = "CheckIfSettingsVersionsSpecified";
-
+    //The client requests the cache in the viperserver to be flushed, (either completely or for a file)
     static FlushCache = "FlushCache";
-
+    //The server requests the identifier at some location in the current file to answer the gotoDefinition request
     static GetIdentifier = "GetIdentifier";
 }
 

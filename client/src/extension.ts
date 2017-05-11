@@ -39,7 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     lastVersionWithSettingsChange = {
         nailgunSettingsVersion: "0.6.1",
-        viperServerSettingsVersion: "1.0.1",
+        viperServerSettingsVersion: "1.0.4",
         backendSettingsVersion: "1.0.2",
         pathSettingsVersion: "1.0.1",
         userPreferencesVersion: "0.6.1",

@@ -236,7 +236,7 @@ function ViperToolsUpdateTest() {
             setTimeout(() => {
                 stopVerification()
             }, 1000)
-            
+
             verify();
 
             waitForAbort().then(() => {
@@ -545,6 +545,10 @@ function ViperIdeStressTests() {
                 return waitForVerification(SIMPLE, CARBON);
             }).then(() => {
                 //verified
+                selectBackend(SILICON);
+                //backend ready
+                return waitForVerification(SIMPLE, SILICON);
+            }).then(() => {
                 done();
             })
         });

@@ -31,3 +31,9 @@ set JAVA_OPTS=-Xms2G -Xmx4G
 sbt assembly
 sbt test:compile
 java -cp "target/scala-2.11/carbon.jar;target/scala-2.11/classes/;../silver/target/scala-2.11/silver_2.11-0.1-SNAPSHOT-tests-sources.jar" -Xss64m org.scalatest.tools.Runner -s viper.carbon.AllTests -u target\test-reports -o
+
+
+
+//Macro issue:
+
+silicon --disableCaching --logLevel trace --z3Exe "C:\Program Files (x86)\Viper\z3\bin\z3.exe" "c:\Users\Neptun\Documents\ETH\viper-ide\client\src\test\data\testing.sil"

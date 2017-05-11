@@ -90,7 +90,7 @@ function registerHandlers() {
     });
 
     Server.connection.onRequest('textDocument/definition', (args) => {
-        Log.log("Handling definitions request", LogLevel.Debug);
+        //Log.log("Handling definitions request", LogLevel.Debug);
         //Log.log("Args: "+ JSON.stringify(args), LogLevel.Debug);
         return new Promise((resolve, reject) => {
             try {
