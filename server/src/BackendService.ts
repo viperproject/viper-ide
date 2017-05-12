@@ -112,7 +112,7 @@ export abstract class BackendService {
     }
 
     protected startTimeout(instanceCount: number) {
-        let timeout = Settings.settings.nailgunSettings.timeout
+        let timeout = Settings.settings.viperServerSettings.timeout
         if (timeout) {
             this.timeout = setTimeout(() => {
                 if (!this.isReady() && this.instanceCount == instanceCount) {

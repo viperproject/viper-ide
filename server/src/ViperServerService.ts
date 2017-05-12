@@ -54,7 +54,7 @@ export class ViperServerService extends BackendService {
 
                     //request exit
                     Log.log("Request exit from ViperServer", LogLevel.Debug);
-                    this.emit('exit');//TODO:check if communication works
+                    this.emit('exit');
                     this.backendProcess = null;
                 } else {
                     this.setStopped();
@@ -62,6 +62,10 @@ export class ViperServerService extends BackendService {
                 }
             } catch (e) {
                 Log.error("Error stopping viper server: " + e);
+                if(e.toString().indexOf("This socket has been ended by the other party") >0){
+                    this.setStopped();
+                    return resolve(true);
+                }
                 resolve(false);
             }
         });

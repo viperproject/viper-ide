@@ -8,7 +8,6 @@ import { IPCMessageReader, IPCMessageWriter, Location, Position, Range, createCo
 import { Log } from './Log';
 import { Settings } from './Settings'
 import { Backend, Common, StateColors, ExecutionTrace, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams } from './ViperProtocol'
-import { NailgunService } from './NailgunService';
 import { VerificationTask } from './VerificationTask';
 import { Statement } from './Statement';
 import { DebugServer } from './DebugServer';
@@ -28,7 +27,6 @@ Server.connection.listen();
 
 function registerHandlers() {
     //starting point (executed once)
-    //TODO: somehow this is never executed, why?
     Server.connection.onInitialize((params): InitializeResult => {
         try {
             Log.log("Debug Server is initializing", LogLevel.LowLevelDebug);
@@ -58,10 +56,6 @@ function registerHandlers() {
             Log.log('Configuration changed', LogLevel.Info);
             let oldSettings = Settings.settings;
             Settings.settings = <ViperSettings>change.settings.viperSettings;
-            if (oldSettings && Settings.settings.nailgunSettings.port == "*") {
-                //When the new settings contain a wildcard port, keep using the same
-                Settings.settings.nailgunSettings.port = oldSettings.nailgunSettings.port;
-            }
             Log.logLevel = Settings.settings.preferences.logLevel; //after this line, Logging works
             Server.refreshEndings();
             Settings.initiateBackendRestartIfNeeded(oldSettings);
@@ -268,7 +262,6 @@ function registerHandlers() {
                     }
                 });
 
-                //Server.nailgunService.stopNailgunServer();
                 console.log("dispose language server");
                 Server.backendService.kill();
                 resolve();
@@ -427,10 +420,10 @@ function checkSettingsAndStartServer(backendName: string) {
             Server.backendService.setReady(backend);
         } else {
             Server.backendService.setStopped();
-            Log.log("The nailgun server could not be started.", LogLevel.Debug);
+            Log.log("The ViperServer could not be started.", LogLevel.Debug);
         }
     }).catch(reason => {
-        Log.error("startNailgunServer failed: " + reason);
+        Log.error("startViperServer failed: " + reason);
         Server.backendService.kill();
     });
 }
@@ -442,11 +435,5 @@ function changeBackendEngineIfNeeded(backend: Backend) {
             Log.error("A backend change should not happen during an active verification.")
         }
         Server.backendService = new ViperServerService();
-    } else if (Settings.useNailgunServer(backend) && (!Server.backendService || Server.backendService.isViperServerService)) {
-        Log.log("Start new NailgunService", LogLevel.LowLevelDebug)
-        if (Server.backendService.isSessionRunning) {
-            Log.error("A backend change should not happen during an active verification.")
-        }
-        Server.backendService = new NailgunService();
     }
 }

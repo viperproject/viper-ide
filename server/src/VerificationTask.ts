@@ -406,16 +406,8 @@ export class VerificationTask {
                     error: this.internalErrorMessage
                 }, this);
 
-                //is there the need to restart nailgun?
                 if (code != 0 && code != 1 && code != 899) {
                     Log.log("Verification Backend Terminated Abnormaly: with code " + code, LogLevel.Debug);
-                    if (code == null) {
-                        //this.nailgunService.setStopping();
-                        Server.backendService.stopVerification()
-                        // .then(resolve => {
-                        //     this.nailgunService.startOrRestartNailgunServer(Server.backend, false);
-                        // });
-                    }
                 }
             } else {
                 success = Success.Success;
@@ -479,19 +471,11 @@ export class VerificationTask {
             let stage = Server.stage();
             let message: string;
             let backendAndStage = "backend: " + Server.backend.name + " stage: " + Server.stage().name;
-            if (data.startsWith("NailGun v")) {
-                let hintMessage = "Wrong arguments for nailgun: Fix the customArguments in the settings of " + backendAndStage;
-                Log.hint(hintMessage);
-            }
-            else if (data.startsWith("connect: No error")) {
-                let hintMessage = "No Nailgun server is running on port " + Settings.settings.nailgunSettings.port + ": is your nailgun correctly linked in the settings?";
-                Log.hint(hintMessage);
-            }
             if (data.startsWith("java.lang.NullPointerException")) {
                 message = "A nullpointer exception happened in " + backendAndStage;
             }
             else if (data.startsWith("java.lang.ClassNotFoundException:")) {
-                message = "Class " + Server.stage().mainMethod + " is unknown to Nailgun\nFix the backend settings for " + Server.backend.name;
+                message = "Class " + Server.stage().mainMethod + " is unknown\nFix the backend settings for " + Server.backend.name;
             }
             else if (data.startsWith("java.io.IOException: Stream closed")) {
                 message = "A concurrency error occured, try again. Original Error message: " + data;

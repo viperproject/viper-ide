@@ -98,7 +98,6 @@ export class DebugServer {
                             let uri = Common.pathToUri(data.program);
                             Server.debuggedVerificationTask = Server.verificationTasks.get(uri);
                             let response = "true";
-                            //TODO: is this a good criterion?
                             if (!Server.debuggedVerificationTask || Server.debuggedVerificationTask.state != VerificationState.Ready) {
                                 Log.hint("Cannot debug file, you must first verify the file: " + uri);
                                 response = "false";

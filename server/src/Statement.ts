@@ -148,7 +148,6 @@ export class Statement {
                 result.push({ name: parts[0].trim(), type: variable.type, value: parts[1].trim(), variablesReference: 0 });
             }
             else {
-                //TODO: make sure this doesn't happen
                 Log.log("Warning: unexpected format in store: expected: a -> b, found: " + variable, LogLevel.Debug);
                 result.push({ name: variable.value, type: variable.type, value: "unknown", variablesReference: 0 });
             }

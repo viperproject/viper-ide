@@ -3,11 +3,10 @@
 import fs = require('fs');
 import * as pathHelper from 'path';
 import { Log } from './Log';
-import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, SettingsErrorType, SettingsError, NailgunSettings, Commands, Success, ViperSettings, Stage, Backend, LogLevel } from './ViperProtocol';
+import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, SettingsErrorType, SettingsError, Commands, Success, ViperSettings, Stage, Backend, LogLevel } from './ViperProtocol';
 import { Server } from './ServerClass';
 import { BackendService } from './BackendService';
 import { ViperServerService } from './ViperServerService';
-import { NailgunService } from './NailgunService';
 const os = require('os');
 var portfinder = require('portfinder');
 
@@ -77,16 +76,11 @@ export class Settings {
     }
 
     private static resolveEngine(engine: string) {
-        if (engine && (engine.toLowerCase() == "viperserver" || engine.toLowerCase() == "nailgun")) {
+        if (engine && (engine.toLowerCase() == "viperserver")) {
             return engine;
         } else {
             return "none";
         }
-    }
-
-    public static useNailgunServer(backend: Backend) {
-        if (!backend || !backend.engine) return false;
-        return backend.engine.toLowerCase() == "nailgun";
     }
 
     public static useViperServer(backend: Backend) {
@@ -106,28 +100,18 @@ export class Settings {
         return same;
     }
 
-    public static nailgunEquals(newSettings: NailgunSettings, oldSettings: NailgunSettings): boolean {
-        let same = oldSettings.clientExecutable == newSettings.clientExecutable;
-        same = same && oldSettings.port == newSettings.port;
-        same = same && oldSettings.serverJar == newSettings.serverJar;
-        same = same && oldSettings.timeout == newSettings.timeout;
-        return same;
-    }
-
     static expandCustomArguments(args: string, stage: Stage, fileToVerify: string, backend: Backend): string {
         //Log.log("Command before expanding: " + args,LogLevel.LowLevelDebug);
         args = args.replace(/\s+/g, ' '); //remove multiple spaces
         args = args.replace(/\$z3Exe\$/g, '"' + this.settings.paths.z3Executable + '"');
-        args = args.replace(/\$ngExe\$/g, '"' + this.settings.nailgunSettings.clientExecutable + '"');
         args = args.replace(/\$boogieExe\$/g, '"' + this.settings.paths.boogieExecutable + '"');
         args = args.replace(/\$mainMethod\$/g, stage.mainMethod);
-        args = args.replace(/\$nailgunPort\$/g, this.settings.nailgunSettings.port);
         args = args.replace(/\$backendPaths\$/g, Settings.backendJars(backend));
         args = args.replace(/\$disableCaching\$/g, (Settings.settings.viperServerSettings.disableCaching === true ? "--disableCaching" : ""));
         args = args.replace(/\$fileToVerify\$/g, '"' + fileToVerify + '"');
         args = args.replace(/\s+/g, ' '); //remove multiple spaces
         //Log.log("Command after expanding: " + args.trim(),LogLevel.LowLevelDebug);
-        
+
         return args.trim();
     }
 
@@ -181,21 +165,6 @@ export class Settings {
         return this._upToDate;
     }
 
-    public static setNailgunPort(nailgunSettings: NailgunSettings): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            if (!nailgunSettings.port || nailgunSettings.port == "*") {
-                //use a random port
-                portfinder.getPort(function (err, port) {
-                    Log.log("nailgun port is chosen as: " + port, LogLevel.Debug);
-                    nailgunSettings.port = port;
-                    resolve(true);
-                });
-            } else {
-                resolve(true);
-            }
-        });
-    }
-
     private static viperServerRelatedSettingsChanged(oldSettings: ViperSettings) {
         if (!oldSettings) return true;
         if ((<string[]>oldSettings.viperServerSettings.serverJars).length != (<string[]>this.settings.viperServerSettings.serverJars).length)
@@ -228,7 +197,6 @@ export class Settings {
                     Log.log("check if restart needed", LogLevel.LowLevelDebug);
                     let backendChanged = !Settings.backendEquals(Server.backend, newBackend) //change in backend
                     let mustRestartBackend = !Server.backendService.isReady() //backend is not ready -> restart
-                        || (oldSettings && (this.useNailgunServer(newBackend) && (!Settings.nailgunEquals(Settings.settings.nailgunSettings, oldSettings.nailgunSettings)))) //backend needs nailgun and nailgun settings changed
                         || viperToolsUpdated //Viper Tools Update might have modified the binaries
                         || (Server.backendService.isViperServerService != this.useViperServer(newBackend)) //the new backend requires another engine type
                         || (Settings.useViperServer(newBackend) && this.viperServerRelatedSettingsChanged(oldSettings)) // the viperServerSettings changed
@@ -238,8 +206,6 @@ export class Settings {
                         Server.verificationTasks.forEach(task => task.resetLastSuccess());
                         Server.sendStartBackendMessage(Server.backend.name, mustRestartBackend, Settings.useViperServer(newBackend));
                     } else {
-                        //In case the backend does not need to be restarted, retain the port
-                        if (oldSettings) { Settings.settings.nailgunSettings.port = oldSettings.nailgunSettings.port; }
                         Log.log("No need to restart backend. It is still the same", LogLevel.Debug)
                         Server.backend = newBackend;
                         Server.sendBackendReadyNotification({
@@ -255,33 +221,6 @@ export class Settings {
                 Server.backendService.stop();
             }
         });
-    }
-
-    private static checkNailgunSettings(nailgunSettings: NailgunSettings): string {
-        //check nailgun port
-        if (!/^(\*|\d+)$/.test(nailgunSettings.port)) {
-            this.addError("Invalid NailgunPort: " + nailgunSettings.port);
-        } else {
-            try {
-                let port = Number.parseInt(nailgunSettings.port);
-                if (port < 1024 || port > 65535) {
-                    this.addError("Invalid NailgunPort: please use a port in the range of 1024 - 65535");
-                }
-            } catch (e) {
-                this.addError("viperSettings.nailgunSettings.port needs to be an integer or *");
-            }
-        }
-        //check nailgun jar
-        if (!nailgunSettings.serverJar || nailgunSettings.serverJar.length == 0) {
-            this.addError("Path to nailgun server jar is missing");
-        } else {
-            nailgunSettings.serverJar = Settings.checkPath(nailgunSettings.serverJar, "Nailgun Server:", false, false).path
-        }
-        //check nailgun client
-        nailgunSettings.clientExecutable = Settings.checkPath(nailgunSettings.clientExecutable, "Nailgun Client:", true, true).path
-        //check nailgun timeout
-        nailgunSettings.timeout = this.checkTimeout(nailgunSettings.timeout, "nailgunSettings:");
-        return null;
     }
 
     private static addError(msg: string) {
@@ -305,9 +244,6 @@ export class Settings {
             }
             if (Version.createFromVersion(requiredVersions.javaSettingsVersion).compare(Version.createFromHash(settings.javaSettings.v)) > 0) {
                 oldSettings.push("javaSettings");
-            }
-            if (Version.createFromVersion(requiredVersions.nailgunSettingsVersion).compare(Version.createFromHash(settings.nailgunSettings.v)) > 0) {
-                oldSettings.push("nailgunSettings");
             }
             if (Version.createFromVersion(requiredVersions.viperServerSettingsVersion).compare(Version.createFromHash(settings.viperServerSettings.v)) > 0) {
                 oldSettings.push("viperServerSettings");
@@ -404,11 +340,6 @@ export class Settings {
                         })
                     }
                     Settings.checkBackends(settings.verificationBackends);
-                    //check nailgun settings
-                    let nailgunRequired = settings.verificationBackends.some(elem => this.useNailgunServer(elem));
-                    if (nailgunRequired) {
-                        this.checkNailgunSettings(settings.nailgunSettings);
-                    }
 
                     //check ViperServer related settings
                     let viperServerRequired = settings.verificationBackends.some(elem => this.useViperServer(elem));
@@ -490,8 +421,9 @@ export class Settings {
         return stringURL;
     }
 
+    //TODO: FIX THIS METHOD
     private static checkPaths(paths: (string | string[] | PlatformDependentPath | PlatformDependentListOfPaths), prefix: string): string[] {
-        //Log.log("checkPaths(" + JSON.stringify(paths) + ")", LogLevel.LowLevelDebug);
+        Log.log("checkPaths(" + JSON.stringify(paths) + ")", LogLevel.LowLevelDebug);
         let result: string[] = []
         let stringPaths: string[] = []
         if (!paths) {
@@ -521,14 +453,14 @@ export class Settings {
         if (stringPaths.length == 0) {
             this.addError(prefix + ' path has wrong type: expected: string | string[] | {windows:(string|string[]), mac:(string|string[]), linux:(string|string[])}, found: ' + typeof paths + " at path: " + JSON.stringify(paths));
         }
-        stringPaths = stringPaths.filter(stringPath => {
+
+        //resolve the paths
+        stringPaths = stringPaths.map(stringPath => {
             let resolvedPath = Settings.resolvePath(stringPath, false);
             if (!resolvedPath.exists) {
                 this.addError(prefix + ' path not found: "' + stringPath + '"' + (resolvedPath.path != stringPath ? ' which expands to "' + resolvedPath.path + '"' : "") + (" " + (resolvedPath.error || "")));
-                return false;
-            } else {
-                return true
             }
+            return resolvedPath.path
         });
         // Log.log("resolved Paths: " + JSON.stringify(stringPaths), LogLevel.LowLevelDebug);
         result.push(...this.getAllJarsInPaths(stringPaths, false));

@@ -3,7 +3,6 @@ import { ViperServerService } from './ViperServerService';
 
 import { IConnection, TextDocuments, PublishDiagnosticsParams } from 'vscode-languageserver';
 import { Common, ProgressParams, Command, LogParams, SettingsCheckedParams, Position, Range, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel } from './ViperProtocol'
-import { NailgunService } from './NailgunService';
 import { BackendService } from './BackendService';
 import { VerificationTask } from './VerificationTask';
 import { Log } from './Log';
@@ -21,22 +20,20 @@ export class Server {
     static tempDirectory: string = pathHelper.join(os.tmpdir(), ".vscode");
     static backendOutputDirectory: string = os.tmpdir();
     static executedStages: Stage[];
+    static connection: IConnection;
+    static documents: TextDocuments = new TextDocuments();
+    static verificationTasks: Map<string, VerificationTask> = new Map();
+    static backendService: BackendService = new ViperServerService();
+    static debuggedVerificationTask: VerificationTask;
+    static startingOrRestarting: boolean = false;
+    static viperFileEndings: string[];
+
     static stage(): Stage {
         if (this.executedStages && this.executedStages.length > 0) {
             return this.executedStages[this.executedStages.length - 1];
         }
         else return null;
     }
-    static connection: IConnection;
-    static documents: TextDocuments = new TextDocuments();
-    static verificationTasks: Map<string, VerificationTask> = new Map();
-    static backendService: BackendService = new ViperServerService();
-    static debuggedVerificationTask: VerificationTask;
-
-    static startingOrRestarting: boolean = false;
-    //static usedNailgunPort: string;
-
-    static viperFileEndings: string[];
 
     static refreshEndings(): Promise<boolean> {
         return new Promise((resolve, reject) => {
@@ -412,9 +409,8 @@ export class Server {
                 if (success) {
                     Log.log("Extracting ViperTools finished " + (success ? "" : "un") + "successfully", LogLevel.Info);
                     if (success) {
-                        //chmod to allow the execution of ng and zg files
+                        //chmod to allow the execution of boogie and z3 files
                         if (Settings.isLinux || Settings.isMac) {
-                            fs.chmodSync(pathHelper.join(dir, "nailgun", "ng"), '755') //755 is for (read, write, execute)
                             fs.chmodSync(pathHelper.join(dir, "z3", "bin", "z3"), '755') //755 is for (read, write, execute)
                             fs.chmodSync(pathHelper.join(dir, "boogie", "Binaries", "Boogie.exe"), '755');
                             fs.chmodSync(pathHelper.join(dir, "boogie", "Binaries", "Boogie"), '755');
@@ -444,7 +440,6 @@ export class Server {
         }
     }
 
-    //TODO: test on windows and linux
     public static sudoMakeSureFileExistsAndSetOwner(filePath: string): Promise<string> {
         return new Promise((resolve, reject) => {
             let command: string;
@@ -467,7 +462,7 @@ export class Server {
     public static checkForCreateAndWriteAccess(folderPath: string): Promise<string> {
         return new Promise((resolve, reject) => {
             if (!folderPath) {
-                resolve("No access"); //TODO: when does that happens?
+                resolve("No access");
             }
             fs.stat((folderPath), (err, stats) => {
                 if (err) {

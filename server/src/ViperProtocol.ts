@@ -312,8 +312,6 @@ export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE, UNKONWN };
 ////////////////////////////////////////////////////
 
 export interface ViperSettings {
-    //All nailgun related settings
-    nailgunSettings: NailgunSettings;
     //All viperServer related settings
     viperServerSettings: ViperServerSettings;
     //Description of backends
@@ -330,17 +328,6 @@ export interface ViperSettings {
 
 export interface VersionedSettings { v: string; }
 
-export interface NailgunSettings extends VersionedSettings {
-    //The path to the nailgun server jar.
-    serverJar: string;
-    //The path to the nailgun client executable 
-    clientExecutable: string | PlatformDependentPath;
-    //The port used for the communication between nailgun client and server
-    port: string;
-    //After timeout ms the startup of the nailgun server is expected to have failed and thus aborted
-    timeout: number;
-}
-
 export interface ViperServerSettings extends VersionedSettings {
     //Locator to the ViperServer jars
     serverJars: string | string[] | PlatformDependentPath | PlatformDependentListOfPaths;
@@ -350,7 +337,7 @@ export interface ViperServerSettings extends VersionedSettings {
     backendSpecificCache: boolean;
     //disable the caching mechanism
     disableCaching: boolean;
-    //After timeout ms the startup of the nailgun server is expected to have failed and thus aborted
+    //After timeout ms the startup of the viperServer is expected to have failed and thus aborted
     timeout: number;
 }
 
@@ -361,7 +348,7 @@ export interface Backend extends VersionedSettings {
     type: string;
     //List of paths locating all used jar files, the files can be addressed directly or via folder, in which case all jar files in the folder are included
     paths: string[];
-    //The engine used for verification: "ViperServer", "Nailgun", or "none"
+    //The engine used for verification: "ViperServer", or "none"
     engine: string;
     //After timeout ms the verification is expected to be non terminating and is thus aborted.
     timeout: number;
@@ -378,7 +365,7 @@ export interface Stage {
     isVerification: boolean;
     //The method to invoke when staring the stage
     mainMethod: string;
-    //the commandline arguments for the nailgun client (or java, when useNailgun is disabled)
+    //the commandline arguments for the java engine
     customArguments: string;
     //The name of the stage to start in case of a parsing error
     onParsingError: string;
@@ -472,7 +459,6 @@ export interface Progress {
 }
 
 export interface Versions {
-    nailgunSettingsVersion: string;
     viperServerSettingsVersion: string;
     backendSettingsVersion: string;
     pathSettingsVersion: string;

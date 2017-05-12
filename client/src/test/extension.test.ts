@@ -240,7 +240,7 @@ function ViperToolsUpdateTest() {
             verify();
 
             waitForAbort().then(() => {
-                return checkForRunningProcesses(false, false, false, true);
+                return checkForRunningProcesses(false, false, true);
                 //return wait(1000);
             }).then(ok => {
                 //aborted
@@ -279,7 +279,7 @@ function ViperIdeTests() {
 
                 return waitForAbort();
             }).then(() => {
-                return checkForRunningProcesses(true, false, true, true);
+                return checkForRunningProcesses(false, true, true);
             }).then(ok => {
                 //aborted
                 //reverify longDuration viper file
@@ -603,7 +603,7 @@ function FinishViperIdeTests() {
             TestContext.dispose();
 
             wait(5000).then(() => {
-                return checkForRunningProcesses(true, true, true, true);
+                return checkForRunningProcesses(true, true, true);
             }).then(ok => {
                 if (ok) {
                     done();
@@ -613,15 +613,14 @@ function FinishViperIdeTests() {
     })
 }
 
-function checkForRunningProcesses(checkNg: boolean, checkJava: boolean, checkBoogie: boolean, checkZ3: boolean): Thenable<boolean> {
+function checkForRunningProcesses(checkJava: boolean, checkBoogie: boolean, checkZ3: boolean): Thenable<boolean> {
     return new Promise((resolve, reject) => {
         let command: string;
         if (State.isWin) {
             let terms = [];
-            if (checkNg || checkJava) {
+            if (checkJava) {
                 let term = `(CommandLine like "%Viper%" and (`;
                 let innerTerms = [];
-                if (checkNg) innerTerms.push('name="ng.exe"');
                 if (checkJava) innerTerms.push('name="java.exe"');
                 term += innerTerms.join(' or ');
                 term += '))'
@@ -632,9 +631,8 @@ function checkForRunningProcesses(checkNg: boolean, checkJava: boolean, checkBoo
             command = `wmic process where '` + terms.join(' or ') + `' get ParentProcessId,ProcessId,Name,CommandLine`
         } else {
             let terms = [];
-            if (checkNg) terms.push('pgrep -x -l -u "$UID" ng');
             if (checkZ3) terms.push('pgrep -x -l -u "$UID" z3')
-            if (checkJava) terms.push('pgrep -l -u "$UID" -f nailgun')
+            if (checkJava) terms.push('pgrep -l -u "$UID" java')
             if (checkBoogie) terms.push('pgrep -x -l -u "$UID" Boogie');
             command = terms.join('; ');
         }

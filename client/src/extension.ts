@@ -38,7 +38,6 @@ export function activate(context: vscode.ExtensionContext) {
     Log.log('The current version of ' + ownPackageJson.displayName + ' is: v.' + ownPackageJson.version, LogLevel.Info);
 
     lastVersionWithSettingsChange = {
-        nailgunSettingsVersion: "0.6.1",
         viperServerSettingsVersion: "1.0.4",
         backendSettingsVersion: "1.0.2",
         pathSettingsVersion: "1.0.1",
@@ -82,7 +81,6 @@ export function deactivate(): Promise<any> {
         Log.log("deactivate", LogLevel.Info);
         State.dispose().then(() => {
             Log.log("State disposed", LogLevel.Debug);
-            //TODO: make sure no doc contains special chars any more
             let oldFile = State.getLastActiveFile();
             if (oldFile) {
                 Log.log("Removing special chars of last opened file.", LogLevel.Debug);
@@ -723,7 +721,8 @@ function checkIfSettingsVersionsSpecified(): Thenable<SettingsError[]> {
     })
 }
 
-let settings = ["viperSettings.nailgunSettings",
+let settings = [
+    "viperSettings.viperServerSettings",
     "viperSettings.paths",
     "viperSettings.preferences",
     "viperSettings.javaSettings",
