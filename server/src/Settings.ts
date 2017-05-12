@@ -346,6 +346,9 @@ export class Settings {
                     if (viperServerRequired) {
                         //check viperServer path
                         settings.viperServerSettings.serverJars = this.checkPaths(settings.viperServerSettings.serverJars, "viperServerPath:");
+                        if(this.viperServerJars().trim().length == 0){
+                            this.addError("Missing viper server jars at paths: " + JSON.stringify(settings.viperServerSettings.serverJars))
+                        }
                         //check viperServerTimeout
                         settings.viperServerSettings.timeout = this.checkTimeout(settings.viperServerSettings.timeout, "viperServerSettings:");
                         //check the customArguments
@@ -461,6 +464,10 @@ export class Settings {
             }
             return resolvedPath.path
         });
+        if (stringPaths.length == 0) {
+            this.addError(prefix + ' no file found at at path: ' + JSON.stringify(paths));
+        }
+        //Log.log("checkPaths result: (" + JSON.stringify(stringPaths) + ")", LogLevel.LowLevelDebug);
         return stringPaths;
     }
 
