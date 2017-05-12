@@ -632,14 +632,14 @@ function checkForRunningProcesses(checkJava: boolean, checkBoogie: boolean, chec
         } else if (State.isMac) {
             let terms = [];
             if (checkZ3) terms.push('pgrep -x -l -u "$UID" z3')
-            if (checkJava) terms.push('pgrep -l -u "$UID" java')
+            if (checkJava) terms.push('pgrep -l -u "$UID" -f Viper')
             if (checkBoogie) terms.push('pgrep -x -l -u "$UID" Boogie');
             command = terms.join('; ');
         }
         else {
             let terms = [];
             if (checkZ3) terms.push('pgrep -x -l -u "$(whoami)" z3')
-            if (checkJava) terms.push('pgrep -l -u "$(whoami)" java')
+            if (checkJava) terms.push('pgrep -l -u "$(whoami)" -f Viper')
             if (checkBoogie) terms.push('pgrep -x -l -u "$(whoami)" Boogie');
             command = terms.join('; ');
         }
