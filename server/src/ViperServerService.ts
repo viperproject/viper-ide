@@ -24,6 +24,8 @@ export class ViperServerService extends BackendService {
 
             Server.startingOrRestarting = true;
             this.startTimeout(++this.instanceCount);
+            
+        let errorReason = "";
             this.backendProcess = child_process.exec(command, { maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, cwd: Server.backendOutputDirectory });
             this.backendProcess.stdout.on('data', (data: string) => {
                 Log.logWithOrigin("VS", data, LogLevel.LowLevelDebug);
@@ -32,6 +34,12 @@ export class ViperServerService extends BackendService {
                     resolve(true);
                 }
             });
+            this.backendProcess.stderr.on('data',(data:string) =>{
+                 errorReason = errorReason += "\n" + data;
+            })
+            this.backendProcess.on("exit",code=>{
+                reject("startupFailed: " + errorReason);
+            })
         })
     }
 

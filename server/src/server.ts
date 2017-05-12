@@ -423,8 +423,16 @@ function checkSettingsAndStartServer(backendName: string) {
             Log.log("The ViperServer could not be started.", LogLevel.Debug);
         }
     }).catch(reason => {
-        Log.error("startViperServer failed: " + reason);
-        Server.backendService.kill();
+        if (reason.startsWith("startupFailed")) {
+            Log.hint("The ViperServer startup failed, make sure the dependencies are not missing/conflicting.",true,true)
+            Log.error("ViperServer: " + reason);
+            Server.backendService.setStopped();
+            //prevent the timeout from happening
+            Server.backendService.instanceCount++;
+        } else {
+            Log.error("startViperServer failed: " + reason);
+            Server.backendService.kill();
+        }
     });
 }
 

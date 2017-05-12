@@ -116,7 +116,7 @@ export abstract class BackendService {
         if (timeout) {
             this.timeout = setTimeout(() => {
                 if (!this.isReady() && this.instanceCount == instanceCount) {
-                    Log.hint("The backend server startup timed out after " + timeout + "ms");
+                    Log.hint("The backend server startup timed out after " + timeout + "ms, make sure the files in " + Settings.expandViperToolsPath("$ViperTools$/backends/") + " contain no conflicting jars");
                     this.kill();
                 }
             }, timeout);
