@@ -1,7 +1,7 @@
 {
     "name": "viper-experimental",
     "displayName": "Viper experimental",
-    "version": "1.0.9",
+    "version": "1.0.10",
     "publisher": "viper-admin",
     "description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
     "license": "MIT",
@@ -302,9 +302,9 @@
                         "autoVerifyAfterBackendChange": true,
                         "showProgress": true,
                         "viperToolsProvider": {
-                            "windows": "http://viper.ethz.ch/downloads/ViperToolsWin.zip",
-                            "linux": "http://viper.ethz.ch/downloads/ViperToolsLinux.zip",
-                            "mac": "http://viper.ethz.ch/downloads/ViperToolsMac.zip"
+                            "windows": "http://viper.ethz.ch/downloads/ViperToolsWin-experimental.zip",
+                            "linux": "http://viper.ethz.ch/downloads/ViperToolsLinux-experimental.zip",
+                            "mac": "http://viper.ethz.ch/downloads/ViperToolsMac-experimental.zip"
                         }
                     },
                     "description": "General user preferences. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Preferences"
