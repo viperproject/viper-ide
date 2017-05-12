@@ -421,9 +421,8 @@ export class Settings {
         return stringURL;
     }
 
-    //TODO: FIX THIS METHOD
     private static checkPaths(paths: (string | string[] | PlatformDependentPath | PlatformDependentListOfPaths), prefix: string): string[] {
-        Log.log("checkPaths(" + JSON.stringify(paths) + ")", LogLevel.LowLevelDebug);
+        //Log.log("checkPaths(" + JSON.stringify(paths) + ")", LogLevel.LowLevelDebug);
         let result: string[] = []
         let stringPaths: string[] = []
         if (!paths) {

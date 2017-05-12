@@ -272,10 +272,10 @@ function ViperIdeTests() {
                 return waitForVerification(LONG);
             }).then(() => {
                 verify();
-                //stop the verification after 1000ms
+                //stop the verification after 300ms
                 setTimeout(() => {
                     stopVerification()
-                }, 1000)
+                }, 300)
 
                 return waitForAbort();
             }).then(() => {
