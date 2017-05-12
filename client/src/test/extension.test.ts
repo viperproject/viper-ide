@@ -629,11 +629,18 @@ function checkForRunningProcesses(checkJava: boolean, checkBoogie: boolean, chec
             if (checkBoogie) terms.push('name="Boogie.exe"');
             if (checkZ3) terms.push('name="z3.exe"');
             command = `wmic process where '` + terms.join(' or ') + `' get ParentProcessId,ProcessId,Name,CommandLine`
-        } else {
+        } else if (State.isMac) {
             let terms = [];
             if (checkZ3) terms.push('pgrep -x -l -u "$UID" z3')
             if (checkJava) terms.push('pgrep -l -u "$UID" java')
             if (checkBoogie) terms.push('pgrep -x -l -u "$UID" Boogie');
+            command = terms.join('; ');
+        }
+        else {
+            let terms = [];
+            if (checkZ3) terms.push('pgrep -x -l -u "$(whoami)" z3')
+            if (checkJava) terms.push('pgrep -l -u "$(whoami)" java')
+            if (checkBoogie) terms.push('pgrep -x -l -u "$(whoami)" Boogie');
             command = terms.join('; ');
         }
         let pgrep = Common.executer(command);
