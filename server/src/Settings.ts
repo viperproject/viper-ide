@@ -461,11 +461,7 @@ export class Settings {
             }
             return resolvedPath.path
         });
-        // Log.log("resolved Paths: " + JSON.stringify(stringPaths), LogLevel.LowLevelDebug);
-        result.push(...this.getAllJarsInPaths(stringPaths, false));
-
-        // Log.log("jarFiles Paths: " + JSON.stringify(result), LogLevel.LowLevelDebug);
-        return result;
+        return stringPaths;
     }
 
     private static checkPath(path: (string | PlatformDependentPath), prefix: string, executable: boolean, allowPlatformDependentPath: boolean, allowStringPath: boolean = true, allowMissingPath = false): ResolvedPath {
@@ -627,6 +623,11 @@ export class Settings {
 
     public static backendJars(backend: Backend): string {
         let jarFiles = this.getAllJarsInPaths(backend.paths, false);
+        return this.buildDependencyString(jarFiles);
+    }
+
+    public static viperServerJars(): string {
+        let jarFiles = this.getAllJarsInPaths(<string[]>this.settings.viperServerSettings.serverJars, false);
         return this.buildDependencyString(jarFiles);
     }
 

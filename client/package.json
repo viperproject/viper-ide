@@ -1,7 +1,7 @@
 {
     "name": "viper-experimental",
     "displayName": "Viper experimental",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "publisher": "viper-admin",
     "description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
     "license": "MIT",
@@ -238,9 +238,7 @@
                             "v": "674a514867b1",
                             "name": "silicon",
                             "type": "silicon",
-                            "paths": [
-                                "$viperTools$/backends/silicon.jar"
-                            ],
+                            "paths": [],
                             "engine": "ViperServer",
                             "timeout": 100000,
                             "stages": [
@@ -257,9 +255,7 @@
                             "v": "674a514867b1",
                             "name": "carbon",
                             "type": "carbon",
-                            "paths": [
-                                "$viperTools$/backends/carbon.jar"
-                            ],
+                            "paths": [],
                             "engine": "ViperServer",
                             "timeout": 100000,
                             "stages": [

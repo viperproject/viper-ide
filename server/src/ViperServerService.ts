@@ -105,8 +105,7 @@ export class ViperServerService extends BackendService {
 
     private getViperServerStartCommand(): string {
         let command = 'java ' + Settings.settings.javaSettings.customArguments + " " + Settings.settings.viperServerSettings.customArguments;
-        let jarDependencies = Settings.buildDependencyString(<string[]>Settings.settings.viperServerSettings.serverJars)
-        command = command.replace(/\$backendPaths\$/g, jarDependencies);
+        command = command.replace(/\$backendPaths\$/g, Settings.viperServerJars());
         command = command.replace(/\$backendSpecificCache\$/g, (Settings.settings.viperServerSettings.backendSpecificCache === true ? "--backendSpecificCache" : ""));
         command = command.replace(/\$mainMethod\$/g, "viper.server.ViperServerRunner");
         return command;
