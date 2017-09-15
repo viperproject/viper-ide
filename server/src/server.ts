@@ -73,7 +73,7 @@ function registerHandlers() {
     });
 
     Server.connection.onRequest('textDocument/documentSymbol', (args) => {
-        return new Promise((resolve, reject) => {
+        return new Promise<SymbolInformation[]>((resolve, reject) => {
             let task = Server.verificationTasks.get(args.textDocument.uri.toString());
             if (task) {
                 resolve(task.symbolInformation);
@@ -86,7 +86,7 @@ function registerHandlers() {
     Server.connection.onRequest('textDocument/definition', (args) => {
         //Log.log("Handling definitions request", LogLevel.Debug);
         //Log.log("Args: "+ JSON.stringify(args), LogLevel.Debug);
-        return new Promise((resolve, reject) => {
+        return new Promise<any>((resolve, reject) => {
             try {
                 let document = args.textDocument;
                 let pos = args.position;
@@ -148,7 +148,7 @@ function registerHandlers() {
 
     //returns the a list of all backend names
     Server.connection.onRequest(Commands.RequestBackendNames, () => {
-        return new Promise((resolve, reject) => {
+        return new Promise<string[]>((resolve, reject) => {
             try {
                 let backendNames: string[] = Settings.getBackendNames(Settings.settings);
                 if (!backendNames) {
@@ -274,7 +274,7 @@ function registerHandlers() {
 
     Server.connection.onRequest(Commands.GetExecutionTrace, (params: { uri: string, clientState: number }) => {
         Log.log("Generate execution trace for client state " + params.clientState, LogLevel.Debug);
-        return new Promise((resolve, reject) => {
+        return new Promise<ExecutionTrace[]>((resolve, reject) => {
             let result: ExecutionTrace[] = [];
             try {
                 let task = Server.verificationTasks.get(params.uri);
@@ -331,7 +331,7 @@ function registerHandlers() {
     });
 
     Server.connection.onRequest(Commands.StopVerification, (uri: string) => {
-        return new Promise((resolve, reject) => {
+        return new Promise<boolean>((resolve, reject) => {
             try {
                 let task = Server.verificationTasks.get(uri);
                 if (task) {
@@ -375,7 +375,7 @@ function registerHandlers() {
 
     Server.connection.onRequest(Commands.RemoveDiagnostics, (uri: string) => {
         //Log.log("Trying to remove diagnostics from "+ uri);
-        return new Promise((resolve, reject) => {
+        return new Promise<boolean>((resolve, reject) => {
             if (Server.verificationTasks.has(uri)) {
                 Server.verificationTasks.get(uri).resetDiagnostics();
                 resolve(true);

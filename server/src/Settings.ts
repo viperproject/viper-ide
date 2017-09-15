@@ -271,7 +271,7 @@ export class Settings {
                 this._errors = [];
                 this._upToDate = false;
 
-                Server.connection.sendRequest(Commands.CheckIfSettingsVersionsSpecified).then((errors: SettingsError[]) => {
+                Server.connection.sendRequest(Commands.CheckIfSettingsVersionsSpecified).then<Versions>((errors: SettingsError[]) => {
                     if (errors) {
                         this.addErrors(errors);
                         return null;
