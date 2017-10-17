@@ -41,6 +41,8 @@ export class State {
     public static statusBarProgress: StatusBar;
     public static backendStatusBar: StatusBar;
     public static abortButton: StatusBar;
+    
+    public static diagnosticCollection: vscode.DiagnosticCollection;
 
     public static checkedSettings:ViperSettings;
 
@@ -73,14 +75,17 @@ export class State {
         this.statusBarItem = new StatusBar(10, context);
         this.statusBarItem.update("Hello from Viper", Color.READY).show();
 
-        this.abortButton = new StatusBar(9, context);
+        this.abortButton = new StatusBar(11, context);
         this.abortButton.setCommand("viper.stopVerification");
         this.abortButton.update("$(x) Stop", Color.WARNING);
-        this.statusBarProgress = new StatusBar(11, context);
+        this.statusBarProgress = new StatusBar(9, context);
         this.hideProgress();
 
         this.backendStatusBar = new StatusBar(12, context);
         this.backendStatusBar.show();
+
+        
+        this.diagnosticCollection = vscode.languages.createDiagnosticCollection();
     }
 
     public static hideProgress(){
@@ -164,7 +169,7 @@ export class State {
             return;
         }
         // The debug options for the server
-        let debugOptions = { execArgv: ["--nolazy", "--debug" + (brk ? "-brk" : "") + "=5556"] };
+        let debugOptions = { execArgv: ["--nolazy", "--inspect=5443"] };
 
         // If the extension is launch in debug mode the debug server options are use
         // Otherwise the run options are used

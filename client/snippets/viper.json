@@ -2,99 +2,120 @@
     "Acc": {
         "prefix": "acc",
         "body": [
-            "acc($1)"
+            "acc(${1:x.value})"
         ],
-        "description": "Add an acc"
+        "description": "Access permission"
     },
     "Precondition": {
         "prefix": "precondition",
         "body": [
-            "requires $1"
+            "requires ${1:true)"
         ],
-        "description": "Add a precondition"
+        "description": "Precondition"
     },
     "Postcondition": {
-        "prefix": "postcondition",
+        "prefix": "postcondition|ensures",
         "body": [
-            "ensures $1"
+            "ensures $(1:true)"
         ],
-        "description": "Add a postcondition"
+        "description": "Postcondition"
     },
     "Method": {
         "prefix": "method",
         "body": [
-            "method ${foo}($2)",
-            "requires ${pre:true}",
-            "ensures ${post:true}",
+            "method ${1:foo}(${2}) returns ${5:(res:Int)}",
+            "\trequires ${3:true}",
+            "\tensures ${4:true}",
             "{",
-            "\t$3",
+            "\t${6:assert true}",
             "}"
         ],
-        "description": "Add a method"
+        "description": "Method"
     },
     "Predicate": {
         "prefix": "predicate",
         "body": [
-            "predicate ${pred}($2)",
+            "predicate ${1:foo}(${2:xs:Ref})",
             "{",
-            "\t$3",
+            "\t${3:acc(xs.next)}",
             "}"
         ],
-        "description": "Add a predicate"
+        "description": "Predicate"
     },
     "Function": {
         "prefix": "function",
         "body": [
-            "function ${fun}($2):$3",
-            "requires ${pre:true}",
-            "ensures ${post:true}",
+            "function ${1:foo}(${2:x:Int}): ${3:Bool}",
+            "\trequires ${4:true}",
+            "\tensures ${5:true}",
             "{",
-            "\t$4",
+            "\t${6}",
             "}"
         ],
-        "description": "Add a function"
+        "description": "Function"
     },
     "Domain": {
         "prefix": "domain",
         "body": [
-            "domain ${Domain}{",
-            "\t$1",
+            "domain ${1:MyType[T]} {",
+            "\tfunction ${2:oper(m:MyType[T])}: ${3:Bool}",
+            "\taxiom ${4:ax_MyType} {",
+                "\t\tforall ${5:m:MyType[T]} :: ",
+                "\t\t\t{ ${6:oper(m)} }",
+                "\t\t\t\t${7:oper(m) == true}",    
+            "\t}",
             "}"
         ],
-        "description": "Add a domain"
+        "description": "Domain"
     },
     "Axiom": {
         "prefix": "axiom",
         "body": [
-            "axiom ${ax}{",
-            "\t$1",
+            "axiom ${1:ax_Foo}{",
+            "\tforall ${2:n:Int, m:Int} :: ",
+            "\t\t{ ${4:foo(n), foo(m)} }", 
+            "\t\t\t${3:n < m ==> foo(n) < foo(m)}",
             "}"
         ],
-        "description": "Add an axiom"
+        "description": "Axiom"
     },
     "If": {
         "prefix": "if",
         "body": [
-            "if($1)",
+            "if (${1:true})",
             "{",
-            "\t$2",
+            "\t${2}",
             "}",
             "else",
             "{",
-            "\t$3",
+            "\t${3}",
             "}"
         ],
-        "description": "Add an if condition"
+        "description": "Conditional statement"
     },
     "While": {
         "prefix": "while",
         "body": [
-            "while(${cond:true})",
-            "invariant ${inv:true}",
+            "while (${1:true})",
+            "\tinvariant ${2:true}",
             "{",
-            "\t$3",
+            "\t${3}",
             "}"
         ],
-        "description": "Add a while loop"
+        "description": "While loop"
+    },
+    "Forall": {
+        "prefix": "forall", 
+        "body": [
+            "forall ${1:i:Int} :: { ${2} } ${3} ==> ${4:true}"
+        ],
+        "description": "Universal quantifier"
+    },
+    "Exists": {
+        "prefix": "exists", 
+        "body": [
+            "exists ${1:i:Int} :: { ${2} } ${3:true}"
+        ],
+        "description": "Existential quantifier"
     }
 }

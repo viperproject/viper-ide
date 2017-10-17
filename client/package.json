@@ -26,31 +26,33 @@
         "Debuggers"
     ],
     "dependencies": {
-        "vscode-languageclient": "^3.3.0",
-        "vscode-languageserver": "^3.3.0",
-        "vscode-debugprotocol": "^1.17.0",
-        "vscode-debugadapter": "^1.17.0",
-        "vscode-uri": "^1.0.0",
-        "node-ipc": "^8.10.3",
+        "vscode-languageclient": "^3.4.5",
+        "vscode-languageserver": "^3.4.3",
+        "vscode-debugprotocol": "^1.24.0",
+        "vscode-debugadapter": "^1.24.0",
+        "vscode-uri": "^1.0.1",
+        "node-ipc": "^9.1.1",
         "command-exists": "^1.2.2",
         "viz.js": "^1.7.0",
-        "tree-kill": "^1.1.0",
+        "tree-kill": "^1.2.0",
         "portfinder": "^1.0.13",
-        "unused-filename": "^0.1.0",
+        "unused-filename": "^1.0.0",
         "mkdirp": "^0.5.1",
         "glob-to-regexp": "^0.3.0",
         "decompress-zip": "^0.3.0",
         "sudo-prompt": "6.2.1",
-        "strip-json-comments": "2.0.1"
+        "strip-json-comments": "2.0.1",
+        "request": "^2.83.0",
+        "request-promise-native": "^1.0.5"
     },
     "devDependencies": {
-        "@types/mocha": "^2.2.39",
-        "@types/node": "^6.0.88",
+        "@types/mocha": "^2.2.43",
+        "@types/node": "^8.0.31",
         "mocha": "^3.2.0",
-        "typescript": "^2.2.2",
+        "typescript": "^2.5.3",
         "typescript.events": "^6.0.0",
         "vscode": "^1.1.5",
-        "vscode-debugadapter-testsupport": "^1.17.0"
+        "vscode-debugadapter-testsupport": "^1.24.0"
     },
     "scripts": {
         "compile": "npm run compileServer && tsc -p ./",

@@ -206,7 +206,7 @@ function registerHandlers() {
     });
 
     Server.connection.onNotification(Commands.Verify, (data: VerifyRequest) => {
-        try {
+        try { 
             let verificationstarted = false;
             //it does not make sense to reverify if no changes were made and the verification is already running
             if (canVerificationBeStarted(data.uri, data.manuallyTriggered)) {
@@ -253,12 +253,9 @@ function registerHandlers() {
                 //if there are running verifications, stop related processes
                 Server.verificationTasks.forEach(task => {
                     if (task.running) {
+                        //Todo[ATG_6.10.2017]: use UIDs for logging verification tasks.
                         Log.log("stop verification of " + task.filename, LogLevel.Default);
-                        if (task.verifierProcess) {
-                            Server.backendService.stopVerification(task.verifierProcess.pid);
-                        } else {
-                            Server.backendService.stopVerification();
-                        }
+                        Server.backendService.stopVerification();
                     }
                 });
 

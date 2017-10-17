@@ -687,7 +687,9 @@ function showStates(callback) {
 
 function removeDiagnostics() {
     if (vscode.window.activeTextEditor) {
-        let file = vscode.window.activeTextEditor.document.uri.toString();
+        let uri = vscode.window.activeTextEditor.document.uri
+        let file = uri.toString();
+        State.diagnosticCollection.delete(uri);
         State.client.sendRequest(Commands.RemoveDiagnostics, file).then(success => {
             if (success) {
                 Log.log("Diagnostics successfully removed", LogLevel.Debug);

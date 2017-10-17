@@ -29,10 +29,10 @@ export class VerificationTask {
 
     //state specific to one verification
     running: boolean = false;
+    global_faliure: boolean = false;
     aborting: boolean = false;
     state: VerificationState = VerificationState.Stopped;
     manuallyTriggered: boolean;
-    verifierProcess: child_process.ChildProcess;
     //working variables
     private lines: string[] = [];
     private wrongFormat: boolean = false;
@@ -282,7 +282,7 @@ export class VerificationTask {
         }, this);
 
         //this.startVerificationTimeout(this.verificationCount);
-        this.verifierProcess = Server.backendService.startStageProcess(path, stage, this.stdOutHandler.bind(this), this.stdErrHandler.bind(this), this.completionHandler.bind(this));
+        Server.backendService.startStageProcess(path, stage, this.stdOutHandler.bind(this), this.stdErrHandler.bind(this), this.completionHandler.bind(this));
         return true;
     }
 
@@ -322,10 +322,10 @@ export class VerificationTask {
 
     private completionHandler(code) {
         try {
-            Log.log(`Child process exited with code ${code}`, LogLevel.Debug);
-            if (code == null) {
-                this.internalErrorMessage = "Possibly the backend generated to much output."
-            }
+            Log.log(`completionHandler is called with code ${code}`, LogLevel.Debug);
+            //if (code == null) {
+            //    this.internalErrorMessage = "Possibly the backend generated to much output."
+            //}
             if (this.aborting) {
                 this.running = false;
                 return;
@@ -369,7 +369,7 @@ export class VerificationTask {
                 }
 
                 // Send the computed diagnostics to VSCode.
-                Server.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
+                //Server.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
 
                 //inform client about postProcessing
                 Server.sendStateChangeNotification({
@@ -428,10 +428,8 @@ export class VerificationTask {
             this.lastSuccess = success;
             this.time = 0;
             this.running = false;
-            this.verifierProcess = null;
         } catch (e) {
             this.running = false;
-            this.verifierProcess = null;
             Server.sendVerificationNotStartedNotification(this.fileUri);
             Log.error("Error handling verification completion: " + e);
         }
@@ -606,7 +604,7 @@ export class VerificationTask {
 
                         switch (json.type) {
                             case BackendOutputType.Start:
-                                this.backendType = json.backendType;
+                                this.backendType = json.backendType
                                 break;
                             case BackendOutputType.VerificationStart:
                                 this.progress = new Progress(json);
@@ -640,20 +638,24 @@ export class VerificationTask {
                                     }
                                     let range = Server.extractRange(err.start, err.end);
                                     Log.log(`Error: [${Server.backend.name}] ${err.tag ? "[" + err.tag + "] " : ""}${range.start.line + 1}:${range.start.character + 1} ${err.message}`, LogLevel.Default);
-                                    this.diagnostics.push({
+                                    let diag = {
                                         range: range,
                                         source: null, //Server.backend.name
                                         severity: language_server.DiagnosticSeverity.Error,
                                         message: err.message + (err.cached ? " (cached)" : "")
-                                    });
-
-                                    //since the viper server keeps running, 
-                                    //we need to trigger the verification completion event manually
-                                });
-                                if (Server.backendService.isViperServerService) {
-                                    Server.backendService.isSessionRunning = false;
-                                    this.completionHandler(0);
-                                }
+                                    }
+                                    this.diagnostics.push(diag); 
+                                    
+                                    Server.sendStateChangeNotification({
+                                        newState: VerificationState.VerificationRunning,
+                                        filename: this.filename,
+                                        nofErrors: this.diagnostics.length,
+                                        uri: this.fileUri,
+                                        diagnostics: JSON.stringify( this.diagnostics )
+                                    }, this);
+                                    //Server.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
+                                    
+                                });                     
                                 break;
                             case BackendOutputType.Success:
                                 //since the server keeps running, 
@@ -895,21 +897,9 @@ export class VerificationTask {
                 Log.log('Abort running verification', LogLevel.Info);
                 this.aborting = true;
 
-                if (this.verifierProcess) {
-                    //remove impact of child_process to kill
-                    this.verifierProcess.removeAllListeners('close');
-                    this.verifierProcess.stdout.removeAllListeners('data');
-                    this.verifierProcess.stderr.removeAllListeners('data');
-
-                    //log the exit of the child_process to kill
-                    let ngClientEndPromise = new Promise((res, rej) => {
-                        this.verifierProcess.on('exit', (code, signal) => {
-                            Log.log(`Child process exited with code ${code} and signal ${signal}`, LogLevel.Debug);
-                            res(true);
-                        })
-                    });
-                    let deamonKillerPromise = Server.backendService.stopVerification(this.verifierProcess.pid);
-                    Promise.all([ngClientEndPromise, deamonKillerPromise, /*this.waitForNgServerToDetectShutDownClient()*/]).then(() => {
+                if (Server.backendService.isSessionRunning) {
+                    let deamonKillerPromise = Server.backendService.stopVerification();
+                    Promise.all([deamonKillerPromise, /*this.waitForNgServerToDetectShutDownClient()*/]).then(() => {
                         resolve(true);
                     });
                 } else {
@@ -917,7 +907,6 @@ export class VerificationTask {
                         resolve(true);
                     })
                 }
-                this.verifierProcess = null;
                 this.running = false;
                 this.lastSuccess = Success.Aborted;
             } catch (e) {
