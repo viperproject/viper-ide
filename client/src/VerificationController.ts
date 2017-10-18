@@ -531,6 +531,9 @@ export class VerificationController {
                         fileState.verified = false;
                         fileState.verifying = true;
 
+                        //clear all diagnostics
+                        State.diagnosticCollection.clear();
+
                         //start progress updater
                         clearInterval(this.progressUpdater);
                         let progress_lambda = () => {
@@ -542,7 +545,6 @@ export class VerificationController {
                         this.progressUpdater = setInterval(progress_lambda, 333);
                         State.statusBarProgress.updateProgressBar(0).show();
                         
-                        State.diagnosticCollection.set( vscode.Uri.parse( fileState.uri.path ), undefined);
                         Log.log("Request verification for " + path.basename(uri), LogLevel.Verbose);
 
                         let workspace = vscode.workspace.rootPath ? vscode.workspace.rootPath : path.dirname(fileState.uri.fsPath);
