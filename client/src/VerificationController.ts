@@ -533,11 +533,13 @@ export class VerificationController {
 
                         //start progress updater
                         clearInterval(this.progressUpdater);
-                        this.progressUpdater = setInterval(() => {
+                        let progress_lambda = () => {
                             let progress = this.getProgress(this.lastProgress)
                             let totalProgress = this.getTotalProgress();
                             Log.progress({ domain: "Verification of " + fileState.name(), progress: progress, postfix: totalProgress }, LogLevel.Debug);
-                        }, 500);
+                        }
+                        progress_lambda()
+                        this.progressUpdater = setInterval(progress_lambda, 333);
                         State.statusBarProgress.updateProgressBar(0).show();
                         
                         State.diagnosticCollection.set( vscode.Uri.parse( fileState.uri.path ), undefined);
