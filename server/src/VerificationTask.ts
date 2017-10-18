@@ -330,7 +330,7 @@ export class VerificationTask {
                 this.running = false;
                 return;
             }
-            let success;
+            let success = Success.None;
 
             let isVerifyingStage = Server.stage().isVerification;
 
@@ -654,7 +654,6 @@ export class VerificationTask {
                                         diagnostics: JSON.stringify( this.diagnostics )
                                     }, this);
                                     //Server.sendDiagnostics({ uri: this.fileUri, diagnostics: this.diagnostics });
-                                    
                                 });                     
                                 break;
                             case BackendOutputType.Success:

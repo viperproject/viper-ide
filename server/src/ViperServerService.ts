@@ -149,6 +149,7 @@ export class ViperServerService extends BackendService {
 
                                 let first_error_tag = message.msg_body.details.result.errors[0].tag
                                 let global_failure = 
+                                    message.msg_body.verifier === 'carbon' ||
                                     first_error_tag === 'parser.error' || 
                                     first_error_tag === 'parser.warning' ||
                                     first_error_tag === 'consistency.error' ||
