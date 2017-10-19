@@ -1,7 +1,7 @@
 {
     "name": "viper-experimental",
     "displayName": "Viper experimental",
-    "version": "1.0.11",
+    "version": "2.0.0",
     "publisher": "viper-admin",
     "description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
     "license": "MIT",
@@ -69,53 +69,119 @@
         "commands": [
             {
                 "command": "viper.verify",
-                "title": "Viper: verify this file"
+                "title": "verify this file",
+                "category": "Viper"
             },
             {
                 "command": "viper.selectBackend",
-                "title": "Viper: select verification backend"
+                "title": "select verification backend",
+                "category": "Viper"                
             },
             {
                 "command": "viper.stopVerification",
-                "title": "Viper: stop the running verification"
-            },
-            {
-                "command": "viper.startDebugging",
-                "title": "Viper: debug this file"
+                "title": "stop the running verification",
+                "category": "Viper"                
             },
             {
                 "command": "viper.toggleAutoVerify",
-                "title": "Viper: toggle automatic verification"
+                "title": "toggle automatic verification",
+                "category": "Viper"                
             },
             {
                 "command": "viper.openLogFile",
-                "title": "Viper: open current logFile"
+                "title": "open current logFile",
+                "category": "Viper"                
             },
             {
                 "command": "viper.verifyAllFilesInWorkspace",
-                "title": "Viper: verify all files in this workspace"
-            },
-            {
-                "command": "viper.showAllStates",
-                "title": "Viper: show all state markers"
+                "title": "verify all files in this workspace",
+                "category": "Viper"                
             },
             {
                 "command": "viper.removeDiagnostics",
-                "title": "Viper: remove diagnostics caused by this file"
+                "title": "remove diagnostics caused by this file",
+                "category": "Viper"                
             },
             {
                 "command": "viper.updateViperTools",
-                "title": "Viper: install or update dependencies (command line tools)"
+                "title": "install or update dependencies (command line tools)",
+                "category": "Viper"                
             },
             {
                 "command": "viper.flushCache",
-                "title": "Viper: flush the cache"
+                "title": "flush the cache",
+                "category": "Viper"                
             },
             {
                 "command": "viper.flushCacheOfActiveFile",
-                "title": "Viper: flush the cache for this file"
+                "title": "flush the cache for this file",
+                "category": "Viper"                
+            },
+            {
+                "command": "viper.format",
+                "title": "auto-format Viper program",
+                "category": "Viper"
             }
         ],
+        "menus": {
+            "commandPalette": [
+                {
+                    "command": "viper.verify",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.selectBackend",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.stopVerification",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.toggleAutoVerify",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.openLogFile",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.verifyAllFilesInWorkspace",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.removeDiagnostics",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.updateViperTools",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.flushCache",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.flushCacheOfActiveFile",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.format",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                }
+            ]
+        },
         "grammars": [
             {
                 "language": "viper",
@@ -174,37 +240,31 @@
                 "command": "viper.selectBackend",
                 "key": "ctrl+l",
                 "mac": "cmd+l",
-                "when": "editorTextFocus"
+                "when": "resourceLangId == viper"
             },
             {
                 "command": "viper.verify",
                 "key": "f5",
                 "mac": "f5",
-                "when": "editorTextFocus"
+                "when": "resourceLangId == viper"
             },
             {
                 "command": "viper.stopVerification",
                 "key": "ctrl+h",
                 "mac": "cmd+h",
-                "when": "editorTextFocus"
-            },
-            {
-                "command": "viper.startDebugging",
-                "key": "ctrl+d",
-                "mac": "cmd+d",
-                "when": "editorTextFocus"
+                "when": "resourceLangId == viper"
             },
             {
                 "command": "viper.format",
                 "key": "alt+shift+f",
                 "mac": "alt+shift+f",
-                "when": "editorTextFocus"
+                "when": "resourceLangId == viper"
             },
             {
                 "command": "viper.toggleAutoVerify",
                 "key": "ctrl+k ctrl+a",
                 "mac": "cmd+k cmd+a",
-                "when": "editorTextFocus"
+                "when": "resourceLangId == viper"
             }
         ],
         "configuration": {
@@ -226,9 +286,9 @@
                                 "$viperTools$/backends"
                             ]
                         },
-                        "customArguments": "--ideMode $backendSpecificCache$",
+                        "customArguments": " $backendSpecificCache$",
                         "backendSpecificCache": false,
-                        "disableCaching": false,
+                        "disableCaching": true,
                         "timeout": 5000
                     },
                     "description": "ViperServer-related settings. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20ViperServer"
@@ -248,7 +308,7 @@
                                     "name": "verify",
                                     "isVerification": true,
                                     "mainMethod": "viper.silicon.SiliconRunner",
-                                    "customArguments": "--ideMode --z3Exe $z3Exe$ $disableCaching$ $fileToVerify$"
+                                    "customArguments": "--z3Exe $z3Exe$ $disableCaching$ $fileToVerify$"
                                 }
                             ],
                             "stoppingTimeout": 5000
@@ -265,7 +325,7 @@
                                     "name": "verify",
                                     "isVerification": true,
                                     "mainMethod": "viper.carbon.Carbon",
-                                    "customArguments": "--ideMode --z3Exe $z3Exe$ --boogieExe $boogieExe$ $disableCaching$ $fileToVerify$"
+                                    "customArguments": "--z3Exe $z3Exe$ --boogieExe $boogieExe$ $disableCaching$ $fileToVerify$"
                                 }
                             ],
                             "stoppingTimeout": 5000
@@ -335,38 +395,6 @@
                     "description": "Settings concerning the advanced features. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Advanced%20Features"
                 }
             }
-        },
-        "debuggers": [
-            {
-                "type": "viper",
-                "label": "Silicon Debugger",
-                "enableBreakpointsFor": {
-                    "languageIds": [
-                        "viper"
-                    ]
-                },
-                "program": "./out/debug.js",
-                "runtime": "node",
-                "configurationAttributes": {
-                    "launch": {
-                        "required": [
-                            "program"
-                        ],
-                        "properties": {
-                            "program": {
-                                "type": "string",
-                                "description": "Path to a Viper source file.",
-                                "default": "${workspaceRoot}/sum.sil"
-                            },
-                            "startInState": {
-                                "type": "int",
-                                "description": "",
-                                "default": true
-                            }
-                        }
-                    }
-                }
-            }
-        ]
+        }
     }
 }
