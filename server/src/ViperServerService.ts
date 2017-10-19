@@ -17,7 +17,7 @@ export class ViperServerService extends BackendService {
 
     private _port: number;
     private _url: string; 
-    private _stream = new stream.Writable();
+    private _stream = new stream.Writable({ objectMode: true, highWaterMark: 50000 });
     
     // the JID that ViperServer assigned to the current verification job.
     private _job_id: number; 
@@ -136,9 +136,33 @@ export class ViperServerService extends BackendService {
                     }))
                 }
 
-                //if ( message.msg_type === 'program_outline' ) {
+                if ( message.msg_type === 'program_outline' ) {
+                    return onData(JSON.stringify({
+                        type: "Outline", 
+                        members: message.msg_body.members.map((m) => {
+                            return {
+                                type: m.type,
+                                name: m.name,
+                                location: m.position.file + '@' + m.position.start + '-' +  m.position.end
+                            }
+                        })
+                    }))
+                }
 
-                //}
+                if ( message.msg_type === 'program_definitions' ) {
+                    return onData(JSON.stringify({
+                        type: "Definitions", 
+                        definitions: message.msg_body.definitions.map(d => {
+                            return {
+                                name: d.name,
+                                type: d.type,
+                                scopeStart: d.scopeStart,
+                                scopeEnd: d.scopeEnd, 
+                                location: d.location.file + '@' + d.location.start + '-' + d.location.end
+                            }
+                        })
+                    }))
+                }
 
                 if ( message.msg_type === 'verification_result' ) {
 
@@ -225,7 +249,7 @@ export class ViperServerService extends BackendService {
         jid_promise.then((jid) => {
             this._job_id = jid
             
-            onData(JSON.stringify({type: "Start", backendType: "Silicon"}))
+            onData(JSON.stringify({type: "Start", backendType: command.startsWith('silicon') ? "Silicon" : "Carbon"}))
 
             Log.log(`Requesting ViperServer to stream results of verification job #${jid}...`, LogLevel.LowLevelDebug)
             let url = this._url + ':' + this._port + '/verify/' + jid

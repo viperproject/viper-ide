@@ -174,7 +174,7 @@ export class Server {
                 }
 
                 //parse range
-                regex = /@\[(\d+)\.(\d+)-(\d+)\.(\d+)]/.exec(s);
+                regex = /@\[(\d+)[.:](\d+)-(\d+)[.:](\d+)]/.exec(s);
                 if (regex && regex[1] && regex[2] && regex[3] && regex[4]) {
                     range = {
                         start: {

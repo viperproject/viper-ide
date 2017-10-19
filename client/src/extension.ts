@@ -690,13 +690,13 @@ function removeDiagnostics() {
         let uri = vscode.window.activeTextEditor.document.uri
         let file = uri.toString();
         State.diagnosticCollection.delete(uri);
-        State.client.sendRequest(Commands.RemoveDiagnostics, file).then(success => {
+        /*State.client.sendRequest(Commands.RemoveDiagnostics, file).then(success => {
             if (success) {
                 Log.log("Diagnostics successfully removed", LogLevel.Debug);
             } else {
                 Log.log("Removing diagnostics failed", LogLevel.Debug);
             }
-        })
+        })*/
     }
 }
 

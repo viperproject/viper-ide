@@ -684,13 +684,12 @@ export class VerificationTask {
                                         : language_server.Range.create(pos.pos.line, pos.pos.character, pos.pos.line, pos.pos.character);
                                     let location: language_server.Location = { uri: this.fileUri, range: range };
                                     let kind: SymbolKind;
-                                    let className = m.type.substring(m.type.lastIndexOf('.') + 1, m.type.length);
-                                    switch (className) {
-                                        case "Method": kind = SymbolKind.Method; break;
-                                        case "Function": kind = SymbolKind.Function; break;
-                                        case "Field": kind = SymbolKind.Field; break;
-                                        case "Predicate": kind = SymbolKind.Interface; break;
-                                        case "Domain": kind = SymbolKind.Class; break;
+                                    switch (m.type) {
+                                        case "method": kind = SymbolKind.Method; break;
+                                        case "function": kind = SymbolKind.Function; break;
+                                        case "predicate": kind = SymbolKind.Interface; break;
+                                        case "field": kind = SymbolKind.Field; break;
+                                        case "domain": kind = SymbolKind.Class; break;
                                         default: kind = SymbolKind.Enum;
                                     }
                                     let info: SymbolInformation = { name: m.name, kind: kind, location: location }
