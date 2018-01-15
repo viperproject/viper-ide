@@ -573,11 +573,7 @@ export class Settings {
                     }
                     //check customArguments for compliance with advancedFeatures
                     let hasIdeModeAdvanced = stage.customArguments.indexOf("--ideModeAdvanced") >= 0;
-                    let hasIdeMode = stage.customArguments.indexOf("--ideMode ") >= 0;
-                    if (hasIdeModeAdvanced && !hasIdeMode) {
-                        this.addError(backendAndStage + " the --ideModeAdvanced depends on --ideMode, for the Advanced Mode you need to specify both.");
-                    }
-                    if (Settings.settings.advancedFeatures.enabled && hasIdeMode && !hasIdeModeAdvanced) {
+                    if (Settings.settings.advancedFeatures.enabled && !hasIdeModeAdvanced) {
                         this.addWarning(backendAndStage + " the advanced features only work when --ideModeAdvanced is specified.");
                     }
                     if (!Settings.settings.advancedFeatures.enabled && hasIdeModeAdvanced) {

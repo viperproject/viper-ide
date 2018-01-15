@@ -122,8 +122,9 @@ export class Server {
 
     static containsNumber(s: string): boolean {
         if (!s || s.length == 0) return false;
-        let match = s.match("^.*?(\d).*$");
-        return (match && match[1]) ? true : false;
+        let pattern = new RegExp(/(\d+)\.(\d+)?/g);
+        let match = pattern.exec(s);
+        return (match && match[1] && match[2]) ? true : false;
     }
 
     //regex helper methods
@@ -173,7 +174,7 @@ export class Server {
                 }
 
                 //parse range
-                regex = /@\[(\d+)\.(\d+)-(\d+)\.(\d+)]/.exec(s);
+                regex = /@\[(\d+)[.:](\d+)-(\d+)[.:](\d+)]/.exec(s);
                 if (regex && regex[1] && regex[2] && regex[3] && regex[4]) {
                     range = {
                         start: {
@@ -273,7 +274,13 @@ export class Server {
                     response.pipe(file);
 
                     //download progress 
-                    let len = parseInt(response.headers['content-length'], 10);
+                    // WTF, why is it a union type? No answer here: 
+                    // https://nodejs.org/api/http.html#http_class_http_incomingmessage
+                    let resp_head = response.headers['content-length']
+
+                    let len = typeof resp_head === 'string'
+                        ? parseInt(resp_head, 10) 
+                        : parseInt(resp_head[0], 10);
                     let cur = 0;
                     response.on("data", function (chunk) {
                         cur += chunk.length;
@@ -285,8 +292,10 @@ export class Server {
                         resolve(true);
                     });
                     request.on('error', function (err) {
-                        fs.unlink(filePath);
                         Log.error("Error downloading viper tools: " + err.message);
+                        fs.unlink(filePath, (e) => { 
+                            Log.error(" (things got really nasty: the newly created files cannot be deleted.)");
+                        });
                         resolve(false);
                     });
                 });

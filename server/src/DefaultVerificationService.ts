@@ -11,6 +11,14 @@ import { BackendService } from './BackendService';
 
 export class DefaultVerificationService extends BackendService {
 
+    private verifyProcess: child_process.ChildProcess;
+
+    protected registerHandler(onData, onError, onClose) {
+        this.verifyProcess.stdout.on('data', onData);
+        this.verifyProcess.stderr.on('data', onError);
+        this.verifyProcess.on('close', onClose);
+    }
+
     public constructor() {
         super();
         this.isViperServerService = false;
@@ -27,31 +35,48 @@ export class DefaultVerificationService extends BackendService {
         return Promise.resolve(true);
     }
 
-    public stopVerification(ngPid?: number, secondTry: boolean = false): Promise<boolean> {
+    public startVerifyProcess(command: string, file: string, onData, onError, onClose) {
+        let verifyProcess = child_process.exec(command, { maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, cwd: Server.backendOutputDirectory });
+        Log.log("Verifier Process PID: " + verifyProcess.pid, LogLevel.Debug);
+        this.isSessionRunning = true;
+    }
+
+    private killNgClient(): Promise<boolean> {
+        return new Promise((res, rej) => {
+            this.verifyProcess.on('exit', (code, signal) => {
+                Log.log(`Child process exited with code ${code} and signal ${signal}`, LogLevel.Debug);
+                this.isSessionRunning = false
+                res(true);
+            })
+        });
+    }
+
+    public stopVerification(secondTry: boolean = false): Promise<boolean> {
         return new Promise((resolve, reject) => {
-            if (ngPid) {
-                if (Settings.isWin) {
-                    let killProcess = Common.spawner('wmic', ["process", "where", '"ProcessId=' + ngPid + ' or ParentProcessId=' + ngPid + '"', "call", "terminate"]);
-                    killProcess.on('exit', (code) => {
-                        resolve(true);
-                    });
-                } else {
-                    let killProcess = Common.spawner('pkill', ["-P", "" + ngPid]);
-                    killProcess.on('exit', (code) => {
-                        killProcess = Common.spawner('kill', ["" + ngPid]);
-                        killProcess.on('exit', (code) => {
-                            resolve(true);
-                        });
-                    });
-                }
+
+            // Stage i: remove all listerners from data streams.
+            this.verifyProcess.removeAllListeners('close');
+            this.verifyProcess.stdout.removeAllListeners('data');
+            this.verifyProcess.stderr.removeAllListeners('data');
+
+            // Stage ii: kill the Nailgun client corresponding to current verification process by PID.
+            //           This code is platform-specific! 
+            let ngPid = this.verifyProcess.pid;
+            if (Settings.isWin) {
+                let killProcess = Common.spawner('wmic', ["process", "where", '"ProcessId=' + ngPid + ' or ParentProcessId=' + ngPid + '"', "call", "terminate"]);
+                killProcess.on('exit', (code) => {
+                    // Stage iii: 
+                    resolve(this.killNgClient());
+                });
             } else {
-                if (this.verifyProcess) {
-                    this.stopVerification(this.verifyProcess.pid).then(ok => {
-                        resolve(ok)
+                let killProcess = Common.spawner('pkill', ["-P", "" + ngPid]);
+                killProcess.on('exit', (code) => {
+                    killProcess = Common.spawner('kill', ["" + ngPid]);
+                    killProcess.on('exit', (code) => {
+                        // Stage iii: 
+                        resolve(this.killNgClient());
                     });
-                } else {
-                    resolve(true);
-                }
+                });
             }
         });
     }

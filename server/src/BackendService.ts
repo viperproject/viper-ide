@@ -10,10 +10,10 @@ import { VerificationTask } from './VerificationTask'
 
 export abstract class BackendService {
     backendProcess: child_process.ChildProcess;
-    verifyProcess: child_process.ChildProcess;
-    backendServerPid: number;
     instanceCount: number = 0;
-    isSessionRunning: boolean;
+    isSessionRunning: boolean = false;
+    backendServerPid: number;
+    
     ngSessionFinished = () => { };
 
     private _ready: boolean = false;
@@ -30,7 +30,7 @@ export abstract class BackendService {
     }
     public abstract start(backend: Backend): Promise<boolean>;
     public abstract stop(): Promise<boolean>;
-    public abstract stopVerification(ngPid?: number, secondTry?: boolean): Promise<boolean>;
+    public abstract stopVerification(secondTry?: boolean): Promise<boolean>;
     protected isBackendCompatible(backend: Backend): boolean {
         return Server.backend.engine.toLowerCase() != this.engine.toLowerCase();
     }
@@ -54,28 +54,14 @@ export abstract class BackendService {
 
             let command = this.getStageCommand(fileToVerify, stage);
 
-            this.verifyProcess = this.startVerifyProcess(command);
+            //this.verifyProcess = 
+            this.startVerifyProcess(command, fileToVerify, onData, onError, onClose);
 
-            this.registerHandler(onData, onError, onClose);
-
-            return this.verifyProcess;
         } catch (e) {
             Log.error("Error starting stage process: " + e);
         }
     }
-
-    protected registerHandler(onData, onError, onClose) {
-        this.verifyProcess.stdout.on('data', onData);
-        this.verifyProcess.stderr.on('data', onError);
-        this.verifyProcess.on('close', onClose);
-    }
-
-    protected startVerifyProcess(command: string): child_process.ChildProcess {
-        let verifyProcess = child_process.exec(command, { maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, cwd: Server.backendOutputDirectory });
-        Log.log("Verifier Process PID: " + verifyProcess.pid, LogLevel.Debug);
-        this.isSessionRunning = true;
-        return verifyProcess;
-    }
+    protected abstract startVerifyProcess(command: string, file: string, onData, onError, onClose);
 
     protected getServerPid(): Promise<number> {
         Log.log("Determining the backend server PID", LogLevel.LowLevelDebug);
@@ -150,20 +136,21 @@ export abstract class BackendService {
     }
 
     public setStopping() {
+        Log.log("Set Stopping... ", LogLevel.Debug);
         this._ready = false;
         Server.startingOrRestarting = false;
         Server.sendStateChangeNotification({ newState: VerificationState.Stopping });
     }
 
     public setStopped() {
-        Log.log("Set Stopped ", LogLevel.Debug);
+        Log.log("Set Stopped. ", LogLevel.Debug);
         this._ready = false;
         Server.startingOrRestarting = false;
         Server.sendStateChangeNotification({ newState: VerificationState.Stopped });
     }
 
     public isJreInstalled(): Promise<boolean> {
-        Log.log("Check Jre version", LogLevel.Verbose);
+        Log.log("Check JRE version", LogLevel.Verbose);
         return new Promise((resolve, reject) => {
             let is64bit = false;
             let dataHandler = (data: string) => {

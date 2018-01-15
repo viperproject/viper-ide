@@ -157,6 +157,7 @@ export interface StateChangeParams {
     uri?: string;
     stage?: string;
     error?: string;
+    diagnostics?: string
 }
 
 export interface BackendReadyParams {

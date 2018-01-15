@@ -531,15 +531,20 @@ export class VerificationController {
                         fileState.verified = false;
                         fileState.verifying = true;
 
+                        //clear all diagnostics
+                        State.diagnosticCollection.clear();
+
                         //start progress updater
                         clearInterval(this.progressUpdater);
-                        this.progressUpdater = setInterval(() => {
+                        let progress_lambda = () => {
                             let progress = this.getProgress(this.lastProgress)
                             let totalProgress = this.getTotalProgress();
                             Log.progress({ domain: "Verification of " + fileState.name(), progress: progress, postfix: totalProgress }, LogLevel.Debug);
-                        }, 500);
+                        }
+                        progress_lambda()
+                        this.progressUpdater = setInterval(progress_lambda, 333);
                         State.statusBarProgress.updateProgressBar(0).show();
-
+                        
                         Log.log("Request verification for " + path.basename(uri), LogLevel.Verbose);
 
                         let workspace = vscode.workspace.rootPath ? vscode.workspace.rootPath : path.dirname(fileState.uri.fsPath);
@@ -714,10 +719,22 @@ export class VerificationController {
                     State.statusBarItem.update('starting', Color.ACTIVE);
                     break;
                 case VerificationState.VerificationRunning:
-                    this.progressLabel = `Verification of ${params.filename}:`;
-                    this.addTiming(params.filename, params.progress, Color.ACTIVE);
                     State.abortButton.show();
                     State.statusBarProgress.show();
+                    if (params.progress) {
+                        this.progressLabel = `Verification of ${params.filename}:`;
+                        this.addTiming(params.filename, params.progress, Color.ACTIVE);
+                    }
+                    if (params.diagnostics) {
+                        let diagnostics: vscode.Diagnostic[] = [];                        
+                        JSON.parse(params.diagnostics).forEach( item => {
+                            let range = new vscode.Range(item.range.start.line, item.range.start.character, item.range.end.line, item.range.end.character);
+                            let diag = new vscode.Diagnostic(range, item.message, item.severity-1);
+                            diagnostics.push( diag );
+                        }) 
+
+                        State.diagnosticCollection.set(vscode.Uri.parse(params.uri), diagnostics);
+                    }
                     break;
                 case VerificationState.PostProcessing:
                     this.progressLabel = `postprocessing ${params.filename}:`;
