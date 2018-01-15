@@ -99,7 +99,7 @@ export abstract class BackendService {
                 child_process.exec(command, (strerr, stdout, stderr) => {
                     let regex = /.*?(\d+).*/.exec(stdout);
                     if (regex != null && regex[1]) {
-                        resolve(+regex[1]);
+                        resolve(parseInt(regex[1]));
                     } else {
                         Log.log("Error getting backend server Pid", LogLevel.LowLevelDebug);
                         reject("");

@@ -866,7 +866,7 @@ export class VerificationController {
 
     //non recursive at the moment
     //TODO: implement recursively getting files
-    private getAllViperFilesInDir(folder): Thenable<Uri[]> {
+    private getAllViperFilesInDir(folder) {
         return new Promise((resolve, reject) => {
             let result: vscode.Uri[] = [];
             fs.readdir(folder, (err, files) => {

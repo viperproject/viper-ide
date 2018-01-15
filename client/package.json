@@ -14,7 +14,7 @@
     },
     "main": "./out/extension",
     "engines": {
-        "vscode": "^1.10.1",
+        "vscode": "^1.16.0",
         "node": "*"
     },
     "icon": "images/icon_bright_orange_avatar.png",
@@ -26,8 +26,8 @@
         "Debuggers"
     ],
     "dependencies": {
-        "vscode-languageclient": "^3.1.0",
-        "vscode-languageserver": "^3.1.0",
+        "vscode-languageclient": "^3.3.0",
+        "vscode-languageserver": "^3.3.0",
         "vscode-debugprotocol": "^1.17.0",
         "vscode-debugadapter": "^1.17.0",
         "vscode-uri": "^1.0.0",
@@ -44,13 +44,13 @@
         "strip-json-comments": "2.0.1"
     },
     "devDependencies": {
-        "@types/node": "^6.0.52",
         "@types/mocha": "^2.2.39",
+        "@types/node": "^6.0.88",
         "mocha": "^3.2.0",
         "typescript": "^2.2.2",
-        "vscode": "^1.0.5",
-        "vscode-debugadapter-testsupport": "^1.17.0",
-        "typescript.events": "^6.0.0"
+        "typescript.events": "^6.0.0",
+        "vscode": "^1.1.5",
+        "vscode-debugadapter-testsupport": "^1.17.0"
     },
     "scripts": {
         "compile": "npm run compileServer && tsc -p ./",

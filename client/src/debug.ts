@@ -191,7 +191,7 @@ class ViperDebugSession extends DebugSession {
 		);
 	}
 
-	protected launchRequest(response: DebugProtocol.ContinueResponse, args: LaunchRequestArguments): void {
+	protected launchRequest(response, args): void {
 		//start IPC connection
 		this.connectToLanguageServer();
 		this.registerHandlers();
