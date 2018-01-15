@@ -84,7 +84,7 @@ export abstract class BackendService {
                 Log.log("Getting backend server PID: " + command, LogLevel.Debug)
                 child_process.exec(command, (strerr, stdout, stderr) => {
                     let regex = /.*?(\d+).*/.exec(stdout);
-                    if (regex[1]) {
+                    if (regex != null && regex[1]) {
                         resolve(parseInt(regex[1]));
                     } else {
                         Log.log("Error getting backend server Pid", LogLevel.LowLevelDebug);
