@@ -24,7 +24,7 @@
     "devDependencies": {
         "@types/node": "^6.0.52",
         "typescript": "^2.2.2",
-        "vscode":"^1.0.5"
+        "vscode": "^1.0.5"
     },
     "scripts": {
         "compile": "tsc -p .",

@@ -458,7 +458,7 @@ export interface Progress {
     postfix?: string;
 }
 
-export interface Versions {
+export interface Versions extends Thenable<Versions> {
     viperServerSettingsVersion: string;
     backendSettingsVersion: string;
     pathSettingsVersion: string;
