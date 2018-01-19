@@ -16,6 +16,7 @@ import { Server } from './ServerClass';
 import { DebugServer } from './DebugServer';
 import * as fs from 'fs';
 import { Verifiable } from './Verifiable';
+import { resolve } from 'path';
 
 export class VerificationTask {
     //state that is valid across verifications
@@ -888,43 +889,23 @@ export class VerificationTask {
         return new Promise((resolve, reject) => {
             try {
                 if (!this.running) {
-                    resolve(true);
-                    return;
+                    resolve(true)
+                    return
                 }
 
-                Log.log('Abort running verification', LogLevel.Info);
-                this.aborting = true;
+                Log.log('Abort running verification', LogLevel.Info)
+                this.aborting = true
+              
+                Server.backendService.stopVerification().then(() => { resolve(true) })
 
-                if (Server.backendService.isSessionRunning) {
-                    let deamonKillerPromise = Server.backendService.stopVerification();
-                    Promise.all([deamonKillerPromise, /*this.waitForNgServerToDetectShutDownClient()*/]).then(() => {
-                        resolve(true);
-                    });
-                } else {
-                    Server.backendService.stopVerification().then(() => {
-                        resolve(true);
-                    })
-                }
-                this.running = false;
-                this.lastSuccess = Success.Aborted;
+                this.running = false
+                this.lastSuccess = Success.Aborted
+
             } catch (e) {
-                Log.error("Error aborting verification of " + this.filename + ": " + e);
-                resolve(false);
+                Log.error("Error aborting verification of " + this.filename + ": " + e)
+                resolve(false)
             }
-        });
-    }
-
-    private waitForNgServerToDetectShutDownClient(): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            if (!Server.backendService.isSessionRunning) {
-                resolve(true);
-            } else {
-                Server.backendService.ngSessionFinished = () => {
-                    Log.log("NGSession finished", LogLevel.Debug);
-                    resolve(true);
-                }
-            }
-        });
+        })
     }
 
     public getStepsOnLine(line: number): Statement[] {
