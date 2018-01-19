@@ -1,4 +1,5 @@
 'use strict';
+
 import { clearTimeout } from 'timers';
 import * as fs from 'fs';
 import rp = require('request-promise-native');
@@ -12,6 +13,8 @@ import { BackendOutputType, Common, Stage, Backend, VerificationState, LogLevel 
 import { Server } from './ServerClass';
 import { VerificationTask } from './VerificationTask'
 import { BackendService } from './BackendService';
+
+import tree_kill = require('tree-kill');
 
 export class ViperServerService extends BackendService {
 
@@ -124,7 +127,7 @@ export class ViperServerService extends BackendService {
             if ( data.toString() === '\n' ) return true
             
             let message = JSON.parse(data.toString())
-            Log.log('recieved message: ' + JSON.stringify(message, null, 2), LogLevel.Debug)
+            Log.log('recieved message: ' + JSON.stringify(message, null, 2), LogLevel.LowLevelDebug)
             if ( message.hasOwnProperty('msg_type') ) {
 
                 if ( message.msg_type === 'statistics' ) {
@@ -369,10 +372,78 @@ export class ViperServerService extends BackendService {
                     resolve(true)
                 }
             })
+
+            /** This is a hack for stopping Mono, Boogie and Z3 porcesses produced by Carbon. */
+            /// FIXME
+            if ( Server.backend.type === 'carbon' ) {
+                Log.log('Forcibly terminating the processes left by Carbon...', LogLevel.LowLevelDebug)
+                this.waitTillZombieProcessesTermitate().then( () => {} )
+            }
         })
     }
 
+    private waitTillZombieProcessesTermitate(): Promise<boolean> {
+        return new Promise((resolve, reject) => {
+            this.collectPIDsOfRunningProcesses(false, true, true).then((pids) => {
+                pids.forEach((pid) => {
+                    tree_kill(pid, "SIGTERM", (term_err) => {
+                        Log.log('Could not terminate process with PID=' + pid, LogLevel.LowLevelDebug)
+                        if (term_err) {
+                            Log.log(' (' + term_err + ')', LogLevel.LowLevelDebug)
+                        }
+                    })
+                })
+                resolve(true)
+            })
+        })
+    }
 
+    /** Initially this code was taken from client/src/test/extension.test.ts */
+    private collectPIDsOfRunningProcesses(checkJava: boolean, checkBoogie: boolean, checkZ3: boolean): Promise<number[]> {
+        return new Promise((resolve, reject) => {
+            let pids = []
+            let command: string;
+            if (Settings.isWin) {
+                let terms = [];
+                if (checkJava) {
+                    let term = `(CommandLine like "%Viper%" and (`;
+                    let innerTerms = [];
+                    if (checkJava) innerTerms.push('name="java.exe"');
+                    term += innerTerms.join(' or ');
+                    term += '))'
+                    terms.push(term);
+                }
+                if (checkBoogie) terms.push('name="Boogie.exe"');
+                if (checkZ3) terms.push('name="z3.exe"');
+                command = `wmic process where '` + terms.join(' or ') + `' get ParentProcessId,ProcessId,Name,CommandLine`
+            } else if (Settings.isMac) {
+                let terms = [];
+                if (checkZ3) terms.push('pgrep -x -l -u "$UID" z3')
+                if (checkJava) terms.push('pgrep -l -u "$UID" -f ^java.*Viper')
+                if (checkBoogie) terms.push('pgrep -l -u "$UID" -f Boogie');
+                command = terms.join('; ');
+            }
+            else {
+                let terms = [];
+                if (checkZ3) terms.push('pgrep -x -l -u "$(whoami)" z3')
+                if (checkJava) terms.push('pgrep -l -u "$(whoami)" -f ^java.*Viper')
+                if (checkBoogie) terms.push('pgrep -l -u "$(whoami)" -f Boogie');
+                command = terms.join('; ');
+            }
+            let pgrep = Common.executer(command);
+            pgrep.stdout.on('data', data => {
+                //Log.log("Ghost process(es) found (PID COMMAND):\n" + data, LogLevel.LowLevelDebug);
+                let stringData = (<string>data).replace(/[\n\r]/g, " ");
+                let m = /^.*?(\d+).*/.exec(stringData)
+                if (m != null) {
+                    pids.push(parseInt(m[1]))
+                } 
+            });
+            pgrep.on('exit', data => {
+                resolve(pids);
+            });
+        })
+    }
 
     public static isSupportedType(type: string) {
         if (!type) return false;
