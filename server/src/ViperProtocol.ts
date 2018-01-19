@@ -593,19 +593,19 @@ export class Common {
         try {
             Log.logWithOrigin("executer", command, LogLevel.Debug)
             let child: child_process.ChildProcess = child_process.exec(command, function (error, stdout, stderr) {
-                Log.logWithOrigin('executer stdout', stdout, LogLevel.LowLevelDebug);
+                Log.logWithOrigin('executer:stdout', stdout, LogLevel.LowLevelDebug);
                 if (dataHandler) {
                     dataHandler(stdout);
                 }
-                Log.logWithOrigin('executer stderr', stderr, LogLevel.LowLevelDebug);
+                Log.logWithOrigin('executer:stderr', stderr, LogLevel.LowLevelDebug);
                 if (errorHandler) {
                     errorHandler(stderr);
                 }
                 if (error !== null) {
-                    Log.error('executer error: ' + error);
+                    Log.logWithOrigin('executer', ''+error, LogLevel.LowLevelDebug);
                 }
                 if (exitHandler) {
-                    Log.log("executer done", LogLevel.LowLevelDebug);
+                    Log.logWithOrigin('executer', 'done', LogLevel.LowLevelDebug);
                     exitHandler();
                 }
             });
