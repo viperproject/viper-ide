@@ -433,34 +433,72 @@ export class ViperServerService extends BackendService {
             if ( this._uncontrolled_pid_list.length == 0 ) {
                 resolve(true)
             } else {
-                this.getZ3Pids(this._uncontrolled_pid_list[0]).then(z3_pid_list => {
-                    if ( z3_pid_list.length == 0 ) {
+                if ( Settings.isWin ) {
+                    Promise.all(this._uncontrolled_pid_list.map(pid => {
+                        return new Promise((res, rej) => {
+                            this.getZ3PidsForWin(pid).then(z3_pid_list => {
+                                if ( z3_pid_list.length == 0 ) {
+                                    res(true)
+                                } else {
+                                    let taskkill = Common.executer(`Taskkill /PID ${z3_pid_list.join(' /PID ')} /F /T`)
+                                    taskkill.stderr.on('data', error => {
+                                        rej(error)
+                                    })
+                                    taskkill.on('exit', () => {
+                                        res(true)
+                                    })
+                                }
+                            }).catch((error) => {
+                                rej(error)
+                            })
+                        })
+                    })).then(() => {
                         resolve(true)
-                    } else {
-                        let taskkill = Common.executer(`Taskkill /PID ${z3_pid_list.join(' /PID ')} /F /T`)
-                        taskkill.stderr.on('data', (error) => {
-                            reject(error)
+                    }).catch(error => {
+                        reject(error)
+                    })
+
+                } else { // Linux, Mac
+                    Promise.all(this._uncontrolled_pid_list.map(pid => {
+                        return new Promise((res, rej) => {
+                            tree_kill(pid, "SIGTERM", error => {
+                                if (error) {
+                                    rej(error)
+                                } else {
+                                    res(true)
+                                }
+                            })
                         })
-                        taskkill.on('exit', () => {
-                            resolve(true)
-                        })
-                    }
-                }).catch((error) => {
-                    reject(error)
-                })
+                    })).then(() => {
+                        resolve(true)
+                    }).catch(error => {
+                        reject(error)
+                    })
+                }
             }
         })
     }
 
     private getChildrenPidsForProcess(pname: string, pid: number): Promise<number[]> {
         return new Promise((resolve, reject) => {
-            let wmic = Common.executer(`wmic process where (ParentProcessId=` + pid + ` and Name="${pname}") get ProcessId`)
+            let command: string = null
+            if ( Settings.isWin ) {
+                command = `wmic process where (ParentProcessId=${pid} and Name="${pname}") get ProcessId`
+            } else {
+                command = `pgrep -l -P ${pid} ${pname}`
+            }
+            let wmic = Common.executer(command)
             let child_pids: number[] = []
             let errors: string[] = []
             wmic.stdout.on('data', stdout => {
-                let regex = /.*?(\d+).*/.exec(<string>stdout)
-                if (regex != null && regex[1]) {
-                    child_pids.push( parseInt(regex[1]) )
+                let array_of_lines = (<string>stdout).match(/[^\r\n]+/g)
+                if (array_of_lines) {
+                    array_of_lines.forEach(line => {
+                        let regex = /.*?(\d+).*/.exec(line)
+                        if (regex != null && regex[1]) {
+                            child_pids.push( parseInt(regex[1]) )
+                        }
+                    })
                 }
             })
             wmic.stderr.on('data', data => {
@@ -477,10 +515,20 @@ export class ViperServerService extends BackendService {
     }
 
     private getBoogiePids(): Promise<number[]> {
-        return this.getChildrenPidsForProcess("Boogie.exe", this.backendServerPid)
+        if ( Settings.isWin ) {
+            return  this.getChildrenPidsForProcess("Boogie.exe", this.backendServerPid)
+        } else if ( Settings.isLinux ) {
+            return this.getChildrenPidsForProcess("Boogie", this.backendServerPid)
+        } else {
+            // Java(ViperServer) -> sh(Boogie) -> mono(Boogie.exe) -> {z3, z3, ...}
+            return this.getChildrenPidsForProcess("sh", this.backendServerPid)
+        }
     }
 
-    private getZ3Pids(boogie_pid: number): Promise<number[]> {
+    private getZ3PidsForWin(boogie_pid: number): Promise<number[]> {
+        if ( !Settings.isWin ) {
+            throw new Error(`ViperServerService.getZ3PidsForWin is only implemented for Windows.`)
+        }
         return this.getChildrenPidsForProcess("z3.exe", boogie_pid)
     }
 
