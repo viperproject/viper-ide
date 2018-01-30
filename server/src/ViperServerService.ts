@@ -133,6 +133,12 @@ export class ViperServerService extends BackendService {
             
             if ( data.toString() === '\n' ) return true
             
+            if ( data.length > 65000 ) {
+                Log.log('Data block size exceeds 65000 elements. This job currently cannot be handled by ViperIDE (try command line tools). Discarding...', LogLevel.Default)
+                this.stopVerification(false)
+                return true
+            }
+
             let message = JSON.parse(data.toString())
             //Log.log('recieved message: ' + JSON.stringify(message, null, 2), LogLevel.LowLevelDebug)
             if ( message.hasOwnProperty('msg_type') ) {
@@ -372,7 +378,7 @@ export class ViperServerService extends BackendService {
             
             new Promise((resolve_0, reject_0) => {
                 //FIXME:KILL_BOOGIE
-                if (Server.backend.type === 'carbon') {
+                if ( Server.backend.type === 'carbon' ) {
                     this.getBoogiePids().then(boogie_pid_list => {
                         this._uncontrolled_pid_list = boogie_pid_list
                         Log.log(`[KILL_BOOGIE] found uncontrolled Boogie processes: ${boogie_pid_list.join(', ')}`, LogLevel.LowLevelDebug)
@@ -421,9 +427,11 @@ export class ViperServerService extends BackendService {
 
 
             }).then(() => {
-                this.killUncontrolledProcesses().catch((error) => {
-                    Log.error(`Could not stop uncontrolled processes after Carbon:\n ${error}`)
-                })
+                if ( Server.backend.type === 'carbon' ) {
+                    this.killUncontrolledProcesses().catch((error) => {
+                        Log.error(`Could not stop uncontrolled processes after Carbon:\n ${error}`)
+                    })
+                }
             })
         })
     }
@@ -436,7 +444,7 @@ export class ViperServerService extends BackendService {
                 if ( Settings.isWin ) {
                     Promise.all(this._uncontrolled_pid_list.map(pid => {
                         return new Promise((res, rej) => {
-                            this.getZ3PidsForWin(pid).then(z3_pid_list => {
+                            this.getZ3Pids(pid).then(z3_pid_list => {
                                 if ( z3_pid_list.length == 0 ) {
                                     res(true)
                                 } else {
@@ -462,12 +470,9 @@ export class ViperServerService extends BackendService {
                     Promise.all(this._uncontrolled_pid_list.map(pid => {
                         return new Promise((res, rej) => {
                             tree_kill(pid, "SIGTERM", error => {
-                                if (error) {
-                                    rej(error)
-                                } else {
-                                    res(true)
-                                }
+                                //res(true)
                             })
+                            res(true)
                         })
                     })).then(() => {
                         resolve(true)
@@ -521,98 +526,41 @@ export class ViperServerService extends BackendService {
             return this.getChildrenPidsForProcess("Boogie", this.backendServerPid)
         } else {
             // Java(ViperServer) -> sh(Boogie) -> mono(Boogie.exe) -> {z3, z3, ...}
-            return this.getChildrenPidsForProcess("sh", this.backendServerPid)
+            //return this.getChildrenPidsForProcess("sh", this.backendServerPid)
+            return new Promise((resolve, reject) => {
+                this.getChildrenPidsForProcess("sh", this.backendServerPid).then(sh_pid_list => {
+                    this.getChildrenPidsForProcess("mono", sh_pid_list[0]).then(mono_pid_list => {
+                        resolve(mono_pid_list)
+                    }).catch(err => {
+                        reject(`- mono process(es) not found -` + err)
+                    })
+                }).catch(error => {
+                    reject(`-- sh process(es) not found -- ` + error)
+                })
+            })
         }
     }
 
-    private getZ3PidsForWin(boogie_pid: number): Promise<number[]> {
-        if ( !Settings.isWin ) {
-            throw new Error(`ViperServerService.getZ3PidsForWin is only implemented for Windows.`)
-        }
-        return this.getChildrenPidsForProcess("z3.exe", boogie_pid)
-    }
+    private getZ3Pids(parent_proc_pid: number): Promise<number[]> {
+        if ( Settings.isWin ) {
+            return this.getChildrenPidsForProcess("z3.exe", parent_proc_pid)
 
-    private waitTillZombieProcessesTermitate(z3_pid_list: string[]): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            if (Settings.isWin) {
-                if ( 0 < z3_pid_list.length ) {
-                    let taskkill = Common.executer(`Taskkill /PID ` + z3_pid_list.join(' /PID ') + ` /F /T`)
-                    taskkill.stdout.on('exit', () => {
-                        resolve(true)
-                    })
-                } else {
-                    resolve(true)
-                }   
-            } else {
-                this.collectPIDsOfRunningProcesses(false, true, true).then((pids) => {
-                    pids.forEach((pid) => {
-                        tree_kill(pid, "SIGTERM", (term_err) => {
-                            Log.log('Could not terminate process with PID=' + pid, LogLevel.LowLevelDebug)
-                            if (term_err) {
-                                Log.log(' (' + term_err + ')', LogLevel.LowLevelDebug)
-                            }
-                        })
-                        resolve(true)
-                    })
-                })
-            }  
-        })
-    }
-
-    /** Initially this code was taken from client/src/test/extension.test.ts */
-    private collectPIDsOfRunningProcesses(checkJava: boolean, checkBoogie: boolean, checkZ3: boolean): Promise<number[]> {
-        return new Promise((resolve, reject) => {
-            let pids = []
-            let command: string
-            if (Settings.isWin) {
-                let terms = []
-                if (checkJava) {
-                    let term = `(CommandLine like "%Viper%" and (`
-                    let innerTerms = []
-                    if (checkJava) innerTerms.push('name="java.exe"')
-                    term += innerTerms.join(' or ')
-                    term += '))'
-                    terms.push(term)
-                }
-                if (checkBoogie) terms.push('name="Boogie.exe"')
-                if (checkZ3) terms.push('name="z3.exe"')
-                command = `wmic process where '` + terms.join(' or ') + `' get ProcessId`
-            } else if (Settings.isMac) {
-                let terms = [];
-                if (checkZ3) terms.push('pgrep -x -l -u "$UID" z3')
-                if (checkJava) terms.push('pgrep -l -u "$UID" -f ^java.*Viper')
-                if (checkBoogie) terms.push('pgrep -l -u "$UID" -f Boogie')
-                command = terms.join('; ')
-            }
-            else {
-                let terms = [];
-                if (checkZ3) terms.push('pgrep -x -l -u "$(whoami)" z3')
-                if (checkJava) terms.push('pgrep -l -u "$(whoami)" -f ^java.*Viper')
-                if (checkBoogie) terms.push('pgrep -l -u "$(whoami)" -f Boogie')
-                command = terms.join('; ');
-            }
-            let pgrep = Common.executer(command);
-            if (Settings.isWin) {
-                pgrep.stdout.on('data', data => {
-                    let all_pids = (<string>data).replace(/[\n\r]/g, " ").split(/\s+/g)
-                    let the_good_pids = all_pids.filter( pid => { return !isNaN( parseInt(pid) ) } )
-                    pids.concat(the_good_pids)
-                })    
-            } else { 
-                pgrep.stdout.on('data', data => {
-                    let stringData = (<string>data).replace(/[\n\r]/g, " ");
-                    let m = /^.*?(\d+).*/.exec(stringData)
-                    if (m != null) {
-                        pids.push(parseInt(m[1]))
-                    } 
-                })
-            }
+        } else if ( Settings.isLinux ) {
+            return this.getChildrenPidsForProcess("z3", parent_proc_pid)
             
-            pgrep.on('exit', data => {
-                Log.log("Ghost process(es) found (PID COMMAND):\n" + data, LogLevel.LowLevelDebug);
-                resolve(pids);
-            });
-        })
+        }  else { // Mac
+            return new Promise((resolve, reject) => {
+                this.getChildrenPidsForProcess("mono", parent_proc_pid).then(mono_pid_list => {
+                        this.getChildrenPidsForProcess("z3", mono_pid_list[0]).then(z3_pid_list => {
+                            resolve(z3_pid_list)
+                        }).catch(err => {
+                            reject(`- z3 process(es) not found -` + err)
+                        })
+                }).catch(error => {
+                    reject(`-- mono process(es) not found -- ` + error)
+                })
+            })
+        }
     }
 
     public static isSupportedType(type: string) {
