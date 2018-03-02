@@ -56,7 +56,9 @@ export class ViperServerService extends BackendService {
                 Log.logWithOrigin("VS", data, LogLevel.LowLevelDebug);
                 let res = expected_msg.exec(data);
                 if ( res.length === 3 ) {
-                    this._url = res[1];
+                    //FIXME: disabling Wifi causes this language server to crash (blame request.post).
+                    //this._url = res[1];
+                    this._url = 'http://127.0.0.1';
                     this._port = parseInt(res[2]);
                     this.removeAllListeners();
                     resolve(true);

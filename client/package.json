@@ -1,7 +1,7 @@
 {
     "name": "viper-experimental",
     "displayName": "Viper experimental",
-    "version": "2.0.0",
+    "version": "2.0.5",
     "publisher": "viper-admin",
     "description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
     "license": "MIT",
@@ -75,47 +75,47 @@
             {
                 "command": "viper.selectBackend",
                 "title": "select verification backend",
-                "category": "Viper"                
+                "category": "Viper"
             },
             {
                 "command": "viper.stopVerification",
                 "title": "stop the running verification",
-                "category": "Viper"                
+                "category": "Viper"
             },
             {
                 "command": "viper.toggleAutoVerify",
                 "title": "toggle automatic verification",
-                "category": "Viper"                
+                "category": "Viper"
             },
             {
                 "command": "viper.openLogFile",
                 "title": "open current logFile",
-                "category": "Viper"                
+                "category": "Viper"
             },
             {
                 "command": "viper.verifyAllFilesInWorkspace",
                 "title": "verify all files in this workspace",
-                "category": "Viper"                
+                "category": "Viper"
             },
             {
                 "command": "viper.removeDiagnostics",
                 "title": "remove diagnostics caused by this file",
-                "category": "Viper"                
+                "category": "Viper"
             },
             {
                 "command": "viper.updateViperTools",
                 "title": "install or update dependencies (command line tools)",
-                "category": "Viper"                
+                "category": "Viper"
             },
             {
                 "command": "viper.flushCache",
                 "title": "flush the cache",
-                "category": "Viper"                
+                "category": "Viper"
             },
             {
                 "command": "viper.flushCacheOfActiveFile",
                 "title": "flush the cache for this file",
-                "category": "Viper"                
+                "category": "Viper"
             },
             {
                 "command": "viper.format",
