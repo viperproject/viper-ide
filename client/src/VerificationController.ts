@@ -6,7 +6,7 @@ import { Timer } from './Timer';
 import * as vscode from 'vscode';
 import { State } from './ExtensionState';
 import { Common, Progress, HintMessage, Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success } from './ViperProtocol';
-import Uri from 'vscode-uri/lib/index';
+import Uri from 'vscode-uri';
 import { Log } from './Log';
 import { StateVisualizer, MyDecorationOptions } from './StateVisualizer';
 import { Helper } from './Helper';

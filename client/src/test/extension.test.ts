@@ -11,7 +11,7 @@ import * as path from 'path';
 // as well as import your extension to test it
 import * as vscode from 'vscode';
 import * as myExtension from '../extension';
-import Uri from 'vscode-uri/lib/index';
+import Uri from 'vscode-uri';
 import { Common, VerificationState } from '../ViperProtocol';
 import { Event } from 'typescript.events';
 import { State } from '../ExtensionState';

@@ -6,7 +6,7 @@ import * as path from 'path';
 import { Commands, LogLevel, ViperSettings } from './ViperProtocol';
 import { Log } from './Log';
 import { ViperFileState } from './ViperFileState';
-import Uri from 'vscode-uri/lib/index';
+import Uri from 'vscode-uri';
 import { Helper } from './Helper';
 import { StateVisualizer } from './StateVisualizer';
 import { Color, StatusBar } from './StatusBar';

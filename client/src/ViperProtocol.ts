@@ -1,6 +1,6 @@
 'use strict';
 
-import Uri from 'vscode-uri/lib/index';
+import Uri from 'vscode-uri';
 import child_process = require('child_process');
 import { Log } from './Log';
 var sudo = require('sudo-prompt');
