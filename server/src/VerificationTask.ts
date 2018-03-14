@@ -514,69 +514,71 @@ export class VerificationTask {
         let json: BackendOutput;
         try {
             json = JSON.parse(line);
+        
+            let error: string;
+            if (!json || !json.type) {
+                error = "Message has no type, raw: " + JSON.stringify(json);
+            } else {
+                switch (json.type) {
+                    case BackendOutputType.Start:
+                        //backendType;
+                        if (!json.backendType) {
+                            error = "The Start message needs to contain the backendType";
+                        }
+                        break;
+                    case BackendOutputType.VerificationStart:
+                        //nofPredicates,nofMethods,nofFunctions;
+                        if (json.nofFunctions == undefined || json.nofMethods == undefined || json.nofPredicates == undefined) {
+                            error = "The VerificationStart message needs to contain nofPredicates, nofMethods, and nofFunctions.";
+                        }
+                        break;
+                    case BackendOutputType.Stopped: case BackendOutputType.Success: case BackendOutputType.FunctionVerified: case BackendOutputType.MethodVerified: case BackendOutputType.PredicateVerified:
+                        //nothing
+                        break;
+                    case BackendOutputType.Error:
+                        //errors, err.tag, err.start, err.end, err.message
+                        if (!json.errors) {
+                            error = "Error message needs to contain errors";
+                        } else {
+                            json.errors.forEach(err => {
+                                if (!err.tag || !err.start || !err.end || !err.message) {
+                                    error = "each error in error message needs to be of type {start: string, end: string, tag: string, message: string}";
+                                }
+                            });
+                        }
+                        break;
+                    case BackendOutputType.End:
+                        //time
+                        if (!Server.containsNumber(json.time)) {
+                            error = "End message needs to contain the time";
+                        }
+                        break;
+                    case BackendOutputType.Outline:
+                        //symbolInformation
+                        if (!json.members) {
+                            error = "The outline message needs to provide a list of members";
+                        }
+                        break;
+                    case BackendOutputType.Definitions:
+                        //symbolInformation
+                        if (!json.definitions) {
+                            error = "The definitions message needs to provide a list of definitions";
+                        }
+                        break;
+                    default:
+                        error = "Unknown message type: " + json.type;
+                }
+            }
+            if (error) {
+                throw new SyntaxError("malformed backend message: " + error)
+
+            } else {
+                return json;
+            }
+
         } catch (e) {
             Log.error("Error handling json message: " + e + " raw: " + line);
             return null;
-        }
-        let error: string;
-        if (!json || !json.type) {
-            error = "Message has no type, raw: " + JSON.stringify(json);
-        } else {
-            switch (json.type) {
-                case BackendOutputType.Start:
-                    //backendType;
-                    if (!json.backendType) {
-                        error = "The Start message needs to contain the backendType";
-                    }
-                    break;
-                case BackendOutputType.VerificationStart:
-                    //nofPredicates,nofMethods,nofFunctions;
-                    if (json.nofFunctions == undefined || json.nofMethods == undefined || json.nofPredicates == undefined) {
-                        error = "The VerificationStart message needs to contain nofPredicates, nofMethods, and nofFunctions.";
-                    }
-                    break;
-                case BackendOutputType.Stopped: case BackendOutputType.Success: case BackendOutputType.FunctionVerified: case BackendOutputType.MethodVerified: case BackendOutputType.PredicateVerified:
-                    //nothing
-                    break;
-                case BackendOutputType.Error:
-                    //errors, err.tag, err.start, err.end, err.message
-                    if (!json.errors) {
-                        error = "Error message needs to contain errors";
-                    } else {
-                        json.errors.forEach(err => {
-                            if (!err.tag || !err.start || !err.end || !err.message) {
-                                error = "each error in error message needs to be of type {start: string, end: string, tag: string, message: string}";
-                            }
-                        });
-                    }
-                    break;
-                case BackendOutputType.End:
-                    //time
-                    if (!Server.containsNumber(json.time)) {
-                        error = "End message needs to contain the time";
-                    }
-                    break;
-                case BackendOutputType.Outline:
-                    //symbolInformation
-                    if (!json.members) {
-                        error = "The outline message needs to provide a list of members";
-                    }
-                    break;
-                case BackendOutputType.Definitions:
-                    //symbolInformation
-                    if (!json.definitions) {
-                        error = "The definitions message needs to provide a list of definitions";
-                    }
-                    break;
-                default:
-                    error = "Unknown message type: " + json.type;
-            }
-        }
-        if (error) {
-            Log.error("Malformed backend message: " + error);
-            return null;
-        } else {
-            return json;
         }
     }
 
@@ -599,8 +601,29 @@ export class VerificationTask {
                     if (line.startsWith("{\"") && line.endsWith("}")) {
                         Log.toLogFile(`[${Server.backend.name}: ${stage.name}: stdout]: ${line}`, LogLevel.LowLevelDebug);
                         let json = VerificationTask.parseJsonMessage(line);
+
                         if (!json) {
-                            return;
+                            if (Server.backendService.isViperServerService) {
+                                Server.backendService.isSessionRunning = false;
+                                this.completionHandler(0);
+                            }
+                            let diag = {
+                                range: {
+                                    start: { line: 0, character: 0 },
+                                    end: { line: 0, character: 0 }
+                                },
+                                source: null, //Server.backend.name
+                                severity: language_server.DiagnosticSeverity.Error,
+                                message: "the message from ViperServer violates the expected protocol"
+                            }         
+                            this.diagnostics.push(diag)
+                            Server.sendStateChangeNotification({
+                                newState: VerificationState.VerificationReporting,
+                                filename: this.filename,
+                                nofErrors: this.diagnostics.length,
+                                uri: this.fileUri,
+                                diagnostics: JSON.stringify( this.diagnostics )
+                            }, this)
                         }
 
                         switch (json.type) {
@@ -715,8 +738,6 @@ export class VerificationTask {
                                 break;
                         }
 
-                        //no need to handle old ouput, if it is in json format
-                        continue;
                     } else if (line.startsWith('"')) {
                         while (i + 1 < parts.length && !line.endsWith('"')) {
                             line += parts[++i];
@@ -727,42 +748,13 @@ export class VerificationTask {
                         } else {
                             this.partialData = line;
                         }
-                        //no need to handle old ouput
-                        continue;
-                    }
-
-                    //non json output handling:
-                    //handle start and end of verification
-                    if ((line.startsWith('Silicon') && !line.startsWith('Silicon finished')) || line.startsWith('carbon started')) {
-                        Log.toLogFile(`[${Server.backend.name}: ${stage.name}: stdout]: ${line}`, LogLevel.LowLevelDebug);
-                        if (this.state != VerificationState.VerificationRunning)
-                            Log.log("State -> Verification Running", LogLevel.Info);
-                        this.state = VerificationState.VerificationRunning;
-                        continue;
-                    }
-                    else if (line.startsWith('Silicon finished') || line.startsWith('carbon finished in')) {
-                        Log.toLogFile(`[${Server.backend.name}: ${stage.name}: stdout]: ${line}`, LogLevel.LowLevelDebug);
-                        Log.log("State -> Error Reporting", LogLevel.Info);
-                        this.state = VerificationState.VerificationReporting;
-                        this.time = Server.extractNumber(line);
-                    }
-                    //handle other verification outputs and results
-                    else if (line.trim().length > 0) {
-                        Log.toLogFile(`[${Server.backend.name}: ${stage.name}: stdout]: ${line}`, LogLevel.LowLevelDebug);
-                        if (i < parts.length - 1 || (this.state != VerificationState.VerificationRunning)) {
-                            //only in VerificationRunning state, the lines are nicley split by newLine characters
-                            //therefore, the partialData construct is only enabled during the verification;
-                            //Log.toLogFile(`[${Server.backend.name}: stdout]: ${line}`, LogLevel.LowLevelDebug);
-                            let linesToSkip = this.handleBackendOutputLine(line); {
-                            }
-                        }
                     }
                 }
             } else {
                 Log.log(`${Server.backend.name}:${stage.name}: ${data}`, LogLevel.Debug);
             }
         } catch (e) {
-            Log.error("Error handling the std output of the backend: " + e);
+            Log.error("Error handling the output of the backend: " + e);
         }
     }
 
