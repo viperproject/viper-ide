@@ -40,38 +40,50 @@ export class ViperServerService extends BackendService {
 
     public start(): Promise<boolean> {
         return new Promise((resolve, reject) => {
-            let command = this.getViperServerStartCommand();
-            Log.log(command, LogLevel.Debug)
+            let policy = Settings.settings.viperServerSettings.viperServerPolicy
+            if ( policy === 'attach' ) {
+                this.backendProcess = null
+                this._url = Settings.settings.viperServerSettings.viperServerAddress
+                this._port = Settings.settings.viperServerSettings.viperServerPort
+                resolve(true)
 
-            Server.startingOrRestarting = true;
-            this.startTimeout(++this.instanceCount);
+            } else if ( policy === 'create' ) {
+                let command = this.getViperServerStartCommand();
+                Log.log(command, LogLevel.Debug)
+
+                Server.startingOrRestarting = true;
+                this.startTimeout(++this.instanceCount);
+                
+                let errorReason = "";
+                this.backendProcess = child_process.exec(command, { 
+                    maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, 
+                    cwd: Server.backendOutputDirectory 
+                });
+                let expected_msg = new RegExp(/ViperServer online at ([/a-zA-Z0-9:.\-_]+):(\d+).*/);
+                this.backendProcess.stdout.on('data', (data: string) => {
+                    Log.logWithOrigin("VS", data, LogLevel.LowLevelDebug);
+                    let res = expected_msg.exec(data);
+                    if ( res.length === 3 ) {
+                        //FIXME: disabling Wifi causes this language server to crash (blame request.post).
+                        //this._url = res[1];
+                        this._url = Settings.settings.viperServerSettings.viperServerAddress;
+                        this._port = parseInt(res[2]);
+                        this.removeAllListeners();
+                        resolve(true);
+                    } 
+                });
+                this.backendProcess.stderr.on('data',(data:string) =>{
+                    errorReason = errorReason += "\n" + data;
+                })
+                this.backendProcess.on('exit', code => {
+                    Log.log("ViperServer is stopped.", LogLevel.Info);
+                    this.setStopped();
+                })
             
-            let errorReason = "";
-            this.backendProcess = child_process.exec(command, { 
-                maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, 
-                cwd: Server.backendOutputDirectory 
-            });
-            let expected_msg = new RegExp(/ViperServer online at ([/a-zA-Z0-9:.\-_]+):(\d+).*/);
-            this.backendProcess.stdout.on('data', (data: string) => {
-                Log.logWithOrigin("VS", data, LogLevel.LowLevelDebug);
-                let res = expected_msg.exec(data);
-                if ( res.length === 3 ) {
-                    //FIXME: disabling Wifi causes this language server to crash (blame request.post).
-                    //this._url = res[1];
-                    this._url = 'http://127.0.0.1';
-                    this._port = parseInt(res[2]);
-                    this.removeAllListeners();
-                    resolve(true);
-                } 
-            });
-            this.backendProcess.stderr.on('data',(data:string) =>{
-                 errorReason = errorReason += "\n" + data;
-            })
-            this.backendProcess.on('exit', code => {
-                Log.log("ViperServer is stopped.", LogLevel.Info);
-                this.setStopped();
-            })
-         })
+            } else {
+                throw new Error('unexpected value in settings: ' + policy)
+            }
+        })
     }
 
     public stop(): Promise<boolean> {

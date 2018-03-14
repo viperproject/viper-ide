@@ -340,6 +340,12 @@ export interface ViperServerSettings extends VersionedSettings {
     disableCaching: boolean;
     //After timeout ms the startup of the viperServer is expected to have failed and thus aborted
     timeout: number;
+    //Specifies whether ViperServer should be started by the IDE or whether the IDE should attach to an existing instance of ViperServer. Possible values: "attach", "create". 
+    viperServerPolicy: string;
+    //Specifies the address part of the URL that ViperServer is running on. 
+    viperServerAddress: string;
+    //Specifies the port part of the URL that ViperServer is running on. Only needed if viperServerPolicy is set to 'attach'. 
+    viperServerPort: number;
 }
 
 export interface Backend extends VersionedSettings {
