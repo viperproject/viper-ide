@@ -128,8 +128,17 @@ export abstract class BackendService {
         });
     }
 
+    private getViperBackendClassName(backend: Backend, stage: Stage): string {
+        switch ( Server.backend.type ) {
+            case "silicon": return "viper.silicon.SiliconFrontend"
+            case "carbon": return "viper.carbon.CarbonFrontend"
+            case "other": return stage.mainMethod
+            default: throw new Error('Invalid verification backend value. Possible values are silicon|carbon|other but found `' + backend + '`')
+        }
+    }
+
     protected getStageCommand(fileToVerify: string, stage: Stage): string {
-        let args = Server.backend.type + " " + stage.customArguments;
+        let args = this.getViperBackendClassName(Server.backend, stage) + " " + stage.customArguments;
         let command = Settings.expandCustomArguments(args, stage, fileToVerify, Server.backend);
         Log.log(command, LogLevel.Debug);
         return command;

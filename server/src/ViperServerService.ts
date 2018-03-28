@@ -579,8 +579,8 @@ export class ViperServerService extends BackendService {
 
     public static isSupportedType(type: string) {
         if (!type) return false;
-        return type.toLowerCase() == 'carbon' || type.toLowerCase() == 'silicon';
+        return type.toLowerCase() == 'carbon' || type.toLowerCase() == 'silicon' || type.toLowerCase() == 'other';
     }
 
-    public static supportedTypes = '"carbon" and "silicon"';
+    public static supportedTypes = '"carbon", "silicon", "other"';
 }

@@ -545,7 +545,7 @@ export class Settings {
             backend.engine = this.resolveEngine(backend.engine);
             //check engine and type
             if (this.useViperServer(backend) && !ViperServerService.isSupportedType(backend.type)) {
-                this.addError(backendName + "the backend type " + backend.type + " is not supported, try " + ViperServerService.supportedTypes);
+                this.addError(backendName + "the backend type " + backend.type + " is not supported, try one of these: " + ViperServerService.supportedTypes);
             }
 
             let stages: Set<string> = new Set<string>();
