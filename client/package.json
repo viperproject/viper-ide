@@ -41,6 +41,7 @@
         "glob-to-regexp": "^0.3.0",
         "decompress-zip": "^0.3.0",
         "sudo-prompt": "6.2.1",
+        "stream-json": "^0.5.2",
         "strip-json-comments": "2.0.1",
         "request": "^2.83.0",
         "request-promise-native": "^1.0.5"
@@ -290,8 +291,8 @@
                         "backendSpecificCache": false,
                         "disableCaching": true,
                         "timeout": 5000,
-                        "viperServerPolicy": "create", 
-                        "viperServerAddress": "http://127.0.0.1", 
+                        "viperServerPolicy": "create",
+                        "viperServerAddress": "http://127.0.0.1",
                         "viperServerPort": 12345
                     },
                     "description": "ViperServer-related settings. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20ViperServer"

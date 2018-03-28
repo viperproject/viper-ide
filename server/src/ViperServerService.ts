@@ -4,7 +4,7 @@ import { clearTimeout } from 'timers';
 import * as fs from 'fs';
 import rp = require('request-promise-native');
 import request = require('request');
-import stream = require('stream');
+import StreamJsonObjects = require("stream-json/utils/StreamJsonObjects")
 
 import child_process = require('child_process');
 import { Log } from './Log'
@@ -21,8 +21,8 @@ export class ViperServerService extends BackendService {
 
     private _port: number
     private _url: string
-    private _stream = new stream.Writable({ objectMode: true, highWaterMark: 50000 })
-    
+    private _stream = StreamJsonObjects.make()
+
     // the JID that ViperServer assigned to the current verification job.
     private _job_id: number
 
@@ -141,19 +141,8 @@ export class ViperServerService extends BackendService {
 
     protected startVerifyProcess(command: string, file: string, onData, onError, onClose) {
 
-        this._stream.writable = true
-        this._stream.write = (data) => { 
-            // Workaround for converting the newly proposed Viper protocol to classical Viper protocol. 
-            
-            if ( data.toString() === '\n' ) return true
-            
-            if ( data.length > 65000 ) {
-                Log.log('Data block size exceeds 65000 elements. This job currently cannot be handled by ViperIDE (try command line tools). Discarding...', LogLevel.Default)
-                this.stopVerification(false)
-                return true
-            }
-
-            let message = JSON.parse(data.toString())
+        this._stream.output.on("data", (object) => { 
+            let message = object.value
             //Log.log('recieved message: ' + JSON.stringify(message, null, 2), LogLevel.LowLevelDebug)
             if ( message.hasOwnProperty('msg_type') ) {
 
@@ -257,13 +246,12 @@ export class ViperServerService extends BackendService {
             } else {
                 throw `property 'msg_type' not found in message=${message}`
             }
-            //onData(data.toString()); 
-            //Log.log(data.toString(), LogLevel.Debug);
             return true; 
-        };
-        this._stream.end = () => { 
-            //onClose();
-        };
+        })
+        this._stream.output.on("end", () => {
+            //Log.log("Viperserver stream ended.", LogLevel.LowLevelDebug)
+            this._stream = StreamJsonObjects.make()
+        })
 
         this.startVerifyStream(command, onData, onError, onClose);
         this.isSessionRunning = true;
@@ -287,7 +275,7 @@ export class ViperServerService extends BackendService {
                 Log.log(`error while requesting results from ViperServer.` +
                         ` Request URL: ${url}\n` +
                         ` Error message: ${err}`, LogLevel.Default);
-            }).pipe(this._stream)
+            }).pipe(this._stream.input)
 
         }).catch((err) => {
             Log.log('unfortunately, we did not get a job ID from ViperServer: ' + err, LogLevel.LowLevelDebug);

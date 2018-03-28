@@ -20,7 +20,7 @@
         "glob-to-regexp": "^0.3.0",
         "decompress-zip": "^0.3.0",
         "sudo-prompt": "6.2.1",
-        "stream": "^0.0.2",
+        "stream-json": "^0.5.2",
         "request": "^2.83.0",
         "request-promise-native": "^1.0.5"
     },
