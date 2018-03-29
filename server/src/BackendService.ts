@@ -66,7 +66,14 @@ export abstract class BackendService {
     protected getServerPid(): Promise<number> {
         Log.log("Determining the backend server PID", LogLevel.LowLevelDebug);
         if (!this.backendProcess) {
-            return Promise.reject("The backendProcess should be set before determining its PID");
+            if ( Settings.settings.viperServerSettings.viperServerPolicy === "attach" ) {
+                let url = Settings.settings.viperServerSettings.viperServerAddress + ":" + Settings.settings.viperServerSettings.viperServerPort
+                return Promise.reject("The backendProcess should be set before determining its PID " + 
+                                      "(you have Settings.settings.viperServerSettings.viperServerPolicy set to 'attach'; " + 
+                                      "is the server actually running on " + url + " ?)");
+            } else {
+                return Promise.reject("The backendProcess should be set before determining its PID");
+            }
         }
 
         return new Promise((resolve, reject) => {
@@ -128,17 +135,17 @@ export abstract class BackendService {
         });
     }
 
-    private getViperBackendClassName(backend: Backend, stage: Stage): string {
+    private getViperBackendClassName(stage: Stage): string {
         switch ( Server.backend.type ) {
-            case "silicon": return "viper.silicon.SiliconFrontend"
-            case "carbon": return "viper.carbon.CarbonFrontend"
+            case "silicon": return "silicon"
+            case "carbon": return "carbon"
             case "other": return stage.mainMethod
-            default: throw new Error('Invalid verification backend value. Possible values are silicon|carbon|other but found `' + backend + '`')
+            default: throw new Error('Invalid verification backend value. Possible values are silicon|carbon|other but found `' + Server.backend + '`')
         }
     }
 
     protected getStageCommand(fileToVerify: string, stage: Stage): string {
-        let args = this.getViperBackendClassName(Server.backend, stage) + " " + stage.customArguments;
+        let args = this.getViperBackendClassName(stage) + " " + stage.customArguments;
         let command = Settings.expandCustomArguments(args, stage, fileToVerify, Server.backend);
         Log.log(command, LogLevel.Debug);
         return command;
