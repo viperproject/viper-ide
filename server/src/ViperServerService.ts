@@ -19,6 +19,7 @@ import { error } from 'util';
 
 export class ViperServerService extends BackendService {
 
+    private _server_logfile: string
     private _port: number
     private _url: string
     private _stream = StreamJsonObjects.make()
@@ -59,20 +60,27 @@ export class ViperServerService extends BackendService {
                     maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, 
                     cwd: Server.backendOutputDirectory 
                 });
-                let expected_msg = new RegExp(/ViperServer online at ([/a-zA-Z0-9:.\-_]+):(\d+).*/);
+                let expected_url_msg = new RegExp(/ViperServer online at ([/a-zA-Z0-9:.\-_]+):(\d+).*/);
+                let expected_log_msg = new RegExp(/Writing \[level:(\w+)\] logs into journal: (.*)/);
                 this.backendProcess.stdout.on('data', (data: string) => {
-                    Log.logWithOrigin("VS", data, LogLevel.LowLevelDebug);
-                    let res = expected_msg.exec(data);
-                    if ( res.length === 3 ) {
+                    Log.logWithOrigin("VS", data.trim(), LogLevel.LowLevelDebug);
+                    let res = expected_url_msg.exec(data);
+                    let log = expected_log_msg.exec(data);
+                    if ( res != null && res.length === 3 ) {
                         //FIXME: disabling Wifi causes this language server to crash (blame request.post).
                         //this._url = res[1];
                         this._url = Settings.settings.viperServerSettings.viperServerAddress;
                         this._port = parseInt(res[2]);
+                        // This is the last stdout message we expect from the server.
                         this.removeAllListeners();
+                        // Ready to start working with the server.
                         resolve(true);
                     } 
+                    if ( log != null && log.length === 2 ) {
+                        this._server_logfile = log[1];
+                    }
                 });
-                this.backendProcess.stderr.on('data',(data:string) =>{
+                this.backendProcess.stderr.on('data',(data:string) => {
                     errorReason = errorReason += "\n" + data;
                 })
                 this.backendProcess.on('exit', code => {
@@ -132,7 +140,10 @@ export class ViperServerService extends BackendService {
     }
 
     private getViperServerStartCommand(): string {
-        let command = 'java ' + Settings.settings.javaSettings.customArguments + " " + Settings.settings.viperServerSettings.customArguments;
+        let command = "java " + Settings.settings.javaSettings.customArguments +  
+                      " " + Settings.settings.viperServerSettings.customArguments + 
+                      " " + "--logFile " + Server.tempDirectory;
+
         command = command.replace(/\$backendPaths\$/g, Settings.viperServerJars());
         command = command.replace(/\$backendSpecificCache\$/g, (Settings.settings.viperServerSettings.backendSpecificCache === true ? "--backendSpecificCache" : ""));
         command = command.replace(/\$mainMethod\$/g, "viper.server.ViperServerRunner");
@@ -181,6 +192,23 @@ export class ViperServerService extends BackendService {
                             }
                         })
                     }))
+                }
+
+                if ( message.msg_type === 'exception_report' ) {
+                    Log.error("The following exception occured in ViperServer: " + message.msg_body.message + "\n trace:\n  " +
+                        message.msg_body.stacktrace.join("\n  "), LogLevel.Default)
+                    onData(JSON.stringify({
+                        type: "Error",
+                        file: file,
+                        errors: [{
+                            tag: 'exceptional.error',
+                            start: '0:0',
+                            end: '0:0',
+                            message: message.msg_body.message,
+                            cached: false
+                        }]
+                    }))
+                    return onData(JSON.stringify({ type: "Stopped" }))
                 }
 
                 if ( message.msg_type === 'verification_result' ) {
@@ -249,7 +277,7 @@ export class ViperServerService extends BackendService {
             return true; 
         })
         this._stream.output.on("end", () => {
-            //Log.log("Viperserver stream ended.", LogLevel.LowLevelDebug)
+            //Log.log("ViperServer stream ended.", LogLevel.LowLevelDebug)
             this._stream = StreamJsonObjects.make()
         })
 
