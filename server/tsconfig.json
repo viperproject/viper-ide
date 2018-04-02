@@ -4,7 +4,8 @@
         "module": "commonjs",
         "moduleResolution": "node",
         "inlineSourceMap": true,
-        "outDir": "../client/server"
+        "outDir": "../client/server",
+        "forceConsistentCasingInFileNames": true
     },
     "exclude": [
         "node_modules"
