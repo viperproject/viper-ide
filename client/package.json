@@ -1,7 +1,7 @@
 {
     "name": "viper-experimental",
     "displayName": "Viper experimental",
-    "version": "2.0.8",
+    "version": "2.0.9",
     "publisher": "viper-admin",
     "description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
     "license": "MIT",
@@ -19,7 +19,7 @@
     },
     "icon": "images/icon_bright_orange_avatar.png",
     "categories": [
-        "Languages",
+        "Language Packs",
         "Other",
         "Themes",
         "Snippets",
