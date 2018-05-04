@@ -13,6 +13,7 @@ import { Helper } from './Helper';
 import { ViperFormatter } from './ViperFormatter';
 import { ViperFileState } from './ViperFileState';
 import { StatusBar, Color } from './StatusBar';
+import { ViperApiEvent } from './ViperApi';
 
 export interface ITask {
     type: TaskType;
@@ -295,6 +296,10 @@ export class VerificationController {
                                     }
                                     task.type = NoOp;
                                     Log.logWithOrigin("workList", "VerificationFinished", LogLevel.LowLevelDebug);
+
+                                    let succ = verificationComplete && !verificationFailed ? "succeded" : "failed"
+                                    State.viperApi.notify(ViperApiEvent.VerificationTerminated,
+                                                          `Verification of '${task.uri}' ${succ}`);
                                     State.hideProgress();
                                 }
                             }
@@ -781,11 +786,13 @@ export class VerificationController {
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(check) " + msg, Color.SUCCESS);
                                 if (params.manuallyTriggered) Log.hint(msg);
+                                State.viperApi.notify(ViperApiEvent.VerificationTerminated, msg);
                                 break;
                             case Success.ParsingFailed:
                                 msg = `Parsing ${params.filename} failed after ${Helper.formatSeconds(params.time)}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(x) " + msg, Color.ERROR);
+                                State.viperApi.notify(ViperApiEvent.VerificationTerminated, msg);
                                 break;
                             case Success.TypecheckingFailed:
                                 msg = `Type checking ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;

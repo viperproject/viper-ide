@@ -16,6 +16,7 @@ import { ViperFormatter } from './ViperFormatter';
 import { ViperFileState } from './ViperFileState';
 import { StatusBar, Color } from './StatusBar';
 import { VerificationController, TaskType, Task, CheckResult } from './VerificationController';
+import { ViperApiEvent, ViperApi } from './ViperApi';
 let stripJSONComments = require('strip-json-comments');
 const os = require('os');
 
@@ -53,6 +54,7 @@ export function activate(context: vscode.ExtensionContext) {
     State.checkOperatingSystem();
     State.context = context;
     State.verificationController = new VerificationController();
+    State.viperApi = new ViperApi();
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/{' + Helper.viperFileEndings.join(",") + "}");
     State.startLanguageServer(context, fileSystemWatcher, false); //break?
     registerHandlers();
@@ -65,6 +67,8 @@ export function activate(context: vscode.ExtensionContext) {
     } else {
         Log.log("No active text editor found", LogLevel.Info);
     }
+
+    return State.viperApi;
 }
 
 function getRequiredVersion(): Versions {
