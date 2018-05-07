@@ -221,7 +221,7 @@ export class ViperServerService extends BackendService {
                                 let first_error_tag = message.msg_body.details.result.errors[0].tag
                                 let global_failure = 
                                     Server.backend.type === 'other' || 
-                                    /* TODO: implement Implement flag DoesCustomBackendSupportFineGrainedLogging */
+                                    /* TODO: Implement flag DoesCustomBackendSupportFineGrainedReporting */
                                     message.msg_body.verifier === 'carbon' ||
                                     first_error_tag === 'parser.error' || 
                                     first_error_tag === 'parser.warning' ||
@@ -230,7 +230,8 @@ export class ViperServerService extends BackendService {
                                     first_error_tag === 'clioption.error' ||
                                     first_error_tag === 'dependencynotfound.error' ||
                                     first_error_tag === 'timeout.error' ||
-                                    first_error_tag === 'exceptional.error' 
+                                    first_error_tag === 'exceptional.error' ||
+                                    first_error_tag.includes('internal')
 
                                 if ( message.msg_body.kind === 'for_entity' || global_failure ) {
                                         
