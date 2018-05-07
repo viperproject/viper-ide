@@ -1,4 +1,7 @@
+import * as vscode from 'vscode';
 import { Z_UNKNOWN } from "zlib";
+import { State } from './ExtensionState';
+import { ViperFileState } from './ViperFileState';
 
 
 export enum ViperApiEvent {
@@ -6,10 +9,26 @@ export enum ViperApiEvent {
     SomethingElse = 'SomethingElse'
 }
 
+class ViperConfiguration {
+    public get(id: string): any {
+        return vscode.workspace.getConfiguration('viperSettings').get(id);
+    }
+
+    /** Tell if the Viper configuration supports debugging. */
+    public debuggingFeatures(): boolean {
+        // TODO: Should also check number of threads
+        return this.get('advancedFeatures').enabled === true;
+    }
+}
 
 export class ViperApi {
     private static knownEvents = ['VerificationTerminated'];
     private callbacks: Map<string, Array<any>> = new Map();
+    public configuration: ViperConfiguration;
+
+    public constructor() {
+        this.configuration = new ViperConfiguration();
+    }
 
     public registerApiCallback(event: string, callback: any) {
         if (!ViperApi.knownEvents.some(e => e === event)) {
@@ -29,5 +48,18 @@ export class ViperApi {
         if (callbacks) {
             callbacks.forEach((callback, index, array) => callback(value));
         }
+    }
+
+    // TODO: Don't like this, maybe refactor
+    public getLastActiveFile(): ViperFileState {
+        return State.getLastActiveFile();
+    }
+
+    public isBackendReady(): boolean {
+        return State.isBackendReady;
+    }
+
+    public isVerifying(): boolean {
+        return State.isVerifying;
     }
 }
