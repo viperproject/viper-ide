@@ -1,8 +1,4 @@
-let Logger = {
-    debug: (message: string) => console.log(message),
-    info: (message: string) => console.log(message),
-    error: (message: string) => console.error(message)
-};
+import { Logger } from './logger';
 
 declare var acquireVsCodeApi: any;
 const vscode = acquireVsCodeApi();

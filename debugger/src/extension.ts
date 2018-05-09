@@ -26,10 +26,12 @@ export function activate(context: vscode.ExtensionContext) {
         Logger.error("The Viper API is not available when starting the debugger extension!");
     }
 
+
     // TODO: Remove this, or put it behind a debug flag
-    viperApi.registerApiCallback('VerificationTerminated', () => {
-        vscode.commands.executeCommand('viper-debugger.startDebugger');
-    });
+    viperApi.registerApiCallback(
+        'VerificationTerminated', 
+        () => vscode.commands.executeCommand('viper-debugger.startDebugger')
+    );
 
     // TODO: This has to be fixed somehow, we want the typing information to be shared between the two extensions, worst
     //       case we can register events based on a string.

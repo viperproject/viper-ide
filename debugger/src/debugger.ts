@@ -52,28 +52,6 @@ export function startDebugger(context: vscode.ExtensionContext) {
     }, undefined, context.subscriptions);
 
     viperDebuggerPanel = panel;
-
-    let renderOptions = {
-        before: {
-            backgroundColor: '#ff0000',
-            contentText: "SOOOME",
-        }
-    } as vscode.DecorationRenderOptions;
-    let dt = vscode.window.createTextEditorDecorationType(renderOptions);
-    vscode.window.activeTextEditor!.setDecorations(dt, [new vscode.Range(2, 2, 3, 4)]);
-
-    let blue = {
-        before: {
-            backgroundColor: '#0000ff',
-            contentText: "WAAT?",
-        },
-    } as vscode.DecorationRenderOptions;
-    let some = vscode.window.createTextEditorDecorationType(blue);
-    let deo = {
-        hoverMessage: "Some?",
-        range: new vscode.Range(2, 2, 3, 4)
-    } as vscode.DecorationOptions;
-    vscode.window.activeTextEditor!.setDecorations(some, [deo]);
 }
 
 
@@ -112,9 +90,9 @@ function isFailure(check: Success | Failure): check is Failure {
     return check instanceof Failure;
 }
 
-function isSuccess(check: Success | Failure): check is Failure {
-    return check instanceof Success;
-}
+// function isSuccess(check: Success | Failure): check is Failure {
+//     return check instanceof Success;
+// }
 
 class Success {}
 
