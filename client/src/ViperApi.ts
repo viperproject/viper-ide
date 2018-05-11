@@ -13,12 +13,6 @@ class ViperConfiguration {
     public get(id: string): any {
         return vscode.workspace.getConfiguration('viperSettings').get(id);
     }
-
-    /** Tell if the Viper configuration supports debugging. */
-    public debuggingFeatures(): boolean {
-        // TODO: Should also check number of threads
-        return this.get('advancedFeatures').enabled === true;
-    }
 }
 
 export class ViperApi {

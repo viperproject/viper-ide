@@ -1,19 +1,21 @@
-
 'use strict';
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { Logger } from './logger';
 import { viperApi } from './extension';
+import { SymbExLogEntry } from './ViperProtocol';
+import { Success, Failure, isFailure } from './util';
+import { DebuggerError, normalizeError } from './Errors';
+import { Verifiable } from './Verifiable';
+
 
 var viperDebuggerPanel: vscode.WebviewPanel | undefined;
 
 
 export function startDebugger(context: vscode.ExtensionContext) {
-    // TODO: Check if we can actually debug.
-    // TODO: Get the file name
-    // TODO: Show states
-
     if (viperDebuggerPanel) {
         viperDebuggerPanel.reveal();
         return;
@@ -41,10 +43,15 @@ export function startDebugger(context: vscode.ExtensionContext) {
 
     panel.webview.html = getViperDebugViewContent(context);
 
+    // Properly dispose of all the debugger's resources
+    panel.onDidDispose(() => stopDebugger());
+
     panel.webview.onDidReceiveMessage(message => {
         switch (message.command) {
             case 'stopDebugger':    
-                stopDebugger();
+                if (viperDebuggerPanel) {
+                    viperDebuggerPanel.dispose();
+                }
                 return;
             default:
                 Logger.error(`Unknown command from debug pane: '${message}'`);
@@ -59,14 +66,21 @@ function getViperDebugViewContent(context: vscode.ExtensionContext) {
     let path = context.asAbsolutePath('resources/html/debugger.html');
     let content = fs.readFileSync(path).toString();
 
-    // TODO: a sort of hack to be able to use local paths in the resources, maybe there is a better way
-    return content.replace(/\{extension-root\}/g, 'vscode-resource:' + context.extensionPath + '/');
+    // We now know where we are running, we can replace all the temporary paths
+    // in the HTML document with the actual extension path.
+    return content.replace(/\{\{root\}\}/g, 'vscode-resource:' + context.extensionPath + '/');
+}
+
+
+export function updateDebuggerView() {
+    let entries: SymbExLogEntry[] = loadSymbExLogFromFile();
+    entries.forEach(e => addSymbolicExecution(e));
 }
 
 
 export function stopDebugger() {
     if (viperDebuggerPanel) {
-        viperDebuggerPanel.dispose();
+        // TODO: Dispose of all other resources we may have used in here.
         viperDebuggerPanel = undefined;
     }
 }
@@ -86,26 +100,25 @@ export function logMessageToDebugView(message: string) {
     viperDebuggerPanel.webview.postMessage(logMessage);
 }
 
-function isFailure(check: Success | Failure): check is Failure {
-    return check instanceof Failure;
-}
 
-// function isSuccess(check: Success | Failure): check is Failure {
-//     return check instanceof Success;
-// }
-
-class Success {}
-
-class Failure {
-    readonly reason: string;
-    constructor(reason: string) {
-        this.reason = reason;
+function addSymbolicExecution(entry: SymbExLogEntry) {
+    if (!viperDebuggerPanel) {
+        Logger.error("Trying to add symbolic execution but the debugging panel does not exist.");
+        return;
     }
+
+    let message = {
+        type: 'addSymbolicExecutionEntry',
+        data: JSON.stringify(entry, null, 4)
+    };
+
+    viperDebuggerPanel.webview.postMessage(message);
 }
+
 
 function canDebug(): Success | Failure {
     // TODO: Report some useful error / solution
-    if (!viperApi.configuration.debuggingFeatures()) {
+    if (!configurationAllowsDebugging(viperApi.configuration)) {
         return new Failure("The current Viper configuration does not allow debugging.");
     }
 
@@ -114,16 +127,17 @@ function canDebug(): Success | Failure {
         return new Failure("Cannot debug, there is no Viper file open.");
     }
 
-    if (!viperApi.isBackendReady()) {
-        return new Failure("Cannot start debugging, backend is not ready.");
-    }
+    // TODO: If we do things with callbacks, we don't need this check
+    // if (!viperApi.isBackendReady()) {
+    //     return new Failure("Cannot start debugging, backend is not ready.");
+    // }
 
-    // TODO: Do we know that this exact file is being verified?
-    if (!fileState.verified && !viperApi.isVerifying) {
-        let filename = fileState.uri.toString();
-        vscode.window.showInformationMessage(`Starting verification of '${filename}' so that it can be debugged.`);
-        vscode.commands.executeCommand('viper.verify');
-    }
+    // TODO: We probably don't want to trigger verification yet...
+    // if (!fileState.verified && !viperApi.isVerifying) {
+    //     let filename = fileState.uri.toString();
+    //     vscode.window.showInformationMessage(`Starting verification of '${filename}' so that it can be debugged.`);
+    //     vscode.commands.executeCommand('viper.verify');
+    // }
 
     // TODO: verification provided no states? (Should not be possible)
     // TODO: isVerifying, should be able to proceed and setup listener for completion
@@ -131,4 +145,48 @@ function canDebug(): Success | Failure {
     // TODO: Could there be any exceptions thrown?
 
     return new Success();
+}
+
+
+// TODO: Does it even make sense to have to allow debugging in config?
+//       This should probably just be a safety check.
+/** Determines if the Viper extension is configured to allow debugging. */
+function configurationAllowsDebugging(configuration: any) {
+    // TODO: Should also check the number of threads
+    return configuration.get('advancedFeatures').enabled;
+}
+
+
+function loadSymbExLogFromFile(): SymbExLogEntry[] {
+    try {
+        // TODO: Move these out somewhere, where config stuff lives
+        // TODO: Find out why the file is output in /tmp and not inside .vscode
+        let tmpDir = path.join(os.tmpdir());
+        let executionTreeFilename = 'executionTreeData.js';
+        let symbExLogPath = path.join(tmpDir, executionTreeFilename);
+
+        if (!fs.existsSync(symbExLogPath)) {
+            throw new DebuggerError(`Could not find '${executionTreeFilename}' in '${tmpDir}'`);
+        }
+
+        let content = fs.readFileSync(symbExLogPath).toString();
+        content = content.substring(content.indexOf("["), content.length).replace(/\n/g, ' ');
+        content = content.replace(/oldHeap":,/g, 'oldHeap":[],');
+
+        const stuff = <SymbExLogEntry[]>JSON.parse(content);
+
+        stuff.forEach((entry, index, array) => {
+            const verifiable = Verifiable.from(entry);
+            console.log(verifiable);
+        });
+
+        return stuff;
+    } catch (e) {
+        e = normalizeError(e);
+        if (e instanceof DebuggerError) {
+            throw e;
+        } else {
+            throw DebuggerError.wrapping("Caught an error while trying to read the symbolic execution log.", e);
+        }
+    }
 }

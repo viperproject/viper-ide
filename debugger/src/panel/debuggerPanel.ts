@@ -1,4 +1,7 @@
+'use strict';
+
 import { Logger } from './logger';
+import JSONFormatter, { JSONFormatterConfiguration } from 'json-formatter-js';
 
 declare var acquireVsCodeApi: any;
 const vscode = acquireVsCodeApi();
@@ -40,6 +43,17 @@ function setupMessageHandlers() {
     }
 
     on('logMessage', message => outpudDiv.innerHTML += "<p>" + message.text + "</p>");
+    on('addSymbolicExecutionEntry', message => {
+        //outpudDiv.innerHTML += "<pre>" + message.data + "</pre>";
+        const openLevel = 3;
+        const config: JSONFormatterConfiguration = {
+           animateOpen: false,
+           animateClose: false,
+           theme: 'dark'
+        };
+        const f = new JSONFormatter(JSON.parse(message.data), openLevel, config);
+        outpudDiv.appendChild(f.render());
+    });
 
     Logger.debug("Done setting up message handlers.");
 }
