@@ -2,11 +2,7 @@ import { SymbExLogEntry } from "./ViperProtocol";
 import { DebuggerError } from "./Errors";
 import { Statement } from "./Statement";
 
-export enum VerifiableType {
-    Method,
-    Predicate,
-    Function
-}
+type VerifiableType = 'Method' | 'Predicate' | 'Function';
 
 
 /** Represents one of the top-level constructs that can be verified */
@@ -36,11 +32,11 @@ export class Verifiable {
         const statements = entry.children.map((child, index, array) => Statement.from(child));
 
         if (kind === 'method') {
-            return new Verifiable(VerifiableType.Method, name, statements);
+            return new Verifiable('Method', name, statements);
         } else if (kind === 'predicate') {
-            return new Verifiable(VerifiableType.Predicate, name, statements);
+            return new Verifiable('Predicate', name, statements);
         } else if (kind === 'function') {
-            return new Verifiable(VerifiableType.Function, name, statements);
+            return new Verifiable('Function', name, statements);
         } else {
             throw new DebuggerError(`Unexpected SymbExLogEntry kind '${entry.kind}'`);
         }

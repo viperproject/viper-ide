@@ -75,6 +75,22 @@ function getViperDebugViewContent(context: vscode.ExtensionContext) {
 export function updateDebuggerView() {
     let entries: SymbExLogEntry[] = loadSymbExLogFromFile();
     entries.forEach(e => addSymbolicExecution(e));
+
+    entries.forEach((entry, index, array) => {
+        const v = Verifiable.from(entry);
+
+        if (!viperDebuggerPanel) {
+            Logger.error("Trying to add symbolic execution but the debugging panel does not exist.");
+            return;
+        }
+
+        let message = {
+            type: 'addSymbolicExecutionEntry',
+            data: JSON.stringify(v)
+        };
+
+        viperDebuggerPanel.webview.postMessage(message);
+    });
 }
 
 
@@ -173,14 +189,7 @@ function loadSymbExLogFromFile(): SymbExLogEntry[] {
         content = content.substring(content.indexOf("["), content.length).replace(/\n/g, ' ');
         content = content.replace(/oldHeap":,/g, 'oldHeap":[],');
 
-        const stuff = <SymbExLogEntry[]>JSON.parse(content);
-
-        stuff.forEach((entry, index, array) => {
-            const verifiable = Verifiable.from(entry);
-            console.log(verifiable);
-        });
-
-        return stuff;
+        return <SymbExLogEntry[]>JSON.parse(content);
     } catch (e) {
         e = normalizeError(e);
         if (e instanceof DebuggerError) {
