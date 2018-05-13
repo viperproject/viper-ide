@@ -9,7 +9,7 @@ import { viperApi } from './extension';
 import { SymbExLogEntry } from './ViperProtocol';
 import { Success, Failure, isFailure } from './util';
 import { DebuggerError, normalizeError } from './Errors';
-import { Verifiable } from './Verifiable';
+import { Verifiable } from './states/Verifiable';
 
 
 var viperDebuggerPanel: vscode.WebviewPanel | undefined;

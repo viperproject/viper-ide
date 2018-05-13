@@ -1,5 +1,4 @@
-import { DebuggerError } from "./Errors";
-
+import { DebuggerError } from "../Errors";
 
 class ScalarOrReferenceValue {
     constructor(readonly value: string) {}

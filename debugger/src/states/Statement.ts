@@ -1,8 +1,11 @@
-import { SymbExLogEntry, SymbExLogStore } from './ViperProtocol';
-import { DebuggerError } from './Errors';
 import { Position } from 'vscode';
-import { Logger } from './logger';
+import { SymbExLogEntry, SymbExLogStore } from '../ViperProtocol';
+import { DebuggerError } from '../Errors';
+import { Logger } from '../logger';
+import { flatMap } from '../util';
 import { HeapChunk } from './Heap';
+import { Condition } from './Condition';
+import { Variable } from './Variable';
 
 
 type StatementType = 'Consume' | 'Produce' | 'Evaluate' | 'Execute' | 'None';
@@ -30,8 +33,6 @@ namespace StatementType {
     }
 }
 
-
-
 export class Statement {
     constructor(readonly type: StatementType,
                 readonly kind: string,
@@ -40,8 +41,8 @@ export class Statement {
                 readonly children: Statement[],
                 readonly store: Variable[] = [],
                 readonly heap: HeapChunk[] = [],
-                readonly oldHeap: string[] = [],
-                readonly pathConditions: string[] = []) {}
+                readonly oldHeap: HeapChunk[] = [],
+                readonly pathConditions: Condition[] = []) {}
 
     public static from(entry: SymbExLogEntry) {
         if (!entry.kind && !entry.type) {
@@ -60,7 +61,7 @@ export class Statement {
         }
 
         if (!entry.pos) {
-            // HACK: Fix this, determine which nodes are allowed not to have a position
+            // FIXME: Determine which nodes are allowed not to have a position
             entry.pos = '0:0';
 
             Logger.error(`Missing 'pos' for SymbExLogEntry '${(entry.type || entry.kind)}'`);
@@ -86,29 +87,12 @@ export class Statement {
             // TODO: we probably want to parse the store into a separate obejct
             const store = entry.prestate.store.map(Variable.from);
             const heap = entry.prestate.heap.map(HeapChunk.parse);
-            const oldHeap = entry.prestate.oldHeap;
-            const pathConditions = entry.prestate.pcs;
+            const oldHeap = entry.prestate.oldHeap.map(HeapChunk.parse);
+            const pathConditions = flatMap(entry.prestate.pcs, Condition.parseConditions);;
 
             return new Statement(type, kind, position, formula, children, store, heap, oldHeap, pathConditions);
         }
 
         return new Statement(type, kind, position, formula, children);
-    }
-}
-
-
-class Variable {
-
-    private constructor(readonly name: string,
-                        readonly type: string,
-                        readonly value: string) {}
-
-    public static from(storeEntry: SymbExLogStore): Variable {
-        const parts = storeEntry.value.split('->');
-        if (parts.length !== 2) {
-            throw new DebuggerError(`Store variable with unexpected format '${storeEntry.value}'`);
-        }
-
-        return new Variable(parts[0], storeEntry.type, parts[1]);
     }
 }

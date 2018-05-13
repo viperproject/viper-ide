@@ -1,5 +1,5 @@
-import { SymbExLogEntry } from "./ViperProtocol";
-import { DebuggerError } from "./Errors";
+import { SymbExLogEntry } from "../ViperProtocol";
+import { DebuggerError } from "../Errors";
 import { Statement } from "./Statement";
 
 type VerifiableType = 'Method' | 'Predicate' | 'Function';
