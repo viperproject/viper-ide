@@ -44,9 +44,11 @@ export class Statement {
                 readonly oldHeap: HeapChunk[] = [],
                 readonly pathConditions: Condition[] = []) {}
 
-    public static from(entry: SymbExLogEntry) {
+    public static from(entry: SymbExLogEntry): Statement {
         if (!entry.kind && !entry.type) {
-            throw new DebuggerError(`Both 'kind' and 'type' entries are missing in '${entry.value}' @ ${entry.pos}`);
+            // TODO: Determine whether this makes sense or not
+            //throw new DebuggerError(`Both 'kind' and 'type' entries are missing in '${entry.value}' @ ${entry.pos}`);
+            Logger.error(`Both 'kind' and 'type' entries are missing in '${entry}'`);
         }
 
 

@@ -95,13 +95,14 @@ export namespace HeapChunk {
         // - Group 2 matches the possibly-missing value
         // - Group 3 matches the **last** field dereference
         let fieldReferenceRegex = /^(\$?\w+(?:@[\d$]+))(\(=.+?\))?(?:\.(\w+))+$/;
-        let match = fieldReferenceRegex.exec(name);
+        let match = fieldReferenceRegex.exec(heapString);
         if (match) {
             return FieldReference.parse;
         } 
 
         // TODO: Deal with this properly
-        throw new DebuggerError("Unknown Name");
+        // throw new DebuggerError(`Could not parse heap chunk '${heapString}'`);
+        return UnparsedHeapChunk.parse;
     }
 }
 
@@ -184,5 +185,14 @@ export class FunctionApplication implements HeapChunk {
         // }
 
         return new FunctionApplication(receiver, args);
+    }
+}
+
+class UnparsedHeapChunk implements HeapChunk {
+
+    private constructor(readonly heapString: string) {}
+
+    public static parse(heapString: string, value: HeapValue, permission: HeapPermission): UnparsedHeapChunk {
+        return new UnparsedHeapChunk(heapString);
     }
 }
