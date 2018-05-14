@@ -33,6 +33,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     // While deveoping start the debugger as soon as a verification finishes
     if (DebuggerSettings.DEVELOPMENT) {
+        vscode.commands.executeCommand(DebuggerCommand.StartDebugger);
+
         viperApi.registerApiCallback(
             ViperApiEvent.VerificationTerminated, 
             (m: any) => {
@@ -40,8 +42,6 @@ export function activate(context: vscode.ExtensionContext) {
                 d.updateDebuggerView();
             }
         );
-
-        vscode.commands.executeCommand(DebuggerCommand.StopDebugger);
     }
 }
 

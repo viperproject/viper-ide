@@ -1,11 +1,21 @@
-import { SymbExLogEntry, SymbExLogStore } from "./ViperProtocol";
-import { DebuggerError } from "./Errors";
-import { Position } from "vscode";
-import { Logger } from "./logger";
+import { Position } from 'vscode';
+import { SymbExLogEntry, SymbExLogStore } from '../ViperProtocol';
+import { DebuggerError } from '../Errors';
+import { Logger } from '../logger';
+import { flatMap } from '../util';
+import { HeapChunk } from './Heap';
+import { Condition } from './Condition';
+import { Variable } from './Variable';
+
 
 type StatementType = 'Consume' | 'Produce' | 'Evaluate' | 'Execute' | 'None';
 
 namespace StatementType {
+    export const Consume = 'Consume';
+    export const Produce = 'Produce';
+    export const Evaluate = 'Evaluate';
+    export const Execute = 'Execute';
+    export const None = 'None';
 
     export function from(type: string): StatementType {
         type = type.toLocaleLowerCase();
@@ -23,39 +33,22 @@ namespace StatementType {
     }
 }
 
-
 export class Statement {
-    public readonly type: StatementType;
-    public readonly kind: string;
-    public readonly position: Position;
-    public readonly formula: string;
-    public readonly store: SymbExLogStore[];
-    public readonly heap: string[];
-    public readonly oldHeap: string[];
-    public readonly pathConditions: string[];
-
-    constructor(type: StatementType,
-                kind: string,
-                position: Position,
-                formula: string,
-                store: SymbExLogStore[] = [],
-                heap: string[] = [],
-                oldHeap: string[] = [],
-                pathConditions: string[] = []) {
-        this.type = type;
-        this.kind = kind;
-        this.position = position;
-        this.formula = formula;
-        this.store = store ? store : [];
-        this.heap = heap ? heap : [];
-        this.oldHeap = oldHeap ? oldHeap : [];
-        this.pathConditions = pathConditions ? pathConditions : [];
-    }
+    constructor(readonly type: StatementType,
+                readonly kind: string,
+                readonly position: Position,
+                readonly formula: string,
+                readonly children: Statement[],
+                readonly store: Variable[] = [],
+                readonly heap: HeapChunk[] = [],
+                readonly oldHeap: HeapChunk[] = [],
+                readonly pathConditions: Condition[] = []) {}
 
     public static from(entry: SymbExLogEntry) {
         if (!entry.kind && !entry.type) {
             throw new DebuggerError(`Both 'kind' and 'type' entries are missing in '${entry.value}' @ ${entry.pos}`);
         }
+
 
         let type: StatementType = 'None';
         // TODO: Determine what are the valid kinds
@@ -68,7 +61,7 @@ export class Statement {
         }
 
         if (!entry.pos) {
-            // HACK: Fix this, determine which nodes are allowed not to have a position
+            // FIXME: Determine which nodes are allowed not to have a position
             entry.pos = '0:0';
 
             Logger.error(`Missing 'pos' for SymbExLogEntry '${(entry.type || entry.kind)}'`);
@@ -85,16 +78,21 @@ export class Statement {
         const position = new Position(Number.parseInt(match[1]), Number.parseInt(match[2]));
         const formula = entry.value;
 
+        let children: Statement[] = [];
+        if (entry.children) {
+            children = entry.children.map((child) => Statement.from(child));
+        } 
+
         if (entry.prestate) {
             // TODO: we probably want to parse the store into a separate obejct
-            const store = entry.prestate.store;
-            const heap = entry.prestate.heap;
-            const oldHeap = entry.prestate.oldHeap;
-            const pathConditions = entry.prestate.pcs;
+            const store = entry.prestate.store.map(Variable.from);
+            const heap = entry.prestate.heap.map(HeapChunk.parse);
+            const oldHeap = entry.prestate.oldHeap.map(HeapChunk.parse);
+            const pathConditions = flatMap(entry.prestate.pcs, Condition.parseConditions);;
 
-            return new Statement(type, kind, position, formula, store, heap, oldHeap, pathConditions);
+            return new Statement(type, kind, position, formula, children, store, heap, oldHeap, pathConditions);
         }
 
-        return new Statement(type, kind, position, formula);
+        return new Statement(type, kind, position, formula, children);
     }
 }
