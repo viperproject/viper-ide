@@ -51,7 +51,7 @@ function setupMessageHandlers() {
            animateClose: false,
            theme: 'dark'
         };
-        const f = new JSONFormatter(JSON.parse(message.data), openLevel, config);
+        const f = new JSONFormatter(message.data, openLevel, config);
         outpudDiv.appendChild(f.render());
     });
 

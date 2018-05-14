@@ -74,7 +74,7 @@ function getViperDebugViewContent(context: vscode.ExtensionContext) {
 
 export function updateDebuggerView() {
     let entries: SymbExLogEntry[] = loadSymbExLogFromFile();
-    entries.forEach(e => addSymbolicExecution(e));
+    //entries.forEach(e => addSymbolicExecution(e));
 
     entries.forEach((entry, index, array) => {
         const v = Verifiable.from(entry);
@@ -86,7 +86,7 @@ export function updateDebuggerView() {
 
         let message = {
             type: 'addSymbolicExecutionEntry',
-            data: JSON.stringify(v)
+            data: v
         };
 
         viperDebuggerPanel.webview.postMessage(message);
