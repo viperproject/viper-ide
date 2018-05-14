@@ -650,6 +650,11 @@ export class VerificationTask {
                                     progress: progressInPercent,
                                     filename: this.filename
                                 }, this);
+                                // NOTE: This is where we know on the language-server side that we have verified a
+                                //       top-level construct (predicate, function, method). This is where we could put
+                                //       the call to inform the language client of the progress. That in turn shouldd
+                                //       notify anyone listening for those events.
+                                //       The remaining question is whether we get partial symb-ex-logs
                                 break;
                             case BackendOutputType.Error:
                                 json.errors.forEach(err => {
