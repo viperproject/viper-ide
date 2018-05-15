@@ -4,6 +4,12 @@ import * as d from './debugger';
 import { Verifiable } from './states/Verifiable';
 
 
+/** State change events that can be listened on.
+ * 
+ *  When the active state is changed (e.g. via a keyboard event or via the gui),
+ *  the session is updated and every object that is listening on a relevant
+ *  event is notified.
+ */
 export type StateChangeEvent = 'Next' | 'Prev' | 'Child' | 'Parent' | 'Error';
 
 
@@ -11,26 +17,18 @@ export type StateChangeEvent = 'Next' | 'Prev' | 'Child' | 'Parent' | 'Error';
 //       capabilities / responsibilities
 export class DebuggerSession {
 
-    private observers: Map<StateChangeEvent, (() => void)[]>;
+    private observers: ((event: StateChangeEvent) => void)[];
 
     constructor(readonly verifiables: Verifiable[]) {
-        this.observers = new Map();
+        this.observers = [];
     }
 
-    public onStateChange(event: StateChangeEvent, callback: () => void) {
-        if (!this.observers.get(event)) {
-            this.observers.set(event, []);
-        }
-
-        this.observers.get(event)!.push(callback);
+    public onStateChange(callback: (event: StateChangeEvent) => void) {
+        this.observers.push(callback);
     }
 
     private notify(event: StateChangeEvent) {
-        const callbacks = this.observers.get(event);
-
-        if (callbacks) {
-            callbacks.forEach(cb => cb());
-        }
+        this.observers.forEach((callback) => callback(event));
     }
 
     public nextState() {

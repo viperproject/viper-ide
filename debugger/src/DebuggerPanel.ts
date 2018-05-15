@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import * as d from './debugger';
 import { SymbExLogEntry } from './ViperProtocol';
 import { Logger } from './logger';
-import { DebuggerSession } from './DebuggerSession';
+import { DebuggerSession, StateChangeEvent } from './DebuggerSession';
 import { DebuggerError } from './Errors';
 
 
@@ -101,11 +101,7 @@ export class DebuggerPanel {
             throw new DebuggerError("Session was undefined when setting up callbacks");
         }
         
-        this.session.onStateChange('Next', () => this.logMessage("Next State"));
-        this.session.onStateChange('Prev', () => this.logMessage("Prev State"));
-        this.session.onStateChange('Child', () => this.logMessage("Child State"));
-        this.session.onStateChange('Parent', () => this.logMessage("Parent State"));
-        this.session.onStateChange('Error', () => this.logMessage("Error State"));
+        this.session.onStateChange((e: StateChangeEvent) => this.logMessage(e.toString()));
     }
 }
 
