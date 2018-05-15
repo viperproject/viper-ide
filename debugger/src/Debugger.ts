@@ -16,61 +16,57 @@ import { DebuggerPanel } from './DebuggerPanel';
 import { ViperApiEvent } from './ViperApi';
 
 
-export class Debugger {
+export namespace Debugger {
     
-    /** Keeps track of wheteher a debugger has been instantiated already */
-    private static instantiated: boolean = false;
     /** Keeps track of the currently active debugger panel. */
-    private panel: DebuggerPanel;
+    let panel: DebuggerPanel;
     /** Keeps track of the currently active debugging session, if any. */
-    private session: DebuggerSession | undefined = undefined;
+    let session: DebuggerSession | undefined = undefined;
 
-    private constructor(extensionPath: string) {
-        if (Debugger.instantiated) {
-            throw new DebuggerError("A Debugger has been instantiated already, are you instantiating twice?");
+    export function start(extensionPath: string) {
+        if (panel) {
+            panel.reveal();
         }
 
-        var res = Debugger.canDebug();
+        var res = canDebug();
         if (isFailure(res)) {
             throw new DebuggerError(`Cannot start debugger: ${res.reason}`);
         }
 
         // Seup the debugger panel an make sure the debugger is stopped when the
         // window is closed
-        this.panel = new DebuggerPanel(extensionPath);
-        this.panel.onDispose(() => this.stopDebugger());
+        panel = new DebuggerPanel(extensionPath);
+        panel.onDispose(() => stop());
 
         // Bind verification events from the main extension to update the panel
         viperApi.registerApiCallback(
             ViperApiEvent.VerificationTerminated, 
             (m: any) => {
-                if (this.panel) {
-                    this.panel.logMessage(m);
-                    this.update();
+                if (panel) {
+                    panel.logMessage(m);
+                    update();
                 }
             }
         );
-
-        Debugger.instantiated = true;
     }
 
     /** API for navigating the states of the current verification session. */
-    public goToState(command: string) {
-        if (!this.session) {
-            Logger.debug(`Ignoring '${command}' command, no active debugging this.session.`);
+    export function goToState(command: string) {
+        if (!session) {
+            Logger.debug(`Ignoring '${command}' command, no active debugging session.`);
             return;
         }
 
         if (command === DebuggerCommand.NextState) {
-            this.session.nextState();
+            session.nextState();
         } else if (command === DebuggerCommand.PrevState) {
-            this.session.prevState();
+            session.prevState();
         } else if (command === DebuggerCommand.ChildState) {
-            this.session.childState();
+            session.childState();
         } else if (command === DebuggerCommand.ParentState) {
-            this.session.parentState();
+            session.parentState();
         } else if (command === DebuggerCommand.NextErrorState) {
-            this.session.nextErrorState();
+            session.nextErrorState();
         } else {
             throw new DebuggerError(`Unexpected command '${command}'`);
         }
@@ -78,31 +74,31 @@ export class Debugger {
 
 
     /** Update the state of the debugger (both panel and view). */
-    public update() {
-        let entries: SymbExLogEntry[] = Debugger.loadSymbExLogFromFile();
+    export function update() {
+        let entries: SymbExLogEntry[] = loadSymbExLogFromFile();
         const verifiables = entries.map(Verifiable.from);
 
-        this.session = new DebuggerSession(verifiables);
-        if (this.panel) {
-            this.panel.setSession(this.session);
+        session = new DebuggerSession(verifiables);
+        if (panel) {
+            panel.setSession(session);
         }
     }
 
 
-    public stopDebugger() {
-        if (this.panel) {
-            this.panel.dispose();    
+    export function stop() {
+        if (panel) {
+            panel.dispose();    
         }
-        if (this.session) {
-            this.session = undefined;
+        if (session) {
+            session = undefined;
         }
         // TODO: Dispose of all other resources we may have used in here.
     }
 
 
-    private static canDebug(): Success | Failure {
+    function canDebug(): Success | Failure {
         // TODO: Report some useful error / solution
-        if (!Debugger.configurationAllowsDebugging(viperApi.configuration)) {
+        if (!configurationAllowsDebugging(viperApi.configuration)) {
             return new Failure("The current Viper configuration does not allow debugging.");
         }
 
@@ -111,7 +107,7 @@ export class Debugger {
             return new Failure("Cannot debug, there is no Viper file open.");
         }
 
-        // TODO: If we do things with callbacks, we don't need this check
+        // TODO: If we do things with callbacks, we don't need check
         // if (!viperApi.isBackendReady()) {
         //     return new Failure("Cannot start debugging, backend is not ready.");
         // }
@@ -135,13 +131,13 @@ export class Debugger {
     // TODO: Does it even make sense to have to allow debugging in config?
     //       This should probably just be a safety check.
     /** Determines if the Viper extension is configured to allow debugging. */
-    private static configurationAllowsDebugging(configuration: any) {
+    function configurationAllowsDebugging(configuration: any) {
         // TODO: Should also check the number of threads
         return configuration.get('advancedFeatures').enabled;
     }
 
 
-    private static loadSymbExLogFromFile(): SymbExLogEntry[] {
+    function loadSymbExLogFromFile(): SymbExLogEntry[] {
         try {
             // TODO: Move these out somewhere, where config stuff lives
             // TODO: Find out why the file is output in /tmp and not inside .vscode

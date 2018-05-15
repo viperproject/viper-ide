@@ -3,7 +3,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import * as d from './debugger';
+import { Debugger } from './Debugger';
 import { SymbExLogEntry } from './ViperProtocol';
 import { Logger } from './logger';
 import { DebuggerSession, StateChangeEvent } from './DebuggerSession';
@@ -34,7 +34,7 @@ export class DebuggerPanel {
         this.panel.webview.onDidReceiveMessage(message => {
             switch (message.command) {
                 case 'stopDebugger':    
-                    d.stopDebugger();
+                    Debugger.stop();
                     return;
                 default:
                     Logger.error(`Unknown command from debug pane: '${message}'`);

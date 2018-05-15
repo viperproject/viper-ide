@@ -2,7 +2,7 @@
 
 import * as vscode from 'vscode';
 import { Logger } from './logger';
-import * as ViperDebugger from './debugger';
+import { Debugger } from './Debugger';
 import { DebuggerCommand } from './Commands';
 import * as DebuggerSettings from './DebuggerSettings';
 import { ViperApiEvent } from './ViperApi';
@@ -35,14 +35,18 @@ export function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(disposable);
     };
 
-    on(DebuggerCommand.StartDebugger, (_) => ViperDebugger.startDebugger(context.extensionPath));
-    on(DebuggerCommand.StopDebugger,  (_) => ViperDebugger.stopDebugger());
+    // Register the main handler, to start the debugger
+    on(DebuggerCommand.StartDebugger, (_) => {
+        Debugger.start(context.extensionPath);
 
-    on(DebuggerCommand.NextState, ViperDebugger.goToState);
-    on(DebuggerCommand.PrevState, ViperDebugger.goToState);
-    on(DebuggerCommand.ChildState, ViperDebugger.goToState);
-    on(DebuggerCommand.ParentState, ViperDebugger.goToState);
-    on(DebuggerCommand.NextErrorState, ViperDebugger.goToState);
+        // Register the rest of the handlers only when the debugger is requested
+        on(DebuggerCommand.StopDebugger,  (_) => Debugger.stop());
+        on(DebuggerCommand.NextState, (s) => Debugger.goToState(s));
+        on(DebuggerCommand.PrevState, (s) => Debugger.goToState(s));
+        on(DebuggerCommand.ChildState, (s) => Debugger.goToState(s));
+        on(DebuggerCommand.ParentState, (s) => Debugger.goToState(s));
+        on(DebuggerCommand.NextErrorState, (s) => Debugger.goToState(s));
+    });
 
     // While deveoping start the debugger immediately
     if (DebuggerSettings.DEVELOPMENT) {

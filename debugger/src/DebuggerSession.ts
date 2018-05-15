@@ -1,6 +1,6 @@
 'use strict';
 
-import * as d from './debugger';
+import * as d from './Debugger';
 import { Verifiable } from './states/Verifiable';
 
 
