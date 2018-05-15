@@ -10,14 +10,19 @@ import { SymbExLogEntry } from './ViperProtocol';
 import { Success, Failure, isFailure } from './util';
 import { DebuggerError, normalizeError } from './Errors';
 import { Verifiable } from './states/Verifiable';
+import { DebuggerCommand } from './Commands';
+import { DebuggerSession } from './DebuggerSession';
+import { DebuggerPanel } from './DebuggerPanel';
+import { ViperApiEvent } from './ViperApi';
 
 
-var viperDebuggerPanel: vscode.WebviewPanel | undefined;
+var panel: DebuggerPanel | undefined;
+var session: DebuggerSession | undefined = undefined;
 
 
 export function startDebugger(context: vscode.ExtensionContext) {
-    if (viperDebuggerPanel) {
-        viperDebuggerPanel.reveal();
+    if (panel) {
+        panel.reveal();
         return;
     }
 
@@ -27,108 +32,65 @@ export function startDebugger(context: vscode.ExtensionContext) {
         return;
     }
 
-    let options: vscode.WebviewPanelOptions & vscode.WebviewOptions = {
-        //enableFindWidget: true,
-        //retainContextWhenHidden: true,
-        enableScripts: true,
-        enableCommandUris: true
-    };
-
-    let panel = vscode.window.createWebviewPanel(
-        'viperDebugPanel',
-        "Viper Debugger",
-        vscode.ViewColumn.Two,
-        options
-    );
-
-    panel.webview.html = getViperDebugViewContent(context);
+    panel = new DebuggerPanel(context.extensionPath);
 
     // Properly dispose of all the debugger's resources
-    panel.onDidDispose(() => stopDebugger());
+    panel.onDispose(() => stopDebugger());
 
-    panel.webview.onDidReceiveMessage(message => {
-        switch (message.command) {
-            case 'stopDebugger':    
-                if (viperDebuggerPanel) {
-                    viperDebuggerPanel.dispose();
-                }
-                return;
-            default:
-                Logger.error(`Unknown command from debug pane: '${message}'`);
+
+    viperApi.registerApiCallback(
+        ViperApiEvent.VerificationTerminated, 
+        (m: any) => {
+            if (panel) {
+                panel.logMessage(m);
+                update();
+            }
         }
-    }, undefined, context.subscriptions);
-
-    viperDebuggerPanel = panel;
+    );
 }
 
 
-function getViperDebugViewContent(context: vscode.ExtensionContext) {
-    let path = context.asAbsolutePath('resources/html/debugger.html');
-    let content = fs.readFileSync(path).toString();
+export function goToState(command: string) {
+    if (!session) {
+        Logger.debug(`Ignoring '${command}' command, no active debugging session.`);
+        return;
+    }
 
-    // We now know where we are running, we can replace all the temporary paths
-    // in the HTML document with the actual extension path.
-    return content.replace(/\{\{root\}\}/g, 'vscode-resource:' + context.extensionPath + '/');
+    if (command === DebuggerCommand.NextState) {
+        session.nextState();
+    } else if (command === DebuggerCommand.PrevState) {
+        session.prevState();
+    } else if (command === DebuggerCommand.ChildState) {
+        session.childState();
+    } else if (command === DebuggerCommand.ParentState) {
+        session.parentState();
+    } else if (command === DebuggerCommand.NextErrorState) {
+        session.nextErrorState();
+    } else {
+        throw new DebuggerError(`Unexpected command '${command}'`);
+    }
 }
 
 
-export function updateDebuggerView() {
+export function update() {
     let entries: SymbExLogEntry[] = loadSymbExLogFromFile();
-    //entries.forEach(e => addSymbolicExecution(e));
+    const verifiables = entries.map(Verifiable.from);
 
-    entries.forEach((entry, index, array) => {
-        const v = Verifiable.from(entry);
-
-        if (!viperDebuggerPanel) {
-            Logger.error("Trying to add symbolic execution but the debugging panel does not exist.");
-            return;
-        }
-
-        let message = {
-            type: 'addSymbolicExecutionEntry',
-            data: v
-        };
-
-        viperDebuggerPanel.webview.postMessage(message);
-    });
+    session = new DebuggerSession(verifiables);
+    if (panel) {
+        panel.setSession(session);
+    }
 }
 
 
 export function stopDebugger() {
-    if (viperDebuggerPanel) {
-        // TODO: Dispose of all other resources we may have used in here.
-        viperDebuggerPanel = undefined;
+    if (panel) {
+        panel.dispose();    
     }
-}
-
-
-export function logMessageToDebugView(message: string) {
-    if (!viperDebuggerPanel) {
-        Logger.error("The Debugger panel was not created but someone tried to log a message to it");
-        return;
+    if (session) {
+        session = undefined;
     }
-
-    let logMessage = {
-        type: 'logMessage',
-        text: message
-    };
-
-    viperDebuggerPanel.webview.postMessage(logMessage);
-}
-
-
-function addSymbolicExecution(entry: SymbExLogEntry) {
-    if (!viperDebuggerPanel) {
-        Logger.error("Trying to add symbolic execution but the debugging panel does not exist.");
-        return;
-    }
-
-    let message = {
-        type: 'addSymbolicExecutionEntry',
-        data: JSON.stringify(entry, null, 4)
-    };
-
-    viperDebuggerPanel.webview.postMessage(message);
+    // TODO: Dispose of all other resources we may have used in here.
 }
 
 

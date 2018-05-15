@@ -30,6 +30,33 @@
                 "title": "Stop Debugger",
                 "category": "Viper"
             }
+        ],
+        "keybindings": [
+            {
+                "command": "viper-debugger.nextState",
+                "key": "f10",
+                "when": "resourceLangId == viper"
+            },
+            {
+                "command": "viper-debugger.prevState",
+                "key": "Shift+f10",
+                "when": "resourceLangId == viper"
+            },
+            {
+                "command": "viper-debugger.childState",
+                "key": "f11",
+                "when": "resourceLangId == viper"
+            },
+            {
+                "command": "viper-debugger.parentState",
+                "key": "Shift+f11",
+                "when": "resourceLangId == viper"
+            },
+            {
+                "command": "viper-debugger.nextErrorState",
+                "key": "f6",
+                "when": "resourceLangId == viper"
+            }
         ]
     },
     "scripts": {

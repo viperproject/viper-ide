@@ -1,5 +1,6 @@
 'use strict';
 
+import * as $ from 'jquery';
 import { Logger } from './logger';
 import JSONFormatter, { JSONFormatterConfiguration } from 'json-formatter-js';
 
@@ -24,6 +25,17 @@ function activate() {
     setupButtonHandlers();
 
     outpudDiv.innerHTML += "<p>Viper Debugger Started</p>";
+
+    $(document).keydown(function(e) {
+        switch (e.key) {
+            case 'F10': // F10        
+                outpudDiv.innerHTML += "<p>F10 from panel</p>";
+                break;
+            default: // F10        
+                outpudDiv.innerHTML += "<p>" + e.key + " from panel</p>";
+                break;
+        }
+    });
 
     Logger.debug("Done setting up debug pane");
 }

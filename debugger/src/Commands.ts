@@ -5,6 +5,9 @@
 export namespace DebuggerCommand {
     export const StartDebugger = 'viper-debugger.startDebugger';
     export const StopDebugger = 'viper-debugger.stopDebugger';
+    export const NextState = 'viper-debugger.nextState';
+    export const PrevState = 'viper-debugger.prevState';
+    export const ChildState = 'viper-debugger.childState';
+    export const ParentState = 'viper-debugger.parentState';
+    export const NextErrorState = 'viper-debugger.nextErrorState';
 }
-
-
