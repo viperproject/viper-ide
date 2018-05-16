@@ -37,7 +37,14 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register the main handler, to start the debugger
     on(DebuggerCommand.StartDebugger, (_) => {
+        const activeEditor = vscode.window.activeTextEditor;
+
         Debugger.start(context.extensionPath);
+
+        // Make sure the editor active previously remains focused
+        if (activeEditor) {
+            vscode.window.showTextDocument(activeEditor.document);
+        }
 
         // Register the rest of the handlers only when the debugger is requested
         on(DebuggerCommand.StopDebugger,  (_) => Debugger.stop());

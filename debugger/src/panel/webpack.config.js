@@ -101,7 +101,7 @@ module.exports = function(env, argv) {
     return {
         // This is ugly having main.scss on both bundles, but if it is added separately it will generate a js bundle :(
         entry: {
-            debuggerPanel: './debuggerPanel.ts'
+            panel: './panel.ts'
         },
         mode: production ? 'production' : 'development',
         output: {

@@ -81,6 +81,7 @@ export namespace Debugger {
         session = new DebuggerSession(verifiables);
         if (panel) {
             panel.setSession(session);
+            session.notifyStateChange();
         }
     }
 

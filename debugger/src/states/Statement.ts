@@ -6,6 +6,7 @@ import { flatMap } from '../util';
 import { HeapChunk } from './Heap';
 import { Condition } from './Condition';
 import { Variable } from './Variable';
+import { stat } from 'fs';
 
 
 type StatementType = 'Consume' | 'Produce' | 'Evaluate' | 'Execute' | 'None';
@@ -34,17 +35,28 @@ namespace StatementType {
 }
 
 export class Statement {
+
+    readonly children: Statement[];
+    next: Statement | undefined;
+
     constructor(readonly type: StatementType,
                 readonly kind: string,
                 readonly position: Position,
                 readonly formula: string,
-                readonly children: Statement[],
+                readonly parent: Statement | undefined,
+                readonly previous: Statement | undefined,
                 readonly store: Variable[] = [],
                 readonly heap: HeapChunk[] = [],
                 readonly oldHeap: HeapChunk[] = [],
-                readonly pathConditions: Condition[] = []) {}
+                readonly pathConditions: Condition[] = []) {
+        this.children = [];
+    }
 
-    public static from(entry: SymbExLogEntry): Statement {
+    private addChild(child: Statement) {
+        this.children.push(child);
+    }
+
+    public static from(entry: SymbExLogEntry, parent?: Statement, previous?: Statement): Statement {
         if (!entry.kind && !entry.type) {
             // TODO: Determine whether this makes sense or not
             //throw new DebuggerError(`Both 'kind' and 'type' entries are missing in '${entry.value}' @ ${entry.pos}`);
@@ -80,21 +92,59 @@ export class Statement {
         const position = new Position(Number.parseInt(match[1]), Number.parseInt(match[2]));
         const formula = entry.value;
 
-        let children: Statement[] = [];
-        if (entry.children) {
-            children = entry.children.map((child) => Statement.from(child));
-        } 
-
+        let statement: Statement;
         if (entry.prestate) {
             // TODO: we probably want to parse the store into a separate obejct
             const store = entry.prestate.store.map(Variable.from);
             const heap = entry.prestate.heap.map(HeapChunk.parse);
             const oldHeap = entry.prestate.oldHeap.map(HeapChunk.parse);
-            const pathConditions = flatMap(entry.prestate.pcs, Condition.parseConditions);;
+            const pathConditions = flatMap(entry.prestate.pcs, Condition.parseConditions);
 
-            return new Statement(type, kind, position, formula, children, store, heap, oldHeap, pathConditions);
+            statement = new Statement(type, kind, position, formula, parent, previous, store, heap, oldHeap, pathConditions);
+        } else {
+            statement = new Statement(type, kind, position, formula, previous, parent);
         }
 
-        return new Statement(type, kind, position, formula, children);
+        if (entry.children) {
+            let previousChild: Statement;
+            entry.children.forEach((entry) => {
+                const child = Statement.from(entry, statement, previousChild);
+                if (previousChild) {
+                    previousChild.next = child;
+                }
+                previousChild = child;
+                statement.addChild(child);
+            });
+        }
+
+        return statement;
+    }
+}
+
+
+export class StatementView {
+
+    private constructor(readonly kind: string,
+                readonly type: string,
+                readonly position: Position,
+                readonly formula: string,
+                readonly store: Variable[] = [],
+                readonly heap: HeapChunk[] = [],
+                readonly oldHeap: HeapChunk[] = [],
+                readonly pathConditions: Condition[] = []) {}
+
+
+    public static from(statement: Statement) {
+        const kind: string = statement.kind.toString();
+        const type: string = statement.type.toString();
+
+        return new StatementView(kind,
+                                 type,
+                                 statement.position,
+                                 statement.formula,
+                                 statement.store,
+                                 statement.heap,
+                                 statement.oldHeap,
+                                 statement.pathConditions);
     }
 }

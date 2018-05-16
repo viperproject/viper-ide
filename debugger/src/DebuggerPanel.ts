@@ -6,8 +6,16 @@ import * as vscode from 'vscode';
 import { Debugger } from './Debugger';
 import { SymbExLogEntry } from './ViperProtocol';
 import { Logger } from './logger';
-import { DebuggerSession, StateChangeEvent } from './DebuggerSession';
+import { DebuggerSession, SessionEvent, StateUpdate } from './DebuggerSession';
 import { DebuggerError } from './Errors';
+import { Statement } from './states/Statement';
+
+
+class PanelMessage {
+    public static StateUpdate(states: StateUpdate) {
+        return { type: 'stateUpdate', data: states };
+    } 
+}
 
 
 export class DebuggerPanel {
@@ -62,16 +70,6 @@ export class DebuggerPanel {
         // TODO: Potentially call session.dispose here
         this.session = session;
 
-        // TODO: Probably move this out
-        this.session.verifiables.forEach((verifiable) => {
-            let message = {
-                type: 'addSymbolicExecutionEntry',
-                data: verifiable
-            };
-
-            this.panel.webview.postMessage(message);
-        });
-
         this.setupSessionCallbacks();
     }
 
@@ -96,12 +94,18 @@ export class DebuggerPanel {
         this.panel.dispose();
     }
 
+    private postMessage(message: any) {
+        this.panel.webview.postMessage(message);
+    }
+
     private setupSessionCallbacks() {
         if (!this.session) {
             throw new DebuggerError("Session was undefined when setting up callbacks");
         }
         
-        this.session.onStateChange((e: StateChangeEvent) => this.logMessage(e.toString()));
+        this.session.onStateChange((states: StateUpdate) => {
+            this.postMessage(PanelMessage.StateUpdate(states));
+        });
     }
 }
 

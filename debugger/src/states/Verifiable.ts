@@ -29,7 +29,15 @@ export class Verifiable {
 
         const kind = entry.kind.toLowerCase();
         const name = entry.value;
-        const statements = entry.children.map((child, index, array) => Statement.from(child));
+        let previous: Statement;
+        const statements = entry.children.map((child) => {
+            const statement = Statement.from(child, undefined, previous);
+            if (previous) {
+                previous.next = statement;
+            }
+            previous = statement;
+            return statement;
+        });
 
         if (kind === 'method') {
             return new Verifiable('Method', name, statements);

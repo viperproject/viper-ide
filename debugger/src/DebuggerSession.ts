@@ -2,52 +2,80 @@
 
 import * as d from './Debugger';
 import { Verifiable } from './states/Verifiable';
+import { Statement, StatementView } from './states/Statement';
 
 
-/** State change events that can be listened on.
- * 
- *  When the active state is changed (e.g. via a keyboard event or via the gui),
- *  the session is updated and every object that is listening on a relevant
- *  event is notified.
- */
-export type StateChangeEvent = 'Next' | 'Prev' | 'Child' | 'Parent' | 'Error';
+/** Events that can be listened on. */
+export type SessionEvent = 'StateChange';
 
 
+export type StateUpdate = { current: StatementView, previous: StatementView | undefined };
 // TODO: Make sure the API makes sense and the Debugger session has the right
 //       capabilities / responsibilities
 export class DebuggerSession {
 
-    private observers: ((event: StateChangeEvent) => void)[];
+    private observers: ((states: StateUpdate) => void)[];
+    private currentStatement: Statement;
+    private previousStatement: Statement | undefined;
 
     constructor(readonly verifiables: Verifiable[]) {
         this.observers = [];
+        // TODO: Put a check for not verifiables?
+        this.currentStatement = this.verifiables[0].statements[0];
     }
 
-    public onStateChange(callback: (event: StateChangeEvent) => void) {
+    public onStateChange(callback: (states: StateUpdate) => void) {
         this.observers.push(callback);
     }
 
-    private notify(event: StateChangeEvent) {
-        this.observers.forEach((callback) => callback(event));
+    public notifyStateChange() {
+        if (this.currentStatement) {
+            const states: StateUpdate = {
+                current: StatementView.from(this.currentStatement),
+                previous: this.previousStatement ? StatementView.from(this.previousStatement) : undefined
+            };
+            this.observers.forEach((callback) => callback(states));
+        }
     }
 
     public nextState() {
-        this.notify('Next');
+        if (this.currentStatement.next) {
+            this.previousStatement = this.currentStatement;
+            this.currentStatement = this.currentStatement.next;
+            this.notifyStateChange();
+        }
     }
 
     public prevState() {
-        this.notify('Prev');
+        if (this.currentStatement.previous) {
+            const previous = this.currentStatement.previous;
+            this.previousStatement = this.currentStatement;
+            if (previous.children.length > 0) {
+                this.currentStatement = previous.children[previous.children.length - 1];
+            } else {
+                this.currentStatement = previous;
+            }
+            this.notifyStateChange();
+        }
     }
 
     public childState() {
-        this.notify('Child');
+        if (this.currentStatement.children.length > 0) {
+            this.previousStatement = this.currentStatement;
+            this.currentStatement = this.currentStatement.children[0];
+            this.notifyStateChange();
+        }
     }
 
     public parentState() {
-        this.notify('Parent');
+        if (this.currentStatement.parent) {
+            this.previousStatement = this.currentStatement;
+            this.currentStatement = this.currentStatement.parent;
+            this.notifyStateChange();
+        }
     }
 
     public nextErrorState() {
-        this.notify('Error');
+        this.notifyStateChange();
     }
 }

@@ -7,6 +7,11 @@ import JSONFormatter, { JSONFormatterConfiguration } from 'json-formatter-js';
 declare var acquireVsCodeApi: any;
 const vscode = acquireVsCodeApi();
 let outpudDiv: HTMLElement;
+const JsonFormatConfiguration: JSONFormatterConfiguration = {
+    animateOpen: false,
+    animateClose: false,
+    theme: 'dark'
+};
 
 /** Sets up the debugger pane */ 
 function activate() {
@@ -58,13 +63,22 @@ function setupMessageHandlers() {
     on('addSymbolicExecutionEntry', message => {
         //outpudDiv.innerHTML += "<pre>" + message.data + "</pre>";
         const openLevel = 3;
-        const config: JSONFormatterConfiguration = {
-           animateOpen: false,
-           animateClose: false,
-           theme: 'dark'
-        };
-        const f = new JSONFormatter(message.data, openLevel, config);
+        const f = new JSONFormatter(message.data, openLevel, JsonFormatConfiguration);
         outpudDiv.appendChild(f.render());
+    });
+    on('stateUpdate', (message) => {
+        const openLevel = 1;
+        $('#currentState').empty();
+        if (message.data.current) {
+            const current = new JSONFormatter(message.data.current, openLevel, JsonFormatConfiguration);
+            $('#currentState').append(current.render());
+        }
+
+        $('#previousState').empty();
+        if (message.data.previous) {
+            const previous = new JSONFormatter(message.data.previous, openLevel, JsonFormatConfiguration);
+            $('#previousState').append(previous.render());
+        }
     });
 
     Logger.debug("Done setting up message handlers.");
