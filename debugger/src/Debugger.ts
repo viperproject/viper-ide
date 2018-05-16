@@ -13,7 +13,14 @@ import { Verifiable } from './states/Verifiable';
 import { DebuggerCommand } from './Commands';
 import { DebuggerSession } from './DebuggerSession';
 import { DebuggerPanel } from './DebuggerPanel';
+import { DecorationsManager } from './DecorationsManager';
 import { ViperApiEvent } from './ViperApi';
+
+
+
+export interface SessionObserver {
+    setSession(session: DebuggerSession): void;
+}
 
 
 export namespace Debugger {
@@ -22,6 +29,8 @@ export namespace Debugger {
     let panel: DebuggerPanel;
     /** Keeps track of the currently active debugging session, if any. */
     let session: DebuggerSession | undefined = undefined;
+
+    let sessionObservers: SessionObserver[];
 
     export function start(extensionPath: string) {
         if (panel) {
@@ -37,6 +46,10 @@ export namespace Debugger {
         // window is closed
         panel = new DebuggerPanel(extensionPath);
         panel.onDispose(() => stop());
+
+        sessionObservers = [
+            panel, new DecorationsManager()
+        ];
 
         // Bind verification events from the main extension to update the panel
         viperApi.registerApiCallback(
@@ -78,11 +91,14 @@ export namespace Debugger {
         let entries: SymbExLogEntry[] = loadSymbExLogFromFile();
         const verifiables = entries.map(Verifiable.from);
 
-        session = new DebuggerSession(verifiables);
-        if (panel) {
-            panel.setSession(session);
-            session.notifyStateChange();
-        }
+        let s = new DebuggerSession(verifiables);
+        session = s;
+
+        sessionObservers.forEach(observer => {
+            observer.setSession(s);
+        });
+
+        session.notifyStateChange();
     }
 
 

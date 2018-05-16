@@ -3,7 +3,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { Debugger } from './Debugger';
+import { Debugger, SessionObserver } from './Debugger';
 import { SymbExLogEntry } from './ViperProtocol';
 import { Logger } from './logger';
 import { DebuggerSession, SessionEvent, StateUpdate } from './DebuggerSession';
@@ -18,7 +18,7 @@ class PanelMessage {
 }
 
 
-export class DebuggerPanel {
+export class DebuggerPanel implements SessionObserver {
 
     private panel: vscode.WebviewPanel;
     private session: DebuggerSession | undefined;
@@ -50,20 +50,6 @@ export class DebuggerPanel {
         });
 
         this.panel.webview.html = Util.getViperDebugViewContent(this.extensionPath);
-    }
-
-    public addSymbolicExecution(entry: SymbExLogEntry) {
-        if (!this.panel) {
-            Logger.error("Trying to add symbolic execution but the debugging panel does not exist.");
-            return;
-        }
-
-        let message = {
-            type: 'addSymbolicExecutionEntry',
-            data: JSON.stringify(entry, null, 4)
-        };
-
-        this.panel.webview.postMessage(message);
     }
 
     public setSession(session: DebuggerSession) {

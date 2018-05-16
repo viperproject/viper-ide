@@ -128,6 +128,7 @@ export class StatementView {
                 readonly type: string,
                 readonly position: Position,
                 readonly formula: string,
+                readonly children: StatementView[],
                 readonly store: Variable[] = [],
                 readonly heap: HeapChunk[] = [],
                 readonly oldHeap: HeapChunk[] = [],
@@ -137,11 +138,13 @@ export class StatementView {
     public static from(statement: Statement) {
         const kind: string = statement.kind.toString();
         const type: string = statement.type.toString();
+        const children: StatementView[] = statement.children.map(StatementView.from);
 
         return new StatementView(kind,
                                  type,
                                  statement.position,
                                  statement.formula,
+                                 children,
                                  statement.store,
                                  statement.heap,
                                  statement.oldHeap,

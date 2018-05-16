@@ -60,12 +60,6 @@ function setupMessageHandlers() {
     }
 
     on('logMessage', message => outpudDiv.innerHTML += "<p>" + message.text + "</p>");
-    on('addSymbolicExecutionEntry', message => {
-        //outpudDiv.innerHTML += "<pre>" + message.data + "</pre>";
-        const openLevel = 3;
-        const f = new JSONFormatter(message.data, openLevel, JsonFormatConfiguration);
-        outpudDiv.appendChild(f.render());
-    });
     on('stateUpdate', (message) => {
         const openLevel = 1;
         $('#currentState').empty();

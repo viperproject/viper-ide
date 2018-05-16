@@ -43,19 +43,38 @@ export class DebuggerSession {
             this.previousStatement = this.currentStatement;
             this.currentStatement = this.currentStatement.next;
             this.notifyStateChange();
+            return;
+        } 
+
+        let parent = this.currentStatement.parent;
+        while (parent) {
+            if (parent.next) {
+                this.previousStatement = this.currentStatement;
+                this.currentStatement = parent.next;
+                this.notifyStateChange();
+                return;
+            }
+            parent = parent.parent;
         }
     }
 
     public prevState() {
         if (this.currentStatement.previous) {
-            const previous = this.currentStatement.previous;
             this.previousStatement = this.currentStatement;
-            if (previous.children.length > 0) {
-                this.currentStatement = previous.children[previous.children.length - 1];
-            } else {
-                this.currentStatement = previous;
-            }
+            this.currentStatement = this.currentStatement.previous;
             this.notifyStateChange();
+            return;
+        } 
+        
+        let parent = this.currentStatement.parent;
+        while (parent) {
+            if (parent.previous) {
+                this.previousStatement = this.currentStatement;
+                this.currentStatement = parent.previous;
+                this.notifyStateChange();
+                return;
+            }
+            parent = parent.parent;
         }
     }
 
