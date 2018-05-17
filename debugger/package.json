@@ -31,6 +31,18 @@
                 "category": "Viper"
             }
         ],
+        "menus": {
+            "commandPalette": [
+                {
+                    "command": "viper-debugger.startDebugger",
+                    "when": "resourceLangId == viper"
+                },
+                {
+                    "command": "viper-debugger.stopDebugger",
+                    "when": "resourceLangId == viper"
+                }
+            ]
+        },
         "keybindings": [
             {
                 "command": "viper-debugger.nextState",

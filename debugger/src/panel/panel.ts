@@ -67,12 +67,6 @@ function setupMessageHandlers() {
             const current = new JSONFormatter(message.data.current, openLevel, JsonFormatConfiguration);
             $('#currentState').append(current.render());
         }
-
-        $('#previousState').empty();
-        if (message.data.previous) {
-            const previous = new JSONFormatter(message.data.previous, openLevel, JsonFormatConfiguration);
-            $('#previousState').append(previous.render());
-        }
     });
 
     Logger.debug("Done setting up message handlers.");

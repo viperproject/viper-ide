@@ -9,14 +9,13 @@ import { Statement, StatementView } from './states/Statement';
 export type SessionEvent = 'StateChange';
 
 
-export type StateUpdate = { current: StatementView, previous: StatementView | undefined };
+export type StateUpdate = { current: StatementView };
 // TODO: Make sure the API makes sense and the Debugger session has the right
 //       capabilities / responsibilities
 export class DebuggerSession {
 
     private observers: ((states: StateUpdate) => void)[];
     private currentStatement: Statement;
-    private previousStatement: Statement | undefined;
 
     constructor(readonly verifiables: Verifiable[]) {
         this.observers = [];
@@ -31,8 +30,7 @@ export class DebuggerSession {
     public notifyStateChange() {
         if (this.currentStatement) {
             const states: StateUpdate = {
-                current: StatementView.from(this.currentStatement),
-                previous: this.previousStatement ? StatementView.from(this.previousStatement) : undefined
+                current: StatementView.from(this.currentStatement)
             };
             this.observers.forEach((callback) => callback(states));
         }
@@ -40,7 +38,6 @@ export class DebuggerSession {
 
     public nextState() {
         if (this.currentStatement.next) {
-            this.previousStatement = this.currentStatement;
             this.currentStatement = this.currentStatement.next;
             this.notifyStateChange();
             return;
@@ -49,7 +46,6 @@ export class DebuggerSession {
         let parent = this.currentStatement.parent;
         while (parent) {
             if (parent.next) {
-                this.previousStatement = this.currentStatement;
                 this.currentStatement = parent.next;
                 this.notifyStateChange();
                 return;
@@ -60,7 +56,6 @@ export class DebuggerSession {
 
     public prevState() {
         if (this.currentStatement.previous) {
-            this.previousStatement = this.currentStatement;
             this.currentStatement = this.currentStatement.previous;
             this.notifyStateChange();
             return;
@@ -69,7 +64,6 @@ export class DebuggerSession {
         let parent = this.currentStatement.parent;
         while (parent) {
             if (parent.previous) {
-                this.previousStatement = this.currentStatement;
                 this.currentStatement = parent.previous;
                 this.notifyStateChange();
                 return;
@@ -80,7 +74,6 @@ export class DebuggerSession {
 
     public childState() {
         if (this.currentStatement.children.length > 0) {
-            this.previousStatement = this.currentStatement;
             this.currentStatement = this.currentStatement.children[0];
             this.notifyStateChange();
         }
@@ -88,7 +81,6 @@ export class DebuggerSession {
 
     public parentState() {
         if (this.currentStatement.parent) {
-            this.previousStatement = this.currentStatement;
             this.currentStatement = this.currentStatement.parent;
             this.notifyStateChange();
         }
