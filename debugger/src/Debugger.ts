@@ -32,7 +32,7 @@ export namespace Debugger {
 
     let sessionObservers: SessionObserver[];
 
-    export function start(extensionPath: string) {
+    export function start(extensionPath: string, activeEditor: vscode.TextEditor) {
         if (panel) {
             panel.reveal();
         }
@@ -48,7 +48,7 @@ export namespace Debugger {
         panel.onDispose(() => stop());
 
         sessionObservers = [
-            panel, new DecorationsManager()
+            panel, new DecorationsManager(activeEditor)
         ];
 
         // Bind verification events from the main extension to update the panel

@@ -68,6 +68,21 @@ function setupMessageHandlers() {
             $('#currentState').append(current.render());
         }
     });
+    on('verifiables', (message) => {
+        const dropdown = $('#verifiables');
+        const options = message.data.map((verifiable: any) => {
+            return $('<option />').text(verifiable.name)
+                                  .attr('value', verifiable.name);
+        });
+        options[0].attr('selected', true);
+        dropdown.append(options);
+        dropdown.prop('disabled', false);
+
+        dropdown.change((event) => { 
+            const name = $('#verifiables').val();
+            vscode.postMessage({ command: 'selectVerifiable', data: name });
+        });
+    });
 
     Logger.debug("Done setting up message handlers.");
 }
@@ -76,17 +91,10 @@ function setupMessageHandlers() {
 function setupButtonHandlers() {
     Logger.debug("Setting up button handlers.");
 
-    let button = (id: string) => {
-        let b = document.getElementById(id);
-        if (b) {
-            return { onClick: (f: () => void) => b!.onclick = f };
-        } else {
-            Logger.error(`Button '${id}' was not found in the '${document.baseURI}' document.`);
-            return { onClick: (f: () => void) => {} };
-        }
-    };
-
-    button('stopDebugger').onClick(() => vscode.postMessage({ command: 'stopDebugger' }));
+    $('#next:button').click(() => vscode.postMessage({ command: 'nextState' }));
+    $('#previous:button').click(() => vscode.postMessage({ command: 'previousState' }));
+    $('#child:button').click(() => vscode.postMessage({ command: 'childState' }));
+    $('#parent:button').click(() => vscode.postMessage({ command: 'parentState' }));
 
     Logger.debug("Done setting up button handlers.");
 }

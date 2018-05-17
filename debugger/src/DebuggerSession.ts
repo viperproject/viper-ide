@@ -3,6 +3,7 @@
 import * as d from './Debugger';
 import { Verifiable } from './states/Verifiable';
 import { Statement, StatementView } from './states/Statement';
+import { Logger } from './logger';
 
 
 /** Events that can be listened on. */
@@ -34,6 +35,17 @@ export class DebuggerSession {
             };
             this.observers.forEach((callback) => callback(states));
         }
+    }
+
+    public selectVerifiable(name: string) {
+        const verifiable = this.verifiables.find(v => v.name === name);
+        if (!verifiable) {
+            Logger.error(`Could not find verifiable '${name}'`);
+            return;
+        } 
+
+        this.currentStatement = verifiable.statements[0];
+        this.notifyStateChange();
     }
 
     public nextState() {

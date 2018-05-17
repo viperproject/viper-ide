@@ -9,12 +9,16 @@ import { Logger } from './logger';
 import { DebuggerSession, SessionEvent, StateUpdate } from './DebuggerSession';
 import { DebuggerError } from './Errors';
 import { Statement } from './states/Statement';
+import { Verifiable } from './states/Verifiable';
 
 
 class PanelMessage {
     public static StateUpdate(states: StateUpdate) {
         return { type: 'stateUpdate', data: states };
     } 
+    public static Verifiables(verifiables: any) {
+        return { type: 'verifiables', data: verifiables};
+    }
 }
 
 
@@ -41,9 +45,21 @@ export class DebuggerPanel implements SessionObserver {
 
         this.panel.webview.onDidReceiveMessage(message => {
             switch (message.command) {
-                case 'stopDebugger':    
-                    Debugger.stop();
-                    return;
+                case 'nextState':
+                    this.session!.nextState();
+                    break;
+                case 'previousState':
+                    this.session!.prevState();
+                    break;
+                case 'childState':
+                    this.session!.childState();
+                    break;
+                case 'parentState':
+                    this.session!.parentState();
+                    break;
+                case 'selectVerifiable':
+                    const verifiableName = message.data;
+                    this.session!.selectVerifiable(verifiableName);
                 default:
                     Logger.error(`Unknown command from debug pane: '${message}'`);
             }
@@ -57,6 +73,14 @@ export class DebuggerPanel implements SessionObserver {
         this.session = session;
 
         this.setupSessionCallbacks();
+
+        // Verifiables are a cyclic structure, need to convert them before
+        // sending them to the panel
+        const verifiables = this.session.verifiables.map(verifiable => {
+            return { name: verifiable.name };
+        });
+
+        this.postMessage(PanelMessage.Verifiables(verifiables));
     }
 
     public logMessage(message: string) {

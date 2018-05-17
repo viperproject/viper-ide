@@ -7,19 +7,14 @@ import { stat } from 'fs';
 
 export class DecorationsManager implements SessionObserver {
 
+    private textEditor: vscode.TextEditor;
     private session: DebuggerSession | undefined;
     private currentDecoration: TextEditorDecorationType;
-    private previousDecoration: TextEditorDecorationType;
 
-    constructor() {
+    constructor(textEditor: vscode.TextEditor) {
+        this.textEditor = textEditor;
         this.currentDecoration = vscode.window.createTextEditorDecorationType({
             borderColor: 'green',
-            borderStyle: 'solid',
-            borderWidth: '0 0 2px 0',  // top right bottom left
-            cursor: 'pointer'
-        });
-        this.previousDecoration = vscode.window.createTextEditorDecorationType({
-            borderColor: 'red',
             borderStyle: 'solid',
             borderWidth: '0 0 2px 0',  // top right bottom left
             cursor: 'pointer'
@@ -33,19 +28,12 @@ export class DecorationsManager implements SessionObserver {
     }
 
     private updateDecorations(states: StateUpdate) {
-        const editor = vscode.window.activeTextEditor;
-
-        if (!editor) {
-            // TODO: remove all decorations
-            return;
-        }
-
         const startPos = new vscode.Position(states.current.position.line - 1,
                                              states.current.position.character - 1);
         const endPos = new vscode.Position(startPos.line,
                                            startPos.character + states.current.formula.length);
 
-        editor.setDecorations(this.currentDecoration, [new vscode.Range(startPos, endPos)]);
+        this.textEditor.setDecorations(this.currentDecoration, [new vscode.Range(startPos, endPos)]);
 
         // if (states.previous) {
         //     const startPos = new vscode.Position(states.previous.position.line - 1,

@@ -53,9 +53,9 @@ function setupCommandHandlers(context: vscode.ExtensionContext) {
     };
 
     on(DebuggerCommand.StartDebugger, (_) => {
-        const activeEditor = vscode.window.activeTextEditor;
+        const activeEditor = vscode.window.activeTextEditor!;
 
-        Debugger.start(context.extensionPath);
+        Debugger.start(context.extensionPath, activeEditor);
 
         // Make sure the editor active previously remains focused
         if (activeEditor) {
