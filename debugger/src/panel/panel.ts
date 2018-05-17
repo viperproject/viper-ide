@@ -42,6 +42,8 @@ function activate() {
         }
     });
 
+
+
     Logger.debug("Done setting up debug pane");
 }
 

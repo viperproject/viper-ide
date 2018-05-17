@@ -22,50 +22,30 @@ class PanelMessage {
 }
 
 
+/** The `DebuggerPanel` for the communication with the HTML panel. */
 export class DebuggerPanel implements SessionObserver {
+
+    private static webviewOptions: vscode.WebviewPanelOptions & vscode.WebviewOptions = {
+        enableFindWidget: true,
+        // TODO: think about restoring the pane's context
+        //retainContextWhenHidden: true,
+        enableScripts: true,
+        enableCommandUris: true
+    };
 
     private panel: vscode.WebviewPanel;
     private session: DebuggerSession | undefined;
 
     constructor(readonly extensionPath: string) {
-
-        let options: vscode.WebviewPanelOptions & vscode.WebviewOptions = {
-            //enableFindWidget: true,
-            //retainContextWhenHidden: true,
-            enableScripts: true,
-            enableCommandUris: true
-        };
-
         this.panel = vscode.window.createWebviewPanel(
             'viperDebugPanel',
             "Viper Debugger",
             vscode.ViewColumn.Two,
-            options
+            DebuggerPanel.webviewOptions
         );
 
-        this.panel.webview.onDidReceiveMessage(message => {
-            switch (message.command) {
-                case 'nextState':
-                    this.session!.nextState();
-                    break;
-                case 'previousState':
-                    this.session!.prevState();
-                    break;
-                case 'childState':
-                    this.session!.childState();
-                    break;
-                case 'parentState':
-                    this.session!.parentState();
-                    break;
-                case 'selectVerifiable':
-                    const verifiableName = message.data;
-                    this.session!.selectVerifiable(verifiableName);
-                default:
-                    Logger.error(`Unknown command from debug pane: '${message}'`);
-            }
-        });
-
-        this.panel.webview.html = Util.getViperDebugViewContent(this.extensionPath);
+        this.panel.webview.onDidReceiveMessage(this.handleMessageFromPanel);
+        this.panel.webview.html = Util.loadWebviewContent(this.extensionPath);
     }
 
     public setSession(session: DebuggerSession) {
@@ -74,8 +54,8 @@ export class DebuggerPanel implements SessionObserver {
 
         this.setupSessionCallbacks();
 
-        // Verifiables are a cyclic structure, need to convert them before
-        // sending them to the panel
+        // Verifiables are a cyclic structure, they need to be converted before
+        // sending them to the HTML panel
         const verifiables = this.session.verifiables.map(verifiable => {
             return { name: verifiable.name };
         });
@@ -108,6 +88,28 @@ export class DebuggerPanel implements SessionObserver {
         this.panel.webview.postMessage(message);
     }
 
+    private handleMessageFromPanel(message: any) {
+        switch (message.command) {
+            case 'nextState':
+                this.session!.nextState();
+                break;
+            case 'previousState':
+                this.session!.prevState();
+                break;
+            case 'childState':
+                this.session!.childState();
+                break;
+            case 'parentState':
+                this.session!.parentState();
+                break;
+            case 'selectVerifiable':
+                const verifiableName = message.data;
+                this.session!.selectVerifiable(verifiableName);
+            default:
+                Logger.error(`Unknown command from debug pane: '${message}'`);
+        }
+    }
+
     private setupSessionCallbacks() {
         if (!this.session) {
             throw new DebuggerError("Session was undefined when setting up callbacks");
@@ -122,7 +124,7 @@ export class DebuggerPanel implements SessionObserver {
 
 namespace Util {
 
-    export function getViperDebugViewContent(extensionPath: string) {
+    export function loadWebviewContent(extensionPath: string) {
         let htmlPath = path.join(extensionPath, 'resources/html/debugger.html');
         let content = fs.readFileSync(htmlPath).toString();
 

@@ -26,10 +26,10 @@ export interface SessionObserver {
 export namespace Debugger {
     
     /** Keeps track of the currently active debugger panel. */
-    let panel: DebuggerPanel;
+    let panel: DebuggerPanel | undefined;
     /** Keeps track of the currently active debugging session, if any. */
     let session: DebuggerSession | undefined = undefined;
-
+    /** Observers are notified whenever the debugger session is changed. */
     let sessionObservers: SessionObserver[];
 
     export function start(extensionPath: string, activeEditor: vscode.TextEditor) {
@@ -42,11 +42,11 @@ export namespace Debugger {
             throw new DebuggerError(`Cannot start debugger: ${res.reason}`);
         }
 
-        // Seup the debugger panel an make sure the debugger is stopped when the
-        // window is closed
+        // Seup the debugger panel an make sure the debugger is stopped when the window is closed
         panel = new DebuggerPanel(extensionPath);
         panel.onDispose(() => stop());
 
+        // SessionObservers are notified whenever there is a new debugging session
         sessionObservers = [
             panel, new DecorationsManager(activeEditor)
         ];
@@ -105,10 +105,12 @@ export namespace Debugger {
     export function stop() {
         if (panel) {
             panel.dispose();    
+            panel = undefined;
         }
         if (session) {
             session = undefined;
         }
+        sessionObservers = [];
         // TODO: Dispose of all other resources we may have used in here.
     }
 
@@ -168,6 +170,8 @@ export namespace Debugger {
 
             let content = fs.readFileSync(symbExLogPath).toString();
             content = content.substring(content.indexOf("["), content.length).replace(/\n/g, ' ');
+
+            // FIXME: Remove this once the symbexlogger has been fixed.
             content = content.replace(/oldHeap":,/g, 'oldHeap":[],');
 
             return <SymbExLogEntry[]>JSON.parse(content);
