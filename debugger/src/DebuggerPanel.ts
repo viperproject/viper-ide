@@ -44,7 +44,7 @@ export class DebuggerPanel implements SessionObserver {
             DebuggerPanel.webviewOptions
         );
 
-        this.panel.webview.onDidReceiveMessage(this.handleMessageFromPanel);
+        this.panel.webview.onDidReceiveMessage((m) => this.handleMessageFromPanel(m));
         this.panel.webview.html = Util.loadWebviewContent(this.extensionPath);
     }
 
@@ -105,6 +105,7 @@ export class DebuggerPanel implements SessionObserver {
             case 'selectVerifiable':
                 const verifiableName = message.data;
                 this.session!.selectVerifiable(verifiableName);
+                break;
             default:
                 Logger.error(`Unknown command from debug pane: '${message}'`);
         }
@@ -125,7 +126,7 @@ export class DebuggerPanel implements SessionObserver {
 namespace Util {
 
     export function loadWebviewContent(extensionPath: string) {
-        let htmlPath = path.join(extensionPath, 'resources/html/debugger.html');
+        let htmlPath = path.join(extensionPath, 'out/panel/debugger.html');
         let content = fs.readFileSync(htmlPath).toString();
 
         // We now know where we are running, we can replace all the temporary paths

@@ -2,6 +2,7 @@
 const webpack = require('webpack');
 const glob = require('glob');
 const path = require('path');
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = function(env, argv) {
@@ -14,7 +15,15 @@ module.exports = function(env, argv) {
     const quick = !production && !!env.quick;
     const minify = production;
     const sourceMaps = !production;
-    const plugins = [];
+    const plugins = [
+        new HtmlWebpackPlugin({
+            template: './resources/html/debugger.html',
+            filename: './debugger.html'
+        }),
+        new MiniCssExtractPlugin({
+            filename: '[name].css'
+        }),
+    ];
 
     // const plugins = [
     //     new webpack.optimize.ModuleConcatenationPlugin(),
@@ -101,7 +110,7 @@ module.exports = function(env, argv) {
     return {
         // This is ugly having main.scss on both bundles, but if it is added separately it will generate a js bundle :(
         entry: {
-            panel: './panel.ts'
+            panel: [ './panel.ts', './resources/css/style.scss' ]
         },
         mode: production ? 'production' : 'development',
         output: {
@@ -121,29 +130,38 @@ module.exports = function(env, argv) {
                     use: [{ loader: 'ts-loader' }],
                     exclude: /node_modules/
                 },
-                // {
-                //     test: /\.scss$/,
-                //     use: ExtractTextPlugin.extract({
-                //         fallback: 'style-loader',
-                //         use: [
-                //             {
-                //                 loader: 'css-loader',
-                //                 options: {
-                //                     minimize: minify,
-                //                     sourceMap: sourceMaps,
-                //                     url: false
-                //                 }
-                //             },
-                //             {
-                //                 loader: 'sass-loader',
-                //                 options: {
-                //                     sourceMap: sourceMaps
-                //                 }
-                //             }
-                //         ]
-                //     }),
-                //     exclude: /node_modules/
-                // }
+                {
+                    test: /\.html$/,
+                    use: [
+                        {
+                            loader: 'html-loader',
+                            options: { minimize: false }
+                        }
+                    ]
+                },
+                {
+                    test: /\.scss$/,
+                    use: [
+                        {
+                            loader: MiniCssExtractPlugin.loader
+                        },
+                        {
+                            loader: 'css-loader',
+                            options: {
+                                minimize: minify,
+                                sourceMap: sourceMaps,
+                                url: false
+                            }
+                        },
+                        {
+                            loader: 'sass-loader',
+                            options: {
+                                sourceMap: sourceMaps
+                            }
+                        }
+                    ],
+                    exclude: /node_modules/
+                }
             ]
         },
         plugins: plugins

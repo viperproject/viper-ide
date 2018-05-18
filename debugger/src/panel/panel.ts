@@ -62,23 +62,21 @@ function setupMessageHandlers() {
     }
 
     on('logMessage', message => outpudDiv.innerHTML += "<p>" + message.text + "</p>");
-    on('stateUpdate', (message) => {
-        const openLevel = 1;
-        $('#currentState').empty();
-        if (message.data.current) {
-            const current = new JSONFormatter(message.data.current, openLevel, JsonFormatConfiguration);
-            $('#currentState').append(current.render());
-        }
-    });
+    on('stateUpdate', (message) => state(message));
     on('verifiables', (message) => {
         const dropdown = $('#verifiables');
         const options = message.data.map((verifiable: any) => {
             return $('<option />').text(verifiable.name)
                                   .attr('value', verifiable.name);
         });
+
+        dropdown.empty();
+
         options[0].attr('selected', true);
         dropdown.append(options);
-        dropdown.prop('disabled', false);
+
+        // Only allow accessing the dropdown if there is more than one choice
+        dropdown.prop('disabled', (options.length <= 1));
 
         dropdown.change((event) => { 
             const name = $('#verifiables').val();
@@ -88,6 +86,35 @@ function setupMessageHandlers() {
 
     Logger.debug("Done setting up message handlers.");
 }
+
+
+function state(message: any) {
+    const state = message.data.current;
+    const stateDiv = $('#currentState');
+    stateDiv.empty();
+
+    if (!state) {
+        return;
+    }
+
+    if (state.type && state.type !== 'None') {
+        stateDiv.removeClass();
+        stateDiv.addClass(state.type.toLowerCase());
+        const elem = $('<h3>' + state.type + '</h3>');
+        stateDiv.append(elem);
+    } else {
+        stateDiv.removeClass();
+        stateDiv.addClass('noAction');
+        const elem = $('<h3>' + state.kind + '</h3>');
+        stateDiv.append(elem);
+    }
+
+    const openLevel = 1;
+    const current = new JSONFormatter(state, openLevel, JsonFormatConfiguration);
+    const pre = $('<pre></pre>').append(current.render());
+    stateDiv.append(pre);
+}
+
 
 /** Sets up handlers for button events in the debugger pane. */
 function setupButtonHandlers() {
