@@ -123,6 +123,12 @@ function state(message: any) {
         stateDiv.append(elem);
     }
 
+    let data = message.data;
+    $('button#next').prop('disabled', !data.hasNext);
+    $('button#previous').prop('disabled', !data.hasPrevious);
+    $('button#parent').prop('disabled', !data.hasParent);
+    $('button#child').prop('disabled', !data.hasChild);
+
     // stateDiv.append($('<div></div>').addClass('graph'));
     // const graphContainer = $("div.graph");
     // shit = setupGraph(graphContainer.get(0));

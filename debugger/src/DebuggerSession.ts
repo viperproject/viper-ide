@@ -11,7 +11,13 @@ import * as vscode from 'vscode';
 export type SessionEvent = 'StateChange';
 
 
-export type StateUpdate = { current: StatementView };
+export type StateUpdate = {
+    current: StatementView,
+    hasNext: boolean,
+    hasPrevious: boolean,
+    hasParent: boolean,
+    hasChild: boolean
+};
 // TODO: Make sure the API makes sense and the Debugger session has the right
 //       capabilities / responsibilities
 export class DebuggerSession {
@@ -31,8 +37,13 @@ export class DebuggerSession {
 
     public notifyStateChange() {
         if (this.currentStatement) {
+            // TODO: Fix with proper logic for next and prev
             const states: StateUpdate = {
-                current: StatementView.from(this.currentStatement)
+                current: StatementView.from(this.currentStatement),
+                hasNext: (this.currentStatement.next !== undefined) || (this.currentStatement.parent !== undefined),
+                hasPrevious: this.currentStatement.previous !== undefined || (this.currentStatement.parent !== undefined),
+                hasParent: this.currentStatement.parent !== undefined,
+                hasChild: this.currentStatement.children.length > 0
             };
             this.observers.forEach((callback) => callback(states));
         }
