@@ -3,6 +3,9 @@
 import * as $ from 'jquery';
 import { Logger } from './logger';
 import JSONFormatter, { JSONFormatterConfiguration } from 'json-formatter-js';
+import * as vis from 'vis';
+import { STATUS_CODES } from 'http';
+import * as Split from 'split.js';
 
 declare var acquireVsCodeApi: any;
 const vscode = acquireVsCodeApi();
@@ -12,6 +15,7 @@ const JsonFormatConfiguration: JSONFormatterConfiguration = {
     animateClose: false,
     theme: 'dark'
 };
+let shit: vis.Network;
 
 /** Sets up the debugger pane */ 
 function activate() {
@@ -25,6 +29,16 @@ function activate() {
     } else {
         outpudDiv = e;
     }
+
+    let panels: HTMLElement[] = $('.panel').toArray();
+    let splitInstance = Split(panels, {
+        sizes: [80, 20],
+        direction: 'vertical',
+        cursor: 'row-resize',
+        gutterSize: 5,
+        minSize: 0,
+        snapOffset: 60,  // When a panel is less than this, it closes
+    });
 
     setupMessageHandlers();
     setupButtonHandlers();
@@ -109,6 +123,10 @@ function state(message: any) {
         stateDiv.append(elem);
     }
 
+    // stateDiv.append($('<div></div>').addClass('graph'));
+    // const graphContainer = $("div.graph");
+    // shit = setupGraph(graphContainer.get(0));
+
     const openLevel = 1;
     const current = new JSONFormatter(state, openLevel, JsonFormatConfiguration);
     const pre = $('<pre></pre>').append(current.render());
@@ -126,6 +144,37 @@ function setupButtonHandlers() {
     $('#parent:button').click(() => vscode.postMessage({ command: 'parentState' }));
 
     Logger.debug("Done setting up button handlers.");
+}
+
+
+function setupGraph(container: HTMLElement) {
+    var nodes = new vis.DataSet([
+        {id: 1, label: 'Node 1'},
+        {id: 2, label: 'Node 2'},
+        {id: 3, label: 'Node 3'},
+        {id: 4, label: 'Node 4'},
+        {id: 5, label: 'Node 5'},
+        {id: 6, label: 'Node 6'}
+    ]);
+
+    // create an array with edges
+    var edges = new vis.DataSet([
+        {from: 1, to: 3},
+        {from: 1, to: 2},
+        {from: 4, to: 5},
+        {from: 4, to: 6}
+    ]);
+
+    var data = {
+        nodes: nodes,
+        edges: edges
+    };
+
+    var options = {
+        physics: { enabled: false }
+    };
+
+    return new vis.Network(container, data, options);
 }
 
 

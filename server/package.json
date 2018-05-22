@@ -9,6 +9,7 @@
     "version": "0.0.1",
     "publisher": "viper-admin",
     "engines": {
+        "vscode": "^1.16.0",
         "node": "*"
     },
     "dependencies": {

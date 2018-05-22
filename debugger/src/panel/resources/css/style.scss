@@ -83,15 +83,32 @@ nav {
     // background: #7A4151;
 }
 
-main {
-    padding: 1em;
-    overflow-y: scroll;
-    flex: 1;
+div.graph {
+    min-width: 300px;
+    min-height: 200px;
+    border: 1px solid #2A3239;
+
+    canvas {
+        min-width: 300px;
+        min-height: 200px;
+    }
 }
 
-footer {
-    border-top: 1px solid #444444;
-    padding: 1em;
-    height: 100px;
+.panel {
     overflow-y: scroll;
+
+    & > * {
+        margin: 1em;
+    }
 }
+
+.gutter.gutter-vertical {
+    border-top: 1px solid #444444;
+    cursor: row-resize;
+}
+
+.gutter:hover,
+.gutter.dragged
+ {
+     background: #4aa2e0;
+ }

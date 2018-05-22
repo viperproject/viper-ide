@@ -39,6 +39,12 @@ export class Commands {
     static BackendReady = "BackendReady";//BackendReadyParams
     static StepsAsDecorationOptions = "StepsAsDecorationOptions";//StepsAsDecorationOptionsResult
     static HeapGraph = "HeapGraph";//HeapGraph
+    /** The language server notifies an unhandled message type from ViperServer.
+     *  
+     *  Used to inform the client that there might be some additional messages
+     *  that may be destined to some extension via the ViperApi.
+     */
+    static UnhandledViperServerMessageType = 'UnhandledViperServerMessageType';
 
     //CLIENT TO SERVER
     //Client asks server for the list of backend names

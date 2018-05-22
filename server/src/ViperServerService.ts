@@ -9,9 +9,8 @@ import StreamJsonObjects = require("stream-json/utils/StreamJsonObjects")
 import child_process = require('child_process');
 import { Log } from './Log'
 import { Settings } from './Settings'
-import { BackendOutputType, Common, Stage, Backend, VerificationState, LogLevel } from './ViperProtocol'
+import { BackendOutputType, Common, Stage, Backend, VerificationState, LogLevel, Commands } from './ViperProtocol'
 import { Server } from './ServerClass';
-import { VerificationTask } from './VerificationTask'
 import { BackendService } from './BackendService';
 
 import tree_kill = require('tree-kill');
@@ -155,125 +154,129 @@ export class ViperServerService extends BackendService {
         this._stream.output.on("data", (object) => { 
             let message = object.value
             //Log.log('recieved message: ' + JSON.stringify(message, null, 2), LogLevel.LowLevelDebug)
-            if ( message.hasOwnProperty('msg_type') ) {
-
-                if ( message.msg_type === 'statistics' ) {
-                    return onData(JSON.stringify({
-                        type: "VerificationStart", 
-                        nofPredicates: parseInt(message.msg_body.predicates), 
-                        nofMethods: parseInt(message.msg_body.methods), 
-                        nofFunctions: parseInt(message.msg_body.functions)
-                    }))
-                }
-
-                if ( message.msg_type === 'program_outline' ) {
-                    return onData(JSON.stringify({
-                        type: "Outline", 
-                        members: message.msg_body.members.map((m) => {
-                            return {
-                                type: m.type,
-                                name: m.name,
-                                location: m.position.file + '@' + m.position.start + '-' +  m.position.end
-                            }
-                        })
-                    }))
-                }
-
-                if ( message.msg_type === 'program_definitions' ) {
-                    return onData(JSON.stringify({
-                        type: "Definitions", 
-                        definitions: message.msg_body.definitions.map(d => {
-                            return {
-                                name: d.name,
-                                type: d.type,
-                                scopeStart: d.scopeStart,
-                                scopeEnd: d.scopeEnd, 
-                                location: d.location.file + '@' + d.location.start + '-' + d.location.end
-                            }
-                        })
-                    }))
-                }
-
-                if ( message.msg_type === 'exception_report' ) {
-                    Log.error("The following exception occured in ViperServer: " + message.msg_body.message + "\n trace:\n  " +
-                        message.msg_body.stacktrace.join("\n  "), LogLevel.Default)
-                    onData(JSON.stringify({
-                        type: "Error",
-                        file: file,
-                        errors: [{
-                            tag: 'exceptional.error',
-                            start: '0:0',
-                            end: '0:0',
-                            message: message.msg_body.message,
-                            cached: false
-                        }]
-                    }))
-                    return onData(JSON.stringify({ type: "Stopped" }))
-                }
-
-                if ( message.msg_type === 'verification_result' ) {
-
-                    if ( message.hasOwnProperty('msg_body') && 
-                         message.msg_body.hasOwnProperty('status') ) {
-
-                            if ( message.msg_body.status === 'failure') {
-
-                                let first_error_tag = message.msg_body.details.result.errors[0].tag
-                                let global_failure = 
-                                    message.msg_body.verifier === 'carbon' ||
-                                    first_error_tag === 'parser.error' || 
-                                    first_error_tag === 'parser.warning' ||
-                                    first_error_tag === 'consistency.error' ||
-                                    first_error_tag === 'typechecker.error' ||
-                                    first_error_tag === 'clioption.error' ||
-                                    first_error_tag === 'dependencynotfound.error' ||
-                                    first_error_tag === 'timeout.error' ||
-                                    first_error_tag === 'exceptional.error' 
-
-                                if ( message.msg_body.kind === 'for_entity' || global_failure ) {
-                                        
-                                    onData(JSON.stringify({ 
-                                        type: "Error",
-                                        file: file,
-                                        errors: message.msg_body.details.result.errors.map((e) => {
-                                            return {
-                                                tag: e.tag,
-                                                start: e.position.start,
-                                                end: e.position.end,
-                                                message: e.text,
-                                                cached: e.cached
-                                            }
-                                        })
-                                    }))
-                                }
-
-                            } else if ( message.msg_body.status === 'success' && 
-                                        message.msg_body.kind === 'for_entity') {
-                                    
-                                return onData(JSON.stringify({
-                                    type: (message.msg_body.details.entity.type === 'method' ? 'MethodVerified' 
-                                        : (message.msg_body.details.entity.type === 'function' ? 'FunctionVerified' 
-                                        :  message.msg_body.details.entity.type === 'predicate' ? 'PredicateVerified' : ''/*bad stuff*/ ) ) ,
-                                    name: message.msg_body.details.entity.name
-                                }))
-
-                            } 
-                            
-                            if ( message.msg_body.kind === 'overall') {
-                                onData(JSON.stringify({
-                                    type: "End", 
-                                    time: (message.msg_body.details.time * 0.001) + 's'
-                                }))
-                                return onData(JSON.stringify({ type: "Success" }))
-                            }
-
-                    } else {
-                        throw `property 'msg_body' not found in message=${message}`
-                    }
-                } 
-            } else {
+            if ( !message.hasOwnProperty('msg_type') ) {
                 throw `property 'msg_type' not found in message=${message}`
             }
+                
+            if ( message.msg_type === 'statistics' ) {
+                return onData(JSON.stringify({
+                    type: "VerificationStart", 
+                    nofPredicates: parseInt(message.msg_body.predicates), 
+                    nofMethods: parseInt(message.msg_body.methods), 
+                    nofFunctions: parseInt(message.msg_body.functions)
+                }))
+            }
+
+            if ( message.msg_type === 'program_outline' ) {
+                return onData(JSON.stringify({
+                    type: "Outline", 
+                    members: message.msg_body.members.map((m) => {
+                        return {
+                            type: m.type,
+                            name: m.name,
+                            location: m.position.file + '@' + m.position.start + '-' +  m.position.end
+                        }
+                    })
+                }))
+            }
+
+            if ( message.msg_type === 'program_definitions' ) {
+                return onData(JSON.stringify({
+                    type: "Definitions", 
+                    definitions: message.msg_body.definitions.map(d => {
+                        return {
+                            name: d.name,
+                            type: d.type,
+                            scopeStart: d.scopeStart,
+                            scopeEnd: d.scopeEnd, 
+                            location: d.location.file + '@' + d.location.start + '-' + d.location.end
+                        }
+                    })
+                }))
+            }
+
+            if ( message.msg_type === 'exception_report' ) {
+                Log.error("The following exception occured in ViperServer: " + message.msg_body.message + "\n trace:\n  " +
+                    message.msg_body.stacktrace.join("\n  "), LogLevel.Default)
+                onData(JSON.stringify({
+                    type: "Error",
+                    file: file,
+                    errors: [{
+                        tag: 'exceptional.error',
+                        start: '0:0',
+                        end: '0:0',
+                        message: message.msg_body.message,
+                        cached: false
+                    }]
+                }))
+                return onData(JSON.stringify({ type: "Stopped" }))
+            }
+
+            if ( message.msg_type === 'verification_result' ) {
+
+                if ( message.hasOwnProperty('msg_body') && 
+                        message.msg_body.hasOwnProperty('status') ) {
+
+                        if ( message.msg_body.status === 'failure') {
+
+                            let first_error_tag = message.msg_body.details.result.errors[0].tag
+                            let global_failure = 
+                                message.msg_body.verifier === 'carbon' ||
+                                first_error_tag === 'parser.error' || 
+                                first_error_tag === 'parser.warning' ||
+                                first_error_tag === 'consistency.error' ||
+                                first_error_tag === 'typechecker.error' ||
+                                first_error_tag === 'clioption.error' ||
+                                first_error_tag === 'dependencynotfound.error' ||
+                                first_error_tag === 'timeout.error' ||
+                                first_error_tag === 'exceptional.error' 
+
+                            if ( message.msg_body.kind === 'for_entity' || global_failure ) {
+                                    
+                                onData(JSON.stringify({ 
+                                    type: "Error",
+                                    file: file,
+                                    errors: message.msg_body.details.result.errors.map((e) => {
+                                        return {
+                                            tag: e.tag,
+                                            start: e.position.start,
+                                            end: e.position.end,
+                                            message: e.text,
+                                            cached: e.cached
+                                        }
+                                    })
+                                }))
+                            }
+
+                        } else if ( message.msg_body.status === 'success' && 
+                                    message.msg_body.kind === 'for_entity') {
+                                
+                            return onData(JSON.stringify({
+                                type: (message.msg_body.details.entity.type === 'method' ? 'MethodVerified' 
+                                    : (message.msg_body.details.entity.type === 'function' ? 'FunctionVerified' 
+                                    :  message.msg_body.details.entity.type === 'predicate' ? 'PredicateVerified' : ''/*bad stuff*/ ) ) ,
+                                name: message.msg_body.details.entity.name
+                            }))
+
+                        } 
+                        
+                        if ( message.msg_body.kind === 'overall') {
+                            onData(JSON.stringify({
+                                type: "End", 
+                                time: (message.msg_body.details.time * 0.001) + 's'
+                            }))
+                            return onData(JSON.stringify({ type: "Success" }))
+                        }
+
+                } else {
+                    throw `property 'msg_body' not found in message=${message}`
+                }
+            }
+
+            // Unhandled messages might be destined to some other extension via
+            // the ViperApi
+            Server.connection.sendNotification(Commands.UnhandledViperServerMessageType, message.msg_type, message);
+
             return true; 
         })
         this._stream.output.on("end", () => {

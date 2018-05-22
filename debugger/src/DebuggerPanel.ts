@@ -28,7 +28,7 @@ export class DebuggerPanel implements SessionObserver {
     private static webviewOptions: vscode.WebviewPanelOptions & vscode.WebviewOptions = {
         enableFindWidget: true,
         // TODO: think about restoring the pane's context
-        //retainContextWhenHidden: true,
+        retainContextWhenHidden: true,
         enableScripts: true,
         enableCommandUris: true
     };

@@ -5,7 +5,6 @@ import { Logger } from './logger';
 import { Debugger } from './Debugger';
 import { DebuggerCommand } from './Commands';
 import * as DebuggerSettings from './DebuggerSettings';
-import { ViperApiEvent } from './ViperApi';
 
 
 /** The API exported by the "main" Viper extension.
@@ -41,13 +40,15 @@ export function activate(context: vscode.ExtensionContext) {
 
 /** Called by VS Code when unloading the extension. */
 export function deactivate() {
+    Debugger.stop();
     Logger.debug("Viper Debugger extension being deactivated");
 }
 
 
+/** Sets up the handlers for the commands provided by the debugger. */
 function setupCommandHandlers(context: vscode.ExtensionContext) {
     // Helper for registering commands
-    let on = (command: string, handler: (c: string) => any) => {
+    let on = (command: string, handler: (c: string) => void) => {
         const disposable = vscode.commands.registerCommand(command, () => handler(command));
         context.subscriptions.push(disposable);
     };
@@ -55,7 +56,7 @@ function setupCommandHandlers(context: vscode.ExtensionContext) {
     on(DebuggerCommand.StartDebugger, (_) => {
         const activeEditor = vscode.window.activeTextEditor!;
 
-        Debugger.start(context.extensionPath, activeEditor);
+        Debugger.start(context, activeEditor);
 
         // Make sure the editor active previously remains focused
         if (activeEditor) {

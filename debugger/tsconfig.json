@@ -19,6 +19,7 @@
     "exclude": [
         "node_modules",
         ".vscode-test",
-        "src/panel"
+        "src/panel",
+        "src/panel/**",
     ]
 }

@@ -16,7 +16,7 @@ import { ViperFormatter } from './ViperFormatter';
 import { ViperFileState } from './ViperFileState';
 import { StatusBar, Color } from './StatusBar';
 import { VerificationController, TaskType, Task, CheckResult } from './VerificationController';
-import { ViperApiEvent, ViperApi } from './ViperApi';
+import { ViperApi } from './ViperApi';
 let stripJSONComments = require('strip-json-comments');
 const os = require('os');
 
@@ -244,6 +244,12 @@ function registerHandlers() {
                 Log.error("Error handling file closed notification: " + e);
             }
         });
+
+        State.client.onNotification(
+            Commands.UnhandledViperServerMessageType,
+            (messageType: string, message: any) => { State.viperApi.notifyServerMessage(messageType, message); }
+        );
+
         State.client.onRequest(Commands.RequestRequiredVersion, () => {
             return getRequiredVersion();
         });

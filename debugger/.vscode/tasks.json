@@ -17,13 +17,13 @@
             }
         },
         {
+            "label": "panel - watch",
             "type": "npm",
             "script": "watch",
             "path": "src/panel/",
-            "problemMatcher": [
-                "$tsc-watch"
-            ],
-            "isBackground": true
+            "problemMatcher": "$tsc-watch",
+            "isBackground": true,
+            "group": "build",
         }
     ]
 }

@@ -4,6 +4,7 @@ import * as d from './Debugger';
 import { Verifiable } from './states/Verifiable';
 import { Statement, StatementView } from './states/Statement';
 import { Logger } from './logger';
+import * as vscode from 'vscode';
 
 
 /** Events that can be listened on. */
@@ -18,7 +19,7 @@ export class DebuggerSession {
     private observers: ((states: StateUpdate) => void)[];
     private currentStatement: Statement;
 
-    constructor(readonly verifiables: Verifiable[]) {
+    constructor(readonly debuggedFile: vscode.Uri, readonly verifiables: Verifiable[]) {
         this.observers = [];
         // TODO: Put a check for not verifiables?
         this.currentStatement = this.verifiables[0].statements[0];

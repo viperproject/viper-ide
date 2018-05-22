@@ -6,7 +6,6 @@ import { Log } from './Log'
 import { Settings } from './Settings'
 import { Common, Stage, Backend, VerificationState, LogLevel } from './ViperProtocol'
 import { Server } from './ServerClass';
-import { VerificationTask } from './VerificationTask';
 import { BackendService } from './BackendService';
 
 export class DefaultVerificationService extends BackendService {
