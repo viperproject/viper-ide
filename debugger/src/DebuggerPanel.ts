@@ -91,16 +91,16 @@ export class DebuggerPanel implements SessionObserver {
     private handleMessageFromPanel(message: any) {
         switch (message.command) {
             case 'nextState':
-                this.session!.nextState();
+                this.session!.goToNextState();
                 break;
             case 'previousState':
-                this.session!.prevState();
+                this.session!.goToPrevState();
                 break;
             case 'childState':
-                this.session!.childState();
+                this.session!.goToChildState();
                 break;
             case 'parentState':
-                this.session!.parentState();
+                this.session!.goToParentState();
                 break;
             case 'selectVerifiable':
                 const verifiableName = message.data;

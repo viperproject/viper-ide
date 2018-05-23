@@ -95,13 +95,13 @@ export namespace Debugger {
         }
 
         if (command === DebuggerCommand.NextState) {
-            session.nextState();
+            session.goToNextState();
         } else if (command === DebuggerCommand.PrevState) {
-            session.prevState();
+            session.goToPrevState();
         } else if (command === DebuggerCommand.ChildState) {
-            session.childState();
+            session.goToChildState();
         } else if (command === DebuggerCommand.ParentState) {
-            session.parentState();
+            session.goToParentState();
         } else if (command === DebuggerCommand.NextErrorState) {
             session.nextErrorState();
         } else {

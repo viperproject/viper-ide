@@ -40,8 +40,8 @@ export class DebuggerSession {
             // TODO: Fix with proper logic for next and prev
             const states: StateUpdate = {
                 current: StatementView.from(this.currentStatement),
-                hasNext: (this.currentStatement.next !== undefined) || (this.currentStatement.parent !== undefined),
-                hasPrevious: this.currentStatement.previous !== undefined || (this.currentStatement.parent !== undefined),
+                hasNext: this.findNextState() !== undefined,
+                hasPrevious: this.findPrevState() !== undefined,
                 hasParent: this.currentStatement.parent !== undefined,
                 hasChild: this.currentStatement.children.length > 0
             };
@@ -60,57 +60,68 @@ export class DebuggerSession {
         this.notifyStateChange();
     }
 
-    public nextState() {
-        if (this.currentStatement.next) {
-            this.currentStatement = this.currentStatement.next;
+    public goToNextState() {
+        let nextState = this.findNextState();
+        if (nextState) {
+            this.currentStatement = nextState;
             this.notifyStateChange();
-            return;
-        } 
-
-        let parent = this.currentStatement.parent;
-        while (parent) {
-            if (parent.next) {
-                this.currentStatement = parent.next;
-                this.notifyStateChange();
-                return;
-            }
-            parent = parent.parent;
         }
     }
 
-    public prevState() {
-        if (this.currentStatement.previous) {
-            this.currentStatement = this.currentStatement.previous;
+    public goToPrevState() {
+        let prevState = this.findPrevState();
+        if (prevState) {
+            this.currentStatement = prevState;
             this.notifyStateChange();
-            return;
-        } 
-        
-        let parent = this.currentStatement.parent;
-        while (parent) {
-            if (parent.previous) {
-                this.currentStatement = parent.previous;
-                this.notifyStateChange();
-                return;
-            }
-            parent = parent.parent;
         }
     }
 
-    public childState() {
+    public goToChildState() {
         if (this.currentStatement.children.length > 0) {
             this.currentStatement = this.currentStatement.children[0];
             this.notifyStateChange();
         }
     }
 
-    public parentState() {
+    public goToParentState() {
         if (this.currentStatement.parent) {
             this.currentStatement = this.currentStatement.parent;
             this.notifyStateChange();
         }
     }
 
+    // TODO: Implement this? Is it needed?
     public nextErrorState() {
         this.notifyStateChange();
+    }
+
+    private findNextState(): Statement | undefined {
+        if (this.currentStatement.next) {
+            return this.currentStatement.next;            
+        } 
+
+        let parent = this.currentStatement.parent;
+        while (parent) {
+            if (parent.next) {
+                return parent.next;
+            }
+            parent = parent.parent;
+        }
+
+        return undefined;
+    }
+
+    private findPrevState(): Statement | undefined {
+        if (this.currentStatement.previous) {
+            return this.currentStatement.previous;
+        } 
+        
+        let parent = this.currentStatement.parent;
+        while (parent) {
+            if (parent.previous) {
+                return parent.previous;
+            }
+            parent = parent.parent;
+        }
     }
 }
