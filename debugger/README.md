@@ -1,8 +1,8 @@
-# debugger README
+# Viper Debuggerj
 
-This is the README for your extension "debugger". After writing up a brief description, we recommend including the following sections.
+This is the debugger for the Viper verification framework.
 
-## Features
+<!-- ## Features
 
 Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
 
@@ -62,4 +62,4 @@ Added features X, Y, and Z.
 * [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
 * [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
 
-**Enjoy!**
+**Enjoy!** -->
