@@ -24,11 +24,13 @@ export class DebuggerSession {
 
     private observers: ((states: StateUpdate) => void)[];
     private currentStatement: Statement;
+    private currentVerifiable: Verifiable;
 
     constructor(readonly debuggedFile: vscode.Uri, readonly verifiables: Verifiable[]) {
         this.observers = [];
         // TODO: Put a check for not verifiables?
-        this.currentStatement = this.verifiables[0].statements[0];
+        this.currentVerifiable = this.verifiables[0];
+        this.currentStatement = this.currentVerifiable.statements[0];
     }
 
     public onStateChange(callback: (states: StateUpdate) => void) {
@@ -56,6 +58,7 @@ export class DebuggerSession {
             return;
         } 
 
+        this.currentVerifiable = verifiable;
         this.currentStatement = verifiable.statements[0];
         this.notifyStateChange();
     }
@@ -93,6 +96,10 @@ export class DebuggerSession {
     // TODO: Implement this? Is it needed?
     public nextErrorState() {
         this.notifyStateChange();
+    }
+
+    public topLevelStates(): Statement[] {
+        return this.currentVerifiable.statements;
     }
 
     private findNextState(): Statement | undefined {

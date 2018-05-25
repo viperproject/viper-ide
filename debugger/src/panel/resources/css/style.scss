@@ -39,9 +39,7 @@ nav {
 }
 
 #currentState {
-    border-radius: 2px;
     padding: 1em;
-    background: #343E48;
 
     h3 {
         margin-top: 0;
@@ -51,10 +49,6 @@ nav {
         background: #2A3239;
         padding: 1em;
         border-radius: 2px;
-    }
-
-    *:last-child {
-        margin-bottom: 0;
     }
 }
 
@@ -95,11 +89,11 @@ div.graph {
 }
 
 .panel {
-    overflow-y: scroll;
+    overflow: auto;
+}
 
-    & > * {
-        margin: 1em;
-    }
+#output.panel > * {
+    margin: 1em;
 }
 
 .gutter.gutter-vertical {

@@ -8,20 +8,24 @@ class NoValue {}
 
 type HeapValue = ScalarOrReferenceValue | NoValue;
 
-class ScalarPermission {
-    constructor(readonly value: string) {}
+interface HeapPermission {
+    readonly raw: string;
 }
 
-class UnknownPermission {}
+class ScalarPermission implements HeapPermission {
+    constructor(readonly value: string, readonly raw: string) {}
+}
 
-type HeapPermission = ScalarPermission | UnknownPermission;
+class UnknownPermission implements HeapPermission {
+    constructor(readonly raw: string) {}
+}
 
 
 export interface HeapChunk {}
     // readonly name: string;
     // readonly value: string | null;
     // // TODO: This can probably be typed as number | 'write' | 'wildcard'
-    // readonly permission: string;
+    // readonly permission: string<br>;
 
     // constructor(name: string, value: string | null, permission: string) {
     //     this.name = name;
@@ -60,9 +64,9 @@ export namespace HeapChunk {
         const permissionRegex = /^(W|R|Z|\d+([\.,\/]\d+)?)$/;
         const permissionString = heapString.substring(hashTagIndex + 2, heapString.length);            
         if (permissionRegex.test(permissionString)) {
-            permission = new ScalarPermission(permissionString);
+            permission = new ScalarPermission(permissionString, permissionString);
         } else {
-            permission = new UnknownPermission();
+            permission = new UnknownPermission(permissionString);
         }
 
         return heapChunkFactory(name, value, permission);
