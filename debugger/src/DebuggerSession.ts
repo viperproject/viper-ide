@@ -2,7 +2,7 @@
 
 import * as d from './Debugger';
 import { Verifiable } from './states/Verifiable';
-import { Statement, StatementView } from './states/Statement';
+import { Statement } from './states/Statement';
 import { Logger } from './logger';
 import * as vscode from 'vscode';
 
@@ -12,7 +12,7 @@ export type SessionEvent = 'StateChange';
 
 
 export type StateUpdate = {
-    current: StatementView,
+    current: Statement,
     hasNext: boolean,
     hasPrevious: boolean,
     hasParent: boolean,
@@ -41,7 +41,7 @@ export class DebuggerSession {
         if (this.currentStatement) {
             // TODO: Fix with proper logic for next and prev
             const states: StateUpdate = {
-                current: StatementView.from(this.currentStatement),
+                current: this.currentStatement,
                 hasNext: this.findNextState() !== undefined,
                 hasPrevious: this.findPrevState() !== undefined,
                 hasParent: this.currentStatement.parent !== undefined,
@@ -60,6 +60,11 @@ export class DebuggerSession {
 
         this.currentVerifiable = verifiable;
         this.currentStatement = verifiable.statements[0];
+        this.notifyStateChange();
+    }
+
+    public goToState(state: Statement) {
+        this.currentStatement = state;
         this.notifyStateChange();
     }
 

@@ -8,7 +8,7 @@ import { SymbExLogEntry } from './ViperProtocol';
 import { Logger } from './logger';
 import { DebuggerSession, SessionEvent, StateUpdate } from './DebuggerSession';
 import { DebuggerError } from './Errors';
-import { Statement } from './states/Statement';
+import { Statement, StatementView } from './states/Statement';
 import { Verifiable } from './states/Verifiable';
 
 
@@ -117,7 +117,17 @@ export class DebuggerPanel implements SessionObserver {
         }
         
         this.session.onStateChange((states: StateUpdate) => {
-            this.postMessage(PanelMessage.StateUpdate(states));
+            // Statements are a cyclic structure, it cannot be sent via postMessage. We convert them to `StatementView`
+            // Which keeps the importa information and discards cyclic links
+            let message: any = {
+                current: StatementView.from(states.current),
+                hasNext: states.hasNext,
+                hasPrevious: states.hasPrevious,
+                hasParent: states.hasParent,
+                hasChild: states.hasChild
+            };
+
+            this.postMessage(PanelMessage.StateUpdate(message));
         });
     }
 }
