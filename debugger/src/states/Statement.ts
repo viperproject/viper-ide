@@ -1,4 +1,4 @@
-import { Position } from 'vscode';
+import { Position, Range } from 'vscode';
 import { SymbExLogEntry, SymbExLogStore } from '../ViperProtocol';
 import { DebuggerError } from '../Errors';
 import { Logger } from '../logger';
@@ -54,6 +54,15 @@ export class Statement {
 
     private addChild(child: Statement) {
         this.children.push(child);
+    }
+
+    range(): Range {
+        const startLine = Math.max(0, this.position.line - 1);
+        const startColumn = Math.max(0, this.position.character - 1);
+        const endLine = startLine;
+        const endColumn = Math.max(0, startColumn + this.formula.length);
+
+        return new Range(startLine, startColumn, endLine, endColumn);
     }
 
     public static from(entry: SymbExLogEntry, parent?: Statement, previous?: Statement): Statement {
