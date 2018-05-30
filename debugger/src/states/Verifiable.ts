@@ -1,6 +1,7 @@
 import { SymbExLogEntry } from "../ViperProtocol";
 import { DebuggerError } from "../Errors";
 import { Statement } from "./Statement";
+import { Logger } from "../logger";
 
 type VerifiableType = 'Method' | 'Predicate' | 'Function';
 
@@ -23,8 +24,11 @@ export class Verifiable {
             throw new DebuggerError(`SymbExLogEntry has no kind: ${entry.value} @ ${entry.pos}`);
         }
 
+        // TODO: Some proper checks here for which verifiables are allowed not to have children
         if (!entry.children) {
-            throw new DebuggerError(`SymbExLogEntry has no childred: ${entry.value} @ ${entry.pos}`);
+            Logger.error(`SymbExLogEntry has no children: ${entry.value} @ ${entry.pos}`);
+            entry.children = [];
+            // throw new DebuggerError(`SymbExLogEntry has no children: ${entry.value} @ ${entry.pos}`);
         }
 
         const kind = entry.kind.toLowerCase();

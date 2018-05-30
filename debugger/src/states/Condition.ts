@@ -73,20 +73,21 @@ export namespace Condition {
 
     function createCondition(conditionString: string): Condition {
         // TODO: have to fix parsing conditions, this is definitely not enough
-        let conditionRegex = /^([\w$]+(@\d+)+)\s+(==|!=|<|<=|>|>=)\s+([\w$]+(@\d+)+|\d+|_|Null)$/;
-        let match = conditionString.match(conditionRegex);
-        if (match && match[1] && match[2] && match[3]) {
-            let lhs = match[1];
-            let rhs = match[3];
-            let isPositive = match[2] === "==";
+        // let conditionRegex = /^([\w$]+(@\d+)+)\s+(==|!=|<|<=|>|>=)\s+([\w$]+(@\d+)+|\d+|_|Null)$/;
+        // let match = conditionString.match(conditionRegex);
+        // if (match && match[1] && match[2] && match[3]) {
+        //     let lhs = match[1];
+        //     let rhs = match[3];
+        //     let isPositive = match[2] === "==";
 
-            if (rhs === "Null") {
-                return new NullityCondition(isPositive, lhs);
-            } else if (rhs === "_") {
-                return new WildCardCondition(isPositive, lhs);
-            }
-            return new EqualityCondition(isPositive, lhs, rhs);
-        }
+        //     if (rhs === "Null") {
+        //         return new NullityCondition(isPositive, lhs);
+        //     } else if (rhs === "_") {
+        //         return new WildCardCondition(isPositive, lhs);
+        //     }
+        //     return new EqualityCondition(isPositive, lhs, rhs);
+        // }
+
         if (conditionString.startsWith('QA ')) {
             // TODO: probably parse it properly, i.e. split the body from the rest
             return new QuantifiedCondition(conditionString);

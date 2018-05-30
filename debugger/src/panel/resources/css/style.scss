@@ -5,12 +5,14 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    background-color: #222;
 }
 
 header {
-    background-color: #333333;
     padding: 1em;
     overflow: hidden;
+    background-color: #1e1e1e;
+    border-bottom: 1px solid #444444;
 }
 
 nav {
@@ -77,6 +79,10 @@ nav {
     // background: #7A4151;
 }
 
+#currentState svg text {
+    // fill: #fff;
+}
+
 div.graph {
     min-width: 300px;
     min-height: 200px;
@@ -90,6 +96,10 @@ div.graph {
 
 .panel {
     overflow: auto;
+}
+
+.panel.noScroll {
+    overflow: hidden;
 }
 
 #output.panel > * {

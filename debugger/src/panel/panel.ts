@@ -3,9 +3,9 @@
 import * as $ from 'jquery';
 import { Logger } from './logger';
 import JSONFormatter, { JSONFormatterConfiguration } from 'json-formatter-js';
-import * as vis from 'vis';
-import { STATUS_CODES } from 'http';
+import * as d3 from 'd3';
 import * as Split from 'split.js';
+import { DefaultLinkObject } from 'd3';
 
 declare var acquireVsCodeApi: any;
 const vscode = acquireVsCodeApi();
@@ -31,8 +31,16 @@ function activate() {
     }
 
     let panels: HTMLElement[] = $('.panel').toArray();
+
+    let isCollapsed = panels.map(e => e.classList.contains('collapsedByDefault'));
+    console.log(panels.map(e => e.classList));
+    // This is basically a fold
+    let numberOfCollapsedPanels = isCollapsed.reduce((tot, collapsed) => collapsed ? tot + 1 : tot, 0);
+    let percentForOpenPanel = 100 / (panels.length - numberOfCollapsedPanels);
+    let sizes = isCollapsed.map(e => e ? 0 : percentForOpenPanel);
+
     let splitInstance = Split(panels, {
-        sizes: [80, 20],
+        sizes: sizes,
         direction: 'vertical',
         cursor: 'row-resize',
         gutterSize: 5,
@@ -45,6 +53,7 @@ function activate() {
 
     outpudDiv.innerHTML += "<p>Viper Debugger Started</p>";
 
+    // TODO: Proper key handling
     $(document).keydown(function(e) {
         switch (e.key) {
             case 'F10': // F10        
@@ -55,8 +64,6 @@ function activate() {
                 break;
         }
     });
-
-
 
     Logger.debug("Done setting up debug pane");
 }
@@ -129,11 +136,62 @@ function state(message: any) {
     $('button#parent').prop('disabled', !data.hasParent);
     $('button#child').prop('disabled', !data.hasChild);
 
-    // stateDiv.append($('<div></div>').addClass('graph'));
-    // const graphContainer = $("div.graph");
-    // shit = setupGraph(graphContainer.get(0));
+    let visData = [
+        {name: 'var1'},
+        {name: 'var2'},
+        {name: 'var3'},
+        {name: 'var4'},
+        {name: 'var5'},
+    ];
 
-    const openLevel = 1;
+
+    let svg = d3.select('#graphPanel')
+        .append('svg')
+        .attr('width', '100%')
+        .attr('height', '100%');
+    
+    let storeGraph = svg.append('g')
+
+    storeGraph.append('svg:text')
+              .attr('x', 10)
+              .attr('y', 20)
+              .attr('id', 'storeLabel')
+              .attr('font-size', '20px')
+              .attr('font-weight', 'bold')
+              .attr('text-decoration', 'underline')
+              .attr('fill', '#fff')
+              .text("STORE");
+
+    let link = d3.linkHorizontal();
+    let stuff: DefaultLinkObject = {
+        source: [80, 90],
+        target: [180, 230]
+    }
+
+    storeGraph.append('path')
+        .attr('d', link(stuff)!)
+        .attr('stroke', 'blue')
+        .attr('stroke-width', '3px')
+        .attr('fill', 'none');
+
+    storeGraph.selectAll('text')
+        .data(visData)
+        .enter()
+        .append('svg:text')
+        .attr('x', (datum, index) => 10)
+        .attr('y', (datum, index) => 30 + index * 20)
+        .attr('fill', '#fff')
+        .text((datum) => `${datum}`);
+    
+    //     .data(data)
+    //   .enter().append('g')
+    //     .attr('transform', (d, i) => `translate(0, ${i * 16})`);
+    
+    // graph.append('text')
+    //     .text((d) => d)
+    //     .attr('fill', '#fff');
+
+    const openLevel = 4;
     const current = new JSONFormatter(state, openLevel, JsonFormatConfiguration);
     const pre = $('<pre></pre>').append(current.render());
     stateDiv.append(pre);
@@ -150,37 +208,6 @@ function setupButtonHandlers() {
     $('#parent:button').click(() => vscode.postMessage({ command: 'parentState' }));
 
     Logger.debug("Done setting up button handlers.");
-}
-
-
-function setupGraph(container: HTMLElement) {
-    var nodes = new vis.DataSet([
-        {id: 1, label: 'Node 1'},
-        {id: 2, label: 'Node 2'},
-        {id: 3, label: 'Node 3'},
-        {id: 4, label: 'Node 4'},
-        {id: 5, label: 'Node 5'},
-        {id: 6, label: 'Node 6'}
-    ]);
-
-    // create an array with edges
-    var edges = new vis.DataSet([
-        {from: 1, to: 3},
-        {from: 1, to: 2},
-        {from: 4, to: 5},
-        {from: 4, to: 6}
-    ]);
-
-    var data = {
-        nodes: nodes,
-        edges: edges
-    };
-
-    var options = {
-        physics: { enabled: false }
-    };
-
-    return new vis.Network(container, data, options);
 }
 
 
