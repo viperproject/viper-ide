@@ -27,7 +27,8 @@ namespace DecorationStyles {
             // borderStyle: 'dotted',
             //backgroundColor:'rgba(44, 93, 48, 0.2)',
             backgroundColor: '#114215',
-            color: '#eeeeee'
+            color: '#eeeeee',
+            rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         });
     }
 
@@ -35,7 +36,8 @@ namespace DecorationStyles {
         return newDecoration({
             border: '2px dotted #606060',
             borderWidth: '0 0 2px 0',  // top right bottom left
-            cursor: 'pointer'
+            cursor: 'pointer',
+            rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         });
     }
 
@@ -43,7 +45,8 @@ namespace DecorationStyles {
         return newDecoration({
             border: '2px solid #2cad30',
             borderWidth: '0 0 2px 0',  // top right bottom left
-            cursor: 'pointer'
+            cursor: 'pointer',
+            rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         });
     }
 
@@ -52,7 +55,8 @@ namespace DecorationStyles {
             border: '2px solid #2c2cad',
             //border: '2px solid #6d2c6d',
             borderWidth: '0 0 2px 0',  // top right bottom left
-            cursor: 'pointer'
+            cursor: 'pointer',
+            rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         });
     }
 }
