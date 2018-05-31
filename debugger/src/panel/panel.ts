@@ -68,6 +68,10 @@ function activate() {
     Logger.debug("Done setting up debug pane");
 }
 
+function clear() {
+    $('#currentState').empty();
+}
+
 /** Sets up the handlers for messages coming from the extension. */
 function setupMessageHandlers() {
     Logger.debug("Setting up message handlers");
@@ -91,10 +95,6 @@ function setupMessageHandlers() {
 
         const dropdown = $('#verifiables');
         dropdown.empty();
-        dropdown.append(options);
-
-        // Only allow accessing the dropdown if there is more than one choice
-        dropdown.prop('disabled', (options.length <= 1));
 
         // Handler for the selection change
         dropdown.change((event) => { 
@@ -102,8 +102,18 @@ function setupMessageHandlers() {
             vscode.postMessage({ command: 'selectVerifiable', data: name });
         });
 
-        // Trigger updating panel to the first verifiable
-        options[0].change();
+        console.log(options);
+
+        if (options.length > 0) {
+            dropdown.append(options);
+            dropdown.prop('disabled', false);
+
+            // Trigger updating panel to the first verifiable
+            options[0].change();
+        } else {
+            dropdown.prop('disabled', true);
+            clear();
+        }
     });
 
     Logger.debug("Done setting up message handlers.");

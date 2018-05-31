@@ -62,6 +62,10 @@ export class DebuggerPanel implements SessionObserver {
         this.postMessage(PanelMessage.Verifiables(verifiables));
     }
 
+    public clearSession() {
+        this.session = undefined;
+    }
+
     public logMessage(message: string) {
         let logMessage = {
             type: 'logMessage',

@@ -14,6 +14,7 @@ import { DebuggerCommand } from './Commands';
 import { DebuggerSession } from './DebuggerSession';
 import { DebuggerPanel } from './DebuggerPanel';
 import { DecorationsManager } from './DecorationsManager';
+import * as external from './external';
 
 
 /** An object that wants to be notified when the debugger session changes.
@@ -25,8 +26,10 @@ export interface SessionObserver {
 
     /** A handler called when a new debugger session is available. */
     setSession(session: DebuggerSession): void;
-}
 
+    /** To notify that the session has been terminated. */
+    clearSession(): void;
+}
 
 export namespace Debugger {
     
@@ -56,6 +59,7 @@ export namespace Debugger {
         context.subscriptions.push(panel);
 
         let decorationsManager = new DecorationsManager(activeEditor);
+
         disposables.push(decorationsManager);
 
         // SessionObservers are notified whenever there is a new debugging session
@@ -65,10 +69,17 @@ export namespace Debugger {
 
         // Bind verification events from the main extension to update the panel
         viperApi.onVerificationTerminated(
-            (m: { filename: vscode.Uri, message: string }) => {
-                debuggedFile = m.filename;        
-                if (panel) {
-                    panel.logMessage(m.message);
+            (m: external.ViperApi.VerificationTerminatedEvent) => {
+                let VerificationSuccess = external.ViperApi.VerificationSuccess;
+                if (m.status === VerificationSuccess.Error
+                        || m.status === VerificationSuccess.ParsingFailed
+                        || m.status === VerificationSuccess.TypecheckingFailed
+                        || m.status === VerificationSuccess.Timeout) {
+                    if (session) {
+                        disposeSession();
+                    }
+                } else {
+                    debuggedFile = m.filename;
                 }
             }
         );
@@ -76,7 +87,7 @@ export namespace Debugger {
         // Setup a handler for the symbolic execution logs sent by ViperServer
         viperApi.registerServerMessageCallback('symbolic_execution_logger_report', (messageType: string, message: any) => {
             if (panel) {
-                let content = message.msg_body.stuff;
+                let content = message.msg_body.log;
 
                 // TODO: Fix the message in ViperServer
                 content = content.substring(content.indexOf("["), content.length).replace(/\n/g, ' ');
@@ -110,15 +121,20 @@ export namespace Debugger {
     }
 
 
+    function disposeSession() {
+        sessionObservers.forEach(o => o.clearSession());
+        session = undefined;
+    }
+
+
     /** Update the state of the debugger (both panel and view). */
     function update(entries: SymbExLogEntry[]) {
         const verifiables = entries.map(Verifiable.from);
 
-        let s = new DebuggerSession(debuggedFile, verifiables);
-        session = s;
+        session = new DebuggerSession(debuggedFile, verifiables);
 
         sessionObservers.forEach(observer => {
-            observer.setSession(s);
+            observer.setSession(session!);
         });
 
         session.notifyStateChange();
@@ -174,12 +190,9 @@ export namespace Debugger {
         return new Success();
     }
 
-
-    // TODO: Does it even make sense to have to allow debugging in config?
-    //       This should probably just be a safety check.
     /** Determines if the Viper extension is configured to allow debugging. */
     function configurationAllowsDebugging() {
-        // TODO: Should also check the number of threads
-        return viperApi.configuration.get('advancedFeatures').enabled;
+        // TODO: Should put some actual checks here
+        return true;
     }
 }

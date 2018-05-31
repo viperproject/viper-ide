@@ -168,8 +168,11 @@ export class DecorationsManager implements SessionObserver {
 
         this.textEditor = textEditor;
         this.session.onStateChange(states => this.updateDecorations(states));
+    }
 
-
+    public clearSession() {
+        this.session = undefined;
+        DecorationStyles.disposeDecorations();
     }
 
     private updateDecorations(states: StateUpdate) {

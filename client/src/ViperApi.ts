@@ -2,8 +2,10 @@ import * as vscode from 'vscode';
 import { Z_UNKNOWN } from "zlib";
 import { State } from './ExtensionState';
 import { ViperFileState } from './ViperFileState';
+import { Success } from './ViperProtocol';
 
 export class VerificationTerminatedEvent {
+    status: Success;
     filename: vscode.Uri;
     message: string; 
 }

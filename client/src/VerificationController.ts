@@ -299,12 +299,7 @@ export class VerificationController {
                                     Log.logWithOrigin("workList", "VerificationFinished", LogLevel.LowLevelDebug);
 
                                     let succ = verificationComplete && !verificationFailed ? "succeded" : "failed"
-                                    State.viperApi.notifyVerificationTerminated(
-                                        {
-                                            filename: task.uri,
-                                            message: `Verification of '${task.uri}' ${succ}`
-                                        }
-                                    );
+                                    // TODO: Should we somehow notify something via the ViperApi here?
                                     State.hideProgress();
                                 }
                             }
@@ -791,13 +786,11 @@ export class VerificationController {
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(check) " + msg, Color.SUCCESS);
                                 if (params.manuallyTriggered) Log.hint(msg);
-                                State.viperApi.notifyVerificationTerminated({ filename: uri, message: msg });
                                 break;
                             case Success.ParsingFailed:
                                 msg = `Parsing ${params.filename} failed after ${Helper.formatSeconds(params.time)}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(x) " + msg, Color.ERROR);
-                                State.viperApi.notifyVerificationTerminated({ filename: uri, message: msg });
                                 break;
                             case Success.TypecheckingFailed:
                                 msg = `Type checking ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
@@ -827,6 +820,14 @@ export class VerificationController {
                                 Log.log(`Verifying ${params.filename} timed out`, LogLevel.Info);
                                 break;
                         }
+
+                        // Notify whoever might be listening
+                        State.viperApi.notifyVerificationTerminated({
+                            status: params.success,
+                            filename: uri,
+                            message: msg
+                        });
+
                         if (State.unitTest && this.verificationCompleted(params.success)) {
                             State.unitTest.verificationComplete(State.activeBackend, params.filename);
                         }
