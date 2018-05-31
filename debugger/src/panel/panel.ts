@@ -85,24 +85,26 @@ function setupMessageHandlers() {
     on('logMessage', message => outpudDiv.innerHTML += "<p>" + message.text + "</p>");
     on('stateUpdate', (message) => state(message));
     on('verifiables', (message) => {
+        const verifiables: any[] = message.data;
+        const options = verifiables.map( (v) => $('<option />')
+                                                    .text(v.name)
+                                                    .attr('value', v.name) );
+
         const dropdown = $('#verifiables');
-        const options = message.data.map((verifiable: any) => {
-            return $('<option />').text(verifiable.name)
-                                  .attr('value', verifiable.name);
-        });
-
         dropdown.empty();
-
-        options[0].attr('selected', true);
         dropdown.append(options);
 
         // Only allow accessing the dropdown if there is more than one choice
         dropdown.prop('disabled', (options.length <= 1));
 
+        // Handler for the selection change
         dropdown.change((event) => { 
             const name = $('#verifiables').val();
             vscode.postMessage({ command: 'selectVerifiable', data: name });
         });
+
+        // Trigger updating panel to the first verifiable
+        options[0].change();
     });
 
     Logger.debug("Done setting up message handlers.");

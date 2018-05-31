@@ -56,9 +56,8 @@ export class DebuggerPanel implements SessionObserver {
 
         // Verifiables are a cyclic structure, they need to be converted before
         // sending them to the HTML panel
-        const verifiables = this.session.verifiables.map(verifiable => {
-            return { name: verifiable.name };
-        });
+        const verifiables = this.session.verifiables.filter((v) => v.statements.length > 0)
+                                                    .map((v) => ({ name: v.name }) );
 
         this.postMessage(PanelMessage.Verifiables(verifiables));
     }
