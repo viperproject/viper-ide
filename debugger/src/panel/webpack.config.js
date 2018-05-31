@@ -164,6 +164,11 @@ module.exports = function(env, argv) {
                 }
             ]
         },
-        plugins: plugins
+        plugins: plugins,
+        watchOptions: {
+            aggregateTimeout: 300,
+            poll: 1000,
+            ignored: /node_modules/
+        }
     };
 };
