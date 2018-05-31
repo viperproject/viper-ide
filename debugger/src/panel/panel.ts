@@ -72,7 +72,6 @@ function activate() {
 function setupMessageHandlers() {
     Logger.debug("Setting up message handlers");
 
-    // TODO: Do we want a way to consume events and to log unhandled ones?
     function on(key: string, callback: (message: any) => void) {
         window.addEventListener('message', e => {
             let message = e.data;
@@ -185,14 +184,6 @@ function state(message: any) {
         .attr('fill', '#fff')
         .text((datum) => `${datum}`);
     
-    //     .data(data)
-    //   .enter().append('g')
-    //     .attr('transform', (d, i) => `translate(0, ${i * 16})`);
-    
-    // graph.append('text')
-    //     .text((d) => d)
-    //     .attr('fill', '#fff');
-
     const openLevel = 4;
     const current = new JSONFormatter(state, openLevel, JsonFormatConfiguration);
     const pre = $('<pre></pre>').append(current.render());
