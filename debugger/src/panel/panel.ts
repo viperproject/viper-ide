@@ -92,8 +92,8 @@ function setupMessageHandlers() {
         const options = verifiables.map( (v) => $('<option />')
                                                     .text(v.name)
                                                     .attr('value', v.name) );
-
         const dropdown = $('#verifiables');
+        const selected = dropdown.val();
         dropdown.empty();
 
         // Handler for the selection change
@@ -102,14 +102,18 @@ function setupMessageHandlers() {
             vscode.postMessage({ command: 'selectVerifiable', data: name });
         });
 
-        console.log(options);
-
         if (options.length > 0) {
             dropdown.append(options);
             dropdown.prop('disabled', false);
 
-            // Trigger updating panel to the first verifiable
-            options[0].change();
+            // Re-select the previously selected verifiable if possible
+            let elem = options.find(e => e.val() === selected);
+            if (elem) {
+                dropdown.val(elem.val()!);
+            } else {
+                // Trigger updating panel to the first verifiable
+                options[0].change();
+            }
         } else {
             dropdown.prop('disabled', true);
             clear();
