@@ -3,9 +3,7 @@
 import * as $ from 'jquery';
 import { Logger } from './logger';
 import JSONFormatter, { JSONFormatterConfiguration } from 'json-formatter-js';
-import * as d3 from 'd3';
 import * as Split from 'split.js';
-import { DefaultLinkObject } from 'd3';
 
 declare var acquireVsCodeApi: any;
 const vscode = acquireVsCodeApi();
@@ -15,7 +13,6 @@ const JsonFormatConfiguration: JSONFormatterConfiguration = {
     animateClose: false,
     theme: 'dark'
 };
-let shit: vis.Network;
 
 /** Sets up the debugger pane */ 
 function activate() {
@@ -43,7 +40,7 @@ function activate() {
         sizes: sizes,
         direction: 'vertical',
         cursor: 'row-resize',
-        gutterSize: 5,
+        gutterSize: 3,
         minSize: 0,
         snapOffset: 60,  // When a panel is less than this, it closes
     });
@@ -64,6 +61,27 @@ function activate() {
                 break;
         }
     });
+
+    var d3 = require('d3');
+    var d3graphviz = require('d3-graphviz');
+
+    d3.select("#graph")
+        .graphviz()
+            .dot('digraph {a -> b}')
+            .render()
+    
+    var drag = d3.drag()
+        .on("drag", dragmove);
+    
+    d3.select('ellipse')
+        .style('fill', '#f00')
+        .call(drag);
+
+    function dragmove(this: any, d: any, i: any, n: any) {
+        console.log(d3.event);
+        d3.select(this)
+            .attr("transform", `translate(${d3.event.x},${d3.event.y})`);
+    }
 
     Logger.debug("Done setting up debug pane");
 }
@@ -150,53 +168,6 @@ function state(message: any) {
     $('button#previous').prop('disabled', !data.hasPrevious);
     $('button#parent').prop('disabled', !data.hasParent);
     $('button#child').prop('disabled', !data.hasChild);
-
-    let visData = [
-        {name: 'var1'},
-        {name: 'var2'},
-        {name: 'var3'},
-        {name: 'var4'},
-        {name: 'var5'},
-    ];
-
-
-    let svg = d3.select('#graphPanel')
-        .append('svg')
-        .attr('width', '100%')
-        .attr('height', '100%');
-    
-    let storeGraph = svg.append('g')
-
-    storeGraph.append('svg:text')
-              .attr('x', 10)
-              .attr('y', 20)
-              .attr('id', 'storeLabel')
-              .attr('font-size', '20px')
-              .attr('font-weight', 'bold')
-              .attr('text-decoration', 'underline')
-              .attr('fill', '#fff')
-              .text("STORE");
-
-    let link = d3.linkHorizontal();
-    let stuff: DefaultLinkObject = {
-        source: [80, 90],
-        target: [180, 230]
-    }
-
-    storeGraph.append('path')
-        .attr('d', link(stuff)!)
-        .attr('stroke', 'blue')
-        .attr('stroke-width', '3px')
-        .attr('fill', 'none');
-
-    storeGraph.selectAll('text')
-        .data(visData)
-        .enter()
-        .append('svg:text')
-        .attr('x', (datum, index) => 10)
-        .attr('y', (datum, index) => 30 + index * 20)
-        .attr('fill', '#fff')
-        .text((datum) => `${datum}`);
     
     const openLevel = 4;
     const current = new JSONFormatter(state, openLevel, JsonFormatConfiguration);
