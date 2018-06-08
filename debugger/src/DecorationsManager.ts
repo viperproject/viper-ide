@@ -136,10 +136,10 @@ export class DecorationsManager implements SessionObserver {
         let items = states.map(s => {
             return {
                 label: (s.type || s.kind || "Unknown Action"),
-                description: (s.children.length === 1 ? "1 child" : `${s.children.length} children, `) + 
-                                (s.store.length === 1 ? "1 store element" : `${s.store.length} store elements, `) +
-                                (s.heap.length === 1 ? "1 heap chunk" : `${s.heap.length} heap chunks, `) +
-                                (s.pathConditions.length === 1 ? "1 path condition" : `${s.pathConditions.length} path conditions`),
+                description: (s.children.length === 1 ? "1 child, " : `${s.children.length} children, `) + 
+                                (s.store.length === 1 ? "1 store element, " : `${s.store.length} store elements, `) +
+                                (s.heap.length === 1 ? "1 heap chunk, " : `${s.heap.length} heap chunks, `) +
+                                (s.pathConditions.length === 1 ? "1 path condition, " : `${s.pathConditions.length} path conditions`),
                 state: s
             };
         });
