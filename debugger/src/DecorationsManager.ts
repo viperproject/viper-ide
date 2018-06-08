@@ -80,15 +80,19 @@ export class DecorationsManager implements SessionObserver {
     private session: DebuggerSession | undefined;
     /** Locations for each of the states being visualized. */
     private stateLocations: StateLocationEntry[];
+    /** Objects to dispose of when the decorations manager is killed. */
+    private disposables: vscode.Disposable[];
 
     constructor(textEditor: vscode.TextEditor) {
         this.shouldListenForClicks = false;
         this.textEditor = textEditor;
         this.stateLocations = [];
+        this.disposables = [];
 
         // Setup a listener for changes in cursor position, so we can detect clicks on decorations and change to the
         // correponding state
-        vscode.window.onDidChangeTextEditorSelection((e) => this.handleTextEditorSelectionChange(e));
+        let d = vscode.window.onDidChangeTextEditorSelection((e) => this.handleTextEditorSelectionChange(e));
+        this.disposables.push(d);
     }
 
     private handleTextEditorSelectionChange(event: vscode.TextEditorSelectionChangeEvent) {
@@ -308,5 +312,6 @@ export class DecorationsManager implements SessionObserver {
 
     public dispose() {
         DecorationStyles.disposeDecorations();
+        this.disposables.forEach(e => e.dispose());
     }
 }
