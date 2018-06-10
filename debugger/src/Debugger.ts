@@ -41,7 +41,6 @@ export namespace Debugger {
     let session: DebuggerSession | undefined = undefined;
     /** Observers are notified whenever the debugger session is changed. */
     let sessionObservers: SessionObserver[];
-    let disposables: { dispose: () => void }[] = [];
 
     export function start(context: vscode.ExtensionContext, activeEditor: vscode.TextEditor) {
         if (panel) {
@@ -53,14 +52,16 @@ export namespace Debugger {
             throw new DebuggerError(`Cannot start debugger: ${res.reason}`);
         }
 
+        let decorationsManager = new DecorationsManager(activeEditor);
+        context.subscriptions.push(decorationsManager);
+
+        // FIXME: The debugger panel knows the decorations manager since it acts
+        //        as a controller for it. Maybe there is a better way to set
+        //        this up.
         // Seup the debugger panel an make sure the debugger is stopped when the window is closed
-        panel = new DebuggerPanel(context.extensionPath);
+        panel = new DebuggerPanel(context.extensionPath, decorationsManager);
         panel.onDispose(() => onPanelDispose());
         context.subscriptions.push(panel);
-
-        let decorationsManager = new DecorationsManager(activeEditor);
-
-        disposables.push(decorationsManager);
 
         // SessionObservers are notified whenever there is a new debugging session
         sessionObservers = [
@@ -155,8 +156,6 @@ export namespace Debugger {
     /** Called when the panel is disposed directly, not via a command or any
      *  other callback, meaning when the panel is closed. */
     function onPanelDispose() {
-        disposables.forEach(element => element.dispose());
-
         // Maybe this is not even needed
         panel = undefined;
         session = undefined;

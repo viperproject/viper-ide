@@ -10,54 +10,60 @@ import { Statement } from './states/Statement';
 /** Creates and disposes the various decoration styles. */
 namespace DecorationStyles {
     let decorations: TextEditorDecorationType[] = [];
+    let currentStateDecoration: TextEditorDecorationType | undefined;
 
-    export function disposeDecorations() {
+    export function disposeDecorations(keepCurrent: boolean = false) {
         decorations.forEach(d => d.dispose());
         decorations = [];
-    }
 
-    function newDecoration(opts: vscode.DecorationRenderOptions) {
-        let decoration = vscode.window.createTextEditorDecorationType(opts);
-        decorations.push(decoration);
-        return decoration;
+        if (!keepCurrent && currentStateDecoration !== undefined) {
+            currentStateDecoration.dispose();
+        }
     }
 
     export function currentState() {
-        return newDecoration({
+        currentStateDecoration = vscode.window.createTextEditorDecorationType({
             // borderStyle: 'dotted',
             //backgroundColor:'rgba(44, 93, 48, 0.2)',
             backgroundColor: '#114215',
             color: '#eeeeee',
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         });
+        return currentStateDecoration;
     }
 
     export function topState() {
-        return newDecoration({
+        let decoration = vscode.window.createTextEditorDecorationType({
             border: '2px dotted #606060',
             borderWidth: '0 0 2px 0',  // top right bottom left
             cursor: 'pointer',
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         });
+        decorations.push(decoration);
+        return decoration;
     }
 
     export function childState() {
-        return newDecoration({
+        let decoration = vscode.window.createTextEditorDecorationType({
             border: '2px solid #2cad30',
             borderWidth: '0 0 2px 0',  // top right bottom left
             cursor: 'pointer',
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         });
+        decorations.push(decoration);
+        return decoration;
     }
 
     export function siblingState() {
-        return newDecoration({
+        let decoration = vscode.window.createTextEditorDecorationType({
             border: '2px solid #2c2cad',
             //border: '2px solid #6d2c6d',
             borderWidth: '0 0 2px 0',  // top right bottom left
             cursor: 'pointer',
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         });
+        decorations.push(decoration);
+        return decoration;
     }
 }
 
@@ -73,18 +79,23 @@ type StateLocationEntry = { range: vscode.Range, state: Statement };
 export class DecorationsManager implements SessionObserver {
 
     /** Keeps track of whether clicks can trigger state changes. */
-    private shouldListenForClicks: boolean;
+    private decorationsAreSetup: boolean;
+    /** Flag to enable/disable click navigation. */
+    private mouseNavigationEnabled: boolean;
     /** The editor we are adding decorations to. */
     private textEditor: vscode.TextEditor;
     /** The current debugging session. */
     private session: DebuggerSession | undefined;
     /** Locations for each of the states being visualized. */
     private stateLocations: StateLocationEntry[];
+    /** Keeps track of the states in the current session. */
+    private currentStates: StateUpdate | undefined;
     /** Objects to dispose of when the decorations manager is killed. */
     private disposables: vscode.Disposable[];
 
     constructor(textEditor: vscode.TextEditor) {
-        this.shouldListenForClicks = false;
+        this.decorationsAreSetup = false;
+        this.mouseNavigationEnabled = true;
         this.textEditor = textEditor;
         this.stateLocations = [];
         this.disposables = [];
@@ -97,9 +108,15 @@ export class DecorationsManager implements SessionObserver {
 
     private handleTextEditorSelectionChange(event: vscode.TextEditorSelectionChangeEvent) {
         // We have not setup the decorations yet, ignore the clicks
-        if (!this.shouldListenForClicks) {
+        if (!this.decorationsAreSetup) {
             return;
         }
+
+        // Mouse navigation has been explicitely disabled
+        if (!this.mouseNavigationEnabled) {
+            return;
+        }
+
         // Ignore everything that was not a click
         if (event.kind !== vscode.TextEditorSelectionChangeKind.Mouse) {
             return;
@@ -171,12 +188,26 @@ export class DecorationsManager implements SessionObserver {
         }
 
         this.textEditor = textEditor;
-        this.session.onStateChange(states => this.updateDecorations(states));
+        this.session.onStateChange(states => {
+            this.currentStates = states;
+            this.updateDecorations(states);
+        });
     }
 
     public clearSession() {
         this.session = undefined;
         DecorationStyles.disposeDecorations();
+    }
+
+    public setMouseNavigation(enabled: boolean) {
+        this.mouseNavigationEnabled = enabled;
+        if (!enabled) {
+            DecorationStyles.disposeDecorations(true);
+        } else {
+            if (this.currentStates) {
+                this.updateDecorations(this.currentStates);
+            }
+        }
     }
 
     private updateDecorations(states: StateUpdate) {
@@ -307,7 +338,7 @@ export class DecorationsManager implements SessionObserver {
         }
 
         // Now that we know to which state the locations correspond, start listening for clicks.
-        this.shouldListenForClicks = true;
+        this.decorationsAreSetup = true;
     }
 
     public dispose() {

@@ -62,26 +62,26 @@ function activate() {
         }
     });
 
-    var d3 = require('d3');
-    var d3graphviz = require('d3-graphviz');
+    // var d3 = require('d3');
+    // var d3graphviz = require('d3-graphviz');
 
-    d3.select("#graph")
-        .graphviz()
-            .dot('digraph {a -> b}')
-            .render()
+    // d3.select("#graph")
+    //     .graphviz()
+    //         .dot('digraph {a -> b}')
+    //         .render()
     
-    var drag = d3.drag()
-        .on("drag", dragmove);
+    // var drag = d3.drag()
+    //     .on("drag", dragmove);
     
-    d3.select('ellipse')
-        .style('fill', '#f00')
-        .call(drag);
+    // d3.select('ellipse')
+    //     .style('fill', '#f00')
+    //     .call(drag);
 
-    function dragmove(this: any, d: any, i: any, n: any) {
-        console.log(d3.event);
-        d3.select(this)
-            .attr("transform", `translate(${d3.event.x},${d3.event.y})`);
-    }
+    // function dragmove(this: any, d: any, i: any, n: any) {
+    //     console.log(d3.event);
+    //     d3.select(this)
+    //         .attr("transform", `translate(${d3.event.x},${d3.event.y})`);
+    // }
 
     Logger.debug("Done setting up debug pane");
 }
@@ -184,6 +184,11 @@ function setupButtonHandlers() {
     $('#previous:button').click(() => vscode.postMessage({ command: 'previousState' }));
     $('#child:button').click(() => vscode.postMessage({ command: 'childState' }));
     $('#parent:button').click(() => vscode.postMessage({ command: 'parentState' }));
+
+    $('#mouseNavigation').change((event) => {
+        let input = $(event.currentTarget);
+        vscode.postMessage({ command: 'mouseNavigation', value: input.prop('checked')});
+    });
 
     Logger.debug("Done setting up button handlers.");
 }

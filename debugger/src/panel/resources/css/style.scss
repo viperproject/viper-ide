@@ -38,6 +38,10 @@ nav {
     button:focus {
         outline: none;
     }
+
+    div#navRight {
+        float: right;
+    }
 }
 
 #currentState {

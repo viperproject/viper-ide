@@ -10,6 +10,7 @@ import { DebuggerSession, SessionEvent, StateUpdate } from './DebuggerSession';
 import { DebuggerError } from './Errors';
 import { Statement, StatementView } from './states/Statement';
 import { Verifiable } from './states/Verifiable';
+import { DecorationsManager } from './DecorationsManager';
 
 
 class PanelMessage {
@@ -36,7 +37,8 @@ export class DebuggerPanel implements SessionObserver {
     private panel: vscode.WebviewPanel;
     private session: DebuggerSession | undefined;
 
-    constructor(readonly extensionPath: string) {
+    constructor(readonly extensionPath: string,
+                readonly decorationsManager: DecorationsManager) {
         this.panel = vscode.window.createWebviewPanel(
             'viperDebugPanel',
             "Viper Debugger",
@@ -109,6 +111,9 @@ export class DebuggerPanel implements SessionObserver {
                 const verifiableName = message.data;
                 this.session!.selectVerifiable(verifiableName);
                 break;
+            case 'mouseNavigation':
+                let enabled = message.value;
+                this.decorationsManager.setMouseNavigation(enabled);
             default:
                 Logger.error(`Unknown command from debug pane: '${message}'`);
         }
