@@ -69,7 +69,24 @@
                 "key": "f6",
                 "when": "resourceLangId == viper"
             }
-        ]
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "Viper Debugger Configuration",
+            "properties" : {
+                "viperDebuggerSettings.highlighting": {
+                    "type": "object",
+                    "default": {
+                        "currentStateBackgroundColor": "#007701",
+                        "currentStateForegroundColor": "#EEEEEE",
+                        "topLevelStateUnderlineColor": "#707070",
+                        "childStateUnderlineColor": "#2CAD30",
+                        "siblingStateUnderlineColor": "#3668E8"
+                    },
+                    "description": "Configuration for highlighting of verification states."
+                }
+            }
+        }
     },
     "scripts": {
         "vscode:prepublish": "npm run compile",

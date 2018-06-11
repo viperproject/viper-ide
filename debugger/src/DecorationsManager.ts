@@ -11,6 +11,11 @@ import { Statement } from './states/Statement';
 namespace DecorationStyles {
     let decorations: TextEditorDecorationType[] = [];
     let currentStateDecoration: TextEditorDecorationType | undefined;
+    let currentStateBackgroundColor = getValidColor('currentStateBackgroundColor');
+    let currentStateForegroundColor = getValidColor('currentStateForegroundColor');
+    let topLevelStateUnderlineColor = getValidColor('topLevelStateUnderlineColor');
+    let childStateUnderlineColor = getValidColor('childStateUnderlineColor');
+    let siblingStateUnderlineColor = getValidColor('siblingStateUnderlineColor');
 
     export function disposeDecorations(keepCurrent: boolean = false) {
         decorations.forEach(d => d.dispose());
@@ -20,13 +25,37 @@ namespace DecorationStyles {
             currentStateDecoration.dispose();
         }
     }
+    
+    function getValidColor(key: string) {
+        let highlightingSettings = vscode.workspace.getConfiguration("viperDebuggerSettings.highlighting");
+        let colorString = (<string> highlightingSettings.get(key)).trim();
+
+        // TODO: This is not realy a 100% safe check, but we probably don't care that much
+        let valid = colorString.match(/^#[a-fA-F\d]{6}$/) ||
+                    colorString.match(/^#[a-fA-F\d]{3}$/) ||
+                    colorString.match(/^rgb\(\s*\d,\s*\d,\s*\d\s*\)$/)
+
+        if (valid) {
+            return colorString;
+        } else {
+            let message = `Invalid color value for '${key}' setting, falling back to default value.`;
+            vscode.window.showErrorMessage(message, "Open User Settings")
+                         .then((item) => {
+                             if (item) {
+                                vscode.commands.executeCommand("workbench.action.openGlobalSettings");
+                             }
+                         });
+            let inspection = highlightingSettings.inspect(key);
+            return inspection!.defaultValue;
+        }
+    }
 
     export function currentState() {
         currentStateDecoration = vscode.window.createTextEditorDecorationType({
             // borderStyle: 'dotted',
             //backgroundColor:'rgba(44, 93, 48, 0.2)',
-            backgroundColor: '#114215',
-            color: '#eeeeee',
+            backgroundColor: currentStateBackgroundColor,
+            color: currentStateForegroundColor,
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         });
         return currentStateDecoration;
@@ -34,7 +63,7 @@ namespace DecorationStyles {
 
     export function topState() {
         let decoration = vscode.window.createTextEditorDecorationType({
-            border: '2px dotted #606060',
+            border: '2px dotted ' + topLevelStateUnderlineColor,
             borderWidth: '0 0 2px 0',  // top right bottom left
             cursor: 'pointer',
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
@@ -45,7 +74,7 @@ namespace DecorationStyles {
 
     export function childState() {
         let decoration = vscode.window.createTextEditorDecorationType({
-            border: '2px solid #2cad30',
+            border: '2px solid ' + childStateUnderlineColor,
             borderWidth: '0 0 2px 0',  // top right bottom left
             cursor: 'pointer',
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
@@ -56,7 +85,7 @@ namespace DecorationStyles {
 
     export function siblingState() {
         let decoration = vscode.window.createTextEditorDecorationType({
-            border: '2px solid #2c2cad',
+            border: '2px solid ' + siblingStateUnderlineColor,
             //border: '2px solid #6d2c6d',
             borderWidth: '0 0 2px 0',  // top right bottom left
             cursor: 'pointer',
