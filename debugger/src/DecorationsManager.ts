@@ -220,6 +220,10 @@ export class DecorationsManager implements SessionObserver {
         this.session.onStateChange(states => {
             this.currentStates = states;
             this.updateDecorations(states);
+
+            // Scroll to selected state if outside viewport
+            let currentPos = states.current.position;
+            this.textEditor.revealRange(new vscode.Range(currentPos, currentPos), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
         });
     }
 
