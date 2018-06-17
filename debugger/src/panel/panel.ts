@@ -145,12 +145,12 @@ function handleStateUpdate(message: any) {
     if (state.type && state.type !== 'None') {
         stateDiv.removeClass();
         stateDiv.addClass(state.type.toLowerCase());
-        const elem = $('<h3>' + state.type + '</h3>');
+        const elem = $(`<h3>(${state.index}) ${state.type}</h3>`);
         stateDiv.append(elem);
     } else {
         stateDiv.removeClass();
         stateDiv.addClass('noAction');
-        const elem = $('<h3>' + state.kind + '</h3>');
+        const elem = $(`<h3>(${state.index}) ${state.kind}</h3>`);
         stateDiv.append(elem);
     }
 

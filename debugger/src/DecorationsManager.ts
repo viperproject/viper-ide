@@ -185,7 +185,7 @@ export class DecorationsManager implements SessionObserver {
         // so we can retrieve it when a choice is made
         let items = states.map(s => {
             return {
-                label: (s.type || s.kind || "Unknown Action"),
+                label: `(${s.index}) ` + (s.type || s.kind || "") + `: ${s.formula}`,
                 description: (s.children.length === 1 ? "1 child, " : `${s.children.length} children, `) + 
                                 (s.store.length === 1 ? "1 store element, " : `${s.store.length} store elements, `) +
                                 (s.heap.length === 1 ? "1 heap chunk, " : `${s.heap.length} heap chunks, `) +
@@ -259,9 +259,9 @@ export class DecorationsManager implements SessionObserver {
             };
 
             if (state.type) {
-                opts.hoverMessage = "Child: " + state.type;
+                opts.hoverMessage = `(${state.index}) Child: ${state.type}`;
             } else if (state.kind) {
-                opts.hoverMessage = "Child: " + state.kind;
+                opts.hoverMessage = `(${state.index}) Child: ${state.kind}`;
             }
 
             childrenDecorations.push(opts);
@@ -290,9 +290,9 @@ export class DecorationsManager implements SessionObserver {
                 // The message shows the type of action the state corresponds to
                 let message = "";
                 if (state.type) {
-                    message = state.type;
+                    message = `(${state.index}) ${state.type}`;
                 } else if (state.kind) {
-                    message = state.kind;
+                    message = `(${state.index}) ${state.kind}`;
                 }
 
                 // If there are other states in the same or overlapping locations, collapse the decorations
@@ -336,9 +336,9 @@ export class DecorationsManager implements SessionObserver {
                 // The message shows the type of action the state corresponds to
                 let message = "";
                 if (state.type) {
-                    message = state.type;
+                    message = `(${state.index}) ${state.type}`;
                 } else if (state.kind) {
-                    message = state.kind;
+                    message = `(${state.index}) ${state.kind}`;
                 }
 
                 // If there are other states in the same or overlapping locations, collapse the decorations

@@ -43,6 +43,7 @@ export class Statement {
                 readonly kind: string,
                 readonly position: Position,
                 readonly formula: string,
+                readonly index: number,  // TODO: Don't like this here
                 readonly parent: Statement | undefined,
                 readonly previous: Statement | undefined,
                 readonly store: Variable[] = [],
@@ -105,6 +106,13 @@ export class Statement {
         const position = new Position(Number.parseInt(match[1]), Number.parseInt(match[2]));
         const formula = entry.value;
 
+        let index = 0;
+        if (previous) {
+            index = previous.index + 1;
+        } else if (parent) {
+            index = parent.index + 1;
+        }
+
         let statement: Statement;
         if (entry.prestate) {
             // TODO: we probably want to parse the store into a separate obejct
@@ -113,9 +121,9 @@ export class Statement {
             const oldHeap = entry.prestate.oldHeap.map(HeapChunk.parse);
             const pathConditions = flatMap(entry.prestate.pcs, Condition.parseConditions);
 
-            statement = new Statement(type, kind, position, formula, parent, previous, store, heap, oldHeap, pathConditions);
+            statement = new Statement(type, kind, position, formula, index, parent, previous, store, heap, oldHeap, pathConditions);
         } else {
-            statement = new Statement(type, kind, position, formula, previous, parent);
+            statement = new Statement(type, kind, position, formula, index, parent, previous);
         }
 
         // Build all children of the entry and make sure they are connected with siblings and parent
@@ -146,6 +154,7 @@ export class StatementView {
                 readonly type: string,
                 readonly position: Position,
                 readonly formula: string,
+                readonly index: number,
                 readonly children: StatementView[],
                 readonly store: Variable[] = [],
                 readonly heap: HeapChunk[] = [],
@@ -162,6 +171,7 @@ export class StatementView {
                                  type,
                                  statement.position,
                                  statement.formula,
+                                 statement.index,
                                  children,
                                  statement.store,
                                  statement.heap,
