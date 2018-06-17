@@ -53,7 +53,6 @@ export namespace Debugger {
         }
 
         let decorationsManager = new DecorationsManager(activeEditor);
-        context.subscriptions.push(decorationsManager);
 
         // FIXME: The debugger panel knows the decorations manager since it acts
         //        as a controller for it. Maybe there is a better way to set
@@ -61,6 +60,7 @@ export namespace Debugger {
         // Seup the debugger panel an make sure the debugger is stopped when the window is closed
         panel = new DebuggerPanel(context.extensionPath, decorationsManager);
         panel.onDispose(() => onPanelDispose());
+        panel.onDispose(() => decorationsManager.dispose());
         context.subscriptions.push(panel);
 
         // SessionObservers are notified whenever there is a new debugging session
