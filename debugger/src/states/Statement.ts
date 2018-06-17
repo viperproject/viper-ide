@@ -65,11 +65,15 @@ export class Statement {
         return new Range(startLine, startColumn, endLine, endColumn);
     }
 
-    public static from(entry: SymbExLogEntry, parent?: Statement, previous?: Statement): Statement {
+    public static from(entry: SymbExLogEntry, parent?: Statement, previous?: Statement): Statement | null {
         if (!entry.kind && !entry.type) {
             // TODO: Determine whether this makes sense or not
             //throw new DebuggerError(`Both 'kind' and 'type' entries are missing in '${entry.value}' @ ${entry.pos}`);
             Logger.error(`Both 'kind' and 'type' entries are missing in '${entry}'`);
+        }
+
+        if (entry.kind === "WellformednessCheck") {
+            return null;
         }
 
 
@@ -114,15 +118,20 @@ export class Statement {
             statement = new Statement(type, kind, position, formula, previous, parent);
         }
 
+        // Build all children of the entry and make sure they are connected with siblings and parent
         if (entry.children) {
             let previousChild: Statement;
             entry.children.forEach((entry) => {
                 const child = Statement.from(entry, statement, previousChild);
-                if (previousChild) {
-                    previousChild.next = child;
+
+                // We might not get a child if it does not need to be visualized
+                if (child) {
+                    if (previousChild) {
+                        previousChild.next = child;
+                    }
+                    previousChild = child;
+                    statement.addChild(child);
                 }
-                previousChild = child;
-                statement.addChild(child);
             });
         }
 
