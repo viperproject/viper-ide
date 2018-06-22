@@ -1,15 +1,26 @@
 
 export interface Condition {}
 
-class EqualityCondition implements Condition {
+export class EqualityCondition implements Condition {
     constructor(readonly isPositive: boolean, readonly lhs: string, readonly rhs: string) {}
+
+    public toString(): string {
+        return this.lhs + (this.isPositive ? " == " : " != ") + this.rhs;
+    }
 }
-class NullityCondition implements Condition {
-    constructor(readonly isPositive: boolean, readonly lhs: string) {}
+
+export class NullityCondition implements Condition {
+    constructor(readonly isPositive: boolean, readonly variable: string) {}
+
+    public toString(): string {
+        return this.variable + (this.isPositive ? " == null" : " != null");
+    }
 }
+
 class WildCardCondition implements Condition {
     constructor(readonly isPositive: boolean, readonly lhs: string) {}
 }
+
 class QuantifiedCondition implements Condition {
     constructor(readonly body: string) {}
 }
@@ -91,6 +102,30 @@ export namespace Condition {
         if (conditionString.startsWith('QA ')) {
             // TODO: probably parse it properly, i.e. split the body from the rest
             return new QuantifiedCondition(conditionString);
+        }
+
+        let parts = conditionString.split("==").map(p => p.trim());
+        let isPositive = true;
+        if (parts.length === 2) {
+            if (parts[0] === 'Null') {
+                return new NullityCondition(isPositive, parts[1]);
+            } else if (parts[1] === 'Null') {
+                return new NullityCondition(isPositive, parts[0]);
+            } else {
+                return new EqualityCondition(isPositive, parts[0], parts[1]);
+            }
+        }
+
+        parts = conditionString.split("!=").map(p => p.trim());
+        isPositive = false;
+        if (parts.length === 2) {
+            if (parts[0] === 'Null') {
+                return new NullityCondition(isPositive, parts[1]);
+            } else if (parts[1] === 'Null') {
+                return new NullityCondition(isPositive, parts[0]);
+            } else {
+                return new EqualityCondition(isPositive, parts[0], parts[1]);
+            }
         }
 
         // TODO: re-enable this log line once parsing conditions gets more

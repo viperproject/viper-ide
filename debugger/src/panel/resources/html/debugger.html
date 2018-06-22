@@ -11,22 +11,31 @@
     <header>
         <nav>
             <select id="verifiables" disabled></select>
-            <button id="next" name="next" type="button">Next</button>
-            <button id="previous" name="previous" type="button">Previous</button>
-            <button id="child" name="child" type="button">Child</button>
             <button id="parent" name="parent" type="button">Parent</button>
+            <button id="child" name="child" type="button">Child</button>
+            <button id="previous" name="previous" type="button">Previous</button>
+            <button id="next" name="next" type="button">Next</button>
             <div id="navRight">
                 <input type="checkbox" id="mouseNavigation" name="mouseNavigation" checked="true">
                 <label for="mouseNavigation">Mouse Navigation</label>
             </div>
         </nav>
     </header>
-    <div id="graphPanel" class="panel noScroll">
+    <div id="graphPanel" class="panel noScroll collapsedByDefault">
+        <div id="graphCommands">
+            <button id="updateGraph" name="updateGraph" type="button">Update Graph</button>
+        </div>
         <div id="graph"></div>
     </div>
     <div id="mainPanel" class="panel">
         <div id="currentState"></div>
+        <div id="constraintsBlock">
+            <label for="constraintsInput">Constraints</label>
+            <input type="text" name="constraintsInput">
+            <div id="allContraints"></div>
+        </div>
     </div>
-    <div id="output" class="panel collapsedByDefault" title="Output Panel"></div>
+    <div id="output" class="panel" title="Output Panel"></div>
+    <div id="symbExLogPanel" class="panel collapsedByDefault" title="SymbExLog Panel"></div>
 </body>
 </html>

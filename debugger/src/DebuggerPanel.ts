@@ -11,6 +11,8 @@ import { DebuggerError } from './Errors';
 import { Statement, StatementView } from './states/Statement';
 import { Verifiable } from './states/Verifiable';
 import { DecorationsManager } from './DecorationsManager';
+import { AlloyModel } from './AlloyModel';
+import { DotGraph } from './DotGraph';
 
 
 class PanelMessage {
@@ -77,6 +79,42 @@ export class DebuggerPanel implements SessionObserver {
         this.panel.webview.postMessage(logMessage);
     }
 
+    // TODO: Remove this later on
+    private logModel(message: string) {
+        let logMessage = {
+            type: 'logModel',
+            text: message
+        };
+
+        this.panel.webview.postMessage(logMessage);
+    }
+
+    public postOriginalSymbExLog(entries: SymbExLogEntry[]) {
+        let message = {
+            type: 'symbExLogEntries',
+            text: entries
+        };
+
+        this.panel.webview.postMessage(message);
+    }
+
+    public readGeneratedDotInfo() {
+        const path = '/tmp/generatedDot.dot';
+        if (fs.existsSync(path)) {
+            const relations = fs.readFileSync(path).toString();
+            const graph = DotGraph.from(this.session!.getCurrentState(), relations);
+            
+            let message = {
+                type: 'displayGraph',
+                text: graph.toString()
+            };
+
+            this.panel.webview.postMessage(message);
+        } else {
+            vscode.window.showErrorMessage(`Could not find generated DOT data at '${path}'`);
+        }
+    }
+
     public onDispose(listener: () => void) {
         this.panel.onDidDispose(listener);
     }
@@ -111,9 +149,13 @@ export class DebuggerPanel implements SessionObserver {
                 const verifiableName = message.data;
                 this.session!.selectVerifiable(verifiableName);
                 break;
+
             case 'mouseNavigation':
                 let enabled = message.value;
                 this.decorationsManager.setMouseNavigation(enabled);
+            
+            case 'updateGraph':
+                this.readGeneratedDotInfo();
             default:
                 Logger.error(`Unknown command from debug pane: '${message}'`);
         }
@@ -136,6 +178,13 @@ export class DebuggerPanel implements SessionObserver {
             };
 
             this.postMessage(PanelMessage.StateUpdate(message));
+
+            let model = new AlloyModel(states.current);
+            let modelString = model.build()
+            this.logModel(modelString);
+
+            const modelFilePath = '/tmp/model.als';
+            fs.writeFileSync(modelFilePath, modelString);
         });
     }
 }

@@ -15,32 +15,50 @@ header {
     border-bottom: 1px solid #444444;
 }
 
+// VS Code likes putting outlines on buttons, we don't want them
+select:focus,
+button:focus,
+input:focus {
+    outline: none;
+}
+select,
+button {
+    padding: 4px 10px;
+    box-sizing: border-box;
+    height: 24px;
+    vertical-align: top;
+    border: 0;
+    border-radius: 2px;
+    background: #aaaaaa;
+}
+
+select:hover:not(:disabled),
+button:hover:not(:disabled) {
+    background: #dddddd;
+    cursor: pointer;
+}
+
 nav {
-    select,
-    button {
-        padding: 4px 10px;
-        box-sizing: border-box;
-        height: 24px;
-        vertical-align: top;
-        border: 0;
-        border-radius: 2px;
-        background: #aaaaaa;
-    }
-
-    select:hover:not(:disabled),
-    button:hover:not(:disabled) {
-        background: #dddddd;
-        cursor: pointer;
-    }
-
-    // VS Code likes putting outlines on buttons, we don't want them
-    select:focus,
-    button:focus {
-        outline: none;
-    }
-
     div#navRight {
         float: right;
+    }
+}
+
+#graphCommands {
+    padding: 1em;
+}
+
+#constraintsBlock {
+    padding: 1em;
+
+    input {
+        width: 90%;
+        background-color: #aaaaaa;
+        border: none;
+        border-radius: 2px;
+        height: 24px;
+        padding: 0 4px;
+        font-family: monospace;
     }
 }
 
@@ -49,13 +67,40 @@ nav {
 
     h3 {
         margin-top: 0;
+
+        pre {
+            display: inline;
+            background: #2A3239;
+            margin-left: 1em;
+            padding: 1px 4px;
+        }
     }
 
-    pre {
-        background: #2A3239;
-        padding: 1em;
-        border-radius: 2px;
+    > h4 {
+        margin-bottom: 0.8em;
     }
+
+    > pre {
+        margin: 0.2em 0.5em;
+        > span {
+            padding: 1px 2px;
+        }
+
+        > span.highlighted {
+            background-color: #A66321;
+            border-radius: 2px;
+        }
+    }
+}
+
+#symbExLogPanel {
+    padding: 0 1em;
+}
+
+pre.json {
+    background: #2A3239;
+    padding: 1em;
+    border-radius: 2px;
 }
 
 #currentState.noAction {

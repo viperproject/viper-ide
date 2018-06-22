@@ -95,6 +95,7 @@ export namespace Debugger {
                 let entries = <SymbExLogEntry[]>JSON.parse(content);
 
                 update(entries);
+                panel.postOriginalSymbExLog(entries);
             }
         });
     }
