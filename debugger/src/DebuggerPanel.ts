@@ -77,6 +77,15 @@ export class DebuggerPanel implements SessionObserver {
         this.panel.webview.postMessage(logMessage);
     }
 
+
+    public postOriginalSymbExLog(entries: SymbExLogEntry[]) {
+        let message = {
+            type: 'symbExLogEntries',
+            text: entries
+        };
+
+        this.panel.webview.postMessage(message);
+    }
     public onDispose(listener: () => void) {
         this.panel.onDidDispose(listener);
     }

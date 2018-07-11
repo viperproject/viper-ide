@@ -67,6 +67,7 @@ function setupMessageHandlers() {
     on('stateUpdate', message => handleStateUpdate(message));
     on('verifiables', message => handleVerifiableUpdate(message.data));
 
+    on('symbExLogEntries', message => handleSymbExLogEntries(message));
     Logger.debug("Done setting up message handlers.");
 }
 
@@ -76,16 +77,16 @@ function setupInputHandlers() {
     Logger.debug("Setting up input handlers.");
 
     // TODO: Proper key handling
-    $(document).keydown(function(e) {
-        switch (e.key) {
-            case 'F10': // F10        
-                outpudDiv.innerHTML += "<p>F10 from panel</p>";
-                break;
-            default: // F10        
-                outpudDiv.innerHTML += "<p>" + e.key + " from panel</p>";
-                break;
-        }
-    });
+    // $(document).keydown(function(e) {
+    //     switch (e.key) {
+    //         case 'F10': // F10        
+    //             outpudDiv.innerHTML += "<p>F10 from panel</p>";
+    //             break;
+    //         default: // F10        
+    //             outpudDiv.innerHTML += "<p>" + e.key + " from panel</p>";
+    //             break;
+    //     }
+    // });
 
     // Send navigation actions
     // The message is delivered to the DebuggerSession via the DebuggerPanel, on "the extension side"
@@ -200,6 +201,19 @@ function handleVerifiableUpdate(verifiables: any[]) {
         dropdown.prop('disabled', true);
         $('#currentState').empty();
     }
+}
+
+function handleSymbExLogEntries(message: any) {
+    const options: JSONFormatterConfiguration = {
+        animateOpen: false,
+        animateClose: false,
+        theme: 'dark'
+    };
+
+    // Update the JSON view of the state tree
+    const current = new JSONFormatter(message.text, 1, options);
+    const pre = $('<pre></pre>').addClass('json').append(current.render());
+    $('#symbExLogPanel').empty().append(pre);
 }
 
 
