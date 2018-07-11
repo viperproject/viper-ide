@@ -21,11 +21,19 @@
             </div>
         </nav>
     </header>
-    <div id="graphPanel" class="panel noScroll">
+    <div id="graphPanel" class="panel noScroll collapsedByDefault">
+        <div id="graphCommands">
+            <button id="updateGraph" name="updateGraph" type="button">Update Graph</button>
+        </div>
         <div id="graph"></div>
     </div>
     <div id="mainPanel" class="panel">
         <div id="currentState"></div>
+        <div id="constraintsBlock">
+            <label for="constraintsInput">Constraints</label>
+            <input type="text" name="constraintsInput">
+            <div id="allContraints"></div>
+        </div>
     </div>
     <div id="output" class="panel" title="Output Panel"></div>
     <div id="symbExLogPanel" class="panel collapsedByDefault" title="SymbExLog Panel"></div>

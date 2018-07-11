@@ -1,12 +1,8 @@
 import { DebuggerError } from "../Errors";
 
-class ScalarOrReferenceValue {
-    constructor(readonly value: string) {}
-}
-
 class NoValue {}
 
-type HeapValue = ScalarOrReferenceValue | NoValue;
+type HeapValue = string | NoValue;
 
 interface HeapPermission {
     readonly raw: string;
@@ -14,10 +10,18 @@ interface HeapPermission {
 
 class ScalarPermission implements HeapPermission {
     constructor(readonly value: string, readonly raw: string) {}
+
+    public toString(): string {
+        return this.raw;
+    }
 }
 
 class UnknownPermission implements HeapPermission {
     constructor(readonly raw: string) {}
+
+    public toString(): string {
+        return this.raw;
+    }
 }
 
 
@@ -52,8 +56,8 @@ export namespace HeapChunk {
             if (!valueRegex.test(valueString)) {
                 throw new DebuggerError(`Unexpected heap value '${valueString}'`);
             }
-            value = new ScalarOrReferenceValue(valueString);
-        } else if (hashTagIndex > 0) {
+            value = valueString;
+        } if (hashTagIndex > 0) {
             name = heapString.substring(0, hashTagIndex - 1);
         } else {
             name = heapString;
@@ -98,7 +102,7 @@ export namespace HeapChunk {
         // - Group 1 matches the receiver
         // - Group 2 matches the possibly-missing value
         // - Group 3 matches the **last** field dereference
-        let fieldReferenceRegex = /^(\$?\w+(?:@[\d$]+))(\(=.+?\))?(?:\.(\w+))+$/;
+        let fieldReferenceRegex = /^(\$?\w+(?:@[\d$]+)*)(\(=.+?\))?(?:\.(\w+))+/;
         let match = fieldReferenceRegex.exec(heapString);
         if (match) {
             return FieldReference.parse;
@@ -149,10 +153,14 @@ export class Predicate implements HeapChunk {
 
 export class FieldReference implements HeapChunk {
 
-    constructor(readonly receiver: string, readonly field: string) {}
+    constructor(readonly receiver: string,
+                readonly value: HeapValue,
+                readonly permission: HeapPermission,
+                readonly field: string) {}
 
     public static parse(heapString: string, value: HeapValue, permission: HeapPermission): FieldReference {
-        const fieldReferenceRegex = /^(\$?\w+(?:@[\d$]+))(\(=.+?\))?(?:\.(\w+))+$/;
+        // const fieldReferenceRegex = /^(\$?\w+(?:@[\d$]+))(\(=.+?\))?(?:\.(\w+))+$/;
+        const fieldReferenceRegex = /^(\$?\w+(?:@[\d$]+)*)(\(=.+?\))?(?:\.(\w+))+/;
         const match = fieldReferenceRegex.exec(heapString);
 
         if (!match) {
@@ -160,7 +168,11 @@ export class FieldReference implements HeapChunk {
         }
 
         // Group 1 is the receiver, group 3 is the field
-        return new FieldReference(match[1], match[3]);
+        return new FieldReference(match[1], value, permission, match[3]);
+    }
+
+    public toString(): string {
+        return `${this.receiver}.${this.field} -> ${this.value} # ${this.permission}`;
     }
 }
 

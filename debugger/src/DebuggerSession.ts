@@ -63,6 +63,10 @@ export class DebuggerSession {
         this.notifyStateChange();
     }
 
+    public getCurrentState(): Statement {
+        return this.currentStatement;
+    }
+
     public goToState(state: Statement) {
         this.currentStatement = state;
         this.notifyStateChange();

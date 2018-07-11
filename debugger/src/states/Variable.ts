@@ -15,4 +15,8 @@ export class Variable {
 
         return new Variable(parts[0].trim(), storeEntry.type, parts[1].trim());
     }
+
+    public toString(): string {
+        return  `${this.name}: ${this.type} := ${this.value}`;
+    }
 }

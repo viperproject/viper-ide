@@ -3,8 +3,8 @@ import { SymbExLogEntry, SymbExLogStore } from '../ViperProtocol';
 import { DebuggerError } from '../Errors';
 import { Logger } from '../logger';
 import { flatMap } from '../util';
-import { HeapChunk } from './Heap';
-import { Condition } from './Condition';
+import { HeapChunk, FieldReference } from './Heap';
+import { Condition, NullityCondition, EqualityCondition } from './Condition';
 import { Variable } from './Variable';
 import { stat } from 'fs';
 
@@ -156,10 +156,9 @@ export class StatementView {
                 readonly formula: string,
                 readonly index: number,
                 readonly children: StatementView[],
-                readonly store: Variable[] = [],
-                readonly heap: HeapChunk[] = [],
-                readonly oldHeap: HeapChunk[] = [],
-                readonly pathConditions: Condition[] = []) {}
+                readonly store: { text: string, id?: string }[][] = [],
+                readonly heap: { text: string, id?: string }[][] = [],
+                readonly pathConditions: { text: string, id?: string }[][] = []) {}
 
 
     public static from(statement: Statement) {
@@ -167,15 +166,52 @@ export class StatementView {
         const type: string = statement.type.toString();
         const children: StatementView[] = statement.children.map(StatementView.from);
 
+        const store = statement.store.map(v => [
+            { text: `${v.name}: ${v.type}`, id: v.name },
+            { text: ' -> ' },
+            { text: v.value, id: v.value }
+        ]);
+
+        const heap = statement.heap.map(c => {
+            if (c instanceof FieldReference) {
+                return [
+                    { text: c.receiver, id: c.receiver },
+                    { text: '.' },
+                    { text: c.field, id: c.field },
+                    { text: ' -> ' },
+                    { text: c.value.toString(), id: c.value.toString() },
+                    { text: ' # ' + c.permission }
+                ];
+            } else {
+                return [ { text: c.toString() } ];
+            }
+        });
+
+        const pcs = statement.pathConditions.map(pc => {
+            if (pc instanceof NullityCondition) {
+                return [
+                    { text: pc.variable, id: pc.variable },
+                    { text: pc.isPositive ? ' == null' : ' != null'}
+                ];
+            } else if (pc instanceof EqualityCondition) {
+                return [
+                    { text: pc.lhs, id: pc.lhs },
+                    { text: pc.isPositive ? ' == ' : ' != ' },
+                    { text: pc.rhs, id: pc.rhs }
+                ];
+            } else {
+                return [ { text: pc.toString() } ];
+            }
+        });
+
         return new StatementView(kind,
                                  type,
                                  statement.position,
                                  statement.formula,
                                  statement.index,
                                  children,
-                                 statement.store,
-                                 statement.heap,
-                                 statement.oldHeap,
-                                 statement.pathConditions);
+                                 store,
+                                 heap,
+                                 pcs);
     }
 }
