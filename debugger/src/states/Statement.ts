@@ -1,59 +1,50 @@
 import { Position, Range } from 'vscode';
-import { SymbExLogEntry, SymbExLogStore } from '../ViperProtocol';
+import { SymbExLogEntry, SymbExLogStore, SymbExLogState } from '../ViperProtocol';
 import { DebuggerError } from '../Errors';
-import { Logger } from '../logger';
 import { flatMap } from '../util';
 import { HeapChunk, FieldReference } from './Heap';
 import { Condition, NullityCondition, EqualityCondition } from './Condition';
 import { Variable } from './Variable';
-import { stat } from 'fs';
 
 
-type StatementType = 'Consume' | 'Produce' | 'Evaluate' | 'Execute' | 'None';
+export class State {
+    constructor(
+        readonly store: Variable[],
+        readonly heap: HeapChunk[],
+        readonly oldHeap: HeapChunk[],
+        readonly pathConditions: Condition[]
+    ) {}
 
-namespace StatementType {
-    export const Consume = 'Consume';
-    export const Produce = 'Produce';
-    export const Evaluate = 'Evaluate';
-    export const Execute = 'Execute';
-    export const None = 'None';
+    public static from(symbExLogState: SymbExLogState): State {
+            // TODO: we probably want to parse the store into a separate obejct
+            const store = symbExLogState.store.map(Variable.from);
+            const heap = symbExLogState.heap.map(HeapChunk.parse);
+            const oldHeap = symbExLogState.oldHeap.map(HeapChunk.parse);
+            // const pathConditions = flatMap(symbExLogState.pcs, Condition.parseConditions);
+            const pathConditions: Condition[] = [];
 
-    export function from(type: string): StatementType {
-        type = type.toLocaleLowerCase();
-        if (type === 'consume') {
-            return 'Consume';
-        } else if (type === 'produce') {
-            return 'Produce';
-        } else if (type === 'evaluate' || type === 'eval') {
-            return 'Evaluate';
-        } else if (type === 'execute') {
-            return 'Execute';
-        } else {
-            throw new DebuggerError(`Unexpected statement type '${type}'`);
-        }
+            return new State(store, heap, oldHeap, pathConditions);
     }
 }
 
-export class Statement {
+type RecordType = 'Execute' | 'Evaluate' | 'Consume' | 'Produce' | 'Other';
 
-    readonly children: Statement[];
-    next: Statement | undefined;
+export class Record {
 
-    constructor(readonly type: StatementType,
-                readonly kind: string,
-                readonly position: Position,
+    readonly children: Record[];
+    next: Record | undefined;
+
+    constructor(readonly type: RecordType,
                 readonly formula: string,
                 readonly index: number,  // TODO: Don't like this here
-                readonly parent: Statement | undefined,
-                readonly previous: Statement | undefined,
-                readonly store: Variable[] = [],
-                readonly heap: HeapChunk[] = [],
-                readonly oldHeap: HeapChunk[] = [],
-                readonly pathConditions: Condition[] = []) {
+                readonly position: Position,
+                readonly prestate?: State,
+                readonly parent?: Record,
+                readonly previous?: Record) {
         this.children = [];
     }
 
-    private addChild(child: Statement) {
+    private addChild(child: Record) {
         this.children.push(child);
     }
 
@@ -66,44 +57,57 @@ export class Statement {
         return new Range(startLine, startColumn, endLine, endColumn);
     }
 
-    public static from(entry: SymbExLogEntry, parent?: Statement, previous?: Statement): Statement | null {
+    public static from(entry: SymbExLogEntry, parent?: Record, previous?: Record): Record | null {
         if (!entry.kind && !entry.type) {
-            // TODO: Determine whether this makes sense or not
-            //throw new DebuggerError(`Both 'kind' and 'type' entries are missing in '${entry.value}' @ ${entry.pos}`);
-            Logger.error(`Both 'kind' and 'type' entries are missing in '${entry}'`);
+            throw new DebuggerError(`Both 'kind' and 'type' entries are missing in '${entry.value}' @ ${entry.pos}`);
         }
 
-        if (entry.kind === "WellformednessCheck") {
+        if (entry.kind === "WellformednessCheck" || entry.kind === "comment") {
             return null;
         }
 
-
-        let type: StatementType = 'None';
-        // TODO: Determine what are the valid kinds
-        let kind: string = 'None';
-
-        if (!entry.type && entry.kind) {
-            kind = entry.kind;
-        } else if (entry.type && !entry.kind) {
-            type = StatementType.from(entry.type);
+        if (entry.type) {
+            if (!entry.pos) {
+                throw new DebuggerError(`Action must have a 'pos' entry, but did not: '${entry.value}'`);
+            }
+            if (!entry.value) {
+                throw new DebuggerError(`Action must have a 'value' entry, but did not: '${entry.value}'`);
+            }
+            if (!entry.children) {
+                throw new DebuggerError(`Action must have 'children', but did not: '${entry.value}'`);
+            }
         }
 
-        if (!entry.pos) {
-            // FIXME: Determine which nodes are allowed not to have a position
-            entry.pos = '0:0';
-
-            Logger.error(`Missing 'pos' for SymbExLogEntry '${(entry.type || entry.kind)}'`);
-            // throw new DebuggerError(`Missing 'pos' for SymbExLogEntry '${entry.value}' @ ${entry.pos}`);
+        let recordType: RecordType = 'Other';
+        if (entry.type) {
+            if (entry.type === 'evaluate') {
+                recordType = 'Evaluate';
+            } else if (entry.type === 'execute') {
+                recordType = 'Execute';
+            } else if (entry.type === 'consume') {
+                recordType = 'Consume';
+            } else if (entry.type === 'produce') {
+                recordType = 'Produce';
+            } else {
+                throw new DebuggerError(`Unexpected action type '${entry.type}'`);
+            }
+        } else if (entry.kind) {
+            // TODO: this
+            recordType = 'Other';
         }
 
-        const posRegex = /^(\d+):(\d+)$/;
-        const match = posRegex.exec(entry.pos);
+        let position: Position = new Position(0, 0);
+        if (entry.pos && entry.pos !== '<no position>') {
+            const posRegex = /^(\d+):(\d+)$/;
+            const match = posRegex.exec(entry.pos);
 
-        if (!match) {
-            throw new DebuggerError(`Could not parse position from '${entry.pos}' for SymbExLogEntry '${entry.value}'`);
+            if (match) {
+                position = new Position(Number.parseInt(match[1]), Number.parseInt(match[2]));
+            } else {
+                throw new DebuggerError(`Could not parse position from '${entry.pos}' for SymbExLogEntry '${entry.value}'`);
+            }
         }
 
-        const position = new Position(Number.parseInt(match[1]), Number.parseInt(match[2]));
         const formula = entry.value;
 
         let index = 0;
@@ -113,24 +117,26 @@ export class Statement {
             index = parent.index + 1;
         }
 
-        let statement: Statement;
+        let prestate: State | undefined = undefined;
         if (entry.prestate) {
-            // TODO: we probably want to parse the store into a separate obejct
-            const store = entry.prestate.store.map(Variable.from);
-            const heap = entry.prestate.heap.map(HeapChunk.parse);
-            const oldHeap = entry.prestate.oldHeap.map(HeapChunk.parse);
-            const pathConditions = flatMap(entry.prestate.pcs, Condition.parseConditions);
-
-            statement = new Statement(type, kind, position, formula, index, parent, previous, store, heap, oldHeap, pathConditions);
-        } else {
-            statement = new Statement(type, kind, position, formula, index, parent, previous);
+            prestate = State.from(entry.prestate);
         }
+
+        let statement: Record = new Record(
+            recordType,
+            formula,
+            index,
+            position,
+            prestate,
+            parent,
+            previous
+        );
 
         // Build all children of the entry and make sure they are connected with siblings and parent
         if (entry.children) {
-            let previousChild: Statement;
+            let previousChild: Record;
             entry.children.forEach((entry) => {
-                const child = Statement.from(entry, statement, previousChild);
+                const child = Record.from(entry, statement, previousChild);
 
                 // We might not get a child if it does not need to be visualized
                 if (child) {
@@ -148,31 +154,22 @@ export class Statement {
 }
 
 
-export class StatementView {
+export class StateView {
 
-    private constructor(readonly kind: string,
-                readonly type: string,
-                readonly position: Position,
-                readonly formula: string,
-                readonly index: number,
-                readonly children: StatementView[],
+    private constructor(
                 readonly store: { text: string, id?: string }[][] = [],
                 readonly heap: { text: string, id?: string }[][] = [],
-                readonly pathConditions: { text: string, id?: string }[][] = []) {}
+                readonly pathConditions: { text: string, id?: string }[][] = []
+    ) {}
 
-
-    public static from(statement: Statement) {
-        const kind: string = statement.kind.toString();
-        const type: string = statement.type.toString();
-        const children: StatementView[] = statement.children.map(StatementView.from);
-
-        const store = statement.store.map(v => [
+    public static from(state: State) {
+        const store = state.store.map(v => [
             { text: `${v.name}: ${v.type}`, id: v.name },
             { text: ' -> ' },
             { text: v.value, id: v.value }
         ]);
 
-        const heap = statement.heap.map(c => {
+        const heap = state.heap.map(c => {
             if (c instanceof FieldReference) {
                 return [
                     { text: c.receiver, id: c.receiver },
@@ -187,7 +184,7 @@ export class StatementView {
             }
         });
 
-        const pcs = statement.pathConditions.map(pc => {
+        const pcs = state.pathConditions.map(pc => {
             if (pc instanceof NullityCondition) {
                 return [
                     { text: pc.variable, id: pc.variable },
@@ -204,14 +201,35 @@ export class StatementView {
             }
         });
 
-        return new StatementView(kind,
-                                 type,
+        return new StateView(store, heap, pcs);
+    }
+}
+
+export class StatementView {
+
+    private constructor(
+                readonly type: string,
+                readonly position: Position | undefined,
+                readonly formula: string,
+                readonly index: number,
+                readonly children: StatementView[],
+                readonly state?: StateView) {}
+
+
+    public static from(statement: Record) {
+        const type: string = statement.type.toString();
+        const children: StatementView[] = statement.children.map(StatementView.from);
+
+        let state: StateView | undefined = undefined;
+        if (statement.prestate !== undefined) {
+            state = StateView.from(statement.prestate);
+        }
+
+        return new StatementView(type,
                                  statement.position,
                                  statement.formula,
                                  statement.index,
                                  children,
-                                 store,
-                                 heap,
-                                 pcs);
+                                 state);
     }
 }

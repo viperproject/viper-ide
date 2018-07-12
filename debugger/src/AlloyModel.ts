@@ -1,4 +1,4 @@
-import { Statement } from './states/Statement';
+import { Record, State } from './states/Statement';
 import { Variable } from './states/Variable';
 import { NullityCondition, EqualityCondition } from './states/Condition';
 import { HeapChunk, FieldReference } from './states/Heap';
@@ -18,7 +18,7 @@ export class AlloyModel {
     private facts: string[];
     private referencesMap: Map<string, string>;
 
-    constructor (state: Statement) {
+    constructor (state: State) {
         let references = state.store.filter(v => v.type === 'Ref');
         this.ref_vars = new Set(references.map(r => r.name));
 

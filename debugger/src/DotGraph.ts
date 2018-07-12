@@ -1,4 +1,4 @@
-import { Statement } from './states/Statement';
+import { Record } from './states/Statement';
 
 
 export interface DotElem {
@@ -44,7 +44,7 @@ export class DotGraph {
             '}';
     }
 
-    static from(state: Statement, additionalDotInfo: string = "") {
+    static from(state: Record, additionalDotInfo: string = "") {
         let graph = new DotGraph('G');
         graph.addGraphAttribute('bgcolor=none');
         graph.addGraphAttribute('rankdir=LR');
@@ -66,11 +66,13 @@ export class DotGraph {
         storeGraph.addEdgeAttribute('color="#ffffff"');
         storeGraph.addEdgeAttribute('fontcolor="#ffffff"');
 
-        let storeVars = state.store.forEach((v: any) => {
-            let label = `${v.name}: ${v.type}`;
-            let node = `var_${v.name} [label="${label}\\l"]`;
-            storeGraph.add(node);
-        });
+        if (state.prestate) {
+            state.prestate.store.forEach((v: any) => {
+                let label = `${v.name}: ${v.type}`;
+                let node = `var_${v.name} [label="${label}\\l"]`;
+                storeGraph.add(node);
+            });
+        }
 
         let heapNodes: string[] = [];
         let additionalRelations: string[] = [];

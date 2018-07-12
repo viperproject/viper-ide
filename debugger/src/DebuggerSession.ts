@@ -2,7 +2,7 @@
 
 import * as d from './Debugger';
 import { Verifiable } from './states/Verifiable';
-import { Statement } from './states/Statement';
+import { Record } from './states/Statement';
 import { Logger } from './logger';
 import * as vscode from 'vscode';
 
@@ -12,7 +12,7 @@ export type SessionEvent = 'StateChange';
 
 
 export type StateUpdate = {
-    current: Statement,
+    current: Record,
     hasNext: boolean,
     hasPrevious: boolean,
     hasParent: boolean,
@@ -23,7 +23,7 @@ export type StateUpdate = {
 export class DebuggerSession {
 
     private observers: ((states: StateUpdate) => void)[];
-    private currentStatement: Statement;
+    private currentStatement: Record;
     private currentVerifiable: Verifiable;
 
     constructor(readonly debuggedFile: vscode.Uri, readonly verifiables: Verifiable[]) {
@@ -63,11 +63,11 @@ export class DebuggerSession {
         this.notifyStateChange();
     }
 
-    public getCurrentState(): Statement {
+    public getCurrentState(): Record {
         return this.currentStatement;
     }
 
-    public goToState(state: Statement) {
+    public goToState(state: Record) {
         this.currentStatement = state;
         this.notifyStateChange();
     }
@@ -107,11 +107,11 @@ export class DebuggerSession {
         this.notifyStateChange();
     }
 
-    public topLevelStates(): Statement[] {
+    public topLevelStates(): Record[] {
         return this.currentVerifiable.statements;
     }
 
-    private findNextState(): Statement | undefined {
+    private findNextState(): Record | undefined {
         if (this.currentStatement.next) {
             return this.currentStatement.next;            
         } 
@@ -127,7 +127,7 @@ export class DebuggerSession {
         return undefined;
     }
 
-    private findPrevState(): Statement | undefined {
+    private findPrevState(): Record | undefined {
         if (this.currentStatement.previous) {
             return this.currentStatement.previous;
         } 

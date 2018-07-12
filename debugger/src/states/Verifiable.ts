@@ -1,6 +1,6 @@
 import { SymbExLogEntry } from "../ViperProtocol";
 import { DebuggerError } from "../Errors";
-import { Statement } from "./Statement";
+import { Record } from "./Statement";
 import { Logger } from "../logger";
 
 type VerifiableType = 'Method' | 'Predicate' | 'Function';
@@ -11,9 +11,9 @@ export class Verifiable {
 
     public readonly type: VerifiableType;
     public readonly name: string;
-    public readonly statements: Statement[];
+    public readonly statements: Record[];
 
-    protected constructor(type: VerifiableType, name: string, statements: Statement[] = []) {
+    protected constructor(type: VerifiableType, name: string, statements: Record[] = []) {
         this.type = type;
         this.name = name;
         this.statements = statements;
@@ -26,16 +26,16 @@ export class Verifiable {
 
         // TODO: Some proper checks here for which verifiables are allowed not to have children
         if (!entry.children) {
-            Logger.error(`SymbExLogEntry has no children: ${entry.value} @ ${entry.pos}`);
-            entry.children = [];
-            // throw new DebuggerError(`SymbExLogEntry has no children: ${entry.value} @ ${entry.pos}`);
+            // Logger.error(`SymbExLogEntry has no children: ${entry.value} @ ${entry.pos}`);
+            // entry.children = [];
+            throw new DebuggerError(`SymbExLogEntry has no children: ${entry.value} @ ${entry.pos}`);
         }
 
         const kind = entry.kind.toLowerCase();
         const name = entry.value;
-        let previous: Statement;
+        let previous: Record;
         const statements = entry.children.reduce((acc, child) => {
-                const statement = Statement.from(child, undefined, previous);
+                const statement = Record.from(child, undefined, previous);
 
                 // Statement might be null if it does not need to be visualized, only keep those we care about
                 if (statement) {
@@ -48,7 +48,7 @@ export class Verifiable {
                 }
 
                 return acc;
-        }, <Statement[]>[]);
+        }, <Record[]>[]);
 
         if (kind === 'method') {
             return new Verifiable('Method', name, statements);

@@ -8,7 +8,7 @@ import { SymbExLogEntry } from './ViperProtocol';
 import { Logger } from './logger';
 import { DebuggerSession, SessionEvent, StateUpdate } from './DebuggerSession';
 import { DebuggerError } from './Errors';
-import { Statement, StatementView } from './states/Statement';
+import { Record, StatementView } from './states/Statement';
 import { Verifiable } from './states/Verifiable';
 import { DecorationsManager } from './DecorationsManager';
 import { AlloyModel } from './AlloyModel';
@@ -160,26 +160,30 @@ export class DebuggerPanel implements SessionObserver {
 
             this.postMessage(PanelMessage.StateUpdate(message));
 
-            let model = new AlloyModel(states.current);
+            if (!states.current.prestate) {
+                return;
+            }
+
+            let model = new AlloyModel(states.current.prestate);
             let modelString = model.build();
             this.logModel(modelString);
 
             const modelFilePath = '/tmp/model.als';
             fs.writeFileSync(modelFilePath, modelString);
+        });
 
-            fs.watch('/tmp/', (event, filename) => {
-                if (event === 'change' && filename === 'generatedDot.dot') {
-                    const relations = fs.readFileSync('/tmp/' + filename).toString();
-                    const graph = DotGraph.from(this.session!.getCurrentState(), relations);
-                    
-                    let message = {
-                        type: 'displayGraph',
-                        text: graph.toString()
-                    };
+        fs.watch('/tmp/', (event, filename) => {
+            if (event === 'change' && filename === 'generatedDot.dot') {
+                const relations = fs.readFileSync('/tmp/' + filename).toString();
+                const graph = DotGraph.from(this.session!.getCurrentState(), relations);
+                
+                let message = {
+                    type: 'displayGraph',
+                    text: graph.toString()
+                };
 
-                    this.panel.webview.postMessage(message);
-                }
-            });
+                this.panel.webview.postMessage(message);
+            }
         });
     }
 }

@@ -89,13 +89,14 @@ export namespace Debugger {
         viperApi.registerServerMessageCallback('symbolic_execution_logger_report', (messageType: string, message: any) => {
             if (panel) {
                 let content = message.msg_body.log;
+                let entries = <SymbExLogEntry[]>(content);
 
                 // TODO: Fix the message in ViperServer
-                content = content.substring(content.indexOf("["), content.length).replace(/\n/g, ' ');
-                let entries = <SymbExLogEntry[]>JSON.parse(content);
+                // let entries = <SymbExLogEntry[]>JSON.parse(content);
 
-                update(entries);
+
                 panel.postOriginalSymbExLog(entries);
+                update(entries);
             }
         });
     }

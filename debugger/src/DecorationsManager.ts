@@ -4,7 +4,7 @@ import { DebuggerSession, StateUpdate } from "./DebuggerSession";
 import { TextEditorDecorationType } from "vscode";
 import { stat } from 'fs';
 import { DebuggerError } from './Errors';
-import { Statement } from './states/Statement';
+import { Record, State } from './states/Statement';
 
 
 /** Creates and disposes the various decoration styles. */
@@ -97,7 +97,7 @@ namespace DecorationStyles {
 }
 
 
-type StateLocationEntry = { range: vscode.Range, state: Statement };
+type StateLocationEntry = { range: vscode.Range, state: Record };
 
 
 /** Responsible for drawing decorations on the editor during debugging.
@@ -167,30 +167,34 @@ export class DecorationsManager implements SessionObserver {
             return;
         }
 
-        let states = this.stateLocations.filter(e => e.range.intersection(selection) !== undefined)
+        let records = this.stateLocations.filter(e => e.range.intersection(selection) !== undefined)
                                         .map(e => e.state);
 
         // No states where the user clicked
-        if (states.length < 1) {
+        if (records.length < 1) {
             return;
         }
 
-        if (states.length === 1) {
-            this.session!.goToState(states[0]);
+        if (records.length === 1) {
+            this.session!.goToState(records[0]);
             return;
         }
 
         // There are multiple states in the location being clicked, then show a dialog to allo chosing between them.
         // We build the items to display in the notification. Note that we keep track of the state on the object,
         // so we can retrieve it when a choice is made
-        let items = states.map(s => {
+        let items = records.map(r => {
+            let desc = (r.children.length === 1 ? "1 child, " : `${r.children.length} children, `);
+            if (r.prestate !== undefined) {
+                let state = r.prestate;
+                desc += (state.store.length === 1 ? "1 store element, " : `${state.store.length} store elements, `) +
+                        (state.heap.length === 1 ? "1 heap chunk, " : `${state.heap.length} heap chunks, `) +
+                        (state.pathConditions.length === 1 ? "1 path condition, " : `${state.pathConditions.length} path conditions`);
+            }
             return {
-                label: `(${s.index}) ` + (s.type || s.kind || "") + `: ${s.formula}`,
-                description: (s.children.length === 1 ? "1 child, " : `${s.children.length} children, `) + 
-                                (s.store.length === 1 ? "1 store element, " : `${s.store.length} store elements, `) +
-                                (s.heap.length === 1 ? "1 heap chunk, " : `${s.heap.length} heap chunks, `) +
-                                (s.pathConditions.length === 1 ? "1 path condition, " : `${s.pathConditions.length} path conditions`),
-                state: s
+                label: `(${r.index}) ${r.type}: ${r.formula}`,
+                description: desc,
+                state: r
             };
         });
 
@@ -260,9 +264,7 @@ export class DecorationsManager implements SessionObserver {
 
             if (state.type) {
                 opts.hoverMessage = `(${state.index}) Child: ${state.type}`;
-            } else if (state.kind) {
-                opts.hoverMessage = `(${state.index}) Child: ${state.kind}`;
-            }
+            } 
 
             childrenDecorations.push(opts);
 
@@ -291,8 +293,6 @@ export class DecorationsManager implements SessionObserver {
                 let message = "";
                 if (state.type) {
                     message = `(${state.index}) ${state.type}`;
-                } else if (state.kind) {
-                    message = `(${state.index}) ${state.kind}`;
                 }
 
                 // If there are other states in the same or overlapping locations, collapse the decorations
@@ -337,9 +337,7 @@ export class DecorationsManager implements SessionObserver {
                 let message = "";
                 if (state.type) {
                     message = `(${state.index}) ${state.type}`;
-                } else if (state.kind) {
-                    message = `(${state.index}) ${state.kind}`;
-                }
+                } 
 
                 // If there are other states in the same or overlapping locations, collapse the decorations
                 let opts = decorationOptions.find(e => e.range.intersection(range) !== undefined);
