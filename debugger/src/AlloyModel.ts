@@ -1,6 +1,6 @@
 import { Record, State } from './states/Statement';
 import { Variable } from './states/Variable';
-import { NullityCondition, EqualityCondition } from './states/Condition';
+import { Binary, Literal, VariableTerm } from './states/Term';
 import { HeapChunk, FieldReference } from './states/Heap';
 import { Debugger } from './Debugger';
 import { DebuggerError } from './Errors';
@@ -77,19 +77,24 @@ export class AlloyModel {
         // TODO: This resolution could become rather slow if we have many path conditions?
         this.facts = [];
         state.pathConditions.forEach(pc => {
-            if (pc instanceof NullityCondition) {
-                let variable = this.referencesMap.get(pc.variable);
+            if (pc instanceof Binary && (pc.op === '==' || pc.op === '!=') &&
+                pc.rhs instanceof Literal && pc.rhs.value === 'Null' &&
+                pc.lhs instanceof VariableTerm) {
+            // if (pc instanceof NullityCondition) {
+                let variable = this.referencesMap.get(pc.lhs.id);
                 if (variable !== undefined) {
-                    this.facts.push(pc.isPositive ? `no ${variable}` : `one ${variable}`);
+                    this.facts.push(pc.op === '==' ? `no ${variable}` : `one ${variable}`);
                 }
             }
 
-            else if (pc instanceof EqualityCondition) {
-                let lhsVar = this.referencesMap.get(pc.lhs);
-                let rhsVar = this.referencesMap.get(pc.rhs);
+            if (pc instanceof Binary && (pc.op === '==' || pc.op === '!=') &&
+                pc.rhs instanceof VariableTerm &&
+                pc.lhs instanceof VariableTerm) {
+                let lhsVar = this.referencesMap.get(pc.lhs.id);
+                let rhsVar = this.referencesMap.get(pc.rhs.id);
 
                 if (lhsVar !== undefined && rhsVar !== undefined) {
-                    this.facts.push(pc.isPositive ? `${lhsVar} = ${rhsVar}` : `${lhsVar} != ${rhsVar}`);
+                    this.facts.push(pc.op === '==' ? `${lhsVar} = ${rhsVar}` : `${lhsVar} != ${rhsVar}`);
                 }
             }
         });

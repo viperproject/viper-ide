@@ -3,7 +3,7 @@ import { SymbExLogEntry, SymbExLogStore, SymbExLogState } from '../ViperProtocol
 import { DebuggerError } from '../Errors';
 import { flatMap } from '../util';
 import { HeapChunk, FieldReference } from './Heap';
-import { Condition, NullityCondition, EqualityCondition } from './Condition';
+import { Term } from './Term';
 import { Variable } from './Variable';
 
 
@@ -12,7 +12,7 @@ export class State {
         readonly store: Variable[],
         readonly heap: HeapChunk[],
         readonly oldHeap: HeapChunk[],
-        readonly pathConditions: Condition[]
+        readonly pathConditions: Term[]
     ) {}
 
     public static from(symbExLogState: SymbExLogState): State {
@@ -20,8 +20,7 @@ export class State {
             const store = symbExLogState.store.map(Variable.from);
             const heap = symbExLogState.heap.map(HeapChunk.parse);
             const oldHeap = symbExLogState.oldHeap.map(HeapChunk.parse);
-            // const pathConditions = flatMap(symbExLogState.pcs, Condition.parseConditions);
-            const pathConditions: Condition[] = [];
+            const pathConditions = symbExLogState.pcs.map(Term.from);
 
             return new State(store, heap, oldHeap, pathConditions);
     }
@@ -184,22 +183,9 @@ export class StateView {
             }
         });
 
-        const pcs = state.pathConditions.map(pc => {
-            if (pc instanceof NullityCondition) {
-                return [
-                    { text: pc.variable, id: pc.variable },
-                    { text: pc.isPositive ? ' == null' : ' != null'}
-                ];
-            } else if (pc instanceof EqualityCondition) {
-                return [
-                    { text: pc.lhs, id: pc.lhs },
-                    { text: pc.isPositive ? ' == ' : ' != ' },
-                    { text: pc.rhs, id: pc.rhs }
-                ];
-            } else {
-                return [ { text: pc.toString() } ];
-            }
-        });
+        const pcs = state.pathConditions.map(pc => [
+            { text: pc.toString() }
+        ]);
 
         return new StateView(store, heap, pcs);
     }
