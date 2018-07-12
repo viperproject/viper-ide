@@ -149,12 +149,6 @@ function handleStateUpdate(message: any) {
         const elem = $(`<h3>(${state.index}) ${state.type}</h3>`);
         elem.append($(`<pre>${state.formula}</pre>`));
         stateDiv.append(elem);
-    } else {
-        stateDiv.removeClass();
-        stateDiv.addClass('noAction');
-        const elem = $(`<h3>(${state.index}) ${state.kind}</h3>`);
-        elem.append($(`<pre>${state.formula}</pre>`));
-        stateDiv.append(elem);
     }
 
     // Enable/disable navigation buttons according to parent/siblings/children
@@ -175,9 +169,9 @@ function handleStateUpdate(message: any) {
 
     type parts = { text: string, id?: string }[];
 
-    if (state.heap.length > 0) {
+    if (state.state.heap.length > 0) {
         stateDiv.append('<h4>Heap</h4>');
-        state.heap.forEach((vs: parts) => {
+        state.state.heap.forEach((vs: parts) => {
             const line = $(`<pre></pre>`);
             vs.forEach(v => {
                 const elem = $(`<span>${v.text}</span>`);
@@ -191,12 +185,11 @@ function handleStateUpdate(message: any) {
         });
     }
 
-    if (state.store.length > 0) {
+    if (state.state.store.length > 0) {
         stateDiv.append('<h4>Store</h4>');
-        state.store.forEach((vs: parts) => {
+        state.state.store.forEach((vs: parts) => {
             const line = $(`<pre></pre>`);
 
-            console.log(vs);
             vs.forEach(v => {
                 const elem = $(`<span>${v.text}</span>`);
                 if (v.id !== undefined) {
@@ -205,15 +198,14 @@ function handleStateUpdate(message: any) {
                 }
                 line.append(elem);
             });
-            console.log('after');
 
             stateDiv.append(line);
         });
     }
 
-    if (state.pathConditions.length > 0) {
+    if (state.state.pathConditions.length > 0) {
         stateDiv.append('<h4>Path Conditions</h4>');
-        state.pathConditions.forEach((vs: parts) => {
+        state.state.pathConditions.forEach((vs: parts) => {
             const line = $(`<pre></pre>`);
             vs.forEach(v => {
                 const elem = $(`<span>${v.text}</span>`);
