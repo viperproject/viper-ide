@@ -100,9 +100,6 @@ function setupInputHandlers() {
     $('#child:button').click(() => vscode.postMessage({ command: 'childState' }));
     $('#parent:button').click(() => vscode.postMessage({ command: 'parentState' }));
 
-    // Tell main extension to send the updated DOT graph
-    $('#updateGraph:button').click(() => vscode.postMessage({ command: 'updateGraph' }));
-
     // Enable/disable state navigation via mouse
     // The message is delivered to the DecorationsManager via the DebuggerPanel, on "the extension side"
     $('#mouseNavigation').change((event) => {
