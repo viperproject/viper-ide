@@ -1,21 +1,22 @@
-'use strict';
+'use strict'
 
-import { clearTimeout } from 'timers';
-import * as fs from 'fs';
-import rp = require('request-promise-native');
-import request = require('request');
+import { clearTimeout } from 'timers'
+import * as fs from 'fs'
+import rp = require('request-promise-native')
+import request = require('request')
 import StreamJsonObjects = require("stream-json/utils/StreamJsonObjects")
 
-import child_process = require('child_process');
+import child_process = require('child_process')
 import { Log } from './Log'
 import { Settings } from './Settings'
 import { BackendOutputType, Common, Stage, Backend, VerificationState, LogLevel } from './ViperProtocol'
-import { Server } from './ServerClass';
+import { Server } from './ServerClass'
 import { VerificationTask } from './VerificationTask'
-import { BackendService } from './BackendService';
+import { BackendService } from './BackendService'
 
-import tree_kill = require('tree-kill');
-import { error } from 'util';
+import tree_kill = require('tree-kill')
+import { error } from 'util'
+import { resolve } from '../node_modules/vscode-languageserver/lib/files';
 
 export class ViperServerService extends BackendService {
 
@@ -34,9 +35,9 @@ export class ViperServerService extends BackendService {
     private _uncontrolled_pid_list: number[]
 
     public constructor() {
-        super();
-        this.isViperServerService = true;
-        this.engine = "ViperServer";
+        super()
+        this.isViperServerService = true
+        this.engine = "ViperServer"
     }
 
     public start(): Promise<boolean> {
@@ -49,43 +50,43 @@ export class ViperServerService extends BackendService {
                 resolve(true)
 
             } else if ( policy === 'create' ) {
-                let command = this.getViperServerStartCommand();
+                let command = this.getViperServerStartCommand()
                 Log.log(command, LogLevel.Debug)
 
-                Server.startingOrRestarting = true;
-                this.startTimeout(++this.instanceCount);
+                Server.startingOrRestarting = true
+                this.startTimeout(++this.instanceCount)
                 
-                let errorReason = "";
+                let errorReason = ""
                 this.backendProcess = child_process.exec(command, { 
                     maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, 
                     cwd: Server.backendOutputDirectory 
-                });
-                let expected_url_msg = new RegExp(/ViperServer online at ([/a-zA-Z0-9:.\-_]+):(\d+).*/);
-                let expected_log_msg = new RegExp(/Writing \[level:(\w+)\] logs into journal: (.*)/);
+                })
+                let expected_url_msg = new RegExp(/ViperServer online at ([/a-zA-Z0-9:.\-_]+):(\d+).*/)
+                let expected_log_msg = new RegExp(/Writing \[level:(\w+)\] logs into journal: (.*)/)
                 this.backendProcess.stdout.on('data', (data: string) => {
-                    Log.logWithOrigin("VS", data.trim(), LogLevel.LowLevelDebug);
-                    let res = expected_url_msg.exec(data);
-                    let log = expected_log_msg.exec(data);
+                    Log.logWithOrigin("VS", data.trim(), LogLevel.LowLevelDebug)
+                    let res = expected_url_msg.exec(data)
+                    let log = expected_log_msg.exec(data)
                     if ( res != null && res.length === 3 ) {
                         //FIXME: disabling Wifi causes this language server to crash (blame request.post).
-                        //this._url = res[1];
-                        this._url = Settings.settings.viperServerSettings.viperServerAddress;
-                        this._port = parseInt(res[2]);
+                        //this._url = res[1]
+                        this._url = Settings.settings.viperServerSettings.viperServerAddress
+                        this._port = parseInt(res[2])
                         // This is the last stdout message we expect from the server.
-                        this.removeAllListeners();
+                        this.removeAllListeners()
                         // Ready to start working with the server.
-                        resolve(true);
+                        resolve(true)
                     } 
                     if ( log != null && log.length === 2 ) {
-                        this._server_logfile = log[1];
+                        this._server_logfile = log[1]
                     }
-                });
+                })
                 this.backendProcess.stderr.on('data',(data:string) => {
-                    errorReason = errorReason += "\n" + data;
+                    errorReason = errorReason += "\n" + data
                 })
                 this.backendProcess.on('exit', code => {
-                    Log.log("ViperServer is stopped.", LogLevel.Info);
-                    this.setStopped();
+                    Log.log("ViperServer is stopped.", LogLevel.Info)
+                    this.setStopped()
                 })
             
             } else {
@@ -103,8 +104,8 @@ export class ViperServerService extends BackendService {
                 this.backendProcess.removeAllListeners()
                 this.sendStopRequest().then(() => {
                     this.setStopped()
-                    this.backendProcess = null;
-                    this.isSessionRunning = false;
+                    this.backendProcess = null
+                    this.isSessionRunning = false
                     resolve(true)
                 }).catch((e) => {
                     reject(e)
@@ -126,28 +127,28 @@ export class ViperServerService extends BackendService {
             }).catch((e) => {
                 reject(e)
             })
-        });
+        })
     }
 
     public swapBackend(newBackend: Backend) {
-        this.setReady(newBackend);
+        this.setReady(newBackend)
     }
 
     private removeAllListeners() {
-        this.backendProcess.removeAllListeners();
-        this.backendProcess.stdout.removeAllListeners();
-        this.backendProcess.stderr.removeAllListeners();
+        this.backendProcess.removeAllListeners()
+        this.backendProcess.stdout.removeAllListeners()
+        this.backendProcess.stderr.removeAllListeners()
     }
 
     private getViperServerStartCommand(): string {
         let command = "java " + Settings.settings.javaSettings.customArguments +  
                       " " + Settings.settings.viperServerSettings.customArguments + 
-                      " " + "--logFile " + Server.tempDirectory;
+                      " " + "--logFile " + Server.tempDirectory
 
-        command = command.replace(/\$backendPaths\$/g, Settings.viperServerJars());
-        command = command.replace(/\$backendSpecificCache\$/g, (Settings.settings.viperServerSettings.backendSpecificCache === true ? "--backendSpecificCache" : ""));
-        command = command.replace(/\$mainMethod\$/g, "viper.server.ViperServerRunner");
-        return command;
+        command = command.replace(/\$backendPaths\$/g, Settings.viperServerJars())
+        command = command.replace(/\$backendSpecificCache\$/g, (Settings.settings.viperServerSettings.backendSpecificCache === true ? "--backendSpecificCache" : ""))
+        command = command.replace(/\$mainMethod\$/g, "viper.server.ViperServerRunner")
+        return command
     }
 
     protected startVerifyProcess(command: string, file: string, onData, onError, onClose) {
@@ -277,19 +278,19 @@ export class ViperServerService extends BackendService {
             } else {
                 throw `property 'msg_type' not found in message=${message}`
             }
-            return true; 
+            return true 
         })
         this._stream.output.on("end", () => {
             //Log.log("ViperServer stream ended.", LogLevel.LowLevelDebug)
             this._stream = StreamJsonObjects.make()
         })
 
-        this.startVerifyStream(command, onData, onError, onClose);
-        this.isSessionRunning = true;
+        this.startVerifyStream(command, onData, onError, onClose)
+        this.isSessionRunning = true
     }
 
     private startVerifyStream(command: string, onData, onError, onClose) {
-        Log.log('Sending verification request to ViperServer...', LogLevel.Debug); 
+        Log.log('Sending verification request to ViperServer...', LogLevel.Debug) 
 
         let jid_promise = this.postStartRequest({
             arg: command
@@ -305,54 +306,97 @@ export class ViperServerService extends BackendService {
             request.get(url).on('error', (err) => {
                 Log.log(`error while requesting results from ViperServer.` +
                         ` Request URL: ${url}\n` +
-                        ` Error message: ${err}`, LogLevel.Default);
+                        ` Error message: ${err}`, LogLevel.Default)
             }).pipe(this._stream.input)
 
         }).catch((err) => {
-            Log.log('unfortunately, we did not get a job ID from ViperServer: ' + err, LogLevel.LowLevelDebug);
+            Log.log('unfortunately, we did not get a job ID from ViperServer: ' + err, LogLevel.LowLevelDebug)
         })
     }
 
-    //@deprecated
-    private emit(msg: string) {
-        this.backendProcess.stdin.write(msg + '\n');
-    }
+    public flushCache(filePath?: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            let url = this._url + ':' + this._port + '/cache/flush'
+            if (filePath) {
+                Log.log(`Requesting ViperServer to flush the cache for (` + filePath + `)...`, LogLevel.Info)
 
-    //@deprecated
-    public flushCache(filePath?: string) {
-        Log.log("Request flushing cache from ViperServer", LogLevel.Debug);
-        let command = 'flushCache ' + (filePath ? '"' + filePath + '"' : "")
-        Log.log("Emit to ViperServer: " + command, LogLevel.LowLevelDebug)
-        this.emit(command)
+                let options = {
+                    url: url, 
+                    headers: {'content-type': 'application/json'},
+                    body: JSON.stringify({ backend: Server.backend.name, file: filePath })
+                }
+
+                request.post(options).on('error', (error) => {
+                    Log.log(`error while requesting ViperServer to flush the cache for (` + filePath + `).` +
+                            ` Request URL: ${url}\n` +
+                            ` Error message: ${error}`, LogLevel.Default)
+                    reject(error)
+
+                }).on('data', (data) => {
+                    let response = JSON.parse(data.toString())
+                    if ( !response.msg ) {
+                        Log.log(`ViperServer did not complain about the way we requested it to flush the cache for (` + filePath + `).` + 
+                                ` However, it also did not provide the expected bye-bye message.` + 
+                                ` It said: ${data.toString}`, LogLevel.Debug)
+                        resolve(response)
+                    } else {
+                        Log.log(`ViperServer has confirmed that the cache for (` + filePath + `) has been flushed.`, LogLevel.Debug)
+                        resolve(response.msg)
+                    }
+                })
+
+            } else {
+                Log.log(`Requesting ViperServer to flush the entire cache...`, LogLevel.Info)
+
+                request.get(url).on('error', (error) => {
+                    Log.log(`error while requesting ViperServer to flush the entire cache.` +
+                            ` Request URL: ${url}\n` +
+                            ` Error message: ${error}`, LogLevel.Default)
+                    reject(error)
+
+                }).on('data', (data) => {
+                    let response = JSON.parse(data.toString())
+                    if ( !response.msg ) {
+                        Log.log(`ViperServer did not complain about the way we requested it to flush the entire cache.` + 
+                                ` However, it also did not provide the expected bye-bye message.` + 
+                                ` It said: ${data.toString}`, LogLevel.Debug)
+                        resolve(response)
+                    } else {
+                        Log.log(`ViperServer has confirmed that the entire cache has been flushed.`, LogLevel.Debug)
+                        resolve(response.msg)
+                    }
+                })
+            }
+        })
     }
 
     private postStartRequest(request_body): Promise<number> {
         return new Promise((resolve, reject) => {
-            Log.log(`Requesting ViperServer to start new job...`, LogLevel.Debug);
+            Log.log(`Requesting ViperServer to start new job...`, LogLevel.Debug)
             let options = {
                 url: this._url + ':' + this._port + '/verify', 
                 headers: {'content-type': 'application/json'},
                 body: JSON.stringify(request_body)
             }
             request.post(options, (error, response, body) => { 
-                let json_body = JSON.parse(body);
+                let json_body = JSON.parse(body)
         
                 // This callback processes the initial response from ViperServer. 
                 // ViperServer confirms that the verification task has been accepted and 
                 //  returns a job ID (which is unique for this session).
                 if (error) {
                     Log.log(`Got error from POST request to ViperServer: ` + 
-                            JSON.stringify(error, undefined, 2), LogLevel.Debug);
+                            JSON.stringify(error, undefined, 2), LogLevel.Debug)
                     reject(error)
                 }
                 if (response.statusCode !== 200) {
                     Log.log(`Bad response on POST request to ViperServer: ` + 
-                            JSON.stringify(response, undefined, 2), LogLevel.Debug);
+                            JSON.stringify(response, undefined, 2), LogLevel.Debug)
                     reject(`bad response code: ${response.statusCode}`)
                 }
                 if (typeof json_body.msg !== 'undefined') {
                     Log.log(`ViperServer had trouble accepting the POST request: ` + 
-                            JSON.stringify(body.msg, undefined, 2), LogLevel.Debug);
+                            JSON.stringify(body.msg, undefined, 2), LogLevel.Debug)
                     reject(`ViperServer: ${json_body.msg}`)
                 }
                 if (typeof json_body.id === 'undefined') {
@@ -371,12 +415,12 @@ export class ViperServerService extends BackendService {
 
     private sendStopRequest(): Promise<boolean> {
         return new Promise((resolve, reject) => { 
-            Log.log(`Requesting ViperServer to exit...`, LogLevel.Debug);
+            Log.log(`Requesting ViperServer to exit...`, LogLevel.Debug)
             let url = this._url + ':' + this._port + '/exit'
             request.get(url).on('error', (err) => {
                 Log.log(`error while requesting ViperServer to stop.` +
                         ` Request URL: ${url}\n` +
-                        ` Error message: ${err}`, LogLevel.Default);
+                        ` Error message: ${err}`, LogLevel.Default)
                 reject(err)
             }).on('data', (data) => {
                 let response = JSON.parse(data.toString())
@@ -597,9 +641,9 @@ export class ViperServerService extends BackendService {
     }
 
     public static isSupportedType(type: string) {
-        if (!type) return false;
-        return type.toLowerCase() == 'carbon' || type.toLowerCase() == 'silicon' || type.toLowerCase() == 'other';
+        if (!type) return false
+        return type.toLowerCase() == 'carbon' || type.toLowerCase() == 'silicon' || type.toLowerCase() == 'other'
     }
 
-    public static supportedTypes = '"carbon", "silicon", "other"';
+    public static supportedTypes = '"carbon", "silicon", "other"'
 }

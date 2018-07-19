@@ -237,13 +237,11 @@ function registerHandlers() {
         Server.updateViperTools(false);
     });
 
-    Server.connection.onNotification(Commands.FlushCache, file => {
-        try {
-            if (Server.backendService.isViperServerService) {
-                (<ViperServerService>Server.backendService).flushCache(file);
-            }
-        } catch (e) {
-            Log.error("Error flushing cache: " + e);
+    Server.connection.onNotification(Commands.FlushCache, (file) => {
+        if (Server.backendService.isViperServerService) {
+            (<ViperServerService>Server.backendService).flushCache(file).catch((e) => {
+                Log.error("Error flushing cache: " + e);
+            })
         }
     });
 
