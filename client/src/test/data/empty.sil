@@ -2,9 +2,15 @@ field foo:Ref
 method AVLNode_find_min()
 {
   while (true)
-    invariant [true, true ==> (forperm [foo] r :: false) ] 
+    invariant
+    
+    
+     false//[true, true ==> (forperm [foo] r :: false) ] 
   {
+
   }
 }
+
+
 
 
