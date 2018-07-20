@@ -192,11 +192,11 @@ export class AlloyTranslator {
         this.state.pathConditions.forEach(pc => {
             let body = pc.toAlloy(this.env);
             if (body !== undefined) {
-                builder.comment(JSON.stringify(pc));
+                builder.comment(pc.toString());
                 builder.fact(body);
             } else {
                 builder.comment("!!! Non-translated fact");
-                builder.comment(JSON.stringify(pc));
+                builder.comment(pc.toString());
             }
             builder.blank();
         });

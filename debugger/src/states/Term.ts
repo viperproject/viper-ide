@@ -7,6 +7,7 @@ function sanitize(name: string) {
 
 export interface Term {
     toAlloy(env: TranslationEnv): string | undefined;
+    toString(): string;
 }
 
 export class Binary implements Term {
@@ -42,7 +43,7 @@ export class Unary implements Term {
     }
 
     toString() {
-        return `${this.op} (${this.p})`;
+        return `${this.op}(${this.p})`;
     }
 }
 

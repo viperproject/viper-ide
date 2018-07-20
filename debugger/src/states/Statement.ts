@@ -168,13 +168,8 @@ export class StateView {
             { text: v.value, id: v.value }
         ]);
 
-        const heap = state.heap.map(c => {
-            return [ { text: JSON.stringify(c) } ];
-        });
-
-        const pcs = state.pathConditions.map(pc => [
-            { text: pc.toString() }
-        ]);
+        const heap = state.heap.map(c => [{ text: c.toString() }]);
+        const pcs = state.pathConditions.map(pc => [{ text: pc.toString() }]);
 
         return new StateView(store, heap, pcs);
     }

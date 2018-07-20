@@ -2,7 +2,10 @@ import { DebuggerError } from "../Errors";
 import { Term } from "./Term";
 
 
-export interface HeapChunk {}
+export interface HeapChunk {
+    toString(): string;
+}
+
 
 export namespace HeapChunk {
 
@@ -93,6 +96,10 @@ export class FieldChunk implements HeapChunk {
         readonly snap: Term,
         readonly perm: Term
     ) {}
+
+    toString() {
+        return `${this.receiver}.${this.field} -> ${this.snap} # ${this.perm}`;
+    }
 }
 
 export class PredicateChunk implements HeapChunk {
@@ -102,6 +109,10 @@ export class PredicateChunk implements HeapChunk {
         readonly snap: Term,
         readonly perm: Term
     ) {}
+
+    toString() {
+        return `${this.receiver}(${this.snap}; ${this.args.join(", ")}) # ${this.perm}`;
+    }
 }
 
 export class MagicWandChunk implements HeapChunk {
@@ -110,6 +121,10 @@ export class MagicWandChunk implements HeapChunk {
         readonly snap: Term,
         readonly perm: Term
     ) {}
+
+    toString() {
+        return `wand[${this.snap}; ${this.args.join(", ")}]`;
+    }
 }
 
 export class QuantifiedFieldChunk implements HeapChunk {
@@ -122,6 +137,10 @@ export class QuantifiedFieldChunk implements HeapChunk {
         readonly receiver: Term | undefined,
         readonly hints: Term[]
     ) {}
+
+    toString() {
+        return `QA r :: r.${this.field} -> ${this.fieldValueFunction} # ${this.perm}`;
+    }
 }
 
 export class QuantifiedPredicateChunk implements HeapChunk {
@@ -135,6 +154,11 @@ export class QuantifiedPredicateChunk implements HeapChunk {
         readonly singletonArgs: Term[],
         readonly hints: Term[]
     ) {}
+
+    toString() {
+        const vs = this.vars.join(', ');
+        return `QA ${vs} :: ${this.predicate}(${vs}) -> ${this.predicateSnapFunction} # ${this.perm}`;
+    }
 }
 
 export class QuantifiedMagicWandChunk implements HeapChunk {
@@ -148,4 +172,9 @@ export class QuantifiedMagicWandChunk implements HeapChunk {
         readonly singletonArgs: Term[],
         readonly hints: Term[]
     ) {}
+
+    toString() {
+        const vs = this.vars.join(', ');
+        return `QA ${vs} :: ${this.predicate}(${vs}) -> ${this.wandSnapFunction} # ${this.perm}`;
+    }
 }
