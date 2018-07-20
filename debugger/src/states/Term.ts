@@ -1,80 +1,262 @@
 import { DebuggerError } from "../Errors";
+import { TranslationEnv } from "../AlloyTranslator";
 
-export interface Term {}
+function sanitize(name: string) {
+    return name.replace(/@/g, "_");
+}
+
+export interface Term {
+    toAlloy(env: TranslationEnv): string | undefined;
+}
 
 export class Binary implements Term {
     constructor(readonly op: string, readonly lhs: Term, readonly rhs: Term) {}
+
+    toAlloy(env: TranslationEnv): string | undefined {
+        const alloyOp = this.op.replace("==", "=");
+        const left = this.lhs.toAlloy(env);
+        const right = this.rhs.toAlloy(env);
+
+        if (left === undefined || right === undefined) {
+            return undefined;
+        }
+
+        return alloyOp === 'Combine' ? `${this.op}(${left}, ${right})` : `(${left} ${alloyOp} ${right})`;
+    }
+
+    toString() {
+        if (this.op === 'Combine') {
+            return `${this.op}(${this.lhs}, ${this.rhs})`;
+        } else {
+            return `(${this.lhs} ${this.op} ${this.rhs})`;
+        }
+    }
 }
 
 export class Unary implements Term {
     constructor(readonly op: string, readonly p: Term) {}
+
+    toAlloy(env: TranslationEnv): string | undefined {
+        const term  = this.p.toAlloy(env);
+        return term !== undefined ? `${this.op}(${term})` : undefined;
+    }
+
+    toString() {
+        return `${this.op} (${this.p})`;
+    }
 }
 
 export class VariableTerm implements Term {
     constructor(readonly id: string, readonly sort: string) {}
+
+    toAlloyWithType(): string {
+        // TODO: Retrieve the actual type from some env object?
+        if (this.sort === "Ref") {
+            return `${sanitize(this.id)}: Object`;
+        }
+        return `${sanitize(this.id)}: ${this.sort}`;
+    }
+
+    toAlloy(env: TranslationEnv): string | undefined {
+        const resolved = env.resolve(this.id);
+        return resolved !== undefined ? sanitize(resolved) :  undefined;
+    }
+
+    toString(): string {
+        return this.id;
+    }
 }
 
 export class Quantification implements Term {
     constructor(readonly quantifier: string,
-                readonly vars: Term[],
+                readonly vars: VariableTerm[],
                 readonly body: Term,
                 readonly name: string | null) {}
+
+    public toAlloy(env: TranslationEnv): string | undefined {
+        const tVars = this.vars.map(v => v.toAlloyWithType());
+
+        // Inside quantifiers, the quantified variables are defined as well
+        let tBody: string | undefined = undefined;
+        env.withQuantifiedVariables(new Set(this.vars.map(v => v.id)), () => {
+            tBody = this.body.toAlloy(env);
+        });
+
+        let mult;
+        if (this.quantifier === 'QA') {
+            mult = 'all';
+        } else if (this.quantifier === 'QE') {
+            mult = 'some';
+        } else {
+            throw new DebuggerError(`Unexpected quantifier '${this.quantifier}'`);
+        }
+
+        if (tBody !== undefined) {
+            return `${mult} ${tVars.join(", ")} | ${tBody}`;
+        }
+
+        return undefined;
+    }
+
+    public toString() {
+        return `${this.quantifier} ${this.vars.join(", ")} :: ${this.body}`;
+    }
 }
 
 export class Application implements Term {
-    constructor(readonly applicable: string, args: Term[]) {}
+
+    constructor(readonly applicable: string, readonly args: Term[]) {}
+
+    public toAlloy(env: TranslationEnv): string {
+        const applicableSanitized = sanitize(this.applicable);
+
+        // We save INV functions in a sapearate namespace
+        if (this.applicable.match(/inv@\d+@\d+/)) {
+            env.recordFunction('INV', applicableSanitized);
+
+            return `INV.${applicableSanitized}[${this.args.map(a => a.toAlloy(env)).join(", ")}]`;
+        } else {
+            return `Fun.${applicableSanitized}(${this.args.map(a => a.toAlloy(env)).join(", ")})`;
+        }
+    }
+
+    toString() {
+        return `${this.applicable}(${this.args.join(", ")})`;
+    }
 }
 
 export class Lookup implements Term {
     constructor(readonly field: string, readonly fieldValueFunction: Term, readonly receiver: Term) {}
+    public toAlloy(env: TranslationEnv): string { 
+        // TODO: Do we need lookups?
+        // return `Lookup(${this.field}, ${this.fieldValueFunction.toAlloy(env)}, ${this.receiver.toAlloy(env)})`;
+        return this.receiver.toAlloy(env) + "." + this.field;
+    }
+
+    toString() {
+        return `Lookup(${this.field}, ${this.fieldValueFunction}, ${this.receiver})`;
+    }
 }
 
 export class PredicateLookup implements Term {
+
     constructor(readonly predicate: string, readonly predicateSnapFunction: Term, readonly args: Term[]) {}
+
+    public toAlloy(env: TranslationEnv): string { return JSON.stringify(this); }
+
+    toString() {
+        return `Lookup(${this.predicate}, ${this.predicateSnapFunction}, ${this.args})`;
+    }
 }
 
 export class And implements Term {
     constructor(readonly terms: Term[]) {}
+    public toAlloy(env: TranslationEnv): string {
+        return "(" + this.terms.map(t => t.toAlloy(env)).join(" && ") + ")";
+    }
+
+    toString() {
+        return this.terms.join(' && ');
+    }
 }
 
 export class Or implements Term {
     constructor(readonly terms: Term[]) {}
+    public toAlloy(env: TranslationEnv): string {
+        return "(" + this.terms.map(t => t.toAlloy(env)).join(" || ") + ")";
+    }
+
+    toString() {
+        return this.terms.join(' || ');
+    }
 }
 
 export class Distinct implements Term {
     constructor(readonly terms: Term[]) {}
+    public toAlloy(env: TranslationEnv): string { return JSON.stringify(this); }
+    toString() {
+        return `distinct(${this.terms.join(", ")})`;
+    }
 }
 
 export class Ite implements Term {
     constructor(readonly condition: Term, readonly thenBranch: Term, readonly elseBranch: Term) {}
+    public toAlloy(env: TranslationEnv): string {
+        return `(${this.condition.toAlloy(env)} implies ${this.thenBranch.toAlloy(env)} else ${this.elseBranch.toAlloy(env)})`;
+    }
+
+    toString () {
+        return `${this.condition} ? ${this.thenBranch} : ${this.elseBranch}`;
+    }
 }
 
 export class Let implements Term {
     constructor(readonly bindings: Term[], readonly body: Term) {}
+    public toAlloy(env: TranslationEnv): string { return JSON.stringify(this); }
+
+    toString () {
+        return `let ${this.bindings.toString} in ${this.body}`;
+    }
 }
 
 export class Literal implements Term {
     constructor(readonly sort: string, readonly value: string) {}
+    public toAlloy(env: TranslationEnv): string {
+        if (this.sort === 'Ref' && this.value === "Null") {
+            return "NULL";
+        }
+
+        return this.value;
+    }
+
+    toString() {
+        return this.value;
+    }
 }
 
 export class SeqRanged implements Term {
     constructor(readonly lhs: Term, readonly rhs: Term) {}
+    public toAlloy(env: TranslationEnv): string { return JSON.stringify(this); }
+
+    public toString() {
+        return `[${this.lhs}..${this.rhs}]`;
+    }
 }
 
 export class SeqSingleton implements Term {
     constructor(readonly value: Term) {}
+    public toAlloy(env: TranslationEnv): string { return JSON.stringify(this); }
+
+    public toString() {
+        return `[${this.value}]`;
+    }
 }
 
 export class SeqUpdate implements Term {
     constructor(readonly seq: Term, readonly index: Term, readonly value: Term) {}
+    public toAlloy(env: TranslationEnv): string { return JSON.stringify(this); }
+
+    public toString() {
+        return `${this.seq}[${this.index}] := ${this.value}`;
+    }
 }
 
 export class SetSingleton implements Term {
     constructor(readonly value: Term) {}
+    public toAlloy(env: TranslationEnv): string { return JSON.stringify(this); }
+
+    public toString() {
+        return `{${this.value}}`;
+    }
 }
 
 export class MultisetSingleton implements Term {
     constructor(readonly value: Term) {}
+    public toAlloy(env: TranslationEnv): string { return JSON.stringify(this); }
+
+    public toString() {
+        return `{${this.value}}`;
+    }
 }
 
 export namespace Term {
@@ -209,6 +391,6 @@ export namespace Term {
             return new MultisetSingleton(Term.from(obj.value));
         }
 
-        throw new DebuggerError(`Unexpected path condition: ${obj}`);
+        throw new DebuggerError(`Unexpected path condition: ${JSON.stringify(obj)}`);
     }
 }

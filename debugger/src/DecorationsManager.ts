@@ -33,7 +33,7 @@ namespace DecorationStyles {
         // TODO: This is not realy a 100% safe check, but we probably don't care that much
         let valid = colorString.match(/^#[a-fA-F\d]{6}$/) ||
                     colorString.match(/^#[a-fA-F\d]{3}$/) ||
-                    colorString.match(/^rgb\(\s*\d,\s*\d,\s*\d\s*\)$/)
+                    colorString.match(/^rgb\(\s*\d,\s*\d,\s*\d\s*\)$/);
 
         if (valid) {
             return colorString;

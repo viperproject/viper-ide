@@ -3,16 +3,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { Debugger, SessionObserver } from './Debugger';
+import { SessionObserver } from './Debugger';
 import { SymbExLogEntry } from './ViperProtocol';
 import { Logger } from './logger';
-import { DebuggerSession, SessionEvent, StateUpdate } from './DebuggerSession';
+import { DebuggerSession, StateUpdate } from './DebuggerSession';
 import { DebuggerError } from './Errors';
-import { Record, StatementView } from './states/Statement';
-import { Verifiable } from './states/Verifiable';
+import { StatementView } from './states/Statement';
 import { DecorationsManager } from './DecorationsManager';
-import { AlloyModel } from './AlloyModel';
-import { DotGraph } from './DotGraph';
+import { AlloyTranslator } from './AlloyTranslator';
 
 
 class PanelMessage {
@@ -164,26 +162,9 @@ export class DebuggerPanel implements SessionObserver {
                 return;
             }
 
-            let model = new AlloyModel(states.current.prestate);
-            let modelString = model.build();
-            this.logModel(modelString);
-
-            const modelFilePath = '/tmp/model.als';
-            fs.writeFileSync(modelFilePath, modelString);
-        });
-
-        fs.watch('/tmp/', (event, filename) => {
-            if (event === 'change' && filename === 'generatedDot.dot') {
-                const relations = fs.readFileSync('/tmp/' + filename).toString();
-                const graph = DotGraph.from(this.session!.getCurrentState(), relations);
-                
-                let message = {
-                    type: 'displayGraph',
-                    text: graph.toString()
-                };
-
-                this.panel.webview.postMessage(message);
-            }
+            const translator = new AlloyTranslator(states.current.prestate);
+            const model = translator.translate();
+            this.logModel(model);
         });
     }
 }
