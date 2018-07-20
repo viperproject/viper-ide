@@ -8,9 +8,9 @@ import { SymbExLogEntry } from './ViperProtocol';
 import { Logger } from './logger';
 import { DebuggerSession, StateUpdate } from './DebuggerSession';
 import { DebuggerError } from './Errors';
-import { StatementView } from './states/Statement';
+import { StatementView } from './model/Statement';
 import { DecorationsManager } from './DecorationsManager';
-import { AlloyTranslator } from './AlloyTranslator';
+import { AlloyTranslator } from './model/AlloyTranslator';
 
 
 class PanelMessage {

@@ -1,8 +1,8 @@
 import { AlloyModelBuilder } from "./AlloyModel";
-import { State } from "./states/Statement";
-import { FieldChunk, QuantifiedFieldChunk } from "./states/Heap";
-import { Logger } from "./logger";
-import { VariableTerm } from "./states/Term";
+import { State } from "./Statement";
+import { FieldChunk, QuantifiedFieldChunk } from "./Heap";
+import { Logger } from "../logger";
+import { VariableTerm } from "./Term";
 
 
 export class TranslationEnv {

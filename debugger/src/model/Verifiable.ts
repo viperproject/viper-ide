@@ -1,7 +1,6 @@
 import { SymbExLogEntry } from "../ViperProtocol";
 import { DebuggerError } from "../Errors";
 import { Record } from "./Statement";
-import { Logger } from "../logger";
 
 type VerifiableType = 'Method' | 'Predicate' | 'Function';
 

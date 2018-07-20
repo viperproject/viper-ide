@@ -1,7 +1,6 @@
 import { Position, Range } from 'vscode';
-import { SymbExLogEntry, SymbExLogStore, SymbExLogState } from '../ViperProtocol';
+import { SymbExLogEntry, SymbExLogState } from '../ViperProtocol';
 import { DebuggerError } from '../Errors';
-import { flatMap } from '../util';
 import { HeapChunk } from './Heap';
 import { Term } from './Term';
 import { Variable } from './Variable';

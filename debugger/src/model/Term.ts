@@ -1,5 +1,5 @@
 import { DebuggerError } from "../Errors";
-import { TranslationEnv } from "../AlloyTranslator";
+import { TranslationEnv } from "./AlloyTranslator";
 
 function sanitize(name: string) {
     return name.replace(/@/g, "_");

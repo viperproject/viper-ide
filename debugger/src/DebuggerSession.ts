@@ -1,8 +1,7 @@
 'use strict';
 
-import * as d from './Debugger';
-import { Verifiable } from './states/Verifiable';
-import { Record } from './states/Statement';
+import { Verifiable } from './model/Verifiable';
+import { Record } from './model/Statement';
 import { Logger } from './logger';
 import * as vscode from 'vscode';
 

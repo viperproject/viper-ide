@@ -1,15 +1,12 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
 import { Logger } from './logger';
 import { viperApi } from './extension';
 import { SymbExLogEntry } from './ViperProtocol';
 import { Success, Failure, isFailure } from './util';
-import { DebuggerError, normalizeError } from './Errors';
-import { Verifiable } from './states/Verifiable';
+import { DebuggerError } from './Errors';
+import { Verifiable } from './model/Verifiable';
 import { DebuggerCommand } from './Commands';
 import { DebuggerSession } from './DebuggerSession';
 import { DebuggerPanel } from './DebuggerPanel';
@@ -183,7 +180,7 @@ export namespace Debugger {
 
         // TODO: We probably don't want to trigger verification yet...
         if (!viperApi.isVerifying()) {
-            let filename = fileState.uri.toString();
+            // let filename = fileState.uri.toString();
             //vscode.window.showInformationMessage(`Starting verification of '${filename}' so that it can be debugged.`);
             vscode.commands.executeCommand('viper.verify');
         }

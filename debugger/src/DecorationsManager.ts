@@ -2,9 +2,8 @@ import * as vscode from 'vscode';
 import { SessionObserver } from "./Debugger";
 import { DebuggerSession, StateUpdate } from "./DebuggerSession";
 import { TextEditorDecorationType } from "vscode";
-import { stat } from 'fs';
 import { DebuggerError } from './Errors';
-import { Record, State } from './states/Statement';
+import { Record } from './model/Statement';
 
 
 /** Creates and disposes the various decoration styles. */

@@ -1,4 +1,4 @@
-import { Record } from './states/Statement';
+import { Record } from './model/Statement';
 
 
 export interface DotElem {
@@ -94,7 +94,6 @@ export class DotGraph {
         heapGraph.addEdgeAttribute('color="#ffffff"');
         heapGraph.addEdgeAttribute('fontcolor="#ffffff"');
 
-        let counter = 0;
         if (heapNodes.length < 1) {
             heapGraph.add('heapEmpty [label="Heap Empty"]');
         } else {
