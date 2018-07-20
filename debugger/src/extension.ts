@@ -1,7 +1,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { Logger } from './logger';
+import { Logger, LogLevel } from './logger';
 import { Debugger } from './Debugger';
 import { DebuggerCommand } from './Commands';
 import * as DebuggerSettings from './DebuggerSettings';
@@ -34,6 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
     // While deveoping start the debugger immediately
     if (DebuggerSettings.DEVELOPMENT) {
         vscode.commands.executeCommand(DebuggerCommand.StartDebugger);
+        Logger.setLogLevel(LogLevel.DEBUG);
     }
 }
 
