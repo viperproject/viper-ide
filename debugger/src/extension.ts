@@ -4,7 +4,6 @@ import * as vscode from 'vscode';
 import { Logger, LogLevel } from './logger';
 import { Debugger } from './Debugger';
 import { DebuggerCommand } from './Commands';
-import * as DebuggerSettings from './DebuggerSettings';
 
 
 /** The API exported by the "main" Viper extension.
@@ -16,7 +15,13 @@ export var viperApi: any;
 
 /** Called by VS Code when loading the extension. */
 export function activate(context: vscode.ExtensionContext) {
-    Logger.debug('Viper Debugger started');
+    const settings = vscode.workspace.getConfiguration("viperDebuggerSettings");
+    const logLevel = <keyof typeof LogLevel> settings.get("logLevel");
+    if (logLevel) {
+        Logger.setLogLevel(LogLevel[logLevel]);
+    }
+
+    Logger.debug('Viper Debugger extension starting');
 
     // Retrieve the Viper API so we can listen on verification eventes
     let viper = vscode.extensions.getExtension('viper-admin.viper-experimental');
@@ -32,10 +37,11 @@ export function activate(context: vscode.ExtensionContext) {
     setupCommandHandlers(context);
 
     // While deveoping start the debugger immediately
-    if (DebuggerSettings.DEVELOPMENT) {
+    const debugImmediately = settings.get("debugImmediately");
+    if (debugImmediately && debugImmediately === true) {
         vscode.commands.executeCommand(DebuggerCommand.StartDebugger);
-        Logger.setLogLevel(LogLevel.DEBUG);
     }
+    Logger.debug('Viper Debugger extension started');
 }
 
 

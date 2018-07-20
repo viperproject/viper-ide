@@ -50,6 +50,10 @@ export class DebuggerSession {
         }
     }
 
+    public removeListeners() {
+        this.observers = [];
+    }
+
     public selectVerifiable(name: string) {
         const verifiable = this.verifiables.find(v => v.name === name);
         if (!verifiable) {

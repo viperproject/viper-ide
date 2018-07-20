@@ -28,7 +28,6 @@ export class DebuggerPanel implements SessionObserver {
 
     private static webviewOptions: vscode.WebviewPanelOptions & vscode.WebviewOptions = {
         enableFindWidget: true,
-        // TODO: think about restoring the pane's context
         retainContextWhenHidden: true,
         enableScripts: true,
         enableCommandUris: true
@@ -51,9 +50,11 @@ export class DebuggerPanel implements SessionObserver {
     }
 
     public setSession(session: DebuggerSession) {
-        // TODO: Potentially call session.dispose here
-        this.session = session;
+        if (this.session !== undefined) {
+            this.session.removeListeners();
+        }
 
+        this.session = session;
         this.setupSessionCallbacks();
 
         // Verifiables are a cyclic structure, they need to be converted before
@@ -64,6 +65,7 @@ export class DebuggerPanel implements SessionObserver {
         this.postMessage(PanelMessage.Verifiables(verifiables));
     }
 
+    // TODO: Not soure about this
     public clearSession() {
         this.session = undefined;
     }

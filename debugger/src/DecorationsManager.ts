@@ -51,8 +51,6 @@ namespace DecorationStyles {
 
     export function currentState() {
         currentStateDecoration = vscode.window.createTextEditorDecorationType({
-            // borderStyle: 'dotted',
-            //backgroundColor:'rgba(44, 93, 48, 0.2)',
             backgroundColor: currentStateBackgroundColor,
             color: currentStateForegroundColor,
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
@@ -85,7 +83,6 @@ namespace DecorationStyles {
     export function siblingState() {
         let decoration = vscode.window.createTextEditorDecorationType({
             border: '2px solid ' + siblingStateUnderlineColor,
-            //border: '2px solid #6d2c6d',
             borderWidth: '0 0 2px 0',  // top right bottom left
             cursor: 'pointer',
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed

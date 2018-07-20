@@ -27,6 +27,7 @@ export class Logger {
                 `Setting Viper Debugger log level to ${logLevel}, warning messages will not be printed.`
             );
         }
+        Logger.logLevel = logLevel;
     }
 
     public static info(message: string): void {

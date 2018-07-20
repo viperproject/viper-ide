@@ -84,6 +84,17 @@
                         "siblingStateUnderlineColor": "#3668E8"
                     },
                     "description": "Configuration for highlighting of verification states."
+                },
+                "viperDebuggerSettings.debugImmediately": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "When enabled, start the debugger as soon as a Viper file is opened."
+                },
+                "viperDebuggerSettings.logLevel": {
+                    "type": "string",
+                    "enum": ["DEBUG", "INFO", "WARNING", "ERROR"],
+                    "default": "INFO",
+                    "description": "The minimum level of importance of the messages to log."
                 }
             }
         }

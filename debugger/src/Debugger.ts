@@ -85,12 +85,7 @@ export namespace Debugger {
         // Setup a handler for the symbolic execution logs sent by ViperServer
         viperApi.registerServerMessageCallback('symbolic_execution_logger_report', (messageType: string, message: any) => {
             if (panel) {
-                let content = message.msg_body.log;
-                let entries = <SymbExLogEntry[]>(content);
-
-                // TODO: Fix the message in ViperServer
-                // let entries = <SymbExLogEntry[]>JSON.parse(content);
-
+                let entries = <SymbExLogEntry[]>(message.msg_body.log);
 
                 panel.postOriginalSymbExLog(entries);
                 update(entries);
@@ -153,7 +148,8 @@ export namespace Debugger {
     }
 
     /** Called when the panel is disposed directly, not via a command or any
-     *  other callback, meaning when the panel is closed. */
+     *  other callback, meaning when the panel is closed.
+     */
     function onPanelDispose() {
         // Maybe this is not even needed
         panel = undefined;
@@ -163,34 +159,23 @@ export namespace Debugger {
 
 
     function canDebug(): Success | Failure {
-        // TODO: Report some useful error / solution
-        if (!configurationAllowsDebugging()) {
-            return new Failure("The current Viper configuration does not allow debugging.");
-        }
+        // TODO: Try to configure the backend rather than checking if it's configured properly
+        // if (!configurationAllowsDebugging()) {
+        //     return new Failure("The current Viper configuration does not allow debugging.");
+        // }
 
         let fileState = viperApi.getLastActiveFile();
         if (!fileState) {
             return new Failure("Cannot debug, there is no Viper file open.");
         }
 
-        // TODO: If we do things with callbacks, we don't need check
-        // if (!viperApi.isBackendReady()) {
-        //     return new Failure("Cannot start debugging, backend is not ready.");
-        // }
-
         // TODO: We probably don't want to trigger verification yet...
         if (!viperApi.isVerifying()) {
-            // let filename = fileState.uri.toString();
-            //vscode.window.showInformationMessage(`Starting verification of '${filename}' so that it can be debugged.`);
+            let filename = fileState.uri.toString();
+            vscode.window.showInformationMessage(`Starting verification of '${filename}', so that it can be debugged.`);
             vscode.commands.executeCommand('viper.verify');
         }
 
         return new Success();
-    }
-
-    /** Determines if the Viper extension is configured to allow debugging. */
-    function configurationAllowsDebugging() {
-        // TODO: Should put some actual checks here
-        return true;
     }
 }
