@@ -1,5 +1,5 @@
 import { DebuggerError } from "../Errors";
-import { Term } from "./Term";
+import { Term, Application, VariableTerm } from "./Term";
 
 
 export interface HeapChunk {
@@ -26,13 +26,23 @@ export namespace HeapChunk {
         if (obj.type === 'basic_predicate_chunk') {
             mustHave(obj, ['predicate', 'args', 'snap', 'perm']);
 
-            return new PredicateChunk(obj.predicate, obj.args.map(Term.from), Term.from(obj.snap), Term.from(obj.perm));
+            const snap = Term.from(obj.snap);
+            if (snap instanceof Application || snap instanceof VariableTerm) {
+                return new PredicateChunk(obj.predicate, snap.sort, obj.args.map(Term.from), snap, Term.from(obj.perm));
+            } else {
+                throw new DebuggerError(`Unexpected snapshot type '${snap.toString}'`);
+            }
         }
 
         if (obj.type === 'basic_field_chunk') {
             mustHave(obj, ['field', 'receiver', 'snap', 'perm']);
 
-            return new FieldChunk(obj.field, Term.from(obj.receiver), Term.from(obj.snap), Term.from(obj.perm));
+            const snap = Term.from(obj.snap);
+            if (snap instanceof Application || snap instanceof VariableTerm) {
+                return new FieldChunk(obj.field, snap.sort, Term.from(obj.receiver), snap, Term.from(obj.perm));
+            } else {
+                throw new DebuggerError(`Unexpected snapshot type '${snap.toString}'`);
+            }
         }
 
         if (obj.type === 'basic_magic_wand_chunk') {
@@ -44,9 +54,20 @@ export namespace HeapChunk {
         if (obj.type === 'quantified_field_chunk') {
             mustHave(obj, ['field', 'field_value_function', 'perm', 'invs', 'cond', 'receiver', 'hints']);
 
+            const fvf = Term.from(obj.field_value_function);
+            if (!(fvf instanceof Application || fvf instanceof VariableTerm)) {
+                throw new DebuggerError(`Expected field value function to have a sort, but it was '${fvf}'`);
+            }
+            
+            const match = fvf.sort.match(/FVF\[(.+)]/);
+            if (!match) {
+                throw new DebuggerError(`Expected sort to be of the form 'FVF[...]', but it was '${fvf.sort}'`);
+            }
+
             return new QuantifiedFieldChunk(
                 obj.field,
-                Term.from(obj.field_value_function),
+                match[1],
+                fvf,
                 Term.from(obj.perm),
                 obj.invs !== null ? obj.invs : undefined,
                 obj.cond !== null ? Term.from(obj.cond) : undefined,
@@ -58,10 +79,21 @@ export namespace HeapChunk {
         if (obj.type === 'quantified_predicate_chunk') {
             mustHave(obj, ['predicate', 'vars', 'predicate_snap_function', 'perm', 'invs', 'cond', 'singleton_args', 'hints']);
 
+            const psf = Term.from(obj.field_value_function);
+            if (!(psf instanceof Application || psf instanceof VariableTerm)) {
+                throw new DebuggerError(`Expected predicate snap function to have a sort, but it was '${psf}'`);
+            }
+            
+            const match = psf.sort.match(/PSF\[(.+)]/);
+            if (!match) {
+                throw new DebuggerError(`Expected sort to be of the form 'PSF[...]', but it was '${psf.sort}'`);
+            }
+
             return new QuantifiedPredicateChunk(
                 obj.predicate,
                 obj.vars.map(Term.from),
-                Term.from(obj.predicate_snap_function),
+                match[1],
+                psf,
                 Term.from(obj.perm),
                 obj.invs !== null ? obj.invs : undefined,
                 obj.cond !== null ? Term.from(obj.cond) : undefined,
@@ -92,26 +124,28 @@ export namespace HeapChunk {
 export class FieldChunk implements HeapChunk {
     constructor(
         readonly field: string,
+        readonly sort: string,
         readonly receiver: Term,
         readonly snap: Term,
         readonly perm: Term
     ) {}
 
     toString() {
-        return `${this.receiver}.${this.field} -> ${this.snap} # ${this.perm}`;
+        return `${this.receiver}.${this.field}: ${this.sort} -> ${this.snap} # ${this.perm}`;
     }
 }
 
 export class PredicateChunk implements HeapChunk {
     constructor(
-        readonly receiver: string,
+        readonly id: string,
+        readonly sort: string,
         readonly args: Term[],
         readonly snap: Term,
         readonly perm: Term
     ) {}
 
     toString() {
-        return `${this.receiver}(${this.snap}; ${this.args.join(", ")}) # ${this.perm}`;
+        return `${this.id}(${this.snap}; ${this.args.join(", ")}): ${this.sort} # ${this.perm}`;
     }
 }
 
@@ -130,6 +164,7 @@ export class MagicWandChunk implements HeapChunk {
 export class QuantifiedFieldChunk implements HeapChunk {
     constructor(
         readonly field: string,
+        readonly sort: string,
         readonly fieldValueFunction: Term,
         readonly perm: Term,
         readonly invertibles: string | undefined,
@@ -139,7 +174,7 @@ export class QuantifiedFieldChunk implements HeapChunk {
     ) {}
 
     toString() {
-        return `QA r :: r.${this.field} -> ${this.fieldValueFunction} # ${this.perm}`;
+        return `QA r :: r.${this.field}: ${this.sort} -> ${this.fieldValueFunction} # ${this.perm}`;
     }
 }
 
@@ -147,6 +182,7 @@ export class QuantifiedPredicateChunk implements HeapChunk {
     constructor(
         readonly predicate: string,
         readonly vars: Term[],
+        readonly sort: string,
         readonly predicateSnapFunction: Term,
         readonly perm: Term,
         readonly invertibles: string[],
@@ -157,7 +193,7 @@ export class QuantifiedPredicateChunk implements HeapChunk {
 
     toString() {
         const vs = this.vars.join(', ');
-        return `QA ${vs} :: ${this.predicate}(${vs}) -> ${this.predicateSnapFunction} # ${this.perm}`;
+        return `QA ${vs} :: ${this.predicate}(${vs}): ${this.sort} -> ${this.predicateSnapFunction} # ${this.perm}`;
     }
 }
 

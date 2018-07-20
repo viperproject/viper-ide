@@ -106,7 +106,7 @@ export class Quantification implements Term {
 
 export class Application implements Term {
 
-    constructor(readonly applicable: string, readonly args: Term[]) {}
+    constructor(readonly applicable: string, readonly args: Term[], readonly sort: string) {}
 
     public toAlloy(env: TranslationEnv): string {
         const applicableSanitized = sanitize(this.applicable);
@@ -305,9 +305,9 @@ export namespace Term {
         }
 
         if (obj.type === 'application') {
-            mustHave(obj, ['applicable', 'args']);
+            mustHave(obj, ['applicable', 'args', 'sort']);
             
-            return new Application(obj.applicable as string, obj.args.map(Term.from));
+            return new Application(obj.applicable as string, obj.args.map(Term.from), obj.sort);
         }
 
         if (obj.type === 'lookup') {
