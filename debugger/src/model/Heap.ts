@@ -1,5 +1,5 @@
 import { DebuggerError } from "../Errors";
-import { Term, Application, VariableTerm } from "./Term";
+import { Term, Application, VariableTerm, getSort } from "./Term";
 
 
 export interface HeapChunk {
@@ -26,22 +26,21 @@ export namespace HeapChunk {
         if (obj.type === 'basic_predicate_chunk') {
             mustHave(obj, ['predicate', 'args', 'snap', 'perm']);
 
+            // TODO: might need proper retrieval of sorts
             const snap = Term.from(obj.snap);
-            if (snap instanceof Application || snap instanceof VariableTerm) {
-                return new PredicateChunk(obj.predicate, snap.sort, obj.args.map(Term.from), snap, Term.from(obj.perm));
-            } else {
-                throw new DebuggerError(`Unexpected snapshot type '${snap.toString}'`);
-            }
+            return new PredicateChunk(obj.predicate, obj.args.map(Term.from), snap, Term.from(obj.perm));
         }
 
         if (obj.type === 'basic_field_chunk') {
             mustHave(obj, ['field', 'receiver', 'snap', 'perm']);
 
+            // TODO: might need proper retrieval of sorts
             const snap = Term.from(obj.snap);
-            if (snap instanceof Application || snap instanceof VariableTerm) {
-                return new FieldChunk(obj.field, snap.sort, Term.from(obj.receiver), snap, Term.from(obj.perm));
+            const sort = getSort(snap);
+            if (sort) {
+                return new FieldChunk(obj.field, sort, Term.from(obj.receiver), snap, Term.from(obj.perm));
             } else {
-                throw new DebuggerError(`Unexpected snapshot type '${snap.toString}'`);
+                throw new DebuggerError(`Heap chunk value must have a sort, but '${snap.toString()}' did not`);
             }
         }
 
@@ -138,14 +137,13 @@ export class FieldChunk implements HeapChunk {
 export class PredicateChunk implements HeapChunk {
     constructor(
         readonly id: string,
-        readonly sort: string,
         readonly args: Term[],
         readonly snap: Term,
         readonly perm: Term
     ) {}
 
     toString() {
-        return `${this.id}(${this.snap}; ${this.args.join(", ")}): ${this.sort} # ${this.perm}`;
+        return `${this.id}(${this.snap}; ${this.args.join(", ")}) # ${this.perm}`;
     }
 }
 

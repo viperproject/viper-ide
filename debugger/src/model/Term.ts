@@ -10,6 +10,26 @@ export interface Term {
     toString(): string;
 }
 
+export interface WithSort {
+    sort: string;
+}
+
+export function hasSort(object: any): object is WithSort {
+    return 'sort' in object;
+}
+
+export function getSort(term: Term): string | undefined {
+    if (hasSort(term)) {
+        return term.sort;
+    }
+    
+    if (term instanceof Binary) {
+        return getSort(term.lhs) || getSort(term.rhs);
+    }
+
+    return undefined;
+}
+
 export class Binary implements Term {
     constructor(readonly op: string, readonly lhs: Term, readonly rhs: Term) {}
 
@@ -47,7 +67,7 @@ export class Unary implements Term {
     }
 }
 
-export class VariableTerm implements Term {
+export class VariableTerm implements Term, WithSort {
     constructor(readonly id: string, readonly sort: string) {}
 
     toAlloyWithType(): string {
@@ -104,20 +124,26 @@ export class Quantification implements Term {
     }
 }
 
-export class Application implements Term {
+export class Application implements Term, WithSort {
 
     constructor(readonly applicable: string, readonly args: Term[], readonly sort: string) {}
 
-    public toAlloy(env: TranslationEnv): string {
+    public toAlloy(env: TranslationEnv): string | undefined {
         const applicableSanitized = sanitize(this.applicable);
+        const args = this.args.map(a => a.toAlloy(env));
+
+        // Translating some of the arguments has failed.
+        if (args.some(a => a === undefined)) {
+            return undefined;
+        }
 
         // We save INV functions in a sapearate namespace
         if (this.applicable.match(/inv@\d+@\d+/)) {
             env.recordFunction('INV', applicableSanitized);
 
-            return `INV.${applicableSanitized}[${this.args.map(a => a.toAlloy(env)).join(", ")}]`;
+            return `INV.${applicableSanitized}[${args.join(", ")}]`;
         } else {
-            return `Fun.${applicableSanitized}(${this.args.map(a => a.toAlloy(env)).join(", ")})`;
+            return `Fun.${applicableSanitized}(${args.join(", ")})`;
         }
     }
 
@@ -200,7 +226,7 @@ export class Let implements Term {
     }
 }
 
-export class Literal implements Term {
+export class Literal implements Term, WithSort {
     constructor(readonly sort: string, readonly value: string) {}
     public toAlloy(env: TranslationEnv): string {
         if (this.sort === 'Ref' && this.value === "Null") {

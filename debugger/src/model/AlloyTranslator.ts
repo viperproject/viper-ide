@@ -1,48 +1,42 @@
 import { AlloyModelBuilder } from "./AlloyModel";
 import { State } from "./Record";
-import { FieldChunk, QuantifiedFieldChunk } from "./Heap";
+import { FieldChunk, QuantifiedFieldChunk, PredicateChunk } from "./Heap";
 import { Logger } from "../logger";
-import { VariableTerm } from "./Term";
+import { VariableTerm, Literal, getSort } from "./Term";
+import { DebuggerError } from "../Errors";
 
 
 export class TranslationEnv {
     private refTypedVariables: Set<string>;
-    public fields: Map<string, string[]>;
-    private references: Map<string, string>;
+    /** Maps symbolic values to the variable name used in the model. */
+    private symbolicToVarNames: Map<string, string>;
     private quantifiedVariables: Set<string> | undefined;
     public functions: Map<string, Set<string>>;
 
     constructor(readonly state: State) {
-        this.references = new Map();
+        this.symbolicToVarNames = new Map();
         this.refTypedVariables = new Set();
 
         state.store.forEach(v => {
             if (v.sort === 'Ref' || v.sort === 'Set[Ref]') {
                 this.refTypedVariables.add(v.name);
-                this.references.set(v.value.toString(), `Store.${v.name}`);
+                this.symbolicToVarNames.set(v.value.toString(), `Store.${v.name}`);
             }
         });
 
-        this.fields = new Map();
-        // FIXME: right now we assume all fields are references
         state.heap.forEach(heapChunk => {
             if (heapChunk instanceof FieldChunk) {
-                const field = heapChunk.field;
-
                 // Field receivers that are not in the store, for example from (variable.next.next)
-                let found = this.resolve(heapChunk.receiver.toString());
-                if (found === undefined) {
-                    return;
+                let receiver = this.resolve(heapChunk.receiver.toString());
+                if (receiver === undefined) {
+                    throw new DebuggerError(`Could not retrive receiver for field '${heapChunk}'`);
                 }
 
-                // Update references map now, it could save us some search later
-                this.references.set(heapChunk.snap.toString(), found + '.' + field);
-
-                let f = this.fields.get(field);
-                if (f !== undefined) {
-                    f.push(found);
-                } else {
-                    this.fields.set(field, [found]);
+                if (heapChunk.snap instanceof VariableTerm) {
+                    // Update references map now, it could save us some search later
+                    this.symbolicToVarNames.set(heapChunk.snap.toString(), receiver + '.' + heapChunk.field);
+                } else if (!(heapChunk.snap instanceof Literal)){
+                    Logger.debug(`Non-literal field value '${heapChunk.snap}'`);
                 }
             }
         });
@@ -51,7 +45,7 @@ export class TranslationEnv {
     }
 
     public resolve(symbValue: string): string | undefined {
-        let v = this.references.get(symbValue);
+        let v = this.symbolicToVarNames.get(symbValue);
         if (v !== undefined) {
             return v;
         }
@@ -71,7 +65,7 @@ export class TranslationEnv {
             let rec = this.resolve(fieldRef.receiver.toString());
             if (rec !== undefined) {
                 const val = rec + '.' + fieldRef.field;
-                this.references.set(symbValue, val);
+                this.symbolicToVarNames.set(symbValue, val);
                 return val;
             }
         }
@@ -107,6 +101,24 @@ export class AlloyTranslator {
         this.env = new TranslationEnv(state);
     }
 
+    // TODO: Seqs? Multisets?
+    private static isRefLikeSort(sort: string) {
+        return sort === "Ref" || sort === "Set[Ref]";
+    }
+
+    private sortToSignature(sort: string) {
+        if (sort === "Ref") {
+            return "Object";
+        }
+        if (sort === "Set[Ref]") {
+            return "set Object";
+        }
+        if (sort === "Int") {
+            return "Int";
+        }
+        throw new DebuggerError(`Unexpected sort '${sort}'`);
+    }
+
     public translate(): string {
         const builder = new AlloyModelBuilder();
 
@@ -138,28 +150,72 @@ export class AlloyTranslator {
         builder.blank();
 
         let allFields: Set<string> = new Set();
-        const heapDecls: Set<string> = new Set(this.state.heap.map(hc => {
+        let successors: Set<string> = new Set();
+
+        const objectRelations: Set<string> = new Set();
+        const predicates: Map<string, PredicateChunk[]> = new Map();
+
+        this.state.heap.forEach(hc => {
             if (hc instanceof FieldChunk) {
                 allFields.add(hc.field);
-                return `${hc.field}: lone Object`;
-            } else if (hc instanceof QuantifiedFieldChunk) {
-                allFields.add(hc.field);
-                return `${hc.field}: lone Object`;
-            } else {
-                Logger.error(`Heap chunk translation not implemented yet: '${hc}'`);
-                return hc.toString();
+                if (AlloyTranslator.isRefLikeSort(hc.sort)) {
+                    successors.add(hc.field);
+                }
+
+                objectRelations.add(`${hc.field}: lone ${this.sortToSignature(hc.sort)}`);
+                return;
             }
-        }));
-        heapDecls.add("successors': set Object");
+            
+            if (hc instanceof QuantifiedFieldChunk) {
+                allFields.add(hc.field);
+                if (AlloyTranslator.isRefLikeSort(hc.sort)) {
+                    successors.add(hc.field);
+                }
+
+                objectRelations.add(`${hc.field}: lone ${this.sortToSignature(hc.sort)}`);
+            }
+
+            // We store all predicates chunk in a map, based on their id
+            if (hc instanceof PredicateChunk) {
+                const ps = predicates.get(hc.id);
+                if (ps) {
+                    ps.push(hc);
+                } else {
+                    predicates.set(hc.id, [hc]);
+                }
+            }
+
+            Logger.error(`Heap chunk translation not implemented yet: '${hc}'`);
+        });
+        objectRelations.add("successors': set Object");
 
         // Constraint on successors of objects
-        const fieldsConstraint = "successors' = " + ((allFields.size < 1) ? 'none' : [...allFields].join(" + "));
+        const fieldsConstraint = "successors' = " + ((successors.size < 1) ? 'none' : [...successors].join(" + "));
 
-        builder.sig('', 'Object', [...heapDecls], [fieldsConstraint]);
+        builder.sig('', 'Object', [...objectRelations], [fieldsConstraint]);
         builder.blank();
 
         // The null reference
         builder.sig('lone', 'NULL in Object', [], ["successors' = none"]);
+        builder.blank();
+
+        Array.from(predicates.keys()).forEach(id => {
+            const name = "pred_" + id;
+            let preds = <PredicateChunk[]> predicates.get(id);
+            let first = preds[0];
+            const vars = 'args: ' + first.args.map(a => this.sortToSignature(getSort(a)!)).join(' one -> one');
+
+            builder.sig('', name, [vars], []);
+            preds.forEach(p => {
+                builder.fact(`one p': ${name} | ` + p.args.map(t => t.toAlloy(this.env)).join(' -> ') + " in p'.args");
+            });
+            builder.fact(`#${name} = ${preds.length}`);
+            builder.blank();
+        });
+
+        // Restrict Object atoms to those reachable from the store
+        builder.comment("No object unreachable from the Store");
+        builder.fact("Object = Store.variables'.*successors'");
         builder.blank();
 
         builder.sig('one', "PermF", [...allFields].map(f => `${f}: (Object -> one Perm)`), []);
@@ -171,11 +227,11 @@ export class AlloyTranslator {
 
         if (allFields.size > 0) {
             builder.comment("Constraints on field permission/existence");
+            allFields.forEach(field => {
+                builder.fact(`all o: Object | one o.${field} <=> PermF.${field}[o] in (W + R)`);
+            });
+            builder.blank();
         }
-        allFields.forEach(field => {
-            builder.fact(`all o: Object | one o.${field} <=> PermF.${field}[o] in (W + R)`);
-        });
-        builder.blank();
 
         this.state.heap.forEach(chunk => {
             if (chunk instanceof FieldChunk) {
@@ -204,10 +260,6 @@ export class AlloyTranslator {
         for (let [namespace, names] of this.env.functions) {
             builder.sig('one', namespace, [...names].map(n => `${n}: (Object one -> one Object)`), []);
         }
-        builder.blank();
-
-        builder.comment("No object unreachable from the Store");
-        builder.fact("Object = Store.variables'.*successors'");
         builder.blank();
 
         return builder.build();
