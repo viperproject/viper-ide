@@ -120,7 +120,7 @@ export class Record {
             prestate = State.from(entry.prestate);
         }
 
-        let statement: Record = new Record(
+        let record: Record = new Record(
             recordType,
             formula,
             index,
@@ -134,7 +134,7 @@ export class Record {
         if (entry.children) {
             let previousChild: Record;
             entry.children.forEach((entry) => {
-                const child = Record.from(entry, statement, previousChild);
+                const child = Record.from(entry, record, previousChild);
 
                 // We might not get a child if it does not need to be visualized
                 if (child) {
@@ -142,12 +142,12 @@ export class Record {
                         previousChild.next = child;
                     }
                     previousChild = child;
-                    statement.addChild(child);
+                    record.addChild(child);
                 }
             });
         }
 
-        return statement;
+        return record;
     }
 }
 
@@ -174,30 +174,30 @@ export class StateView {
     }
 }
 
-export class StatementView {
+export class RecordView {
 
     private constructor(
                 readonly type: string,
                 readonly position: Position | undefined,
                 readonly formula: string,
                 readonly index: number,
-                readonly children: StatementView[],
+                readonly children: RecordView[],
                 readonly state?: StateView) {}
 
 
-    public static from(statement: Record) {
-        const type: string = statement.type.toString();
-        const children: StatementView[] = statement.children.map(StatementView.from);
+    public static from(record: Record) {
+        const type: string = record.type.toString();
+        const children: RecordView[] = record.children.map(RecordView.from);
 
         let state: StateView | undefined = undefined;
-        if (statement.prestate !== undefined) {
-            state = StateView.from(statement.prestate);
+        if (record.prestate !== undefined) {
+            state = StateView.from(record.prestate);
         }
 
-        return new StatementView(type,
-                                 statement.position,
-                                 statement.formula,
-                                 statement.index,
+        return new RecordView(type,
+                                 record.position,
+                                 record.formula,
+                                 record.index,
                                  children,
                                  state);
     }

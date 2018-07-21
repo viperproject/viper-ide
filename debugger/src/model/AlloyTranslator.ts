@@ -1,5 +1,5 @@
 import { AlloyModelBuilder } from "./AlloyModel";
-import { State } from "./Statement";
+import { State } from "./Record";
 import { FieldChunk, QuantifiedFieldChunk } from "./Heap";
 import { Logger } from "../logger";
 import { VariableTerm } from "./Term";

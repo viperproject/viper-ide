@@ -1,4 +1,4 @@
-import { Record } from './model/Statement';
+import { Record } from './model/Record';
 
 
 export interface DotElem {

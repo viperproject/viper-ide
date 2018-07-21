@@ -1,6 +1,6 @@
 import { SymbExLogEntry } from "../ViperProtocol";
 import { DebuggerError } from "../Errors";
-import { Record } from "./Statement";
+import { Record } from "./Record";
 
 type VerifiableType = 'Method' | 'Predicate' | 'Function';
 
@@ -10,12 +10,12 @@ export class Verifiable {
 
     public readonly type: VerifiableType;
     public readonly name: string;
-    public readonly statements: Record[];
+    public readonly records: Record[];
 
-    protected constructor(type: VerifiableType, name: string, statements: Record[] = []) {
+    protected constructor(type: VerifiableType, name: string, records: Record[] = []) {
         this.type = type;
         this.name = name;
-        this.statements = statements;
+        this.records = records;
     }
 
     public static from(entry: SymbExLogEntry): Verifiable {
@@ -33,28 +33,28 @@ export class Verifiable {
         const kind = entry.kind.toLowerCase();
         const name = entry.value;
         let previous: Record;
-        const statements = entry.children.reduce((acc, child) => {
-                const statement = Record.from(child, undefined, previous);
+        const records = entry.children.reduce((acc, child) => {
+                const record = Record.from(child, undefined, previous);
 
-                // Statement might be null if it does not need to be visualized, only keep those we care about
-                if (statement) {
+                // Record might be null if it does not need to be visualized, only keep those we care about
+                if (record) {
                     if (previous) {
-                        previous.next = statement;
+                        previous.next = record;
                     }
-                    previous = statement;
+                    previous = record;
 
-                    acc.push(statement);
+                    acc.push(record);
                 }
 
                 return acc;
         }, <Record[]>[]);
 
         if (kind === 'method') {
-            return new Verifiable('Method', name, statements);
+            return new Verifiable('Method', name, records);
         } else if (kind === 'predicate') {
-            return new Verifiable('Predicate', name, statements);
+            return new Verifiable('Predicate', name, records);
         } else if (kind === 'function') {
-            return new Verifiable('Function', name, statements);
+            return new Verifiable('Function', name, records);
         } else {
             throw new DebuggerError(`Unexpected SymbExLogEntry kind '${entry.kind}'`);
         }

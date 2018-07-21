@@ -1,5 +1,5 @@
 import { Verifiable } from './model/Verifiable';
-import { Record } from './model/Statement';
+import { Record } from './model/Record';
 import { Logger } from './logger';
 import * as vscode from 'vscode';
 
@@ -20,14 +20,14 @@ export type StateUpdate = {
 export class DebuggerSession {
 
     private observers: ((states: StateUpdate) => void)[];
-    private currentStatement: Record;
+    private currentRecord: Record;
     private currentVerifiable: Verifiable;
 
     constructor(readonly debuggedFile: vscode.Uri, readonly verifiables: Verifiable[]) {
         this.observers = [];
         // TODO: Put a check for not verifiables?
         this.currentVerifiable = this.verifiables[0];
-        this.currentStatement = this.currentVerifiable.statements[0];
+        this.currentRecord = this.currentVerifiable.records[0];
     }
 
     public onStateChange(callback: (states: StateUpdate) => void) {
@@ -35,14 +35,14 @@ export class DebuggerSession {
     }
 
     public notifyStateChange() {
-        if (this.currentStatement) {
+        if (this.currentRecord) {
             // TODO: Fix with proper logic for next and prev
             const states: StateUpdate = {
-                current: this.currentStatement,
+                current: this.currentRecord,
                 hasNext: this.findNextState() !== undefined,
                 hasPrevious: this.findPrevState() !== undefined,
-                hasParent: this.currentStatement.parent !== undefined,
-                hasChild: this.currentStatement.children.length > 0
+                hasParent: this.currentRecord.parent !== undefined,
+                hasChild: this.currentRecord.children.length > 0
             };
             this.observers.forEach((callback) => callback(states));
         }
@@ -60,23 +60,23 @@ export class DebuggerSession {
         } 
 
         this.currentVerifiable = verifiable;
-        this.currentStatement = verifiable.statements[0];
+        this.currentRecord = verifiable.records[0];
         this.notifyStateChange();
     }
 
     public getCurrentState(): Record {
-        return this.currentStatement;
+        return this.currentRecord;
     }
 
     public goToState(state: Record) {
-        this.currentStatement = state;
+        this.currentRecord = state;
         this.notifyStateChange();
     }
 
     public goToNextState() {
         let nextState = this.findNextState();
         if (nextState) {
-            this.currentStatement = nextState;
+            this.currentRecord = nextState;
             this.notifyStateChange();
         }
     }
@@ -84,21 +84,21 @@ export class DebuggerSession {
     public goToPrevState() {
         let prevState = this.findPrevState();
         if (prevState) {
-            this.currentStatement = prevState;
+            this.currentRecord = prevState;
             this.notifyStateChange();
         }
     }
 
     public goToChildState() {
-        if (this.currentStatement.children.length > 0) {
-            this.currentStatement = this.currentStatement.children[0];
+        if (this.currentRecord.children.length > 0) {
+            this.currentRecord = this.currentRecord.children[0];
             this.notifyStateChange();
         }
     }
 
     public goToParentState() {
-        if (this.currentStatement.parent) {
-            this.currentStatement = this.currentStatement.parent;
+        if (this.currentRecord.parent) {
+            this.currentRecord = this.currentRecord.parent;
             this.notifyStateChange();
         }
     }
@@ -109,15 +109,15 @@ export class DebuggerSession {
     }
 
     public topLevelStates(): Record[] {
-        return this.currentVerifiable.statements;
+        return this.currentVerifiable.records;
     }
 
     private findNextState(): Record | undefined {
-        if (this.currentStatement.next) {
-            return this.currentStatement.next;            
+        if (this.currentRecord.next) {
+            return this.currentRecord.next;            
         } 
 
-        let parent = this.currentStatement.parent;
+        let parent = this.currentRecord.parent;
         while (parent) {
             if (parent.next) {
                 return parent.next;
@@ -129,11 +129,11 @@ export class DebuggerSession {
     }
 
     private findPrevState(): Record | undefined {
-        if (this.currentStatement.previous) {
-            return this.currentStatement.previous;
+        if (this.currentRecord.previous) {
+            return this.currentRecord.previous;
         } 
         
-        let parent = this.currentStatement.parent;
+        let parent = this.currentRecord.parent;
         while (parent) {
             if (parent.previous) {
                 return parent.previous;

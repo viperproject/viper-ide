@@ -6,7 +6,7 @@ import { SymbExLogEntry } from './ViperProtocol';
 import { Logger } from './logger';
 import { DebuggerSession, StateUpdate } from './DebuggerSession';
 import { DebuggerError } from './Errors';
-import { StatementView } from './model/Statement';
+import { RecordView } from './model/Record';
 import { DecorationsManager } from './DecorationsManager';
 import { AlloyTranslator } from './model/AlloyTranslator';
 
@@ -57,7 +57,7 @@ export class DebuggerPanel implements SessionObserver {
 
         // Verifiables are a cyclic structure, they need to be converted before
         // sending them to the HTML panel
-        const verifiables = this.session.verifiables.filter((v) => v.statements.length > 0)
+        const verifiables = this.session.verifiables.filter((v) => v.records.length > 0)
                                                     .map((v) => ({ name: v.name }) );
 
         this.postMessage(PanelMessage.Verifiables(verifiables));
@@ -146,10 +146,10 @@ export class DebuggerPanel implements SessionObserver {
         }
         
         this.session.onStateChange((states: StateUpdate) => {
-            // Statements are a cyclic structure, it cannot be sent via postMessage. We convert them to `StatementView`
-            // Which keeps the importa information and discards cyclic links
+            // Records are a cyclic structure, it cannot be sent via postMessage. We convert them to `RecordView`
+            // which keeps the importa information and discards cyclic links
             let message: any = {
-                current: StatementView.from(states.current),
+                current: RecordView.from(states.current),
                 hasNext: states.hasNext,
                 hasPrevious: states.hasPrevious,
                 hasParent: states.hasParent,

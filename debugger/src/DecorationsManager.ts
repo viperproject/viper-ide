@@ -3,7 +3,7 @@ import { SessionObserver } from "./Debugger";
 import { DebuggerSession, StateUpdate } from "./DebuggerSession";
 import { TextEditorDecorationType } from "vscode";
 import { DebuggerError } from './Errors';
-import { Record } from './model/Statement';
+import { Record } from './model/Record';
 
 
 /** Creates and disposes the various decoration styles. */
