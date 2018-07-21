@@ -1,4 +1,4 @@
-import { SymbExLogEntry } from "../ViperProtocol";
+import { SymbExLogEntry } from "../external";
 import { DebuggerError } from "../Errors";
 import { Record } from "./Record";
 

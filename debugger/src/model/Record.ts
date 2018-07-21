@@ -1,27 +1,27 @@
 import { Position, Range } from 'vscode';
-import { SymbExLogEntry, SymbExLogState } from '../ViperProtocol';
+import { SymbExLogEntry, SymbExLogState } from '../external';
 import { DebuggerError } from '../Errors';
 import { HeapChunk } from './Heap';
 import { Term } from './Term';
-import { Variable } from './Variable';
+import { StoreVariable } from './StoreVariable';
 
 
 export class State {
     constructor(
-        readonly store: Variable[],
+        readonly store: StoreVariable[],
         readonly heap: HeapChunk[],
         readonly oldHeap: HeapChunk[],
         readonly pathConditions: Term[]
     ) {}
 
     public static from(symbExLogState: SymbExLogState): State {
-            // TODO: we probably want to parse the store into a separate obejct
-            const store = symbExLogState.store.map(Variable.from);
-            const heap = symbExLogState.heap.map(HeapChunk.from);
-            const oldHeap = symbExLogState.oldHeap.map(HeapChunk.from);
-            const pathConditions = symbExLogState.pcs.map(Term.from);
+        // TODO: we probably want to parse the store into a separate obejct
+        const store = symbExLogState.store.map(StoreVariable.from);
+        const heap = symbExLogState.heap.map(HeapChunk.from);
+        const oldHeap = symbExLogState.oldHeap.map(HeapChunk.from);
+        const pathConditions = symbExLogState.pcs.map(Term.from);
 
-            return new State(store, heap, oldHeap, pathConditions);
+        return new State(store, heap, oldHeap, pathConditions);
     }
 }
 
@@ -162,9 +162,9 @@ export class StateView {
 
     public static from(state: State) {
         const store = state.store.map(v => [
-            { text: `${v.name}: ${v.type}`, id: v.name },
+            { text: `${v.name}: ${v.sort}`, id: v.name },
             { text: ' -> ' },
-            { text: v.value, id: v.value }
+            { text: v.value.toString(), id: v.value.toString() }
         ]);
 
         const heap = state.heap.map(c => [{ text: c.toString() }]);

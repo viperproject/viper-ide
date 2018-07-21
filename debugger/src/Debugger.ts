@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { Logger } from './logger';
 import { viperApi } from './extension';
-import { SymbExLogEntry } from './ViperProtocol';
+import { SymbExLogEntry } from './external';
 import { Success, Failure, isFailure } from './util';
 import { DebuggerError } from './Errors';
 import { Verifiable } from './model/Verifiable';

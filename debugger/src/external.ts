@@ -24,3 +24,27 @@ export namespace ViperApi {
         message: string; 
     }
 }
+
+export interface SymbExLogEntry {
+    value: string;
+    type?: string;
+    kind?: string;
+    // open: boolean;
+    pos?: string;
+    prestate?: SymbExLogState;
+    lastSMTQuery?: string;
+    children?: SymbExLogEntry[];
+}
+
+export interface SymbExLogState {
+        store: SymbExLogStoreVariable[];
+        heap: string[];
+        oldHeap: string[];
+        pcs: any[];
+}
+
+export interface SymbExLogStoreVariable {
+    name: string;
+    value: any;
+    sort: string;
+}

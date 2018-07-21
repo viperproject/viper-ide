@@ -17,9 +17,9 @@ export class TranslationEnv {
         this.refTypedVariables = new Set();
 
         state.store.forEach(v => {
-            if (v.type === 'Ref' || v.type === 'Set[Ref]') {
+            if (v.sort === 'Ref' || v.sort === 'Set[Ref]') {
                 this.refTypedVariables.add(v.name);
-                this.references.set(v.value, `Store.${v.name}`);
+                this.references.set(v.value.toString(), `Store.${v.name}`);
             }
         });
 
@@ -119,12 +119,12 @@ export class AlloyTranslator {
                 return;
             }
 
-            if (v.type === 'Ref') {
+            if (v.sort === 'Ref') {
                 storeDecls.push(`${v.name}: one Object`);
-            } else if (v.type === 'Set[Ref]') {
+            } else if (v.sort === 'Set[Ref]') {
                 storeDecls.push(`${v.name}: set Object`);
             } else {
-                Logger.error(`Store variables of type '${v.type} are not implemented yet.`);
+                Logger.error(`Store variables of type '${v.sort} are not implemented yet.`);
                 return;
             }
             allVariables.push(v.name);

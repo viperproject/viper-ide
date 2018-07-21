@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { SessionObserver } from './Debugger';
-import { SymbExLogEntry } from './ViperProtocol';
+import { SymbExLogEntry } from './external';
 import { Logger } from './logger';
 import { DebuggerSession, StateUpdate } from './DebuggerSession';
 import { DebuggerError } from './Errors';
@@ -134,6 +134,7 @@ export class DebuggerPanel implements SessionObserver {
             case 'mouseNavigation':
                 let enabled = message.value;
                 this.decorationsManager.setMouseNavigation(enabled);
+                break;
 
             default:
                 Logger.error(`Unknown command from debug pane: '${message}'`);
