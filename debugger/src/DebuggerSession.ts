@@ -1,5 +1,3 @@
-'use strict';
-
 import { Verifiable } from './model/Verifiable';
 import { Record } from './model/Statement';
 import { Logger } from './logger';

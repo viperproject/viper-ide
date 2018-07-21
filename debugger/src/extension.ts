@@ -1,5 +1,3 @@
-'use strict';
-
 import * as vscode from 'vscode';
 import { Logger, LogLevel } from './logger';
 import { Debugger } from './Debugger';

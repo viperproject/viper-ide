@@ -1,5 +1,3 @@
-'use strict';
-
 import * as $ from 'jquery';
 import { Logger } from './logger';
 import JSONFormatter, { JSONFormatterConfiguration } from 'json-formatter-js';
@@ -9,7 +7,8 @@ import { GraphViz } from './d3-graphviz';
 var d3graphviz = require('d3-graphviz');
 
 declare var acquireVsCodeApi: any;
-const vscode = acquireVsCodeApi();
+export const vscode = acquireVsCodeApi();
+
 let outpudDiv: HTMLElement;
 const JsonFormatConfiguration: JSONFormatterConfiguration = {
     animateOpen: false,
