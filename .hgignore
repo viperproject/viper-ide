@@ -3,3 +3,4 @@
 ^.*\.log$
 re:(?x) (^|.*\/) (?!webpack\.config) ([^\/]+)\.js $
 /out/
+/.vscode-test/
