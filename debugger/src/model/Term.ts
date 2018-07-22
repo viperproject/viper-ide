@@ -6,7 +6,7 @@ function sanitize(name: string) {
 }
 
 export interface Term {
-    toAlloy(env: TranslationEnv): string | undefined;
+    toAlloy(env: TranslationEnv): TranslationRes;
     toString(): string;
 }
 
@@ -30,19 +30,54 @@ export function getSort(term: Term): string | undefined {
     return undefined;
 }
 
+
+export class Leftover {
+    constructor(readonly leftover: Term, readonly reason: string, readonly other: Leftover[]) {}
+
+    toString() {
+        return this.reason + ": " + this.leftover.toString();
+    }
+
+    toStringWithChildren(indent = 0): string {
+        return this.reason + ": " + this.leftover.toString() + "\n" +
+            this.other.map(o => o.toStringWithChildren(indent + 1));
+    }
+}
+
+function translated(res: string, leftovers: Leftover[]) {
+    return new TranslationRes(res, leftovers);
+}
+
+function leftover(leftover: Term, reason: string, other: Leftover[]) {
+    return new TranslationRes(undefined, [new Leftover(leftover, reason, other)]);
+}
+
+class TranslationRes {
+    constructor(readonly res: string | undefined, readonly leftovers: Leftover[]) {}
+}
+
+
 export class Binary implements Term {
     constructor(readonly op: string, readonly lhs: Term, readonly rhs: Term) {}
 
-    toAlloy(env: TranslationEnv): string | undefined {
-        const alloyOp = this.op.replace("==", "=");
+    toAlloy(env: TranslationEnv): TranslationRes {
         const left = this.lhs.toAlloy(env);
         const right = this.rhs.toAlloy(env);
 
-        if (left === undefined || right === undefined) {
-            return undefined;
+        if (!left.res) {
+            return leftover(this, "Left-hand side operand not translated", left.leftovers);
         }
 
-        return alloyOp === 'Combine' ? `${this.op}(${left}, ${right})` : `(${left} ${alloyOp} ${right})`;
+        if (!right.res) {
+            return leftover(this, "Right-hand side operand not translated", right.leftovers);
+        }
+
+        const alloyOp = this.op.replace("==", "=");
+        if (alloyOp === 'Combine') {
+            return leftover(this, "Combines not translated", left.leftovers.concat(right.leftovers));
+        }
+
+        return translated(`(${left.res} ${alloyOp} ${right.res})`, left.leftovers.concat(right.leftovers));
     }
 
     toString() {
@@ -57,9 +92,14 @@ export class Binary implements Term {
 export class Unary implements Term {
     constructor(readonly op: string, readonly p: Term) {}
 
-    toAlloy(env: TranslationEnv): string | undefined {
+    toAlloy(env: TranslationEnv): TranslationRes {
         const term  = this.p.toAlloy(env);
-        return term !== undefined ? `${this.op}(${term})` : undefined;
+
+        if (!term.res) {
+            return leftover(this, "Operand not translated", term.leftovers);
+        }
+
+        return translated(`${this.op}(${term.res})`, term.leftovers);
     }
 
     toString() {
@@ -78,9 +118,13 @@ export class VariableTerm implements Term, WithSort {
         return `${sanitize(this.id)}: ${this.sort}`;
     }
 
-    toAlloy(env: TranslationEnv): string | undefined {
+    toAlloy(env: TranslationEnv): TranslationRes {
         const resolved = env.resolve(this.id);
-        return resolved !== undefined ? sanitize(resolved) :  undefined;
+        if (!resolved) {
+            return leftover(this, `Could not resolve name '${this.id}'`, []);
+        }
+
+        return translated(sanitize(resolved), []);
     }
 
     toString(): string {
@@ -94,16 +138,10 @@ export class Quantification implements Term {
                 readonly body: Term,
                 readonly name: string | null) {}
 
-    public toAlloy(env: TranslationEnv): string | undefined {
+    public toAlloy(env: TranslationEnv): TranslationRes {
         const tVars = this.vars.map(v => v.toAlloyWithType());
 
-        // Inside quantifiers, the quantified variables are defined as well
-        let tBody: string | undefined = undefined;
-        env.withQuantifiedVariables(new Set(this.vars.map(v => v.id)), () => {
-            tBody = this.body.toAlloy(env);
-        });
-
-        let mult;
+        let mult: string;
         if (this.quantifier === 'QA') {
             mult = 'all';
         } else if (this.quantifier === 'QE') {
@@ -112,11 +150,18 @@ export class Quantification implements Term {
             throw new DebuggerError(`Unexpected quantifier '${this.quantifier}'`);
         }
 
-        if (tBody !== undefined) {
-            return `${mult} ${tVars.join(", ")} | ${tBody}`;
-        }
+        // Inside quantifiers, the quantified variables are defined as well
+        return env.evaluateWithQuantifiedVariables(
+            this.vars.map(v => v.id),
+            () => {
+                const tBody = this.body.toAlloy(env);
 
-        return undefined;
+                if (!tBody!.res) {
+                    return leftover(this, "Could not translate quantified variables", tBody!.leftovers);
+                }
+
+                return translated(`${mult} ${tVars.join(", ")} | ${tBody.res}`, tBody.leftovers);
+            });
     }
 
     public toString() {
@@ -128,22 +173,28 @@ export class Application implements Term, WithSort {
 
     constructor(readonly applicable: string, readonly args: Term[], readonly sort: string) {}
 
-    public toAlloy(env: TranslationEnv): string | undefined {
+    public toAlloy(env: TranslationEnv): TranslationRes {
         const applicableSanitized = sanitize(this.applicable);
         const args = this.args.map(a => a.toAlloy(env));
 
+        // Collect the leftovers from the translation of all arguments
+        const leftovers = args.reduce(
+            (acc, current) => acc.concat(current.leftovers),
+            <Leftover[]>[]
+        );
+
         // Translating some of the arguments has failed.
-        if (args.some(a => a === undefined)) {
-            return undefined;
+        if (args.some(a => a.res === undefined)) {
+            return leftover(this, "Could not translate some of the arguments", leftovers);
         }
 
         // We save INV functions in a sapearate namespace
         if (this.applicable.match(/inv@\d+@\d+/)) {
             env.recordFunction('INV', applicableSanitized);
 
-            return `INV.${applicableSanitized}[${args.join(", ")}]`;
+            return translated(`INV.${applicableSanitized}[${args.map(a => a.res).join(", ")}]`, leftovers);
         } else {
-            return `Fun.${applicableSanitized}(${args.join(", ")})`;
+            return translated(`Fun.${applicableSanitized}(${args.map(a => a.res).join(", ")})`, leftovers);
         }
     }
 
@@ -154,10 +205,15 @@ export class Application implements Term, WithSort {
 
 export class Lookup implements Term {
     constructor(readonly field: string, readonly fieldValueFunction: Term, readonly receiver: Term) {}
-    public toAlloy(env: TranslationEnv): string { 
-        // TODO: Do we need lookups?
-        // return `Lookup(${this.field}, ${this.fieldValueFunction.toAlloy(env)}, ${this.receiver.toAlloy(env)})`;
-        return this.receiver.toAlloy(env) + "." + this.field;
+
+    // TODO: Do we need proper lookups?
+    public toAlloy(env: TranslationEnv): TranslationRes { 
+        const receiver = this.receiver.toAlloy(env);
+        if (!receiver.res) {
+            return leftover(this, "Could not translate receiver", receiver.leftovers);
+        }
+
+        return translated(receiver.res + "." + this.field, receiver.leftovers);
     }
 
     toString() {
@@ -169,7 +225,9 @@ export class PredicateLookup implements Term {
 
     constructor(readonly predicate: string, readonly predicateSnapFunction: Term, readonly args: Term[]) {}
 
-    public toAlloy(env: TranslationEnv): string { return JSON.stringify(this); }
+    public toAlloy(env: TranslationEnv): TranslationRes {
+        return leftover(this, "Predicate Lookups not implemented", []);
+    }
 
     toString() {
         return `Lookup(${this.predicate}, ${this.predicateSnapFunction}, ${this.args})`;
@@ -178,8 +236,21 @@ export class PredicateLookup implements Term {
 
 export class And implements Term {
     constructor(readonly terms: Term[]) {}
-    public toAlloy(env: TranslationEnv): string {
-        return "(" + this.terms.map(t => t.toAlloy(env)).join(" && ") + ")";
+    public toAlloy(env: TranslationEnv): TranslationRes {
+        const terms = this.terms.map(t => t.toAlloy(env));
+
+        // Collect the leftovers from the translation of all terms
+        const leftovers = terms.reduce(
+            (acc, current) => acc.concat(current.leftovers),
+            <Leftover[]>[]
+        );
+
+        // Translating some of the arguments has failed.
+        if (terms.some(a => a.res === undefined)) {
+            return leftover(this, "Could not translate some of the terms", leftovers);
+        }
+
+        return translated("(" + terms.map(t => t.res).join(" && ") + ")", leftovers);
     }
 
     toString() {
@@ -189,8 +260,21 @@ export class And implements Term {
 
 export class Or implements Term {
     constructor(readonly terms: Term[]) {}
-    public toAlloy(env: TranslationEnv): string {
-        return "(" + this.terms.map(t => t.toAlloy(env)).join(" || ") + ")";
+    public toAlloy(env: TranslationEnv): TranslationRes {
+        const terms = this.terms.map(t => t.toAlloy(env));
+
+        // Collect the leftovers from the translation of all terms
+        const leftovers = terms.reduce(
+            (acc, current) => acc.concat(current.leftovers),
+            <Leftover[]>[]
+        );
+
+        // Translating some of the arguments has failed.
+        if (terms.some(a => a.res === undefined)) {
+            return leftover(this, "Could not translate some of the terms", leftovers);
+        }
+
+        return translated("(" + terms.map(t => t.res).join(" || ") + ")", leftovers);
     }
 
     toString() {
@@ -200,7 +284,9 @@ export class Or implements Term {
 
 export class Distinct implements Term {
     constructor(readonly terms: Term[]) {}
-    public toAlloy(env: TranslationEnv): string { return JSON.stringify(this); }
+    public toAlloy(env: TranslationEnv): TranslationRes {
+        return leftover(this, "'Distinct' term is not implemented", []);
+    }
     toString() {
         return `distinct(${this.terms.join(", ")})`;
     }
@@ -208,8 +294,17 @@ export class Distinct implements Term {
 
 export class Ite implements Term {
     constructor(readonly condition: Term, readonly thenBranch: Term, readonly elseBranch: Term) {}
-    public toAlloy(env: TranslationEnv): string {
-        return `(${this.condition.toAlloy(env)} implies ${this.thenBranch.toAlloy(env)} else ${this.elseBranch.toAlloy(env)})`;
+    public toAlloy(env: TranslationEnv): TranslationRes {
+        const cond = this.condition.toAlloy(env);
+        const thenBranch = this.thenBranch.toAlloy(env);
+        const elseBranch = this.elseBranch.toAlloy(env);
+
+        const leftovers = cond.leftovers.concat(thenBranch.leftovers).concat(elseBranch.leftovers);
+        if (!cond.res || !thenBranch.res || !elseBranch.res) {
+            return leftover(this, "Could not translate 'Ite'", leftovers);
+        }
+
+        return translated(`(${cond.res} implies ${thenBranch.res} else ${elseBranch.res})`, leftovers);
     }
 
     toString () {
@@ -219,7 +314,9 @@ export class Ite implements Term {
 
 export class Let implements Term {
     constructor(readonly bindings: Term[], readonly body: Term) {}
-    public toAlloy(env: TranslationEnv): string { return JSON.stringify(this); }
+    public toAlloy(env: TranslationEnv): TranslationRes {
+        return leftover(this, "Let translation not implemented", []);
+    }
 
     toString () {
         return `let ${this.bindings.toString} in ${this.body}`;
@@ -228,12 +325,12 @@ export class Let implements Term {
 
 export class Literal implements Term, WithSort {
     constructor(readonly sort: string, readonly value: string) {}
-    public toAlloy(env: TranslationEnv): string {
+    public toAlloy(env: TranslationEnv): TranslationRes {
         if (this.sort === 'Ref' && this.value === "Null") {
-            return "NULL";
+            return translated("NULL", []);
         }
 
-        return this.value;
+        return translated(this.value, []);
     }
 
     toString() {
@@ -243,7 +340,9 @@ export class Literal implements Term, WithSort {
 
 export class SeqRanged implements Term {
     constructor(readonly lhs: Term, readonly rhs: Term) {}
-    public toAlloy(env: TranslationEnv): string { return JSON.stringify(this); }
+    public toAlloy(env: TranslationEnv): TranslationRes {
+        return leftover(this, "SeqRanged translation not implemented", []);
+    }
 
     public toString() {
         return `[${this.lhs}..${this.rhs}]`;
@@ -252,7 +351,9 @@ export class SeqRanged implements Term {
 
 export class SeqSingleton implements Term {
     constructor(readonly value: Term) {}
-    public toAlloy(env: TranslationEnv): string { return JSON.stringify(this); }
+    public toAlloy(env: TranslationEnv): TranslationRes {
+        return leftover(this, "SeqSingleton translation not implemented", []);
+    }
 
     public toString() {
         return `[${this.value}]`;
@@ -261,7 +362,9 @@ export class SeqSingleton implements Term {
 
 export class SeqUpdate implements Term {
     constructor(readonly seq: Term, readonly index: Term, readonly value: Term) {}
-    public toAlloy(env: TranslationEnv): string { return JSON.stringify(this); }
+    public toAlloy(env: TranslationEnv): TranslationRes {
+        return leftover(this, "SeqUpdate translation not implemented", []);
+    }
 
     public toString() {
         return `${this.seq}[${this.index}] := ${this.value}`;
@@ -270,7 +373,9 @@ export class SeqUpdate implements Term {
 
 export class SetSingleton implements Term {
     constructor(readonly value: Term) {}
-    public toAlloy(env: TranslationEnv): string { return JSON.stringify(this); }
+    public toAlloy(env: TranslationEnv): TranslationRes {
+        return leftover(this, "SetSingleton translation not implemented", []);
+    }
 
     public toString() {
         return `{${this.value}}`;
@@ -279,7 +384,9 @@ export class SetSingleton implements Term {
 
 export class MultisetSingleton implements Term {
     constructor(readonly value: Term) {}
-    public toAlloy(env: TranslationEnv): string { return JSON.stringify(this); }
+    public toAlloy(env: TranslationEnv): TranslationRes {
+        return leftover(this, "MultiSetSingleton translation not implemented", []);
+    }
 
     public toString() {
         return `{${this.value}}`;

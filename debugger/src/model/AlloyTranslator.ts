@@ -78,10 +78,11 @@ export class TranslationEnv {
         return undefined;
     }
 
-    withQuantifiedVariables(vars: Set<string>, f: () => void) {
-        this.quantifiedVariables = vars;
-        f();
+    evaluateWithQuantifiedVariables<T>(vars: string[], f: () => T) {
+        this.quantifiedVariables = new Set(vars);
+        const res = f();
         this.quantifiedVariables = undefined;
+        return res;
     }
 
     // TODO: We need to record the type of functions
@@ -237,10 +238,30 @@ export class AlloyTranslator {
         this.state.heap.forEach(chunk => {
             if (chunk instanceof FieldChunk) {
                 const receiver = this.env.resolve((chunk.receiver as VariableTerm).id);
-                builder.fact(`PermF.${chunk.field}[${receiver}] = ${chunk.perm.toAlloy(this.env)}`);
+                const perm = chunk.perm.toAlloy(this.env);
+
+                if (!perm.res) {
+                    builder.comment("!!! Non-translated permission");
+                    perm.leftovers.forEach(l => {
+                        builder.comment(l.toString());
+                        Logger.warn(l.toStringWithChildren());
+                    });
+                } else {
+                    builder.fact(`PermF.${chunk.field}[${receiver}] = ${perm.res}`);
+                }
+
             } else if (chunk instanceof QuantifiedFieldChunk) {
-                this.env.withQuantifiedVariables(new Set('r'), () => {
-                    builder.fact(`all r: Object | PermF.${chunk.field}[r] = ${chunk.perm.toAlloy(this.env)}`);
+                this.env.evaluateWithQuantifiedVariables(['r'], () => {
+                    const perm = chunk.perm.toAlloy(this.env);
+                    if (!perm.res) {
+                        builder.comment("!!! Non-translated permission");
+                        perm.leftovers.forEach(l => {
+                            builder.comment(l.toString());
+                            Logger.warn(l.toStringWithChildren());
+                        });
+                    } else {
+                        builder.fact(`all r: Object | PermF.${chunk.field}[r] = ${perm.res}`);
+                    }
                 });
             }
         });
@@ -248,12 +269,15 @@ export class AlloyTranslator {
 
         this.state.pathConditions.forEach(pc => {
             let body = pc.toAlloy(this.env);
-            if (body !== undefined) {
+            if (body.res) {
                 builder.comment(pc.toString());
-                builder.fact(body);
+                builder.fact(body.res);
             } else {
-                builder.comment("!!! Non-translated fact");
-                builder.comment(pc.toString());
+                builder.comment("!!! Non-translated fact: ");
+                body.leftovers.forEach(l => {
+                    builder.comment(l.reason + ": " + l.leftover.toString());
+                    Logger.warn(l.toStringWithChildren());
+                });
             }
             builder.blank();
         });
@@ -267,9 +291,9 @@ export class AlloyTranslator {
         // example, when the failing query refers to a variable that did not exist yet.
         if (this.verifiable.lastSMTQuery) {
             const failedQuery = new Unary('!', this.verifiable.lastSMTQuery).toAlloy(this.env);
-            if (failedQuery) {
+            if (failedQuery.res) {
                 builder.comment("Last non-proved smt query");
-                builder.fact(failedQuery);
+                builder.fact(failedQuery.res);
                 builder.blank();
             }
         }
