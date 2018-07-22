@@ -328,12 +328,12 @@ export class Or implements Term {
 }
 
 export class Distinct implements Term {
-    constructor(readonly terms: Term[]) {}
+    constructor(readonly symbols: string[]) {}
     public toAlloy(env: TranslationEnv): TranslationRes {
         return leftover(this, "'Distinct' term is not implemented", []);
     }
     toString() {
-        return `distinct(${this.terms.join(", ")})`;
+        return `distinct(${this.symbols.join(", ")})`;
     }
 }
 
@@ -358,7 +358,7 @@ export class Ite implements Term {
 }
 
 export class Let implements Term {
-    constructor(readonly bindings: Term[], readonly body: Term) {}
+    constructor(readonly bindings: [VariableTerm, Term][], readonly body: Term) {}
     public toAlloy(env: TranslationEnv): TranslationRes {
         return leftover(this, "Let translation not implemented", []);
     }
@@ -515,9 +515,9 @@ export namespace Term {
         }
 
         if (obj.type === 'distinct') {
-            mustHave(obj.type, obj, ['terms']);
+            mustHave(obj.type, obj, ['symbols']);
 
-            return new Distinct(obj.term.map(Term.from));
+            return new Distinct(<string[]> obj.symbols);
         }
 
         if (obj.type === 'ite') {
@@ -529,7 +529,11 @@ export namespace Term {
         if (obj.type === 'let') {
             mustHave(obj.type, obj, ['bindings', 'body']);
 
-            return new Let(obj.bindings.map(Term.from), Term.from(obj.body));
+            const bindings = obj.bindings.map((b: any) => {
+                mustHave('binding', b, ['var', 'value']);
+                return [<VariableTerm> Term.from(b.var), Term.from(b.value)];
+            });
+            return new Let(bindings, Term.from(obj.body));
         }
 
         if (obj.type === 'literal') {
