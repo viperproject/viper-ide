@@ -1,6 +1,7 @@
 import { SymbExLogEntry } from "../external";
 import { DebuggerError } from "../Errors";
 import { Record } from "./Record";
+import { Term } from "./Term";
 
 type VerifiableType = 'Method' | 'Predicate' | 'Function';
 
@@ -8,15 +9,12 @@ type VerifiableType = 'Method' | 'Predicate' | 'Function';
 /** Represents one of the top-level constructs that can be verified */
 export class Verifiable {
 
-    public readonly type: VerifiableType;
-    public readonly name: string;
-    public readonly records: Record[];
-
-    protected constructor(type: VerifiableType, name: string, records: Record[] = []) {
-        this.type = type;
-        this.name = name;
-        this.records = records;
-    }
+    protected constructor(
+        readonly type: VerifiableType,
+        readonly name: string,
+        readonly records: Record[] = [],
+        readonly lastSMTQuery?: Term
+    ) {}
 
     public static from(entry: SymbExLogEntry): Verifiable {
         if (!entry.kind) {
@@ -49,14 +47,22 @@ export class Verifiable {
                 return acc;
         }, <Record[]>[]);
 
+        let lastSMTQuery: Term | undefined = undefined;
+        if (entry.lastSMTQuery) {
+            lastSMTQuery = Term.from(entry.lastSMTQuery);
+        }
+
+        let verifiableType: VerifiableType;
         if (kind === 'method') {
-            return new Verifiable('Method', name, records);
+            verifiableType = 'Method';
         } else if (kind === 'predicate') {
-            return new Verifiable('Predicate', name, records);
+            verifiableType = 'Predicate';
         } else if (kind === 'function') {
-            return new Verifiable('Function', name, records);
+            verifiableType = 'Function';
         } else {
             throw new DebuggerError(`Unexpected SymbExLogEntry kind '${entry.kind}'`);
         }
+
+        return new Verifiable(verifiableType, name, records, lastSMTQuery);
     }
 }

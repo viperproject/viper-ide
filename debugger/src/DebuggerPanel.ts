@@ -146,24 +146,24 @@ export class DebuggerPanel implements SessionObserver {
             throw new DebuggerError("Session was undefined when setting up callbacks");
         }
         
-        this.session.onStateChange((states: StateUpdate) => {
+        this.session.onStateChange((record: StateUpdate) => {
             // Records are a cyclic structure, it cannot be sent via postMessage. We convert them to `RecordView`
             // which keeps the importa information and discards cyclic links
             let message: any = {
-                current: RecordView.from(states.current),
-                hasNext: states.hasNext,
-                hasPrevious: states.hasPrevious,
-                hasParent: states.hasParent,
-                hasChild: states.hasChild
+                current: RecordView.from(record.current),
+                hasNext: record.hasNext,
+                hasPrevious: record.hasPrevious,
+                hasParent: record.hasParent,
+                hasChild: record.hasChild
             };
 
             this.postMessage(PanelMessage.StateUpdate(message));
 
-            if (!states.current.prestate) {
+            if (!record.current.prestate) {
                 return;
             }
 
-            const translator = new AlloyTranslator(states.current.prestate);
+            const translator = new AlloyTranslator(record.verifiable, record.current.prestate);
             const model = translator.translate();
             this.logModel(model);
         });

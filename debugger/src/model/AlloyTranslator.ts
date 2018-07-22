@@ -2,8 +2,9 @@ import { AlloyModelBuilder } from "./AlloyModel";
 import { State } from "./Record";
 import { FieldChunk, QuantifiedFieldChunk, PredicateChunk } from "./Heap";
 import { Logger } from "../logger";
-import { VariableTerm, Literal, getSort } from "./Term";
+import { VariableTerm, Literal, getSort, Unary } from "./Term";
 import { DebuggerError } from "../Errors";
+import { Verifiable } from "./Verifiable";
 
 
 export class TranslationEnv {
@@ -97,7 +98,7 @@ export class AlloyTranslator {
 
     private env: TranslationEnv;
 
-    constructor(readonly state: State) {
+    constructor(readonly verifiable: Verifiable, readonly state: State) {
         this.env = new TranslationEnv(state);
     }
 
@@ -261,6 +262,17 @@ export class AlloyTranslator {
             builder.sig('one', namespace, [...names].map(n => `${n}: (Object one -> one Object)`), []);
         }
         builder.blank();
+
+        // Note that the translation of this fact may not be posssible in statements earlier than the failing one. For
+        // example, when the failing query refers to a variable that did not exist yet.
+        if (this.verifiable.lastSMTQuery) {
+            const failedQuery = new Unary('!', this.verifiable.lastSMTQuery).toAlloy(this.env);
+            if (failedQuery) {
+                builder.comment("Last non-proved smt query");
+                builder.fact(failedQuery);
+                builder.blank();
+            }
+        }
 
         return builder.build();
     }

@@ -9,6 +9,7 @@ export type SessionEvent = 'StateChange';
 
 
 export type StateUpdate = {
+    verifiable: Verifiable,
     current: Record,
     hasNext: boolean,
     hasPrevious: boolean,
@@ -38,6 +39,7 @@ export class DebuggerSession {
         if (this.currentRecord) {
             // TODO: Fix with proper logic for next and prev
             const states: StateUpdate = {
+                verifiable: this.currentVerifiable,
                 current: this.currentRecord,
                 hasNext: this.findNextState() !== undefined,
                 hasPrevious: this.findPrevState() !== undefined,
