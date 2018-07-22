@@ -1,5 +1,5 @@
 import { DebuggerError } from "../Errors";
-import { Term, Application, VariableTerm, getSort } from "./Term";
+import { Term, Application, VariableTerm, getSort, Sort } from "./Term";
 
 
 export interface HeapChunk {
@@ -58,14 +58,13 @@ export namespace HeapChunk {
                 throw new DebuggerError(`Expected field value function to have a sort, but it was '${fvf}'`);
             }
             
-            const match = fvf.sort.match(/FVF\[(.+)]/);
-            if (!match) {
+            if (fvf.sort.id !== 'FVF') {
                 throw new DebuggerError(`Expected sort to be of the form 'FVF[...]', but it was '${fvf.sort}'`);
             }
 
             return new QuantifiedFieldChunk(
                 obj.field,
-                match[1],
+                fvf.sort,
                 fvf,
                 Term.from(obj.perm),
                 obj.invs !== null ? obj.invs : undefined,
@@ -83,15 +82,14 @@ export namespace HeapChunk {
                 throw new DebuggerError(`Expected predicate snap function to have a sort, but it was '${psf}'`);
             }
             
-            const match = psf.sort.match(/PSF\[(.+)]/);
-            if (!match) {
+            if (psf.sort.id !== 'PSF') {
                 throw new DebuggerError(`Expected sort to be of the form 'PSF[...]', but it was '${psf.sort}'`);
             }
 
             return new QuantifiedPredicateChunk(
                 obj.predicate,
                 obj.vars.map(Term.from),
-                match[1],
+                psf.sort,
                 psf,
                 Term.from(obj.perm),
                 obj.invs !== null ? obj.invs : undefined,
@@ -123,7 +121,7 @@ export namespace HeapChunk {
 export class FieldChunk implements HeapChunk {
     constructor(
         readonly field: string,
-        readonly sort: string,
+        readonly sort: Sort,
         readonly receiver: Term,
         readonly snap: Term,
         readonly perm: Term
@@ -162,7 +160,7 @@ export class MagicWandChunk implements HeapChunk {
 export class QuantifiedFieldChunk implements HeapChunk {
     constructor(
         readonly field: string,
-        readonly sort: string,
+        readonly sort: Sort,
         readonly fieldValueFunction: Term,
         readonly perm: Term,
         readonly invertibles: string | undefined,
@@ -180,7 +178,7 @@ export class QuantifiedPredicateChunk implements HeapChunk {
     constructor(
         readonly predicate: string,
         readonly vars: Term[],
-        readonly sort: string,
+        readonly sort: Sort,
         readonly predicateSnapFunction: Term,
         readonly perm: Term,
         readonly invertibles: string[],

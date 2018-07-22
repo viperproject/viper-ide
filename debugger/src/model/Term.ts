@@ -1,8 +1,17 @@
 import { DebuggerError } from "../Errors";
 import { TranslationEnv } from "./AlloyTranslator";
+import { Logger } from "../logger";
 
 function sanitize(name: string) {
     return name.replace(/@/g, "_");
+}
+
+function mustHave(type: string, obj: any, entries: string[]) {
+    entries.forEach(key => {
+        if (!obj.hasOwnProperty(key)) {
+            throw new DebuggerError(`A '${type}' object must have a '${key}' entry: '${obj}'`);
+        }
+    });
 }
 
 export interface Term {
@@ -10,15 +19,37 @@ export interface Term {
     toString(): string;
 }
 
+export class Sort {
+    constructor(readonly id: string, readonly elementsSort?: Sort) {}
+
+    public static from(obj: any): Sort {
+        mustHave('sort', obj, ['id']);
+
+        if (!('elementsSort' in obj)) {
+            return new Sort(obj.id);
+        } else {
+            return new Sort(obj.id, Sort.from(obj.elementsSort));
+        }
+    }
+
+    public toString(): string {
+        if (this.elementsSort) {
+            return `${this.id}[${this.elementsSort.toString()}]`;
+        } else {
+            return this.id;
+        }
+    }
+}
+
 export interface WithSort {
-    sort: string;
+    sort: Sort;
 }
 
 export function hasSort(object: any): object is WithSort {
     return 'sort' in object;
 }
 
-export function getSort(term: Term): string | undefined {
+export function getSort(term: Term): Sort | undefined {
     if (hasSort(term)) {
         return term.sort;
     }
@@ -107,12 +138,26 @@ export class Unary implements Term {
     }
 }
 
+export class SortWrapper implements Term, WithSort {
+    constructor(readonly term: Term, readonly sort: Sort) {}
+
+    toAlloy(env: TranslationEnv): TranslationRes {
+        Logger.debug(this.toString());
+        // TODO: Fix this
+        return this.term.toAlloy(env);
+    }
+
+    toString() {
+        return `SortWrapper(${this.term.toString()}, ${this.sort.toString()})`;
+    }
+}
+
 export class VariableTerm implements Term, WithSort {
-    constructor(readonly id: string, readonly sort: string) {}
+    constructor(readonly id: string, readonly sort: Sort) {}
 
     toAlloyWithType(): string {
         // TODO: Retrieve the actual type from some env object?
-        if (this.sort === "Ref") {
+        if (this.sort.id === "Ref") {
             return `${sanitize(this.id)}: Object`;
         }
         return `${sanitize(this.id)}: ${this.sort}`;
@@ -171,7 +216,7 @@ export class Quantification implements Term {
 
 export class Application implements Term, WithSort {
 
-    constructor(readonly applicable: string, readonly args: Term[], readonly sort: string) {}
+    constructor(readonly applicable: string, readonly args: Term[], readonly sort: Sort) {}
 
     public toAlloy(env: TranslationEnv): TranslationRes {
         const applicableSanitized = sanitize(this.applicable);
@@ -324,9 +369,9 @@ export class Let implements Term {
 }
 
 export class Literal implements Term, WithSort {
-    constructor(readonly sort: string, readonly value: string) {}
+    constructor(readonly sort: Sort, readonly value: string) {}
     public toAlloy(env: TranslationEnv): TranslationRes {
-        if (this.sort === 'Ref' && this.value === "Null") {
+        if (this.sort.id === 'Ref' && this.value === "Null") {
             return translated("NULL", []);
         }
 
@@ -395,39 +440,37 @@ export class MultisetSingleton implements Term {
 
 export namespace Term {
 
-    function mustHave(obj: any, entries: string[]) {
-        entries.forEach(key => {
-            if (!obj.hasOwnProperty(key)) {
-                throw new DebuggerError(`A '${obj.type}' term must have a '${key}' entry: '${obj}'`);
-            }
-        });
-    }
-
     export function from(obj: any): Term {
         if (obj.type === undefined || typeof obj.type !== 'string') {
             throw new DebuggerError(`Path condition terms must have a 'type' entry of type 'string': '${obj}'`);
         }
 
         if (obj.type === 'binary') {
-            mustHave(obj, ['op', 'lhs', 'rhs']);
+            mustHave(obj.type, obj, ['op', 'lhs', 'rhs']);
 
             return new Binary(obj.op as string, Term.from(obj.lhs), Term.from(obj.rhs));
         }
         
         if (obj.type === 'unary') {
-            mustHave(obj, ['op', 'p']);
+            mustHave(obj.type, obj, ['op', 'p']);
 
             return new Unary(obj.op, Term.from(obj.p));
         }
 
         if (obj.type === 'variable') {
-            mustHave(obj, ['id', 'sort']);
+            mustHave(obj.type, obj, ['id', 'sort']);
 
-            return new VariableTerm(obj.id, obj.sort);
+            return new VariableTerm(obj.id, Sort.from(obj.sort));
+        }
+
+        if (obj.type === 'sortWrapper') {
+            mustHave(obj.type, obj, ['term', 'sort']);
+
+            return new SortWrapper(Term.from(obj.term), Sort.from(obj.sort));
         }
 
         if (obj.type === 'quantification') {
-            mustHave(obj, ['quantifier', 'vars', 'body', 'name']);
+            mustHave(obj.type, obj, ['quantifier', 'vars', 'body', 'name']);
 
             return new Quantification(
                 obj.quantifier,
@@ -438,19 +481,19 @@ export namespace Term {
         }
 
         if (obj.type === 'application') {
-            mustHave(obj, ['applicable', 'args', 'sort']);
+            mustHave(obj.type, obj, ['applicable', 'args', 'sort']);
             
-            return new Application(obj.applicable as string, obj.args.map(Term.from), obj.sort);
+            return new Application(obj.applicable as string, obj.args.map(Term.from), Sort.from(obj.sort));
         }
 
         if (obj.type === 'lookup') {
-            mustHave(obj, ['field', 'fieldValueFunction', 'receiver']);
+            mustHave(obj.type, obj, ['field', 'fieldValueFunction', 'receiver']);
 
             return new Lookup(obj.field as string, Term.from(obj.fieldValueFunction), Term.from(obj.receiver));
         }
 
         if (obj.type === 'predicateLookup') {
-            mustHave(obj, ['predicate', 'predicateSnapFunction', 'args']);
+            mustHave(obj.type, obj, ['predicate', 'predicateSnapFunction', 'args']);
 
             return new PredicateLookup(
                 obj.predicate as string,
@@ -460,71 +503,71 @@ export namespace Term {
         }
 
         if (obj.type === 'and') {
-            mustHave(obj, ['terms']);
+            mustHave(obj.type, obj, ['terms']);
 
             return new And(obj.terms.map(Term.from));
         }
 
         if (obj.type === 'or') {
-            mustHave(obj, ['terms']);
+            mustHave(obj.type, obj, ['terms']);
 
             return new Or(obj.terms.map(Term.from));
         }
 
         if (obj.type === 'distinct') {
-            mustHave(obj, ['terms']);
+            mustHave(obj.type, obj, ['terms']);
 
             return new Distinct(obj.term.map(Term.from));
         }
 
         if (obj.type === 'ite') {
-            mustHave(obj, ['cond', 'thenBranch', 'elseBranch']);
+            mustHave(obj.type, obj, ['cond', 'thenBranch', 'elseBranch']);
 
             return new Ite(Term.from(obj.cond), Term.from(obj.thenBranch), Term.from(obj.elseBranch));
         }
 
         if (obj.type === 'let') {
-            mustHave(obj, ['bindings', 'body']);
+            mustHave(obj.type, obj, ['bindings', 'body']);
 
             return new Let(obj.bindings.map(Term.from), Term.from(obj.body));
         }
 
         if (obj.type === 'literal') {
-            mustHave(obj, ['sort', 'value']);
+            mustHave(obj.type, obj, ['sort', 'value']);
 
-            return new Literal(obj.sort as string, obj.value as string);
+            return new Literal(Sort.from(obj.sort), obj.value as string);
         }
 
         if (obj.type === 'seqRanged') {
-            mustHave(obj, ['lhs', 'rhs']);
+            mustHave(obj.type, obj, ['lhs', 'rhs']);
 
             return new SeqRanged(Term.from(obj.lhs), Term.from(obj.rhs));
         }
 
         if (obj.type === 'seqSingleton') {
-            mustHave(obj, ['value']);
+            mustHave(obj.type, obj, ['value']);
 
             return new SeqSingleton(Term.from(obj.value));
         }
 
         if (obj.type === 'seqUpdate') {
-            mustHave(obj, ['seq', 'index', 'value']);
+            mustHave(obj.type, obj, ['seq', 'index', 'value']);
 
             return new SeqUpdate(Term.from(obj.seq), Term.from(obj.index), Term.from(obj.value));
         }
 
         if (obj.type === 'singletonSet') {
-            mustHave(obj, ['value']);
+            mustHave(obj.type, obj, ['value']);
 
             return new SetSingleton(Term.from(obj.value));
         }
 
         if (obj.type === 'singletonMultiset') {
-            mustHave(obj, ['value']);
+            mustHave(obj.type, obj, ['value']);
 
             return new MultisetSingleton(Term.from(obj.value));
         }
 
-        throw new DebuggerError(`Unexpected path condition: ${JSON.stringify(obj)}`);
+        throw new DebuggerError(`Unexpected term: ${JSON.stringify(obj)}`);
     }
 }

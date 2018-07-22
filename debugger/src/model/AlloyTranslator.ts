@@ -2,7 +2,7 @@ import { AlloyModelBuilder } from "./AlloyModel";
 import { State } from "./Record";
 import { FieldChunk, QuantifiedFieldChunk, PredicateChunk } from "./Heap";
 import { Logger } from "../logger";
-import { VariableTerm, Literal, getSort, Unary } from "./Term";
+import { VariableTerm, Literal, getSort, Unary, Sort } from "./Term";
 import { DebuggerError } from "../Errors";
 import { Verifiable } from "./Verifiable";
 
@@ -104,18 +104,19 @@ export class AlloyTranslator {
     }
 
     // TODO: Seqs? Multisets?
-    private static isRefLikeSort(sort: string) {
-        return sort === "Ref" || sort === "Set[Ref]";
+    private static isRefLikeSort(sort: Sort): boolean {
+        return sort.id === "Ref" ||
+            (sort.id === "Set" && sort.elementsSort !== undefined && this.isRefLikeSort(sort.elementsSort));
     }
 
-    private sortToSignature(sort: string) {
-        if (sort === "Ref") {
+    private sortToSignature(sort: Sort) {
+        if (sort.id === "Ref") {
             return "Object";
         }
-        if (sort === "Set[Ref]") {
+        if (sort.id === "Set" && sort.elementsSort && sort.elementsSort.id === "Ref") {
             return "set Object";
         }
-        if (sort === "Int") {
+        if (sort.id === "Int") {
             return "Int";
         }
         throw new DebuggerError(`Unexpected sort '${sort}'`);
