@@ -1,5 +1,6 @@
 import { DebuggerError } from "../Errors";
-import { Term, Application, VariableTerm, getSort, Sort } from "./Term";
+import { Term, Application, VariableTerm } from "./Term";
+import { getSort, Sort } from './Sort';
 
 
 export interface HeapChunk {

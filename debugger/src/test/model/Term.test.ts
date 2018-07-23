@@ -1,5 +1,9 @@
 import * as assert from 'assert';
-import { Term, Literal, Sort, Unary, Binary, VariableTerm, Ite, Let, SortWrapper, SeqRanged, SeqSingleton, SeqUpdate, SetSingleton, MultisetSingleton, Distinct, And, Lookup, PredicateLookup, Or, Application, Quantification } from '../../model/Term';
+import { Term, Literal, Unary, Binary, VariableTerm, Ite, Let, SortWrapper,
+         SeqRanged, SeqSingleton, SeqUpdate, SetSingleton, MultisetSingleton,
+         Distinct, And, Lookup, PredicateLookup, Or, Application,
+         Quantification } from '../../model/Term';
+import { Sort } from "../../model/Sort";
 
 
 describe('Term', () => {

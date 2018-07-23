@@ -1,5 +1,6 @@
 import * as assert from 'assert';
-import { Literal, Sort, Unary, VariableTerm } from "../../model/Term";
+import { Literal, VariableTerm } from "../../model/Term";
+import { Sort } from "../../model/Sort";
 import { PredicateChunk, HeapChunk, FieldChunk, MagicWandChunk, QuantifiedFieldChunk, QuantifiedPredicateChunk, QuantifiedMagicWandChunk } from '../../model/Heap';
 
 describe('Heap', () => {

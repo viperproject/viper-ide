@@ -1,12 +1,13 @@
 import { DebuggerError } from "../Errors";
 import { TranslationEnv } from "./AlloyTranslator";
 import { Logger } from "../logger";
+import { WithSort, Sort } from "./Sort";
 
 function sanitize(name: string) {
     return name.replace(/@/g, "_");
 }
 
-function mustHave(type: string, obj: any, entries: string[]) {
+export function mustHave(type: string, obj: any, entries: string[]) {
     entries.forEach(key => {
         if (!obj.hasOwnProperty(key)) {
             throw new DebuggerError(`A '${type}' object must have a '${key}' entry: '${obj}'`);
@@ -17,48 +18,6 @@ function mustHave(type: string, obj: any, entries: string[]) {
 export interface Term {
     toAlloy(env: TranslationEnv): TranslationRes;
     toString(): string;
-}
-
-export class Sort {
-    constructor(readonly id: string, readonly elementsSort?: Sort) {}
-
-    public static from(obj: any): Sort {
-        mustHave('sort', obj, ['id']);
-
-        if (!('elementsSort' in obj)) {
-            return new Sort(obj.id);
-        } else {
-            return new Sort(obj.id, Sort.from(obj.elementsSort));
-        }
-    }
-
-    public toString(): string {
-        if (this.elementsSort) {
-            return `${this.id}[${this.elementsSort.toString()}]`;
-        } else {
-            return this.id;
-        }
-    }
-}
-
-export interface WithSort {
-    sort: Sort;
-}
-
-export function hasSort(object: any): object is WithSort {
-    return 'sort' in object;
-}
-
-export function getSort(term: Term): Sort | undefined {
-    if (hasSort(term)) {
-        return term.sort;
-    }
-    
-    if (term instanceof Binary) {
-        return getSort(term.lhs) || getSort(term.rhs);
-    }
-
-    return undefined;
 }
 
 
@@ -139,7 +98,8 @@ export class Unary implements Term {
 }
 
 export class SortWrapper implements Term, WithSort {
-    constructor(readonly term: Term, readonly sort: Sort) {}
+    constructor(readonly term: Term, readonly sort: Sort)
+     {}
 
     toAlloy(env: TranslationEnv): TranslationRes {
         Logger.debug(this.toString());

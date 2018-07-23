@@ -2,7 +2,8 @@ import { AlloyModelBuilder } from "./AlloyModel";
 import { State } from "./Record";
 import { FieldChunk, QuantifiedFieldChunk, PredicateChunk } from "./Heap";
 import { Logger } from "../logger";
-import { VariableTerm, Literal, getSort, Unary, Sort } from "./Term";
+import { VariableTerm, Literal, Unary } from "./Term";
+import { getSort, Sort } from './Sort';
 import { DebuggerError } from "../Errors";
 import { Verifiable } from "./Verifiable";
 
