@@ -77,7 +77,7 @@ export namespace HeapChunk {
         if (obj.type === 'quantified_predicate_chunk') {
             mustHave(obj, ['predicate', 'vars', 'predicate_snap_function', 'perm', 'invs', 'cond', 'singleton_args', 'hints']);
 
-            const psf = Term.from(obj.field_value_function);
+            const psf = Term.from(obj.predicate_snap_function);
             if (!(psf instanceof Application || psf instanceof VariableTerm)) {
                 throw new DebuggerError(`Expected predicate snap function to have a sort, but it was '${psf}'`);
             }
@@ -181,7 +181,7 @@ export class QuantifiedPredicateChunk implements HeapChunk {
         readonly sort: Sort,
         readonly predicateSnapFunction: Term,
         readonly perm: Term,
-        readonly invertibles: string[],
+        readonly invertibles: string | undefined,
         readonly cond: Term | undefined,
         readonly singletonArgs: Term[],
         readonly hints: Term[]
@@ -199,7 +199,7 @@ export class QuantifiedMagicWandChunk implements HeapChunk {
         readonly vars: Term[],
         readonly wandSnapFunction: Term,
         readonly perm: Term,
-        readonly invertibles: string[],
+        readonly invertibles: string | undefined,
         readonly cond: Term | undefined,
         readonly singletonArgs: Term[],
         readonly hints: Term[]
