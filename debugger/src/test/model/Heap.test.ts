@@ -124,5 +124,28 @@ describe('Heap', () => {
                                  hints:  null }),
                 new QuantifiedMagicWandChunk('p', [term], psf, term, undefined, undefined, [], []));
         });
+
+        it('should thrown an error when there are missing keys', () => {
+            const chunkTypes = [
+                'basic_predicate_chunk',
+                'basic_field_chunk',
+                'basic_magic_wand_chunk',
+                'quantified_field_chunk',
+                'quantified_predicate_chunk',
+                'quantified_magic_wand_chunk'
+            ]
+
+            chunkTypes.forEach(chunkType => {
+                assert.throws(() => HeapChunk.from({ type: chunkType }),
+                              /A '\w+' chunk must have a '\w+' entry:/);
+            });
+        });
+
+        it('should thrown an error when it receives invalid heap chunk types', () => {
+            assert.throws(() => HeapChunk.from({ type: 'invalid_heap_chunk' }),
+                          /Unexpected heap chunk:/);
+            assert.throws(() => HeapChunk.from({ type: {} }),
+                          /Heap chunks must have a 'type' entry of type 'string':/);
+        });
     });
 });
