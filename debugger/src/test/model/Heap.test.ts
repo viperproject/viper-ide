@@ -134,7 +134,7 @@ describe('Heap', () => {
                 'quantified_field_chunk',
                 'quantified_predicate_chunk',
                 'quantified_magic_wand_chunk'
-            ]
+            ];
 
             chunkTypes.forEach(chunkType => {
                 assert.throws(() => HeapChunk.from({ type: chunkType }),

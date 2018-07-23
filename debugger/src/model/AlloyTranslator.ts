@@ -6,6 +6,7 @@ import { VariableTerm, Literal, Unary } from "./Term";
 import { getSort, Sort } from './Sort';
 import { DebuggerError } from "../Errors";
 import { Verifiable } from "./Verifiable";
+import { TermTranslator } from "./TermTranslator";
 
 
 export class TranslationEnv {
@@ -167,29 +168,24 @@ export class AlloyTranslator {
                 }
 
                 objectRelations.add(`${hc.field}: lone ${this.sortToSignature(hc.sort)}`);
-                return;
-            }
-            
-            if (hc instanceof QuantifiedFieldChunk) {
+            } else if (hc instanceof QuantifiedFieldChunk) {
                 allFields.add(hc.field);
                 if (AlloyTranslator.isRefLikeSort(hc.sort)) {
                     successors.add(hc.field);
                 }
 
                 objectRelations.add(`${hc.field}: lone ${this.sortToSignature(hc.sort)}`);
-            }
-
-            // We store all predicates chunk in a map, based on their id
-            if (hc instanceof PredicateChunk) {
+            } else if (hc instanceof PredicateChunk) {
+                // We store all predicates chunk in a map, based on their id
                 const ps = predicates.get(hc.id);
                 if (ps) {
                     ps.push(hc);
                 } else {
                     predicates.set(hc.id, [hc]);
                 }
+            } else {
+                Logger.error(`Heap chunk translation not implemented yet: '${hc}'`);
             }
-
-            Logger.error(`Heap chunk translation not implemented yet: '${hc}'`);
         });
         objectRelations.add("successors': set Object");
 
@@ -203,6 +199,8 @@ export class AlloyTranslator {
         builder.sig('lone', 'NULL in Object', [], ["successors' = none"]);
         builder.blank();
 
+        const termTranslator = new TermTranslator(this.env);
+
         Array.from(predicates.keys()).forEach(id => {
             const name = "pred_" + id;
             let preds = <PredicateChunk[]> predicates.get(id);
@@ -211,7 +209,7 @@ export class AlloyTranslator {
 
             builder.sig('', name, [vars], []);
             preds.forEach(p => {
-                builder.fact(`one p': ${name} | ` + p.args.map(t => t.toAlloy(this.env)).join(' -> ') + " in p'.args");
+                builder.fact(`one p': ${name} | ` + p.args.map(termTranslator.toAlloy).join(' -> ') + " in p'.args");
             });
             builder.fact(`#${name} = ${preds.length}`);
             builder.blank();
@@ -240,7 +238,7 @@ export class AlloyTranslator {
         this.state.heap.forEach(chunk => {
             if (chunk instanceof FieldChunk) {
                 const receiver = this.env.resolve((chunk.receiver as VariableTerm).id);
-                const perm = chunk.perm.toAlloy(this.env);
+                const perm = termTranslator.toAlloy(chunk.perm);
 
                 if (!perm.res) {
                     builder.comment("!!! Non-translated permission");
@@ -254,7 +252,7 @@ export class AlloyTranslator {
 
             } else if (chunk instanceof QuantifiedFieldChunk) {
                 this.env.evaluateWithQuantifiedVariables(['r'], () => {
-                    const perm = chunk.perm.toAlloy(this.env);
+                    const perm = termTranslator.toAlloy(chunk.perm);
                     if (!perm.res) {
                         builder.comment("!!! Non-translated permission");
                         perm.leftovers.forEach(l => {
@@ -270,7 +268,7 @@ export class AlloyTranslator {
         builder.blank();
 
         this.state.pathConditions.forEach(pc => {
-            let body = pc.toAlloy(this.env);
+            let body = termTranslator.toAlloy(pc);
             if (body.res) {
                 builder.comment(pc.toString());
                 builder.fact(body.res);
@@ -292,7 +290,7 @@ export class AlloyTranslator {
         // Note that the translation of this fact may not be posssible in statements earlier than the failing one. For
         // example, when the failing query refers to a variable that did not exist yet.
         if (this.verifiable.lastSMTQuery) {
-            const failedQuery = new Unary('!', this.verifiable.lastSMTQuery).toAlloy(this.env);
+            const failedQuery = termTranslator.toAlloy(new Unary('!', this.verifiable.lastSMTQuery));
             if (failedQuery.res) {
                 builder.comment("Last non-proved smt query");
                 builder.fact(failedQuery.res);
