@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { Z_UNKNOWN } from "zlib";
 import { State } from './ExtensionState';
 import { ViperFileState } from './ViperFileState';
 import { Success } from './ViperProtocol';
+import { LanguageClient } from 'vscode-languageclient/lib/main';
 
 export class VerificationTerminatedEvent {
     status: Success;
@@ -19,10 +19,12 @@ class ViperConfiguration {
 export class ViperApi {
     private verificationTerminatedObservers: ((VerificationTerminatedEvent) => void)[] = []
     private serverMessageCallbacks: Map<string, Array<(string, any) => void>> = new Map();
+    private languageClient: LanguageClient;
     public configuration: ViperConfiguration;
 
-    public constructor() {
+    public constructor(client: LanguageClient) {
         this.configuration = new ViperConfiguration();
+        this.languageClient = client;
     }
 
     /** Register an observer for a VerificationTerminated event */
@@ -60,6 +62,18 @@ export class ViperApi {
 
         if (callbacks) {
             callbacks.forEach((cb) => cb(messageType, message));
+        }
+    }
+
+    public getViperServerUrl(): Thenable<string> {
+        return this.sendServerMessage<string>("GetViperServerUrl");
+    }
+
+    private sendServerMessage<R>(key: string, param?: any): Thenable<R> {
+        if (param) {
+            return this.languageClient.sendRequest(key, param);
+        } else {
+            return this.languageClient.sendRequest(key);
         }
     }
 

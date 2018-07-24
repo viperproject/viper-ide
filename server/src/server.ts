@@ -15,6 +15,7 @@ import { Server } from './ServerClass';
 import { ViperServerService } from './ViperServerService';
 import * as fs from 'fs';
 import * as pathHelper from 'path';
+import { resolve } from 'url';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 Server.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
@@ -378,6 +379,16 @@ function registerHandlers() {
                 resolve(true);
             } else {
                 resolve(false);
+            }
+        });
+    });
+
+    Server.connection.onRequest("GetViperServerUrl", () => {
+        return new Promise<any>((resolve, reject) => {
+            if (Server.backendService instanceof ViperServerService) {
+                resolve(Server.backendService.getAddress())
+            } else {
+                reject("Not running with ViperServer backend");
             }
         });
     });

@@ -605,4 +605,8 @@ export class ViperServerService extends BackendService {
     }
 
     public static supportedTypes = '"carbon", "silicon", "other"';
+
+    public getAddress() {
+        return this._url + ":" + this._port;
+    }
 }

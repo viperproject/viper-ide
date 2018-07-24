@@ -54,9 +54,9 @@ export function activate(context: vscode.ExtensionContext) {
     State.checkOperatingSystem();
     State.context = context;
     State.verificationController = new VerificationController();
-    State.viperApi = new ViperApi();
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/{' + Helper.viperFileEndings.join(",") + "}");
     State.startLanguageServer(context, fileSystemWatcher, false); //break?
+    State.viperApi = new ViperApi(State.client);
     registerHandlers();
     startAutoSaver();
     State.initializeStatusBar(context);
@@ -245,6 +245,8 @@ function registerHandlers() {
             }
         });
 
+        // When we don't know how to handle a message, we send it to whoever may be using the ViperApi, because this
+        // unexpected message may have been destined for them.
         State.client.onNotification(
             Commands.UnhandledViperServerMessageType,
             (messageType: string, message: any) => { State.viperApi.notifyServerMessage(messageType, message); }
