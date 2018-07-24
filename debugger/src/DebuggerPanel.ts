@@ -9,6 +9,7 @@ import { DebuggerError } from './Errors';
 import { RecordView } from './model/Record';
 import { DecorationsManager } from './DecorationsManager';
 import { AlloyTranslator } from './model/AlloyTranslator';
+import { Alloy } from './model/Alloy';
 
 
 class PanelMessage {
@@ -43,7 +44,9 @@ export class DebuggerPanel implements SessionObserver {
             DebuggerPanel.webviewOptions
         );
 
-        this.panel.webview.onDidReceiveMessage((m) => this.handleMessageFromPanel(m));
+        this.panel.webview.onDidReceiveMessage((m) => {
+            this.handleMessageFromPanel(m);
+        });
         this.panel.webview.html = Util.loadWebviewContent(this.extensionPath);
     }
 
@@ -163,9 +166,14 @@ export class DebuggerPanel implements SessionObserver {
                 return;
             }
 
-            const translator = new AlloyTranslator(record.verifiable, record.current.prestate);
-            const model = translator.translate();
+            const translator = new AlloyTranslator();
+            const model = translator.translate(record.verifiable, record.current.prestate);
             this.logModel(model);
+
+            Alloy.generate(model).then(
+                (instance) => Logger.info(instance),
+                (reason) => Logger.error(reason)
+            );
         });
     }
 }

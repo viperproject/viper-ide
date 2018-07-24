@@ -99,10 +99,7 @@ export class TranslationEnv {
 
 export class AlloyTranslator {
 
-    private env: TranslationEnv;
-
-    constructor(readonly verifiable: Verifiable, readonly state: State) {
-        this.env = new TranslationEnv(state);
+    constructor() {
     }
 
     // TODO: Seqs? Multisets?
@@ -124,12 +121,14 @@ export class AlloyTranslator {
         throw new DebuggerError(`Unexpected sort '${sort}'`);
     }
 
-    public translate(): string {
+    public translate(verifiable: Verifiable, state: State): string {
+
+        const env = new TranslationEnv(state);
         const builder = new AlloyModelBuilder();
 
         let allVariables: string[] = [];
         let storeDecls: string[] = [];
-        this.state.store.forEach(v => {
+        state.store.forEach(v => {
             // TODO: Do they ever appear in the path conditions?
             // Skip additional variables introduced by Silicon
             if (v.name.match(/v@\d+@\d+/)) {
@@ -160,7 +159,7 @@ export class AlloyTranslator {
         const objectRelations: Set<string> = new Set();
         const predicates: Map<string, PredicateChunk[]> = new Map();
 
-        this.state.heap.forEach(hc => {
+        state.heap.forEach(hc => {
             if (hc instanceof FieldChunk) {
                 allFields.add(hc.field);
                 if (AlloyTranslator.isRefLikeSort(hc.sort)) {
@@ -199,7 +198,7 @@ export class AlloyTranslator {
         builder.sig('lone', 'NULL in Object', [], ["successors' = none"]);
         builder.blank();
 
-        const termTranslator = new TermTranslator(this.env);
+        const termTranslator = new TermTranslator(env);
 
         Array.from(predicates.keys()).forEach(id => {
             const name = "pred_" + id;
@@ -235,9 +234,9 @@ export class AlloyTranslator {
             builder.blank();
         }
 
-        this.state.heap.forEach(chunk => {
+        state.heap.forEach(chunk => {
             if (chunk instanceof FieldChunk) {
-                const receiver = this.env.resolve((chunk.receiver as VariableTerm).id);
+                const receiver = env.resolve((chunk.receiver as VariableTerm).id);
                 const perm = termTranslator.toAlloy(chunk.perm);
 
                 if (!perm.res) {
@@ -251,7 +250,7 @@ export class AlloyTranslator {
                 }
 
             } else if (chunk instanceof QuantifiedFieldChunk) {
-                this.env.evaluateWithQuantifiedVariables(['r'], () => {
+                env.evaluateWithQuantifiedVariables(['r'], () => {
                     const perm = termTranslator.toAlloy(chunk.perm);
                     if (!perm.res) {
                         builder.comment("!!! Non-translated permission");
@@ -267,7 +266,7 @@ export class AlloyTranslator {
         });
         builder.blank();
 
-        this.state.pathConditions.forEach(pc => {
+        state.pathConditions.forEach(pc => {
             let body = termTranslator.toAlloy(pc);
             if (body.res) {
                 builder.comment(pc.toString());
@@ -282,15 +281,15 @@ export class AlloyTranslator {
             builder.blank();
         });
 
-        for (let [namespace, names] of this.env.functions) {
+        for (let [namespace, names] of env.functions) {
             builder.sig('one', namespace, [...names].map(n => `${n}: (Object one -> one Object)`), []);
         }
         builder.blank();
 
         // Note that the translation of this fact may not be posssible in statements earlier than the failing one. For
         // example, when the failing query refers to a variable that did not exist yet.
-        if (this.verifiable.lastSMTQuery) {
-            const failedQuery = termTranslator.toAlloy(new Unary('!', this.verifiable.lastSMTQuery));
+        if (verifiable.lastSMTQuery) {
+            const failedQuery = termTranslator.toAlloy(new Unary('!', verifiable.lastSMTQuery));
             if (failedQuery.res) {
                 builder.comment("Last non-proved smt query");
                 builder.fact(failedQuery.res);

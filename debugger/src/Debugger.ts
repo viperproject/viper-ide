@@ -124,13 +124,19 @@ export namespace Debugger {
     function update(entries: SymbExLogEntry[]) {
         const verifiables = entries.map(Verifiable.from);
 
+        if (session) {
+            session.removeListeners();
+            session = undefined;
+        }
+
         session = new DebuggerSession(debuggedFile, verifiables);
 
         sessionObservers.forEach(observer => {
+            observer.clearSession();
             observer.setSession(session!);
         });
 
-        session.notifyStateChange();
+        // session.notifyStateChange();
     }
 
 
