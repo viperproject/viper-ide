@@ -106,6 +106,12 @@ function setupInputHandlers() {
         vscode.postMessage({ command: 'mouseNavigation', value: input.prop('checked')});
     });
 
+    // Setup handler for the selection change
+    $('#verifiables').change((event) => { 
+        const name = $('#verifiables').val();
+        vscode.postMessage({ command: 'selectVerifiable', data: name });
+    });
+
     Logger.debug("Done setting up input handlers.");
 }
 
@@ -252,12 +258,6 @@ function handleVerifiableUpdate(verifiables: any[]) {
     const dropdown = $('#verifiables');
     const selected = dropdown.val();
     dropdown.empty();
-
-    // Setup handler for the selection change
-    dropdown.change((event) => { 
-        const name = $('#verifiables').val();
-        vscode.postMessage({ command: 'selectVerifiable', data: name });
-    });
 
     // Set the options, if any
     if (options.length > 0) {
