@@ -140,10 +140,23 @@ export class ViperServerService extends BackendService {
         this.backendProcess.stderr.removeAllListeners()
     }
 
+    private logLevelToStr(l: number): string {
+        switch (l) {
+            case 0: return `OFF`
+            case 1: return `ERROR`
+            case 2: return `WARN`
+            case 3: return `INFO`
+            case 4: return `TRACE`
+            case 5: return `ALL`
+            default: return `ALL`
+        }
+    }
+
     private getViperServerStartCommand(): string {
         let command = "java " + Settings.settings.javaSettings.customArguments +  
                       " " + Settings.settings.viperServerSettings.customArguments + 
-                      " " + "--logFile " + Server.tempDirectory
+                      " --logLevel " + this.logLevelToStr(Settings.settings.preferences.logLevel) +
+                      " --logFile " + Server.tempDirectory
 
         command = command.replace(/\$backendPaths\$/g, Settings.viperServerJars())
         command = command.replace(/\$backendSpecificCache\$/g, (Settings.settings.viperServerSettings.backendSpecificCache === true ? "--backendSpecificCache" : ""))
