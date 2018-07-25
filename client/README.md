@@ -1,6 +1,20 @@
 
 # Changelog
 
+### v.2.1.0
+* **Please update the IDE dependencies via Command Palette in order to use this version.**
+* Fixed the bug causing the bottom pane to pop-up at startup or while navigating the code, jumping to definition, etc.
+* The new ViperServer supports caching of verification results from Silicon.
+* Caching is disabled by default for now. To enable caching, add the following to your User Settings:
+
+        "viperSettings.viperServerSettings": {
+            "v": "674a514867b1",
+            "disableCaching": false
+        }
+
+    To invalidate the cache, use ```Viper: flush the cache``` from the command palette.
+
+
 ### v.2.0.10
 * Fixed a bug with internal errors not being reported properly (e.g., ```"tag": "internal:feature.unsupported"```). See [Silicon#326](https://bitbucket.org/viperproject/silicon/issues/326)
 * Fixed a bug with error reporting in custom backends (```"type": "other"```).
