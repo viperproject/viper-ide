@@ -1,6 +1,11 @@
 
 # Changelog
 
+### v.2.1.1
+* **Please update the IDE dependencies via Command Palette in order to use this version.**
+* Fixed the bug that caused some verification failures to appear twice when caching is enabled.
+* The new ViperServer supports caching of verification results for both verification backends. The caching mechanism is optimized.
+
 ### v.2.1.0
 * **Please update the IDE dependencies via Command Palette in order to use this version.**
 * Fixed the bug causing the bottom pane to pop-up at startup or while navigating the code, jumping to definition, etc.

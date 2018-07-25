@@ -282,11 +282,11 @@ export class ViperServerService extends BackendService {
                                     type: "End", 
                                     time: (message.msg_body.details.time * 0.001) + 's'
                                 }))
-                                if ( message.msg_body.status === 'success' ){
+                                //if ( message.msg_body.status === 'success' ){
                                     return onData(JSON.stringify({ type: "Success" }))
-                                } else {
-                                    return onData(JSON.stringify({ type: "Failure" }))
-                                }
+                                //} else {
+                                //return onData(JSON.stringify({ type: "Failure" }))
+                                //}
                             }
 
                     } else {
