@@ -217,7 +217,8 @@ export class ViperServerService extends BackendService {
                     if ( message.hasOwnProperty('msg_body') && 
                          message.msg_body.hasOwnProperty('status') ) {
 
-                            if ( message.msg_body.status === 'failure') {
+                            if ( message.msg_body.status === 'failure' && 
+                                 message.msg_body.details.result.errors.length > 0) {  // we get zero errors in the overall results if the errors have been cached. 
 
                                 let first_error_tag = message.msg_body.details.result.errors[0].tag
                                 let global_failure = 
@@ -263,12 +264,16 @@ export class ViperServerService extends BackendService {
 
                             } 
                             
-                            if ( message.msg_body.kind === 'overall') {
+                            if ( message.msg_body.kind === 'overall' ) {
                                 onData(JSON.stringify({
                                     type: "End", 
                                     time: (message.msg_body.details.time * 0.001) + 's'
                                 }))
-                                return onData(JSON.stringify({ type: "Success" }))
+                                if ( message.msg_body.status === 'success' ){
+                                    return onData(JSON.stringify({ type: "Success" }))
+                                } else {
+                                    return onData(JSON.stringify({ type: "Failure" }))
+                                }
                             }
 
                     } else {
