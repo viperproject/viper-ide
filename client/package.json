@@ -362,7 +362,7 @@
                     "default": {
                         "v": "674a514867b1",
                         "autoSave": true,
-                        "logLevel": 5,
+                        "logLevel": 3,
                         "autoVerifyAfterBackendChange": true,
                         "showProgress": true,
                         "viperToolsProvider": {
