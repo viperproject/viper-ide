@@ -10,9 +10,11 @@ import { Settings } from './Settings';
 import * as pathHelper from 'path';
 import * as fs from 'fs';
 import * as http from 'http';
+import { resolve } from 'url';
 const os = require('os');
 const globToRexep = require('glob-to-regexp');
 let mkdirp = require('mkdirp');
+let rimraf = require('rimraf');
 var DecompressZip = require('decompress-zip');
 
 export class Server {
@@ -236,19 +238,19 @@ export class Server {
                 let folder = pathHelper.dirname(filePath);
                 mkdirp(folder, (err) => {
                     if (err && err.code != 'EEXIST') {
-                        resolve(err.code + ": Error creating " + folder + " " + err.message);
+                        resolve(err.code + ": Error creating " + folder + ": " + err.message);
                     } else {
                         fs.open(filePath, 'a', (err, file) => {
                             if (err) {
-                                resolve(err.code + ": Error opening " + filePath + " " + err.message)
+                                resolve(err.code + ": Error opening " + filePath + ": " + err.message)
                             } else {
                                 fs.close(file, err => {
                                     if (err) {
-                                        resolve(err.code + ": Error closing " + filePath + " " + err.message)
+                                        resolve(err.code + ": Error closing " + filePath + ": " + err.message)
                                     } else {
                                         fs.access(filePath, 2, (e) => { //fs.constants.W_OK is 2
                                             if (e) {
-                                                resolve(e.code + ": Error accessing " + filePath + " " + e.message)
+                                                resolve(e.code + ": Error accessing " + filePath + ": " + e.message)
                                             } else {
                                                 resolve(null);
                                             }
@@ -386,23 +388,32 @@ export class Server {
 
             // In case the update is started automatically, always ask for permission. 
             // If it was requested by the user, only ask when sudo permission needed.
-            let prepareFolderPromise;
-            if (askForPermission) {
-                prepareFolderPromise = Server.sudoMakeSureFileExistsAndSetOwner(dir);
-            } else {
-                prepareFolderPromise = Server.makeSureFileExistsAndCheckForWritePermission(viperToolsPath).then(error => {
-                    if (error && !Settings.isWin && error.startsWith("EACCES")) {
-                        //change the owner of the location 
-                        Log.log("Try to change the ownership of " + dir, LogLevel.Debug);
-                        return Server.sudoMakeSureFileExistsAndSetOwner(dir)
+            let prepareFolderPromise = new Promise<string>((resolve, reject) => {
+                // Delete whatever was stored in the viper tools directory before to avoid conflicts. 
+                rimraf(dir, (e) => {
+                    if (e) {
+                        reject("Error while deleting the old files from `" + dir + "`")
                     } else {
-                        return error;
+                        if (askForPermission) {
+                            resolve(Server.sudoMakeSureFileExistsAndSetOwner(dir))
+                        } else {
+                            resolve(Server.makeSureFileExistsAndCheckForWritePermission(viperToolsPath).then(error => {
+                                if (error && !Settings.isWin && error.startsWith("EACCES")) {
+                                    //change the owner of the location 
+                                    Log.log("Try to change the ownership of " + dir, LogLevel.Debug);
+                                    return Server.sudoMakeSureFileExistsAndSetOwner(dir)
+                                } else {
+                                    return error;
+                                }
+                            }))
+                        }
                     }
                 })
-            }
+            })
+
             prepareFolderPromise.then(error => {
                 if (error) {
-                    throw ("The Viper Tools Update failed, change the ViperTools directory to a folder in which you have permission to create files. " + error);
+                    throw ("The Viper Tools Update failed. Try changing the ViperTools directory to a folder in which you have permission to create files. " + error);
                 }
                 //download Viper Tools
                 let url = <string>Settings.settings.preferences.viperToolsProvider;
@@ -451,20 +462,20 @@ export class Server {
 
     public static sudoMakeSureFileExistsAndSetOwner(filePath: string): Promise<string> {
         return new Promise((resolve, reject) => {
-            let command: string;
+            let command: string
             if (Settings.isWin) {
-                command = 'mkdir "' + filePath + '" && takeown /f "' + filePath + '" /r /d y && icacls "' + filePath + '" /grant %USERNAME%:F /t /q';
+                command = 'mkdir "' + filePath + '" && takeown /f "' + filePath + '" /r /d y && icacls "' + filePath + '" /grant %USERNAME%:F /t /q'
             } else if (Settings.isLinux) {
-                let user = Server.getUser();
-                command = `sh -c "mkdir -p '` + filePath + `'; chown -R ` + user + `:` + user + ` '` + filePath + `'"`;
+                let user = Server.getUser()
+                command = `sh -c "mkdir -p '` + filePath + `'; chown -R ` + user + `:` + user + ` '` + filePath + `'"`
             } else {
-                let user = Server.getUser();
-                command = `sh -c "mkdir -p '` + filePath + `'; chown -R ` + user + `:staff '` + filePath + `'"`;
+                let user = Server.getUser()
+                command = `sh -c "mkdir -p '` + filePath + `'; chown -R ` + user + `:staff '` + filePath + `'"`
             }
             Common.sudoExecuter(command, "ViperTools Installer", () => {
                 resolve()
-            });
-        });
+            })
+        })
     }
 
     //unused
