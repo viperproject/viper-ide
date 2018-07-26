@@ -1,12 +1,13 @@
 import { AlloyModelBuilder } from "./AlloyModel";
 import { State } from "./Record";
-import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, MagicWandChunk } from "./Heap";
+import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, MagicWandChunk, HeapChunk } from "./Heap";
 import { Logger } from "../logger";
-import { VariableTerm, Unary, Literal } from "./Term";
+import { VariableTerm, Unary, Literal, Term } from "./Term";
 import { getSort, Sort } from './Sort';
 import { DebuggerError } from "../Errors";
 import { Verifiable } from "./Verifiable";
 import { TermTranslator } from "./TermTranslator";
+import { StoreVariable } from "./StoreVariable";
 
 
 function sanitizeName(name: string) {
@@ -16,6 +17,13 @@ function sanitizeName(name: string) {
 
 export class TranslationEnv {
 
+    public fields: string[];
+    public predicates: Map<string, PredicateChunk[]>;
+
+    // TODO: These two should be factored out somehow
+    public heapChunks: string[];
+    public heapConstraints: string[];
+
     private quantifiedVariables: Set<string>;
     private storeVariables: Set<string>;
     public heapVariables: Set<string>;
@@ -24,12 +32,20 @@ export class TranslationEnv {
     public functions: Map<string, Sort[]>;
     public totalCombines: number;
     public introduceMissingTempVars: boolean = true;
+    public userSorts: string[];
 
     constructor(readonly state: State) {
+        this.fields = [];
+        this.predicates = new Map();
+
+        this.heapChunks = [];
+        this.heapConstraints = [];
+
         this.storeVariables = new Set();
         this.heapVariables = new Set();
         this.quantifiedVariables = new Set();
         this.tempVariables = new Map();
+        this.userSorts = [];
 
         state.store.forEach(v => {
             // We save the names of symbolic value for store variables
@@ -55,7 +71,7 @@ export class TranslationEnv {
         this.totalCombines = 0;
     }
 
-    public resolve(variable: VariableTerm, actualValue: boolean = false): string | undefined {
+    public resolve(variable: VariableTerm): string | undefined {
         if (this.quantifiedVariables.has(variable.id)) {
             return variable.id;
         }
@@ -126,12 +142,17 @@ export class TranslationEnv {
     public recordCombine() {
         this.totalCombines += 1;
     }
+    
+    public recordUserSort(userSort: string) {
+        this.userSorts.push(userSort);
+    }
+
+    public recordField(field: string) {
+        this.fields.push(field);
+    }
 }
 
 export class AlloyTranslator {
-
-    constructor() {
-    }
 
     // TODO: Seqs? Multisets?
     private static isRefLikeSort(sort: Sort): boolean {
@@ -141,15 +162,10 @@ export class AlloyTranslator {
             (sort.id === "Multiset" && sort.elementsSort !== undefined && this.isRefLikeSort(sort.elementsSort));
     }
 
-    public translate(verifiable: Verifiable, state: State): string {
-
-        const env = new TranslationEnv(state);
-        const mb = new AlloyModelBuilder();
-
+    private static translateStore(vars: StoreVariable[], env: TranslationEnv, mb: AlloyModelBuilder) {
         const refTypedStoreVariables: string[] = [];
-        const userSorts: string[] = [];
         const storeDecls: string[] = [];
-        state.store.forEach(v => {
+        vars.forEach(v => {
 
             if (v.value instanceof Literal) {
                 Logger.debug(`Ignoring literal store variable '${v.toString()}`);
@@ -166,7 +182,7 @@ export class AlloyTranslator {
                     storeDecls.push(`${name}: one Integer`);
                 } else if (v.sort.id === 'UserSort' && v.sort.elementsSort) {
                     const userSort = v.sort.elementsSort.id;
-                    userSorts.push(userSort);
+                    env.recordUserSort(userSort);
                     storeDecls.push(`${name}: one ${userSort}`);
                 } else {
                     Logger.error(`Store variables of type '${v.sort}' are not implemented yet.`);
@@ -179,92 +195,104 @@ export class AlloyTranslator {
                 Logger.error(`Unexpected store value type '${v.toString()}'`);
             }
         });
-        storeDecls.push("variables': set Object");
 
+        // Add the 'variables' helper relation to keep track of all the objects that are reachable from the store
+        storeDecls.push("variables': set SymbVal");
         const variablesConstraint = "variables' = " + (refTypedStoreVariables.length > 0
                                                            ? refTypedStoreVariables.join(" + ")
                                                            : 'none');
 
         mb.sig('one', 'Store', storeDecls, [variablesConstraint]);
         mb.blank();
+    }
 
-        if (userSorts.length > 0) {
-            userSorts.forEach(s => mb.sig('', s));  
-            mb.blank();
-        }
+    private static emitPrelude(mb: AlloyModelBuilder) {
+        mb.sig('abstract', 'SymbVal');
+        mb.sig('', "Snap extends SymbVal");
+        mb.sig('', "Integer extends SymbVal", ['v: one Int']);
 
-        let allFields: Set<string> = new Set();
-        let successors: Set<string> = new Set();
+        mb.sig('abstract', "Perm");
+        mb.sig('one', "W, R, Z extends Perm");
+        mb.blank();
+    }
 
-        const objectRelations: Set<string> = new Set();
-        const predicates: Map<string, PredicateChunk[]> = new Map();
-        const heapChunks: string[] = [];
-        const heapConstraints: string[] = [];
+    private static encodeRefSignature(chunks: HeapChunk[], env: TranslationEnv, mb: AlloyModelBuilder, termTranslator: TermTranslator) {
+        const objectMembers: string[] = [];
+        const successors: Set<string> = new Set();
 
-        const termTranslator = new TermTranslator(env);
-
-        state.heap.forEach(hc => {
+        chunks.forEach(hc => {
             if (hc instanceof FieldChunk) {
-                allFields.add(hc.field);
+                env.recordField(hc.field);
                 if (AlloyTranslator.isRefLikeSort(hc.sort)) {
                     successors.add(hc.field);
                 }
 
-                objectRelations.add(`${hc.field}: lone ${env.sortToSignature(hc.sort)}`);
+                objectMembers.push(`${hc.field}: lone ${env.sortToSignature(hc.sort)}`);
                 if (hc.snap instanceof VariableTerm) {
-                    heapChunks.push(`${sanitizeName(hc.snap.id)}: one ${env.sortToSignature(hc.snap.sort)}`);
+                    env.heapChunks.push(`${sanitizeName(hc.snap.id)}: one ${env.sortToSignature(hc.snap.sort)}`);
                     const rec = termTranslator.toAlloy(hc.receiver);
                     if (rec.res) {
-                        heapConstraints.push(rec.res + '.' + hc.field + ' = ' + env.resolve(hc.snap));
+                        env.heapConstraints.push(rec.res + '.' + hc.field + ' = ' + env.resolve(hc.snap));
                     } else {
                         Logger.warn("Could not translate field receiver: " + rec.leftovers.join("\n"));
                     }
                 }
             } else if (hc instanceof QuantifiedFieldChunk) {
-                allFields.add(hc.field);
+                env.recordField(hc.field);
                 if (AlloyTranslator.isRefLikeSort(hc.sort)) {
                     successors.add(hc.field);
                 }
 
-                objectRelations.add(`${hc.field}: lone ${env.sortToSignature(hc.sort)}`);
+                objectMembers.push(`${hc.field}: lone ${env.sortToSignature(hc.sort)}`);
             } else if (hc instanceof PredicateChunk) {
                 if (hc.snap instanceof VariableTerm) {
-                    heapChunks.push(`${sanitizeName(hc.snap.id)}: one ${env.sortToSignature(hc.snap.sort)}`);
+                    env.heapChunks.push(`${sanitizeName(hc.snap.id)}: one ${env.sortToSignature(hc.snap.sort)}`);
                 }
                 // We store all predicates chunk in a map, based on their id
-                const ps = predicates.get(hc.id);
+                const ps = env.predicates.get(hc.id);
                 if (ps) {
                     ps.push(hc);
                 } else {
-                    predicates.set(hc.id, [hc]);
+                    env.predicates.set(hc.id, [hc]);
                 }
             } else {
                 Logger.error(`Heap chunk translation not implemented yet: '${hc}'`);
             }
         });
-        objectRelations.add("successors': set Object");
+        objectMembers.push("successors': set Object");
 
         // Constraint on successors of objects
         const fieldsConstraint = "successors' = " + ((successors.size < 1) ? 'none' : [...successors].join(" + "));
 
-        mb.sig('', 'Object extends SymbVal', [...objectRelations], [fieldsConstraint]);
+        mb.sig('', 'Object extends SymbVal', objectMembers, [fieldsConstraint]);
         mb.blank();
+
+        mb.sig('one', "PermF", env.fields.map(f => `${f}: (Object -> one Perm)`));
+        if (env.fields.length > 0) {
+            mb.comment("Constraints on field permission/existence");
+            env.fields.forEach(field => {
+                mb.fact(`all o: Object | one o.${field} <=> PermF.${field}[o] in (W + R)`);
+            });
+            mb.blank();
+        }
 
         // The null reference
         mb.sig('lone', 'NULL in Object', [], ["successors' = none"]);
         mb.blank();
+    }
 
-        mb.sig('one', 'Heap', heapChunks, []);
-        heapConstraints.forEach(c => mb.fact(c));
+    private static translateHeap(env: TranslationEnv, mb: AlloyModelBuilder, termTranslator: TermTranslator) {
+        mb.sig('one', 'Heap', env.heapChunks);
+        env.heapConstraints.forEach(c => mb.fact(c));
         mb.blank();
 
-        Array.from(predicates.keys()).forEach(id => {
+        Array.from(env.predicates.keys()).forEach(id => {
             const name = "pred_" + id;
-            let preds = <PredicateChunk[]> predicates.get(id);
+            let preds = <PredicateChunk[]> env.predicates.get(id);
             let first = preds[0];
             const vars = 'args: ' + first.args.map(a => env.sortToSignature(getSort(a)!)).join(' one -> one ');
 
-            mb.sig('', name, [vars], []);
+            mb.sig('', name, [vars]);
             preds.forEach(p => {
                 const args: string[] = [];
                 p.args.forEach(a => {
@@ -280,25 +308,13 @@ export class AlloyTranslator {
             mb.fact(`#${name} = ${preds.length}`);
             mb.blank();
         });
+    }
 
-        mb.sig('abstract', 'SymbVal');
-        mb.sig('', "Snap extends SymbVal");
-        mb.sig('', "Integer extends SymbVal", ['v: one Int']);
-
-        mb.sig('one', "PermF", [...allFields].map(f => `${f}: (Object -> one Perm)`), []);
-        mb.sig('abstract', "Perm");
-        mb.sig('one', "W, R, Z extends Perm");
-        mb.blank();
-
-        if (allFields.size > 0) {
-            mb.comment("Constraints on field permission/existence");
-            allFields.forEach(field => {
-                mb.fact(`all o: Object | one o.${field} <=> PermF.${field}[o] in (W + R)`);
-            });
-            mb.blank();
-        }
-
-        state.heap.forEach(chunk => {
+    private static encodePermissions(chunks: HeapChunk[],
+                                     env: TranslationEnv,
+                                     mb: AlloyModelBuilder,
+                                     termTranslator: TermTranslator) {
+        chunks.forEach(chunk => {
             if (chunk instanceof FieldChunk) {
                 const receiver = termTranslator.toAlloy(chunk.receiver);
                 const perm = termTranslator.toAlloy(chunk.perm);
@@ -329,8 +345,10 @@ export class AlloyTranslator {
             }
         });
         mb.blank();
+    }
 
-        state.pathConditions.forEach(pc => {
+    private static translatePathConditions(pathConditions: Term[], mb: AlloyModelBuilder, termTranslator: TermTranslator) {
+        pathConditions.forEach(pc => {
             let body = termTranslator.toAlloy(pc);
             if (!body.res) {
                 mb.comment("!!! Non-translated fact: ");
@@ -348,7 +366,9 @@ export class AlloyTranslator {
             mb.fact(fact);
             mb.blank();
         });
+    }
 
+    private static translateInverseFunctions(env: TranslationEnv, mb: AlloyModelBuilder) {
         // NOTE: Inverse function, functions and temp variables are added to the Alloy model "at the bottom" because
         // we gather them mostly when traversing the path conditions. Alloy does not care for where the variables are
         // declared as long as they are.
@@ -357,39 +377,53 @@ export class AlloyTranslator {
             for (let [name, sorts] of env.inverseFunctions) {
                 invMembers.push(name + ': (' + sorts.map(s => env.sortToSignature(s)).join(' -> ') + ')');
             }
-            mb.sig('one', 'Inv', invMembers, []);
+            mb.sig('one', 'Inv', invMembers);
             mb.blank();
         }
+    }
 
+    private static translateFunctions(env: TranslationEnv, mb: AlloyModelBuilder) {
         if (env.functions.size > 0) {
             const funMembers: string[] = [];
             for (let [name, sorts] of env.functions) {
                 funMembers.push(name + ': (' + sorts.map(s => env.sortToSignature(s)).join(' -> ') + ')');
             }
-            mb.sig('one', 'Fun', funMembers, []);
+            mb.sig('one', 'Fun', funMembers);
             mb.blank();
         }
+    }
 
+    private static translateCombines(env: TranslationEnv, mb: AlloyModelBuilder) {
         // Add signature for Combines only if we have found some in the path conditions and constrain its cardinality to
         // be at most the number we have found.
         if (env.totalCombines > 0) {
-            mb.sig('abstract', 'Combine extends Snap', ['left: one SymbVal', 'right: one SymbVal'], []);
+            mb.sig('abstract', 'Combine extends Snap', ['left: one SymbVal', 'right: one SymbVal']);
             mb.fact('#Combine <= ' + env.totalCombines);
             mb.blank();
         }
+    }
 
+    private static translateUserSorts(env: TranslationEnv, mb: AlloyModelBuilder) {
+        if (env.userSorts.length > 0) {
+            env.userSorts.forEach(s => mb.sig('', s));  
+            mb.blank();
+        } 
+    }
+
+    private static translateTempVariables(env: TranslationEnv, mb: AlloyModelBuilder) {
         if (env.tempVariables.size > 0) {
-            const tempMembers: string[] = [];
+            const members: string[] = [];
             for(const [name, sort] of env.tempVariables) {
-                tempMembers.push(name + ': one ' + sort);
+                members.push(name + ': one ' + sort);
             }
-            mb.sig('one', 'Temp', tempMembers, []);
+            mb.sig('one', 'Temp', members);
             mb.blank();
         }
+    }
 
+    private static encodeReachabilityConstraints(env: TranslationEnv, mb: AlloyModelBuilder) {
         const refTypedFunctions: string[] = [];
         for (const [name, sorts] of env.functions) {
-            // TODO: Is this safe?
             if (AlloyTranslator.isRefLikeSort(sorts[sorts.length - 1])) {
                 const params = sorts.slice(0, -1).map(s => env.sortToSignature(s)).join(', ');
                 refTypedFunctions.push(`Fun.${name}[${params}]`);
@@ -406,7 +440,12 @@ export class AlloyTranslator {
             mb.fact("Object = Store.variables'.*successors'");
         }
         mb.blank();
+    }
 
+    private static encodeFailedSMTFact(verifiable: Verifiable,
+                                       env: TranslationEnv,
+                                       mb: AlloyModelBuilder,
+                                       termTranslator: TermTranslator) {
         // Note that the translation of this fact may not be posssible in statements earlier than the failing one. For
         // example, when the failing query refers to a variable that did not exist yet.
         if (verifiable.lastSMTQuery) {
@@ -420,6 +459,28 @@ export class AlloyTranslator {
                 Logger.debug('Could not translate last SMT query: ' + failedQuery.leftovers.join("\n"));
             }
         }
+    }
+
+    public static translate(verifiable: Verifiable, state: State): string {
+
+        // The translation environment keeps track of the known variable names and the signature they belong to
+        const env = new TranslationEnv(state);
+        const mb = new AlloyModelBuilder();
+        const termTranslator = new TermTranslator(env);
+
+        this.emitPrelude(mb);
+        AlloyTranslator.encodeRefSignature(state.heap, env, mb, termTranslator);
+        AlloyTranslator.translateStore(state.store, env, mb);
+        AlloyTranslator.translateHeap(env, mb, termTranslator);
+        AlloyTranslator.encodePermissions(state.heap, env, mb, termTranslator);
+        AlloyTranslator.translatePathConditions(state.pathConditions, mb, termTranslator);
+        AlloyTranslator.translateInverseFunctions(env, mb);
+        AlloyTranslator.translateFunctions(env, mb);
+        AlloyTranslator.translateCombines(env, mb);
+        AlloyTranslator.translateUserSorts(env, mb);
+        AlloyTranslator.translateTempVariables(env, mb);
+        AlloyTranslator.encodeReachabilityConstraints(env, mb);
+        AlloyTranslator.encodeFailedSMTFact(verifiable, env, mb, termTranslator);
 
         return mb.build();
     }

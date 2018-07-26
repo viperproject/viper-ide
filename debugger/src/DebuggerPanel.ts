@@ -166,8 +166,7 @@ export class DebuggerPanel implements SessionObserver {
                 return;
             }
 
-            const translator = new AlloyTranslator();
-            const model = translator.translate(record.verifiable, record.current.prestate);
+            const model = AlloyTranslator.translate(record.verifiable, record.current.prestate);
             this.logModel(model);
 
             Alloy.generate(model).then(

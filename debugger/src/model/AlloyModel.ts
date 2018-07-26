@@ -61,7 +61,7 @@ export class AlloyModelBuilder {
     public build(): string {
         // TODO: Fix this
         this.pred("generate", [], []);
-        this.parts.push("run generate for 3");
+        this.parts.push("run generate for 5 but 3 int");
         
         return this.parts.join("\n");
     }
