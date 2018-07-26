@@ -6,11 +6,15 @@ export class Sort {
     public static from(obj: any): Sort {
         mustHave('sort', obj, ['id']);
 
+        if ('name' in obj && obj.id === 'UserSort') {
+            return new Sort(obj.id, new Sort(obj.name));
+        } 
+
         if (!('elementsSort' in obj)) {
             return new Sort(obj.id);
-        } else {
-            return new Sort(obj.id, Sort.from(obj.elementsSort));
         }
+
+        return new Sort(obj.id, Sort.from(obj.elementsSort));
     }
 
     public toString(): string {

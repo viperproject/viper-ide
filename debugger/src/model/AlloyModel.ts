@@ -21,8 +21,8 @@ export class AlloyModelBuilder {
     public sig(
         multiplicity: Multiplicity,
         name: string,
-        vars: string[],
-        constraints: string[]
+        vars: string[] = [],
+        constraints: string[] = []
     ) {
         let sig: string[] = [];
 
@@ -36,14 +36,15 @@ export class AlloyModelBuilder {
             sig.push((vars.map(v => "  " + v).join(",\n")));
             sig.push("\n");
         }
-        sig.push("} {");
-
         if (constraints.length > 0) {
-            sig.push("\n");
-            sig.push((constraints.map(v => "  " + v).join(",\n")));
-            sig.push("\n");
-        }
+            sig.push("} {");
 
+            if (constraints.length > 0) {
+                sig.push("\n");
+                sig.push((constraints.map(v => "  " + v).join(",\n")));
+                sig.push("\n");
+            }
+        }
         sig.push("}");
 
         this.parts.push(sig.join(""));

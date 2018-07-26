@@ -46,5 +46,5 @@ export interface SymbExLogState {
 export interface SymbExLogStoreVariable {
     name: string;
     value: any;
-    sort: string;
+    sort: any[];
 }

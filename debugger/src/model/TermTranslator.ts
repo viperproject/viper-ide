@@ -1,7 +1,7 @@
 import { Term, Binary, Unary, SortWrapper, VariableTerm, Quantification, Application, Lookup, PredicateLookup, And, Or, Distinct, Ite, Let, Literal, SeqRanged, SeqSingleton, SeqUpdate, SetSingleton, MultisetSingleton } from "./Term";
 import { TranslationEnv } from "./AlloyTranslator";
 import { DebuggerError } from "../Errors";
-import { Logger } from "../logger";
+import { getSort, Sort } from "./Sort";
 
 export function sanitize(name: string) {
     return name.replace(/@/g, "_");
@@ -21,22 +21,53 @@ export class Leftover {
 }
 
 export class TranslationRes {
-    constructor(readonly res: string | undefined, readonly leftovers: Leftover[]) {}
+    constructor(readonly res: string | undefined,
+                readonly leftovers: Leftover[],
+                readonly quantifiedVariables: string[],
+                readonly additionalFacts: string[]) {}
+    
+    public withQuantifiedVariables(quantifiedVariables: string[]) {
+        quantifiedVariables.forEach(v => this.quantifiedVariables.push(v));
+        return this;
+    }
+
+    public withAdditionalFacts(additionalFacts: string[]) {
+        additionalFacts.forEach(f => this.additionalFacts.push(f));
+        return this;
+    }
 }
 
-function translated(res: string, leftovers: Leftover[]) {
-    return new TranslationRes(res, leftovers);
+function translatedFrom(res: string, others: TranslationRes[]) {
+    let leftovers = others.reduce((acc, curr) => acc.concat(curr.leftovers), [] as Leftover[]);
+    let quantifiedVariables = others.reduce((acc, curr) => acc.concat(curr.quantifiedVariables), [] as string[]);
+    let additionalFacts = others.reduce((acc, curr) => acc.concat(curr.additionalFacts), [] as string[]);
+
+    return new TranslationRes(res, leftovers, quantifiedVariables, additionalFacts);
 }
 
 function leftover(leftover: Term, reason: string, other: Leftover[]) {
-    return new TranslationRes(undefined, [new Leftover(leftover, reason, other)]);
+    return new TranslationRes(undefined, [new Leftover(leftover, reason, other)], [], []);
 }
 
 
 export class TermTranslator {
     constructor(readonly env: TranslationEnv) {}
 
+    public getFreshName(original: string) {
+        return original + "'";
+    }
+
+    // TODO: implement this properly
+    public getFieldKey(sort: Sort) {
+        if (sort.id === 'Int') {
+            return '.v';
+        }
+
+        return '';
+    }
+
     public toAlloy(term: Term): TranslationRes {
+
         if (term instanceof Binary) {
             const left = this.toAlloy(term.lhs);
             const right = this.toAlloy(term.rhs);
@@ -49,12 +80,34 @@ export class TermTranslator {
                 return leftover(term, "Right-hand side operand not translated", right.leftovers);
             }
 
+            // Alloy operators only have one equal sign, but are otherwise the same as the Viper ones.
             const alloyOp = term.op.replace("==", "=");
-            if (alloyOp === 'Combine') {
-                return leftover(term, "Combines not translated", left.leftovers.concat(right.leftovers));
+
+            const leftFieldKey = (term.rhs instanceof Literal) ? this.getFieldKey(term.rhs.sort) : '';
+            const leftRes = left.res + leftFieldKey;
+
+            const rightFieldKey = (term.lhs instanceof Literal) ? this.getFieldKey(term.lhs.sort) : '';
+            const rightRes = right.res + rightFieldKey;
+
+
+            // If we are not dealing with a combine, then return a "regular" binary expression
+            if (alloyOp !== 'Combine') {
+                return translatedFrom(`(${leftRes} ${alloyOp} ${rightRes})`, [left, right]);
             }
 
-            return translated(`(${left.res} ${alloyOp} ${right.res})`, left.leftovers.concat(right.leftovers));
+            // We need a fresh name to refer to the combine instance and additional facts to constrain its values
+            const freshName = this.getFreshName("c");
+            const quantifiedVariables = [`one ${freshName}: Combine`];
+            const additionalFacts: string[] = [
+                `${freshName}.left = ${leftRes}`,
+                `${freshName}.right = ${rightRes}`,
+            ];
+            this.env.recordCombine();
+
+            // In the end, the translated combine is simply the fresh name
+            return translatedFrom(freshName, [left, right])
+                    .withQuantifiedVariables(quantifiedVariables)
+                    .withAdditionalFacts(additionalFacts);
         }
 
         if (term instanceof Unary) {
@@ -63,22 +116,21 @@ export class TermTranslator {
                 return leftover(term, "Operand not translated", operand.leftovers);
             }
 
-            return translated(`${term.op}(${operand.res})`, operand.leftovers);
+            return translatedFrom(`${term.op}(${operand.res})`, [operand]);
         }
 
         // TODO: Fix this
         if (term instanceof SortWrapper) {
-            Logger.debug(term.toString());
             return this.toAlloy(term.term);
+            // return leftover(term, "Not translating SortWrappers", []);
         }
 
         if (term instanceof VariableTerm) {
-            const resolved = this.env.resolve(term.id);
-            if (!resolved) {
-                return leftover(term, `Could not resolve name '${term.id.toString()}'`, []);
+            const resolved = this.env.resolve(term);
+            if (resolved) {
+                return translatedFrom(sanitize(resolved), []);
             }
-
-            return translated(sanitize(resolved), []);
+            return leftover(term, `Could not retrieve variable '${term.toString()}'`, []);
         }
 
         if (term instanceof Quantification) {
@@ -103,12 +155,18 @@ export class TermTranslator {
                         return leftover(term, "Could not translate quantified variables", tBody!.leftovers);
                     }
 
-                    return translated(`${mult} ${tVars.join(", ")} | ${tBody.res}`, tBody.leftovers);
+                    return translatedFrom(`${mult} ${tVars.join(", ")} | ${tBody.res}`, [tBody]);
                 });
         }
 
         if (term instanceof Application) {
             const applicableSanitized = sanitize(term.applicable);
+
+            if (applicableSanitized.endsWith('trigger')) {
+                // TODO: Do we want to ignore these in the end?
+                return leftover(term, "Explicitely ignoring trigger applications for now", []);
+            }
+
             const args = term.args.map(a => this.toAlloy(a));
 
             // Collect the leftovers from the translation of all arguments
@@ -122,13 +180,23 @@ export class TermTranslator {
                 return leftover(term, "Could not translate some of the arguments", leftovers);
             }
 
-            // We save INV functions in a sapearate namespace
-            if (term.applicable.match(/inv@\d+@\d+/)) {
-                this.env.recordFunction('INV', applicableSanitized);
+            const sorts: Sort[] = [];
+            term.args.forEach(a => {
+                const s = getSort(a);
+                if (s === undefined) {
+                    throw new DebuggerError(`Could not determine sort of '${a.toString()}' in ` + term.toString());
+                }
+                sorts.push(s);
+            });
+            sorts.push(term.sort);
 
-                return translated(`INV.${applicableSanitized}[${args.map(a => a.res).join(", ")}]`, leftovers);
+            // We save INV functions in a sapearate "namespace"
+            if (term.applicable.match(/inv@\d+@\d+/)) {
+                this.env.recordInverseFunction(applicableSanitized, sorts);
+                return translatedFrom(`Inv.${applicableSanitized}[${args.map(a => a.res).join(", ")}]`, args);
             } else {
-                return translated(`Fun.${applicableSanitized}(${args.map(a => a.res).join(", ")})`, leftovers);
+                this.env.recordFunction(applicableSanitized, sorts);
+                return translatedFrom(`Fun.${applicableSanitized}[${args.map(a => a.res).join(", ")}]`, args);
             }
         }
 
@@ -139,7 +207,7 @@ export class TermTranslator {
                 return leftover(term, "Could not translate receiver", receiver.leftovers);
             }
 
-            return translated(receiver.res + "." + term.field, receiver.leftovers);
+            return translatedFrom(receiver.res + "." + term.field, [receiver]);
         }
 
         // TODO: Implement this
@@ -161,11 +229,8 @@ export class TermTranslator {
                 return leftover(term, "Could not translate some of the terms", leftovers);
             }
 
-            if (term instanceof And) {
-                return translated("(" + terms.map(t => t.res).join(" && ") + ")", leftovers);
-            } else {
-                return translated("(" + terms.map(t => t.res).join(" || ") + ")", leftovers);
-            }
+            const op = term instanceof And ? " && " : " || ";
+            return translatedFrom("(" + terms.map(t => t.res).join(op) + ")", terms);
         }
 
         // TODO: Implement this
@@ -183,7 +248,8 @@ export class TermTranslator {
                 return leftover(term, "Could not translate 'Ite'", leftovers);
             }
 
-            return translated(`(${cond.res} implies ${thenBranch.res} else ${elseBranch.res})`, leftovers);
+            const res = `(${cond.res} implies ${thenBranch.res} else ${elseBranch.res})`;
+            return translatedFrom(res, [cond, thenBranch, elseBranch]);
         }
 
         // TODO: Implement this
@@ -193,10 +259,10 @@ export class TermTranslator {
 
         if (term instanceof Literal) {
             if (term.sort.id === 'Ref' && term.value === "Null") {
-                return translated("NULL", []);
+                return translatedFrom("NULL", []);
             }
 
-            return translated(term.value, []);
+            return translatedFrom(term.value, []);
         }
 
         // TODO: Implement this
