@@ -173,10 +173,8 @@ export namespace Debugger {
             return new Failure("Cannot debug, there is no Viper file open.");
         }
 
-        // TODO: We probably don't want to trigger verification yet...
+        // We trigger verification again, so we can gather the SymbExLog
         if (!viperApi.isVerifying()) {
-            let filename = fileState.uri.toString();
-            vscode.window.showInformationMessage(`Starting verification of '${filename}', so that it can be debugged.`);
             vscode.commands.executeCommand('viper.verify');
         }
 
