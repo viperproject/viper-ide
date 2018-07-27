@@ -1,5 +1,5 @@
 import { Term, Binary, Unary, SortWrapper, VariableTerm, Quantification, Application, Lookup, PredicateLookup, And, Or, Distinct, Ite, Let, Literal, SeqRanged, SeqSingleton, SeqUpdate, SetSingleton, MultisetSingleton } from "./Term";
-import { TranslationEnv } from "./AlloyTranslator";
+import { TranslationEnv, Sig } from "./AlloyTranslator";
 import { DebuggerError } from "../Errors";
 import { getSort, Sort } from "./Sort";
 
@@ -83,6 +83,7 @@ export class TermTranslator {
             // Alloy operators only have one equal sign, but are otherwise the same as the Viper ones.
             const alloyOp = term.op.replace("==", "=");
 
+            // Literals are wrapped inside other signatures, we need the name of the "field" that holds the actual value
             const leftFieldKey = (term.rhs instanceof Literal) ? this.getFieldKey(term.rhs.sort) : '';
             const leftRes = left.res + leftFieldKey;
 
@@ -258,8 +259,27 @@ export class TermTranslator {
         }
 
         if (term instanceof Literal) {
-            if (term.sort.id === 'Ref' && term.value === "Null") {
+            if (term.sort.id === Sort.Ref && term.value === "Null") {
                 return translatedFrom("NULL", []);
+            }
+
+            if (term.sort.id === Sort.Perm) {
+            // TODO: proper fresh name?
+            const freshName = this.getFreshName("p");
+
+            const parts = term.value.split('/');
+
+            const quantifiedVariables = [`one ${freshName}: ${Sig.Perm}`];
+            const additionalFacts: string[] = [
+                `${freshName} in ${Sig.ReadPerm}`,
+                `${freshName}.num = ${parts[0]}`,
+                `${freshName}.denom = ${parts[1]}`
+            ];
+
+            // In the end, the translated combine is simply the fresh name
+            return translatedFrom(freshName, [])
+                    .withQuantifiedVariables(quantifiedVariables)
+                    .withAdditionalFacts(additionalFacts);
             }
 
             return translatedFrom(term.value, []);
