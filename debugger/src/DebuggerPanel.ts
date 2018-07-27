@@ -170,7 +170,7 @@ export class DebuggerPanel implements SessionObserver {
             this.logModel(model);
 
             Alloy.generate(model).then(
-                (instance) => Logger.info(instance),
+                (instance) => Logger.info(JSON.stringify(instance, undefined, 2)),
                 (reason) => Logger.error(reason)
             );
         });

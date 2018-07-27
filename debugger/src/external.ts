@@ -48,3 +48,17 @@ export interface SymbExLogStoreVariable {
     value: any;
     sort: any[];
 }
+
+export interface AlloyField {
+    name: string;
+    atoms?: string[][];
+}
+
+export interface AlloySignature {
+    label: string;
+    fields?: AlloyField[];
+}
+
+export interface AlloyInstance {
+    signatures: AlloySignature[];
+}

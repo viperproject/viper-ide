@@ -4,6 +4,7 @@ import JSONFormatter, { JSONFormatterConfiguration } from 'json-formatter-js';
 import * as Split from 'split.js';
 import * as d3 from 'd3';
 import { GraphViz } from './d3-graphviz';
+import { line } from 'd3';
 var d3graphviz = require('d3-graphviz');
 
 declare var acquireVsCodeApi: any;
@@ -303,7 +304,16 @@ function handleOutputMessage(message: any) {
 // TODO: Remove this later on
 function handleModelMessage(message: any) {
     $('#output pre.alloyModel').remove();
-    $("#output").append($("<pre></pre>").addClass('alloyModel').text(message.text));
+    // const lines = message.text.split("\n");
+    // const margin = ' '.repeat(lines.length.toString().length);
+    // const model = lines.map((line: string, index: number, _: any) => {
+    //                               const lineNr = (margin + (index + 1)).slice(-3);
+    //                               return`${lineNr} ▏${line}`;
+    //                             })
+    //                           .join("\n");
+    const model = message.text;
+
+    $("#output").append($("<pre></pre>").addClass('alloyModel').text(model));
 }
 
 

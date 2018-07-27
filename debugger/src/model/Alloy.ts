@@ -1,14 +1,15 @@
 import * as request from 'request';
 
 import { viperApi } from "../extension";
+import { AlloyInstance } from '../external';
 
 
 export class Alloy {
 
-    public static generate(model: string): Promise<string> {
+    public static generate(model: string): Promise<AlloyInstance> {
         const urlPromise: Promise<string> = viperApi.getViperServerUrl();
 
-        return new Promise<string>((resolve, reject) => {
+        return new Promise<AlloyInstance>((resolve, reject) => {
             urlPromise.then(
                 // When we get the actual address, perform a request to generate the model and return as a promise
                 (url: string) => {
@@ -21,19 +22,20 @@ export class Alloy {
                         if (error) {
                             reject("Got error from POST request to ViperServer when generating Alloy model: " +
                                    JSON.stringify(error, undefined, 2));
+                            return;
                         }
                         if (response.statusCode !== 200) {
                             reject("Bad response on POST request to ViperServer when generating Alloy model:" +
                                    JSON.stringify(response, undefined, 2));
+                            return;
                         }
 
-                        const response_body = JSON.parse(body);
-                        if (response_body.instance === undefined) {
-                            reject("Response from request to ViperServer when generating Alloy model had no instance" +
-                                   body);
+                        const instance = <AlloyInstance>JSON.parse(body);
+                        if (instance.signatures === undefined) {
+                            reject("Response from ViperServer had no signatures in Alloy model:\n" + body);
                         }
 
-                        return resolve(response_body.instance as string);
+                        return resolve(instance);
                     });
                 },
 
