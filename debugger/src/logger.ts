@@ -17,7 +17,8 @@ export class Logger {
 
     private static log(message: string, level: LogLevel) {
         if (level >= Logger.logLevel) {
-            Logger.outputChannel.appendLine(message);
+            const lev = (' '.repeat(9) + LogLevel[level]).slice(-9);
+            Logger.outputChannel.appendLine(`${new Date().toUTCString()} [${lev}] ` + message);
         }
     }
 

@@ -71,23 +71,12 @@ export class DebuggerPanel implements SessionObserver {
         this.session = undefined;
     }
 
-    public logMessage(message: string) {
-        let logMessage = {
-            type: 'logMessage',
-            text: message
-        };
-
-        this.panel.webview.postMessage(logMessage);
-    }
-
     // TODO: Remove this later on
     private logModel(message: string) {
-        let logMessage = {
+        this.panel.webview.postMessage({
             type: 'logModel',
             text: message
-        };
-
-        this.panel.webview.postMessage(logMessage);
+        });
     }
 
     public postOriginalSymbExLog(entries: SymbExLogEntry[]) {

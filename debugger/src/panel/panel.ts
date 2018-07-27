@@ -42,13 +42,13 @@ function setupPanelSplits() {
     let percentForOpenPanel = 100 / (panels.length - numberOfCollapsedPanels);
     let sizes = isCollapsed.map(e => e ? 0 : percentForOpenPanel);
 
-    let splitInstance = Split(panels, {
+    Split(panels, {
         sizes: sizes,
         direction: 'vertical',
         cursor: 'row-resize',
-        gutterSize: 3,
+        gutterSize: 5,
         minSize: 0,
-        snapOffset: 60,  // When a panel is less than this, it closes
+        snapOffset: 40,  // When a panel is less than this, it closes
     });
 }
 
@@ -67,7 +67,6 @@ function setupMessageHandlers() {
         });
     }
 
-    on('logMessage', message => handleOutputMessage(message));
     on('logModel', message => handleModelMessage(message));
     on('displayGraph', message => displayGraph(message));
     on('stateUpdate', message => handleStateUpdate(message));
@@ -291,19 +290,13 @@ function handleSymbExLogEntries(message: any) {
     // Update the JSON view of the state tree
     const current = new JSONFormatter(message.text, 1, options);
     const pre = $('<pre></pre>').addClass('json').append(current.render());
-    $('#symbExLogPanel').empty().append(pre);
-}
-
-
-/** Handles messages being logged to the output split in the debug pane. */
-function handleOutputMessage(message: any) {
-    $("#output").append($("<p></p>").text(message.text));
+    $('#symbExLog').empty().append(pre);
 }
 
 
 // TODO: Remove this later on
 function handleModelMessage(message: any) {
-    $('#output pre.alloyModel').remove();
+    $('#alloyModel').empty();
     // const lines = message.text.split("\n");
     // const margin = ' '.repeat(lines.length.toString().length);
     // const model = lines.map((line: string, index: number, _: any) => {
@@ -313,7 +306,7 @@ function handleModelMessage(message: any) {
     //                           .join("\n");
     const model = message.text;
 
-    $("#output").append($("<pre></pre>").addClass('alloyModel').text(model));
+    $("#alloyModel").append($("<pre></pre>").text(model));
 }
 
 

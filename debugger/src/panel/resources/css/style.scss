@@ -44,23 +44,17 @@ nav {
     }
 }
 
-#constraintsBlock {
-    padding: 1em;
-
-    input {
-        width: 90%;
-        background-color: #aaaaaa;
-        border: none;
-        border-radius: 2px;
-        height: 24px;
-        padding: 0 4px;
-        font-family: monospace;
-    }
+#constraintsBlock input {
+    width: 90%;
+    background-color: #aaaaaa;
+    border: none;
+    border-radius: 2px;
+    height: 24px;
+    padding: 0 4px;
+    font-family: monospace;
 }
 
 #currentState {
-    padding: 1em;
-
     h3 {
         margin-top: 0;
 
@@ -89,43 +83,10 @@ nav {
     }
 }
 
-#symbExLogPanel {
-    padding: 0 1em;
-}
-
 pre.json {
     background: #2A3239;
     padding: 1em;
     border-radius: 2px;
-}
-
-#currentState.noAction {
-    // border-color: #3D4B57;
-    // background: #4C647A
-}
-
-#currentState.evaluate {
-    // border-color: #224F4A;
-    // background: #23736A;
-}
-
-#currentState.execute {
-    // border-color: #564A3C;
-    // background: #78634A;
-}
-
-#currentState.produce {
-    // border-color: #234861;
-    // background: #21638F;
-}
-
-#currentState.consume {
-    // border-color: #56363F;
-    // background: #7A4151;
-}
-
-#currentState svg text {
-    // fill: #fff;
 }
 
 #graph {
@@ -157,14 +118,16 @@ div.graph {
     overflow: hidden;
 }
 
-#output.panel > * {
-    margin: 1em;
+.panel > * {
+    margin: 14px;
+}
+
+h3 {
+    background: #222222;
 }
 
 .gutter.gutter-vertical {
-    border: 1px solid #444444;
-    border-width: 1px 0;
-    background: #333333;
+    background: #303030;
     cursor: row-resize;
 }
 
