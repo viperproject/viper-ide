@@ -41,7 +41,7 @@ export class AlloyModelBuilder {
 
             if (constraints.length > 0) {
                 sig.push("\n");
-                sig.push((constraints.map(v => "  " + v).join(",\n")));
+                sig.push((constraints.map(v => "  " + v).join(" &&\n")));
                 sig.push("\n");
             }
         }
