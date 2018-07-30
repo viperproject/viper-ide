@@ -1,8 +1,49 @@
 import { Record } from './model/Record';
+import { AlloyInstance } from './external';
+import { AlloyTranslator } from './model/AlloyTranslator';
+import { TranslationEnv } from './model/TranslationEnv';
+import { sanitize } from './model/TermTranslator';
+import { VariableTerm, Literal } from './model/Term';
+import { DebuggerError } from './Errors';
 
 
 export interface DotElem {
     toString(): string;
+}
+
+class Label {
+    public parts: string[];
+    constructor(readonly label?: string) {
+        this.parts = [];
+        if (label) {
+            this.parts.push(label);
+        }
+    }
+
+    public toString() {
+        if (this.parts.length > 1) {
+            // const rows = this.parts.map(p => `<tr>${p}</tr>`).join('');
+            // return `< <table border="0" cellborder="1" cellspacing="0">${rows}</table> >`;
+            return this.parts.join(' | ');
+        }
+        return this.parts[0];
+    }
+}
+
+class Node implements DotElem {
+    private attributes: string[];
+    constructor(readonly name: string, readonly label: Label) {
+        this.attributes = [];
+    }
+
+    public attr(key: string, value: string) {
+        this.attributes.push(key + '=' + value);
+    }
+
+    public toString() {
+        const attrs = this.attributes.concat([`label="${this.label}"`]);
+        return `${this.name} [${attrs.join(', ')}]`;
+    }
 }
 
 export class DotGraph {
@@ -18,16 +59,16 @@ export class DotGraph {
         this.elems = [];
     }
 
-    addGraphAttribute(attr: string) {
-        this.graphAttributes.push(attr);
+    attr(key: string, value: string) {
+        this.graphAttributes.push(`${key}=${value}`);
     }
 
-    addNodeAttribute(attr: string) {
-        this.nodeAttributes.push(attr);
+    nodeAttr(key: string, value: string) {
+        this.nodeAttributes.push(`${key}=${value}`);
     }
 
-    addEdgeAttribute(attr: string) {
-        this.edgeAttributes.push(attr);
+    edgeAttr(key: string, value: string) {
+        this.edgeAttributes.push(`${key}=${value}`);
     }
 
     add(elem: DotElem) {
@@ -44,66 +85,136 @@ export class DotGraph {
             '}';
     }
 
-    static from(state: Record, additionalDotInfo: string = "") {
+    static what(state: Record, alloyInstance: AlloyInstance, env: TranslationEnv) {
         let graph = new DotGraph('G');
-        graph.addGraphAttribute('bgcolor=none');
-        graph.addGraphAttribute('rankdir=LR');
-        graph.addGraphAttribute('color="#ffffff"');
-        graph.addGraphAttribute('fontcolor="#ffffff"');
-        // graph.addGraphAttribute('newrank=true');
-        graph.addNodeAttribute('shape=record');
-        graph.addEdgeAttribute('color="#ffffff"');
-        graph.addEdgeAttribute('fontcolor="#ffffff"');
+        graph.attr('bgcolor', 'none');
+        graph.attr('rankdir', 'LR');
+        graph.attr('color', '"#ffffff"');
+        graph.attr('fontcolor', '"#ffffff"');
+        graph.attr('fontname', '"Arial, Helvetica"');
+        // graph.attr('newrank', 'true');
+        graph.nodeAttr('shape', 'record');
+        graph.nodeAttr('fontname', '"Arial, Helvetica"');
+        graph.nodeAttr('fontsize', '11');
+        graph.edgeAttr('color', '"#ffffff"');
+        graph.edgeAttr('fontcolor', '"#ffffff"');
+        graph.edgeAttr('fontname', '"Arial, Helvetica"');
+        // graph.edgeAttr('fontsize', '11');
 
         let storeGraph = new DotGraph('clusterStore', true);
-        storeGraph.addGraphAttribute('label=< <u>Store</u> >');
-        storeGraph.addGraphAttribute('labeljust=l');
-        storeGraph.addGraphAttribute('style=dashed');
-        storeGraph.addGraphAttribute('nodesep=0.1');
-        storeGraph.addNodeAttribute('color="#ffffff"');
-        storeGraph.addNodeAttribute('fontcolor="#ffffff"');
-        storeGraph.addNodeAttribute('shape=none');
-        storeGraph.addEdgeAttribute('color="#ffffff"');
-        storeGraph.addEdgeAttribute('fontcolor="#ffffff"');
+        storeGraph.attr('label', '< <u>Store</u> >');
+        storeGraph.attr('labeljust', 'l');
+        storeGraph.attr('style', 'dashed');
+        storeGraph.attr('nodesep', '0.1');
+        storeGraph.nodeAttr('color', '"#ffffff"');
+        storeGraph.nodeAttr('fontcolor', '"#ffffff"');
+        storeGraph.nodeAttr('shape', 'none');
+        storeGraph.edgeAttr('color', '"#ffffff"');
+        storeGraph.edgeAttr('fontcolor', '"#ffffff"');
 
         if (state.prestate) {
-            state.prestate.store.forEach((v: any) => {
-                let label = `${v.name}: ${v.type}`;
-                let node = `var_${v.name} [label="${label}\\l"]`;
-                storeGraph.add(node);
+            state.prestate.store.forEach(v => {
+                if (v.value instanceof VariableTerm) {
+                    storeGraph.add(new Node(sanitize(v.value.id), new Label(`${v.name}: ${v.sort}\\l`)));
+                } else if (v.value instanceof Literal) {
+                    const label = new Label(`${v.name}: ${v.sort} == ${v.value.toString}\\l`);
+                    storeGraph.add(new Node(sanitize(v.name), label));
+                } else {
+                    throw new DebuggerError(`Unexpected value type in store: ${v.value}`);
+                }
             });
         }
 
-        let heapNodes: string[] = [];
-        let additionalRelations: string[] = [];
-        additionalDotInfo.split('\n').forEach(line => {
-            if (line.startsWith('heapNode ')) {
-                heapNodes.push(line.substr(9));
-            } else {
-                additionalRelations.push(line);
+        const objType = `{this/${AlloyTranslator.Ref}}`;
+        const nullType = `{this/${AlloyTranslator.Null}}`;
+        let heapNodes: Map<string, Node> = new Map();
+        alloyInstance.atoms.forEach(atom => {
+            const name = sanitize(atom.name);
+            if (atom.type === objType) {
+                heapNodes.set(name, new Node(name, new Label()));
+                // heapNodes.set(sanitize(atom.name), `[label="\\l"]`);
+            } else if (atom.type === nullType) {
+                const node = new Node(name, new Label("NULL"));
+                node.attr('shape', 'plaintext');
+                heapNodes.set(name, node);
+                // heapNodes.set(sanitize(atom.name), `[shape=none, label="NULL\\l"]`);
+            }
+        });
+
+        let integerNodes: Map<string, number> = new Map();
+        alloyInstance.signatures.forEach(sig => {
+            if (sig.label === 'this/' + AlloyTranslator.Int) {
+                sig.fields.forEach(f => {
+                    f.atoms.forEach(rel => {
+                        integerNodes.set(sanitize(rel[0]), Number.parseInt(rel[1]));
+                    });
+                });
+            }
+        });
+
+        let relations: string[] = [];
+        alloyInstance.signatures.forEach(sig => {
+            if (sig.label === 'this/' + AlloyTranslator.Store) {
+                sig.fields.forEach(f => {
+                    if (f.name !== "refTypedVars'") {
+                        f.atoms.forEach(rel => {
+                            const to = sanitize(rel[1]);
+                            if (heapNodes.has(to)) {
+                                relations.push(`${f.name}:e -> ${to}`);
+                                // relations.push(`${f.name} -> ${to} [dir=both, arrowtail=dot]`);
+                            }
+                        });
+                    }
+                });
+            } else if (sig.label === 'this/' + AlloyTranslator.Ref) {
+                sig.fields.forEach(f => {
+                    if (f.name !== "refTypedFields'") {
+                        f.atoms.forEach(rel => {
+                            const from = sanitize(rel[0]);
+                            if (!heapNodes.has(from)) {
+                                return;
+                            }
+                            const to = sanitize(rel[1]);
+                            if (heapNodes.has(to)) {
+                                // const label = `<td port="${f.name}">${f.name}</td>`;
+                                const label = `<${f.name}> ${f.name}`;
+                                heapNodes.get(from)!.label.parts.push(label);
+                                relations.push(`${from}:${f.name}:e -> ${to}`);
+                            } else if (integerNodes.has(to)) {
+                                // const label = `<td port="${f.name}">${f.name} == ${integerNodes.get(to)}</td>`;
+                                const label = `<${f.name}> ${f.name} == ${integerNodes.get(to)}`;
+                                heapNodes.get(from)!.label.parts.push(label);
+                            }
+                        });
+                    }
+                });
             }
         });
 
         let heapGraph = new DotGraph('clusterHeap', true);
-        heapGraph.addGraphAttribute('label=< <u>Heap</u> >');
-        heapGraph.addGraphAttribute('labeljust=l');
-        heapGraph.addGraphAttribute('style=dashed');
-        heapGraph.addNodeAttribute('color="#ffffff"');
-        heapGraph.addNodeAttribute('fontcolor="#ffffff"');
-        heapGraph.addNodeAttribute('shape=record');
-        heapGraph.addEdgeAttribute('color="#ffffff"');
-        heapGraph.addEdgeAttribute('fontcolor="#ffffff"');
-
-        if (heapNodes.length < 1) {
+        heapGraph.attr('label', '< <u>Heap</u> >');
+        // heapGraph.attr('labeljust', 'l');
+        heapGraph.attr('style', 'dashed');
+        // heapGraph.attr('nodesep', '0.1');
+        heapGraph.nodeAttr('color', '"#ffffff"');
+        heapGraph.nodeAttr('fontcolor', '"#ffffff"');
+        heapGraph.nodeAttr('shape', 'record');
+        heapGraph.edgeAttr('color', '"#ffffff"');
+        heapGraph.edgeAttr('fontcolor', '"#ffffff"');
+        
+        if (heapNodes.size < 1) {
             heapGraph.add('heapEmpty [label="Heap Empty"]');
         } else {
-            heapNodes.forEach(node => heapGraph.add(node));
+            heapNodes.forEach((node, key) => {
+                heapGraph.add(node.toString());
+                // heapGraph.add(`${key} [label="${node.label.toString()}"]`);
+            });
         }
 
         graph.add(storeGraph);
         graph.add(heapGraph);
 
-        additionalRelations.forEach(rel => graph.add(rel));
+        relations.forEach(rel => graph.add(rel));
 
         return graph;
     }

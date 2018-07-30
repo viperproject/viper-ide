@@ -1,10 +1,13 @@
 import { Term, Binary, Unary, SortWrapper, VariableTerm, Quantification, Application, Lookup, PredicateLookup, And, Or, Distinct, Ite, Let, Literal, SeqRanged, SeqSingleton, SeqUpdate, SetSingleton, MultisetSingleton } from "./Term";
-import { TranslationEnv, Sig } from "./AlloyTranslator";
+import { TranslationEnv } from "./TranslationEnv";
+import { AlloyTranslator } from './AlloyTranslator';
 import { DebuggerError } from "../Errors";
 import { getSort, Sort } from "./Sort";
 
 export function sanitize(name: string) {
-    return name.replace(/@/g, "_");
+    return name.replace(/@/g, "_")
+               .replace(/^\$/g, "")
+               .replace(/\$/g, "_");
 }
 
 export class Leftover {
@@ -84,10 +87,18 @@ export class TermTranslator {
             const alloyOp = term.op.replace("==", "=");
 
             // Literals are wrapped inside other signatures, we need the name of the "field" that holds the actual value
-            const leftFieldKey = (term.rhs instanceof Literal) ? this.getFieldKey(term.rhs.sort) : '';
+            const leftSort = getSort(term.rhs);
+            let leftFieldKey = '';
+            if (!(term.lhs instanceof Literal) && leftSort !== undefined) {
+                leftFieldKey = this.getFieldKey(leftSort);
+            }
             const leftRes = left.res + leftFieldKey;
 
-            const rightFieldKey = (term.lhs instanceof Literal) ? this.getFieldKey(term.lhs.sort) : '';
+            const rightSort = getSort(term.rhs);
+            let rightFieldKey = '';
+            if (!(term.rhs instanceof Literal) && rightSort !== undefined) {
+                rightFieldKey = this.getFieldKey(rightSort);
+            }
             const rightRes = right.res + rightFieldKey;
 
 
@@ -263,23 +274,35 @@ export class TermTranslator {
                 return translatedFrom("NULL", []);
             }
 
+            if (term.sort.id === Sort.Snap && term.value === '_') {
+                return translatedFrom(AlloyTranslator.Unit, []);
+            }
+
             if (term.sort.id === Sort.Perm) {
-            // TODO: proper fresh name?
-            const freshName = this.getFreshName("p");
+                // TODO: proper fresh name?
+                const freshName = this.getFreshName("p");
+                const quantifiedVariables = [`one ${freshName}: ${AlloyTranslator.Perm}`];
+                let additionalFacts: string[] = [];
 
-            const parts = term.value.split('/');
+                if (term.value === AlloyTranslator.WritePerm) {
+                    additionalFacts = [ `${freshName} = ${AlloyTranslator.WritePerm}` ];
+                } else if (term.value === AlloyTranslator.ReadPerm) {
+                    additionalFacts = [ `${freshName} = ${AlloyTranslator.ReadPerm}` ];
+                } else if (term.value === AlloyTranslator.NoPerm) {
+                    additionalFacts = [ `${freshName} = ${AlloyTranslator.NoPerm}` ];
+                } else {
+                    const parts = term.value.split('/');
+                    additionalFacts = [
+                        `${freshName} in ${AlloyTranslator.ReadPerm}`,
+                        `${freshName}.num = ${parts[0]}`,
+                        `${freshName}.denom = ${parts[1]}`
+                    ];
+                }
 
-            const quantifiedVariables = [`one ${freshName}: ${Sig.Perm}`];
-            const additionalFacts: string[] = [
-                `${freshName} in ${Sig.ReadPerm}`,
-                `${freshName}.num = ${parts[0]}`,
-                `${freshName}.denom = ${parts[1]}`
-            ];
-
-            // In the end, the translated combine is simply the fresh name
-            return translatedFrom(freshName, [])
-                    .withQuantifiedVariables(quantifiedVariables)
-                    .withAdditionalFacts(additionalFacts);
+                // In the end, the translated combine is simply the fresh name
+                return translatedFrom(freshName, [])
+                        .withQuantifiedVariables(quantifiedVariables)
+                        .withAdditionalFacts(additionalFacts);
             }
 
             return translatedFrom(term.value, []);

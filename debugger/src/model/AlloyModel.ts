@@ -1,68 +1,166 @@
+import { DebuggerSettings } from "../DebuggerSettings";
+import { LogLevel } from "../logger";
+import { mkString, indent } from "../util";
 
 // TODO: Fix this
-type Multiplicity = 'lone' | 'some' | 'one' | 'abstract' | '';
+type Multiplicity = 'lone' | 'some' | 'one';
+
+interface ModelPart {
+    build(outputReadableModel: boolean): string;
+}
+
+export class Signature implements ModelPart {
+    private isAbstract: boolean;
+    private multiplicity: Multiplicity | undefined;
+    private extendedSignature: string | undefined;
+    private members: string[];
+    private constraints: string[];
+    private inSignature: string | undefined;
+
+    constructor(readonly name: string) {
+        this.isAbstract = false;
+        this.members = [];
+        this.constraints = [];
+    }
+
+    public extends(name: string) {
+        this.extendedSignature = name;
+        return this;
+    }
+
+    public in(name: string) {
+        this.inSignature = name;
+        return this;
+    }
+
+    public withMultiplicity(multiplicity: Multiplicity) {
+        this.multiplicity = multiplicity;
+        return this;
+    }
+
+    public withMember(decl: string) {
+        this.members.push(decl);
+        return this;
+    }
+
+    public withMembers(decls: string[]) {
+        this.members = this.members.concat(decls);
+        return this;
+    }
+
+    public withConstraint(constraint: string) {
+        this.constraints.push(constraint);
+        return this;
+    }
+    public withConstraints(constraints: string[]) {
+        this.constraints = this.constraints.concat(constraints);
+        return this;
+    }
+
+    public abstract() {
+        this.isAbstract = true;
+        return this;
+    }
+
+    public build(outputReadableModel: boolean) {
+        let sig: string[] = [];
+        const spacer = outputReadableModel ? "\n" : "";
+        const indentLevel = outputReadableModel ? 2 : 0;
+
+        if (this.isAbstract) {
+            sig.push("abstract ");
+        }
+        if (this.multiplicity) {
+            sig.push(this.multiplicity + " ");
+        }
+        sig.push(`sig ${this.name}`);
+        if (this.extendedSignature) {
+            sig.push(` extends ${this.extendedSignature}`);
+        }
+        if (this.inSignature) {
+            sig.push(` in ${this.inSignature}`);
+        }
+
+        sig = sig.concat([
+            mkString(indent(this.members, indentLevel), " {" + spacer, ", " + spacer, spacer + "}"),
+            mkString(indent(this.constraints, indentLevel), " {" + spacer, " && " + spacer, spacer + "}")
+        ]);
+
+        return sig.join("");
+    }
+}
+
+class Comment implements ModelPart {
+    constructor(readonly comment: string) {}
+    build() {
+        return '// ' + this.comment;
+    }
+}
+
+class Fact implements ModelPart {
+    constructor(readonly fact: string) {}
+
+    build() {
+        return `fact { ${this.fact} }`;
+    }
+}
+
+const Blank: ModelPart = {
+    build: () => ""
+};
 
 export class AlloyModelBuilder {
 
-    private parts: string[];
+    private parts: ModelPart[];
 
     constructor() {
         this.parts = [];
     }
 
     public comment(text: string) {
-        this.parts.push("// " + text);
+        if (DebuggerSettings.logLevel === LogLevel.DEBUG) {
+            this.parts.push(new Comment(text));
+        }
     }
 
     public blank() {
-        this.parts.push("");
+        if (DebuggerSettings.logLevel === LogLevel.DEBUG) {
+            this.parts.push(Blank);
+        }
     }
 
-    public sig(
-        multiplicity: Multiplicity,
-        name: string,
-        vars: string[] = [],
-        constraints: string[] = []
-    ) {
-        let sig: string[] = [];
+    public signature(name: string) {
+        const s =  new Signature(name);
+        this.parts.push(s);
+        return s;
+    }
 
-        if (multiplicity !== '') {
-            sig.push(multiplicity + " ");
-        }
-        sig.push(`sig ${name} {`);
+    public abstractSignature(name: string) {
+        return this.signature(name).abstract();
+    }
 
-        if (vars.length > 0) {
-            sig.push("\n");
-            sig.push((vars.map(v => "  " + v).join(",\n")));
-            sig.push("\n");
-        }
-        if (constraints.length > 0) {
-            sig.push("} {");
+    public oneSignature(name: string) {
+        return this.signature(name).withMultiplicity('one');
+    }
 
-            if (constraints.length > 0) {
-                sig.push("\n");
-                sig.push((constraints.map(v => "  " + v).join(" &&\n")));
-                sig.push("\n");
-            }
-        }
-        sig.push("}");
-
-        this.parts.push(sig.join(""));
+    public loneSignature(name: string) {
+        return this.signature(name).withMultiplicity('lone');
     }
 
     public fact(fact: string) {
-        this.parts.push(`fact { ${fact} }`);
+        this.parts.push(new Fact(fact));
     }
 
-    private pred(name: string, args: string[], body: string[]) {
-        this.parts.push(`pred ${name}(${args.join(", ")}) {${body.join("\n")}}`);
-    }
-
-    public build(): string {
+    public build(numberOfInstances: number): string {
         // TODO: Fix this
-        this.pred("generate", [], []);
-        this.parts.push("run generate for 5 but 3 int");
-        
-        return this.parts.join("\n");
+        const outputReadableModel = DebuggerSettings.logLevel === LogLevel.DEBUG;
+        const model = this.parts
+            .map(p => p.build(outputReadableModel))
+            .join("\n");
+
+
+        return model + '\n' +
+            'pred generate() {}\n' +
+            `run generate for ${numberOfInstances} but 3 int`;
     }
 }

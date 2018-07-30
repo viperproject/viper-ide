@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
-import { Logger, LogLevel } from './logger';
+import { Logger } from './logger';
 import { Debugger } from './Debugger';
 import { DebuggerCommand } from './Commands';
+import { DebuggerSettings } from './DebuggerSettings';
 
 
 /** The API exported by the "main" Viper extension.
@@ -13,10 +14,8 @@ export var viperApi: any;
 
 /** Called by VS Code when loading the extension. */
 export function activate(context: vscode.ExtensionContext) {
-    const settings = vscode.workspace.getConfiguration("viperDebuggerSettings");
-    const logLevel = <keyof typeof LogLevel> settings.get("logLevel");
-    if (logLevel) {
-        Logger.setLogLevel(LogLevel[logLevel]);
+    if (DebuggerSettings.logLevel) {
+        Logger.setLogLevel(DebuggerSettings.logLevel);
     }
 
     Logger.debug('Viper Debugger extension starting');
@@ -35,8 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
     setupCommandHandlers(context);
 
     // While deveoping start the debugger immediately
-    const debugImmediately = settings.get("debugImmediately");
-    if (debugImmediately && debugImmediately === true) {
+    if (DebuggerSettings.debugImmediately) {
         vscode.commands.executeCommand(DebuggerCommand.StartDebugger);
     }
     Logger.debug('Viper Debugger extension started');

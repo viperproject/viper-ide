@@ -9,7 +9,9 @@ import { DebuggerError } from './Errors';
 import { RecordView } from './model/Record';
 import { DecorationsManager } from './DecorationsManager';
 import { AlloyTranslator } from './model/AlloyTranslator';
+import { TranslationEnv } from './model/TranslationEnv';
 import { Alloy } from './model/Alloy';
+import { DotGraph } from './DotGraph';
 
 
 class PanelMessage {
@@ -155,11 +157,20 @@ export class DebuggerPanel implements SessionObserver {
                 return;
             }
 
-            const model = AlloyTranslator.translate(record.verifiable, record.current.prestate);
+            const state = record.current.prestate;
+            const env = new TranslationEnv(state);
+            const model = AlloyTranslator.translate(record.verifiable, state, env);
             this.logModel(model);
 
             Alloy.generate(model).then(
-                (instance) => Logger.info(JSON.stringify(instance, undefined, 2)),
+                (instance) => {
+                    Logger.info(JSON.stringify(instance, undefined, 2));
+                    const graph = DotGraph.what(record.current, instance, env);
+                    this.postMessage({
+                        type: "displayGraph",
+                        text: graph.toString()
+                    });
+                },
                 (reason) => Logger.error(reason)
             );
         });

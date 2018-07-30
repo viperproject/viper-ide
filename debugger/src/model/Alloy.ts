@@ -20,19 +20,17 @@ export class Alloy {
                     };
                     request.post(options, (error, response, body) => {
                         if (error) {
-                            reject("Got error from POST request to ViperServer when generating Alloy model: " +
-                                   JSON.stringify(error, undefined, 2));
-                            return;
+                            return reject("Got error from POST request to ViperServer when generating Alloy model: " +
+                                          JSON.stringify(error, undefined, 2));
                         }
                         if (response.statusCode !== 200) {
-                            reject("Bad response on POST request to ViperServer when generating Alloy model:" +
-                                   JSON.stringify(response, undefined, 2));
-                            return;
+                            return reject("Bad response on POST request to ViperServer when generating Alloy model:" +
+                                          JSON.stringify(response, undefined, 2));
                         }
 
                         const instance = <AlloyInstance>JSON.parse(body);
                         if (instance.signatures === undefined) {
-                            reject("Response from ViperServer had no signatures in Alloy model:\n" + body);
+                            return reject("Response from ViperServer had no signatures in Alloy model:\n" + body);
                         }
 
                         return resolve(instance);

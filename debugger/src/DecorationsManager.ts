@@ -4,17 +4,18 @@ import { DebuggerSession, StateUpdate } from "./DebuggerSession";
 import { TextEditorDecorationType } from "vscode";
 import { DebuggerError } from './Errors';
 import { Record } from './model/Record';
+import { DebuggerSettings } from './DebuggerSettings';
 
 
 /** Creates and disposes the various decoration styles. */
 namespace DecorationStyles {
     let decorations: TextEditorDecorationType[] = [];
     let currentStateDecoration: TextEditorDecorationType | undefined;
-    let currentStateBackgroundColor = getValidColor('currentStateBackgroundColor');
-    let currentStateForegroundColor = getValidColor('currentStateForegroundColor');
-    let topLevelStateUnderlineColor = getValidColor('topLevelStateUnderlineColor');
-    let childStateUnderlineColor = getValidColor('childStateUnderlineColor');
-    let siblingStateUnderlineColor = getValidColor('siblingStateUnderlineColor');
+    let currentStateBackgroundColor = DebuggerSettings.getValidColor('currentStateBackgroundColor');
+    let currentStateForegroundColor = DebuggerSettings.getValidColor('currentStateForegroundColor');
+    let topLevelStateUnderlineColor = DebuggerSettings.getValidColor('topLevelStateUnderlineColor');
+    let childStateUnderlineColor = DebuggerSettings.getValidColor('childStateUnderlineColor');
+    let siblingStateUnderlineColor = DebuggerSettings.getValidColor('siblingStateUnderlineColor');
 
     export function disposeDecorations(keepCurrent: boolean = false) {
         decorations.forEach(d => d.dispose());
@@ -22,30 +23,6 @@ namespace DecorationStyles {
 
         if (!keepCurrent && currentStateDecoration !== undefined) {
             currentStateDecoration.dispose();
-        }
-    }
-    
-    function getValidColor(key: string) {
-        let highlightingSettings = vscode.workspace.getConfiguration("viperDebuggerSettings.highlighting");
-        let colorString = (<string> highlightingSettings.get(key)).trim();
-
-        // TODO: This is not realy a 100% safe check, but we probably don't care that much
-        let valid = colorString.match(/^#[a-fA-F\d]{6}$/) ||
-                    colorString.match(/^#[a-fA-F\d]{3}$/) ||
-                    colorString.match(/^rgb\(\s*\d,\s*\d,\s*\d\s*\)$/);
-
-        if (valid) {
-            return colorString;
-        } else {
-            let message = `Invalid color value for '${key}' setting, falling back to default value.`;
-            vscode.window.showErrorMessage(message, "Open User Settings")
-                         .then((item) => {
-                             if (item) {
-                                vscode.commands.executeCommand("workbench.action.openGlobalSettings");
-                             }
-                         });
-            let inspection = highlightingSettings.inspect(key);
-            return inspection!.defaultValue;
         }
     }
 
