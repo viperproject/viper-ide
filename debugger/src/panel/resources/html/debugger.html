@@ -21,7 +21,7 @@
             </div>
         </nav>
     </header>
-    <div id="graphPanel" class="panel noScroll collapsedByDefault">
+    <div id="graphPanel" class="panel noScroll">
         <div id="graph"></div>
     </div>
     <div id="mainPanel" class="panel">
@@ -32,12 +32,20 @@
             <div id="allContraints"></div>
         </div>
     </div>
-    <div id="diagnostics" class="panel">
+    <div id="diagnostics" class="panel collapsedByDefault">
         <h3>Diagnostics</h3>
-        <h4>Alloy Model</h4>
-        <div id="alloyModel"></div>
-        <h4>SymbExLog</h4>
-        <div id="symbExLog"></div>
+        <section>
+            <h4>Alloy Model</h4>
+            <div>
+                <button id="toggleAlloyModel">Show</button>
+                <button id="copyAlloyModel">Copy to Clipboard</button>
+            </div>
+            <div id="alloyModel" class="hide"></div>
+        </section>
+        <section>
+            <h4>SymbExLog</h4><button id="toggleSymbExLog">Show</button>
+            <div id="symbExLog" class="hide"></div>
+        </section>
     </div>
 </body>
 </html>

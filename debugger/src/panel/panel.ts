@@ -28,7 +28,7 @@ function activate() {
     // setupGraph();
 
     Logger.debug("Done setting up debug pane");
-};
+}
 
 
 /** Sets up the splits in the debug pane.  */
@@ -99,6 +99,26 @@ function setupInputHandlers() {
     $('#child:button').click(() => vscode.postMessage({ command: 'childState' }));
     $('#parent:button').click(() => vscode.postMessage({ command: 'parentState' }));
 
+    function toggleSection(buttonId: string, sectionId: string) {
+        const section = $(sectionId);
+        section.toggleClass('hide');
+        if (section.hasClass('hide')) {
+            $(buttonId).text("Show");
+        } else {
+            $(buttonId).text("Hide");
+        }
+    }
+
+    $('#toggleAlloyModel:button').click(() => toggleSection('#toggleAlloyModel:button', '#alloyModel'));
+    $('#toggleSymbExLog:button').click(() => toggleSection('#toggleSymbExLog:button', '#symbExLog'));
+    $('#copyAlloyModel:button').click(() => {
+        var $temp = $("<textarea>");
+        $("body").append($temp);
+        $temp.val($("#alloyModel").text()).select();
+        document.execCommand("copy");
+        $temp.remove();
+    });
+
     // Enable/disable state navigation via mouse
     // The message is delivered to the DecorationsManager via the DebuggerPanel, on "the extension side"
     $('#mouseNavigation').change((event) => {
@@ -163,15 +183,6 @@ function handleStateUpdate(message: any) {
     $('button#parent').prop('disabled', !data.hasParent);
     $('button#child').prop('disabled', !data.hasChild);
 
-    if (state.children.length > 0) {
-        stateDiv.append($('<h4>Children</h4>'));
-        // Update the JSON view of the state tree
-        const openLevel = 0;
-        const current = new JSONFormatter(state.children, openLevel, JsonFormatConfiguration);
-        const pre = $('<pre></pre>').addClass('json').append(current.render());
-        stateDiv.append(pre);
-    }
-
     type parts = { text: string, id?: string }[];
 
     if (state.state.heap.length > 0) {
@@ -222,6 +233,15 @@ function handleStateUpdate(message: any) {
             });
             stateDiv.append(line);
         });
+    }
+
+    if (state.children.length > 0) {
+        stateDiv.append($('<h4>Children</h4>'));
+        // Update the JSON view of the state tree
+        const openLevel = 0;
+        const current = new JSONFormatter(state.children, openLevel, JsonFormatConfiguration);
+        const pre = $('<pre></pre>').addClass('json').append(current.render());
+        stateDiv.append(pre);
     }
 
     $('.highlightable').hover(
