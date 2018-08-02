@@ -52,7 +52,10 @@ export namespace AlloyTranslator {
         mb.blank();
 
         mb.comment("Path Conditions");
-        state.pathConditions.forEach(pc => translatePathCondition(pc, mb, termTranslator));
+        state.pathConditions.forEach(pc => {
+            termToFact(pc, mb, termTranslator);
+            env.clearFreshNames();
+        });
         mb.blank();
 
         // Translate values and types that have been gathered during translation
@@ -226,24 +229,23 @@ export namespace AlloyTranslator {
                                            new Application(functionName, [chunk.receiver], new Sort('Perm')),
                                            chunk.perm);
 
-                translatePathCondition(permFun, mb, termTranslator);
+                termToFact(permFun, mb, termTranslator);
 
             } else if (chunk instanceof QuantifiedFieldChunk) {
-                env.evaluateWithQuantifiedVariables(['r'], () => {
-                    const functionName = PermFun + "_" + chunk.field;
-                    const r = new VariableTerm('r', new Sort('Ref'));
-                    const permFun = new Binary('==',
-                                               new Application(functionName, [r], new Sort('Perm')),
-                                               chunk.perm);
+                const r = new VariableTerm('r', new Sort('Ref'));
+                const functionName = PermFun + "_" + chunk.field;
+                const permFun = new Binary('==',
+                                            new Application(functionName, [r], new Sort('Perm')),
+                                            chunk.perm);
+                const quant = new Quantification('QA', [r], permFun, null);
 
-                    translatePathCondition(permFun, mb, termTranslator);
-                });
+                termToFact(quant, mb, termTranslator);
             }
         });
         mb.blank();
     }
 
-    function translatePathCondition(pc: Term, mb: AlloyModelBuilder, termTranslator: TermTranslator) {
+    function termToFact(pc: Term, mb: AlloyModelBuilder, termTranslator: TermTranslator) {
         let body = termTranslator.toAlloy(pc);
         if (!body.res) {
             mb.comment("!!! Non-translated fact: ");
@@ -253,18 +255,14 @@ export namespace AlloyTranslator {
         }
 
         // The translation of a fact might have introduces some variables and facts to constrain them.
-
         let facts = [body.res].concat(body.additionalFacts).join(" && ");
         if (body.quantifiedVariables.length > 0) {
-            let vars = body.quantifiedVariables.join(", ");
-
-            mb.comment(pc.toString());
-            mb.fact(vars + " | " + facts);
+            // mb.comment(pc.toString());
+            mb.fact(body.quantifiedVariables.concat(facts).join(" | "));
         } else {
-            mb.comment(pc.toString());
+            // mb.comment(pc.toString());
             mb.fact(facts);
         }
-
     }
 
     // NOTE: Inverse function, functions and temp variables are added to the Alloy model "at the bottom" because
