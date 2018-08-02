@@ -115,7 +115,9 @@ export namespace AlloyTranslator {
         if (env.fields.size > 0) {
             mb.comment("Constraints on field permission/existence");
             for (const field of env.fields.keys()) {
+                const funName = `${Function}.${PermFun}_${field}`;
                 mb.fact(`all o: ${Ref} | one o.${field} <=> ${Function}.${PermFun}_${field}[o] in (${WritePerm} + ${ReadPerm})`);
+                mb.fact(`${funName}[${Null}] = none`);
             }
             mb.blank();
         }
