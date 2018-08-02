@@ -58,15 +58,6 @@ function leftover(leftover: Term, reason: string, other: Leftover[]) {
 export class TermTranslator {
     constructor(readonly env: TranslationEnv) {}
 
-    // TODO: implement this properly
-    public static getFieldKey(sort: Sort) {
-        if (sort.id === Sort.Int) {
-            return '.v';
-        }
-
-        return '';
-    }
-
     private application(name: string, args: string[], from: TranslationRes[]): TranslationRes {
         return translatedFrom(name + mkString(args, '[', ', ', ']'), from);
     }
@@ -99,7 +90,8 @@ export class TermTranslator {
                 return leftover(term, "Left-hand side operand not translated", left.leftovers);
             }
 
-            const right = this.toAlloy(term.rhs); if (right.res === undefined) {
+            const right = this.toAlloy(term.rhs);
+            if (right.res === undefined) {
                 return leftover(term, "Right-hand side operand not translated", right.leftovers);
             }
 
@@ -110,24 +102,16 @@ export class TermTranslator {
             const rightSort = getSort(term.rhs);
 
             if (leftSort.id === Sort.Int || rightSort.id === Sort.Int) {
-
-                const leftRes = left.res + (term.lhs instanceof Literal ? '' : TermTranslator.getFieldKey(leftSort));
-                const rightRes = right.res + (term.rhs instanceof Literal ? '' : TermTranslator.getFieldKey(rightSort));
-
-                const pred = (name: string) => {
-                    return this.application(name, [leftRes, rightRes], [left, right]);
-                };
-
                 switch (term.op) {
-                    case '-': return pred('minus');
-                    case '+': return pred('plus');
-                    case '*': return pred('mul');
-                    case '/': return pred('div');
-                    case '%': return pred('rem');
-                    case '<': return translatedFrom(`(${leftRes} ${alloyOp} ${rightRes})`, [left, right]);
-                    case '<=': return translatedFrom(`(${leftRes} ${alloyOp} ${rightRes})`, [left, right]);
-                    case '>': return translatedFrom(`(${leftRes} ${alloyOp} ${rightRes})`, [left, right]);
-                    case '>=': return translatedFrom(`(${leftRes} ${alloyOp} ${rightRes})`, [left, right]);
+                    case '-': return this.application('minus', [left.res, right.res], [left, right]);
+                    case '+': return this.application('plus', [left.res, right.res], [left, right]);
+                    case '*': return this.application('mul', [left.res, right.res], [left, right]);
+                    case '/': return this.application('div', [left.res, right.res], [left, right]);
+                    case '%': return this.application('rem', [left.res, right.res], [left, right]);
+                    case '<': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
+                    case '<=': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
+                    case '>': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
+                    case '>=': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
                 }
             }
 
@@ -150,26 +134,13 @@ export class TermTranslator {
                 }
             }
 
-            // Literals are wrapped inside other signatures, we need the name of the "field" that holds the actual value
-            let leftFieldKey = '';
-            if (term.rhs instanceof Literal) {
-                leftFieldKey = TermTranslator.getFieldKey(leftSort);
-            }
-            const leftRes = left.res + leftFieldKey;
-
-            let rightFieldKey = '';
-            if (term.lhs instanceof Literal) {
-                rightFieldKey = TermTranslator.getFieldKey(rightSort);
-            }
-            const rightRes = right.res + rightFieldKey;
-
             if (alloyOp === 'Combine') {
                 Logger.error("Was not expecting to get here, all combines should be handled from above");
                 throw new DebuggerError("Was not expecting to get here, all combines should be handled from above");
             }
 
             // If we are not dealing with a combine, then return a "regular" binary expression
-            return translatedFrom(`(${leftRes} ${alloyOp} ${rightRes})`, [left, right]);
+            return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
         }
 
         if (term instanceof Unary) {
@@ -242,23 +213,7 @@ export class TermTranslator {
                 return this.toAlloy(snapshotMapVar);
             }
 
-            const quantified: string[] = [];
-            const tVars: string[] = [];
-            const args = term.args;
-            args.forEach((a, index, array) => {
-                if (a instanceof Literal) {
-                    const name = this.env.getFreshName("lit");
-                    tVars.push(`${name}: ${this.env.translate(a.sort)}`);
-                    quantified.push(name);
-                    array[index] = new VariableTerm(name, a.sort);
-                }
-            });
-
-            const translated = this.env.evaluateWithQuantifiedVariables(
-                quantified,
-                () => args.map(a => this.toAlloy(a))
-            );
-            // const args = term.args.map(a => this.toAlloy(a));
+            const args = term.args.map(a => this.toAlloy(a));
 
             // Collect the leftovers from the translation of all arguments
             const leftovers = translated.reduce(

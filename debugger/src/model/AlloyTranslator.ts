@@ -14,7 +14,7 @@ export namespace AlloyTranslator {
     // Signature name definitions, it makes it easier to change them all at once later.
     export const Ref = 'Ref';
     export const Null = 'NULL';
-    export const Int = 'Integer';
+    export const Int = 'Int';
     export const Bool = 'Bool';
     export const Snap = 'Snap';
     export const Unit = 'Unit';
@@ -79,7 +79,6 @@ export namespace AlloyTranslator {
         mb.abstractSignature(SymbVal);
         mb.signature(Snap).extends(SymbVal);
         mb.oneSignature(Unit).extends(Snap);
-        mb.signature(Int).extends(SymbVal).withMember('v: one Int');
         mb.abstractSignature(Perm).extends(SymbVal).withMembers(['num: one Int', 'denom: one Int']).withConstraints([
             'num >= 0',
             'denom > 0',
@@ -177,8 +176,7 @@ export namespace AlloyTranslator {
                         Logger.error("Could not translate field literal: " + lit.leftovers.join("\n"));
                         return;
                     }
-                    const fieldSort = getSort(hc.snap);
-                    constraints.push(rec.res + "." + hc.field + TermTranslator.getFieldKey(fieldSort) + " = " + lit.res);
+                    constraints.push(rec.res + "." + hc.field + " = " + lit.res);
                 }
             } else if (hc instanceof PredicateChunk) {
                 if (hc.snap instanceof VariableTerm) {
