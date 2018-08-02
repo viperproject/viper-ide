@@ -273,13 +273,10 @@ export namespace AlloyTranslator {
 
         // Add signature for Combines only if we have found some in the path conditions and constrain its cardinality to
         // be at most the number we have found.
-        if (env.totalCombines > 0) {
-            mb.comment("Combine operations");
-            mb.abstractSignature(Combine).extends(Snap).withMembers(
-                   ['left: one ' + SymbVal, 'right: one ' + SymbVal]);
-            mb.fact(`#${Combine} <= ` + env.totalCombines);
-            mb.blank();
-        }
+        mb.comment("Combine operations");
+        mb.abstractSignature(Combine).extends(Snap).withMembers(
+                ['left: one ' + SymbVal, 'right: one ' + SymbVal]);
+        mb.blank();
 
         if (env.userSorts.size > 0) {
             mb.comment("User sorts");
@@ -297,7 +294,10 @@ export namespace AlloyTranslator {
     }
 
     function encodeReachabilityConstraints(env: TranslationEnv, mb: AlloyModelBuilder) {
-        const reachable = [Store + ".refTypedVars'.*refTypedFields'"];
+        const reachable = [ Store + ".refTypedVars'.*refTypedFields'" ];
+        
+        reachable.push(`(${Combine}.left :> ${Ref})`);
+        reachable.push(`(${Combine}.right :> ${Ref})`);
 
         // If there are functions that return reference-like object, they have to be accounted in the constraint as
         // well, otherwise we may prevent Alloy from generating any Object.

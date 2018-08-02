@@ -71,6 +71,26 @@ export class TermTranslator {
 
     public toAlloy(term: Term): TranslationRes {
 
+        if (term instanceof Binary && term.rhs instanceof Binary && term.rhs.op === "Combine") {
+            const left = this.toAlloy(term.lhs);
+            if (left.res === undefined) {
+                return leftover(term, "Left-hand side operand not translated", left.leftovers);
+            }
+            const combine = term.rhs;
+            const combineLeft = this.toAlloy(combine.lhs);
+            const combineRight = this.toAlloy(combine.rhs);
+
+            if (combineLeft.res === undefined) {
+                return leftover(combine, "Left-hand side operand not translated", combineLeft.leftovers);
+            }
+
+            if (combineRight.res === undefined) {
+                return leftover(combine, "Right-hand side operand not translated", combineRight.leftovers);
+            }
+
+            return translatedFrom(`${left.res}.left = ${combineLeft.res} && ${left.res}.right = ${combineRight.res}`, [combineLeft, combineRight]);
+        }
+
         if (term instanceof Binary) {
             const left = this.toAlloy(term.lhs);
             const right = this.toAlloy(term.rhs);
@@ -101,25 +121,13 @@ export class TermTranslator {
             }
             const rightRes = right.res + rightFieldKey;
 
-
-            // If we are not dealing with a combine, then return a "regular" binary expression
-            if (alloyOp !== 'Combine') {
-                return translatedFrom(`(${leftRes} ${alloyOp} ${rightRes})`, [left, right]);
+            if (alloyOp === 'Combine') {
+                Logger.error("Was not expecting to get here, all combines should be handled from above");
+                throw new DebuggerError("Was not expecting to get here, all combines should be handled from above");
             }
 
-            // We need a fresh name to refer to the combine instance and additional facts to constrain its values
-            const freshName = this.getFreshName("c");
-            const quantifiedVariables = [`one ${freshName}: Combine`];
-            const additionalFacts: string[] = [
-                `${freshName}.left = ${leftRes}`,
-                `${freshName}.right = ${rightRes}`,
-            ];
-            this.env.recordCombine();
-
-            // In the end, the translated combine is simply the fresh name
-            return translatedFrom(freshName, [left, right])
-                    .withQuantifiedVariables(quantifiedVariables)
-                    .withAdditionalFacts(additionalFacts);
+            // If we are not dealing with a combine, then return a "regular" binary expression
+            return translatedFrom(`(${leftRes} ${alloyOp} ${rightRes})`, [left, right]);
         }
 
         if (term instanceof Unary) {
