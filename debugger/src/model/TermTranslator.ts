@@ -56,17 +56,17 @@ function leftover(leftover: Term, reason: string, other: Leftover[]) {
 export class TermTranslator {
     constructor(readonly env: TranslationEnv) {}
 
-    public getFreshName(original: string) {
-        return original + "'";
-    }
-
     // TODO: implement this properly
-    public getFieldKey(sort: Sort) {
-        if (sort.id === 'Int') {
+    public static getFieldKey(sort: Sort) {
+        if (sort.id === Sort.Int) {
             return '.v';
         }
 
         return '';
+    }
+
+    private application(name: string, args: string[], from: TranslationRes[]): TranslationRes {
+        return translatedFrom(name + mkString(args, '[', ', ', ']'), from);
     }
 
     public toAlloy(term: Term): TranslationRes {
@@ -93,31 +93,71 @@ export class TermTranslator {
 
         if (term instanceof Binary) {
             const left = this.toAlloy(term.lhs);
-            const right = this.toAlloy(term.rhs);
-
-            if (!left.res) {
+            if (left.res === undefined) {
                 return leftover(term, "Left-hand side operand not translated", left.leftovers);
             }
 
-            if (!right.res) {
+            const right = this.toAlloy(term.rhs); if (right.res === undefined) {
                 return leftover(term, "Right-hand side operand not translated", right.leftovers);
             }
 
             // Alloy operators only have one equal sign, but are otherwise the same as the Viper ones.
             const alloyOp = term.op.replace("==", "=");
 
+            const leftSort = getSort(term.lhs);
+            const rightSort = getSort(term.rhs);
+
+            if (leftSort.id === Sort.Int || rightSort.id === Sort.Int) {
+
+                const leftRes = left.res + (term.lhs instanceof Literal ? '' : TermTranslator.getFieldKey(leftSort));
+                const rightRes = right.res + (term.rhs instanceof Literal ? '' : TermTranslator.getFieldKey(rightSort));
+
+                const pred = (name: string) => {
+                    return this.application(name, [leftRes, rightRes], [left, right]);
+                };
+
+                switch (term.op) {
+                    case '-': return pred('minus');
+                    case '+': return pred('plus');
+                    case '*': return pred('mul');
+                    case '/': return pred('div');
+                    case '%': return pred('rem');
+                    case '<': return translatedFrom(`(${leftRes} ${alloyOp} ${rightRes})`, [left, right]);
+                    case '<=': return translatedFrom(`(${leftRes} ${alloyOp} ${rightRes})`, [left, right]);
+                    case '>': return translatedFrom(`(${leftRes} ${alloyOp} ${rightRes})`, [left, right]);
+                    case '>=': return translatedFrom(`(${leftRes} ${alloyOp} ${rightRes})`, [left, right]);
+                }
+            }
+
+            // TODO: IntPermTimes, IntPermDIv, PermMin, 
+            // Operations on permissions are translated to predicate calls
+            if (leftSort.id === Sort.Perm || rightSort.id === Sort.Perm) {
+                const pred = (name: string) => this.application(name, [left.res!, right.res!], [left, right]);
+                switch (term.op) {
+                    case '<': return pred('perm_less');
+                    case '<=': return pred('perm_at_most');
+                    case '+': return pred('perm_plus');
+                    case '-': return pred('perm_minus');
+                    // Int-Perm multiplication always has the integer on the left in Silicon
+                    case '*': return leftSort.id === Sort.Int ? pred('int_perm_mul') : pred('perm_mul');
+                    // Int-Perm division always has the integer on the left in Silicon
+                    case '/': return pred('int_perm_div');
+                    case 'PermMin': return pred('perm_min');
+                    case '==': return translatedFrom(`(${left.res} = ${right.res})`, [left, right]);
+                    default: Logger.error(`Unexpected perm operator: ${term.op}`);
+                }
+            }
+
             // Literals are wrapped inside other signatures, we need the name of the "field" that holds the actual value
-            const leftSort = getSort(term.rhs);
             let leftFieldKey = '';
-            if (!(term.lhs instanceof Literal) && leftSort !== undefined) {
-                leftFieldKey = this.getFieldKey(leftSort);
+            if (term.rhs instanceof Literal) {
+                leftFieldKey = TermTranslator.getFieldKey(leftSort);
             }
             const leftRes = left.res + leftFieldKey;
 
-            const rightSort = getSort(term.rhs);
             let rightFieldKey = '';
-            if (!(term.rhs instanceof Literal) && rightSort !== undefined) {
-                rightFieldKey = this.getFieldKey(rightSort);
+            if (term.lhs instanceof Literal) {
+                rightFieldKey = TermTranslator.getFieldKey(rightSort);
             }
             const rightRes = right.res + rightFieldKey;
 
@@ -284,25 +324,24 @@ export class TermTranslator {
             }
 
             if (term.sort.id === Sort.Perm) {
+                if (term.value === AlloyTranslator.WritePerm) {
+                    return translatedFrom(AlloyTranslator.WritePerm, []);
+                } else if (term.value === AlloyTranslator.ReadPerm) {
+                    return translatedFrom(AlloyTranslator.ReadPerm, []);
+                } else if (term.value === AlloyTranslator.NoPerm) {
+                    return translatedFrom(AlloyTranslator.NoPerm, []);
+                }
                 // TODO: proper fresh name?
-                const freshName = this.getFreshName("p");
+                const freshName = this.env.getFreshName("p");
                 const quantifiedVariables = [`one ${freshName}: ${AlloyTranslator.Perm}`];
                 let additionalFacts: string[] = [];
 
-                if (term.value === AlloyTranslator.WritePerm) {
-                    additionalFacts = [ `${freshName} = ${AlloyTranslator.WritePerm}` ];
-                } else if (term.value === AlloyTranslator.ReadPerm) {
-                    additionalFacts = [ `${freshName} = ${AlloyTranslator.ReadPerm}` ];
-                } else if (term.value === AlloyTranslator.NoPerm) {
-                    additionalFacts = [ `${freshName} = ${AlloyTranslator.NoPerm}` ];
-                } else {
-                    const parts = term.value.split('/');
-                    additionalFacts = [
-                        `${freshName} in ${AlloyTranslator.ReadPerm}`,
-                        `${freshName}.num = ${parts[0]}`,
-                        `${freshName}.denom = ${parts[1]}`
-                    ];
-                }
+                const parts = term.value.split('/');
+                additionalFacts = [
+                    `${freshName} in ${AlloyTranslator.ReadPerm}`,
+                    `${freshName}.num = ${parts[0]}`,
+                    `${freshName}.denom = ${parts[1]}`
+                ];
 
                 // In the end, the translated combine is simply the fresh name
                 return translatedFrom(freshName, [])
