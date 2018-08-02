@@ -171,9 +171,9 @@ export class TranslationEnv {
     }
 
     evaluateWithQuantifiedVariables<T>(vars: string[], f: () => T) {
-        this.quantifiedVariables = new Set(vars);
+        vars.forEach(v => this.quantifiedVariables.add(v));
         const res = f();
-        this.quantifiedVariables = new Set();
+        vars.forEach(v => this.quantifiedVariables.delete(v));
         return res;
     }
 
