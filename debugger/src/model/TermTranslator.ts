@@ -3,6 +3,8 @@ import { TranslationEnv } from "./TranslationEnv";
 import { AlloyTranslator } from './AlloyTranslator';
 import { DebuggerError } from "../Errors";
 import { getSort, Sort } from "./Sort";
+import { mkString } from "../util";
+import { Logger } from "../logger";
 
 export function sanitize(name: string) {
     return name.replace(/@/g, "_")
@@ -181,7 +183,13 @@ export class TermTranslator {
 
         // TODO: Fix this
         if (term instanceof SortWrapper) {
-            return this.toAlloy(term.term);
+            const fromSort = getSort(term);
+            const toSort = term.sort;
+
+            const applicable = `sortwrapper_${fromSort}_to_${toSort}`;
+            const application = new Application(applicable, [term.term], toSort);
+
+            return this.toAlloy(application);
             // return leftover(term, "Not translating SortWrappers", []);
         }
 
@@ -194,7 +202,7 @@ export class TermTranslator {
         }
 
         if (term instanceof Quantification) {
-            const tVars = term.vars.map(v => v.toAlloyWithType());
+            const tVars = term.vars.map(v => `${sanitize(v.id)}: ${this.env.translate(v.sort)}`);
 
             let mult: string;
             if (term.quantifier === 'QA') {
@@ -211,11 +219,12 @@ export class TermTranslator {
                 () => {
                     const tBody = this.toAlloy(term.body);
 
-                    if (!tBody!.res) {
+                    if (!tBody.res) {
                         return leftover(term, "Could not translate quantified variables", tBody!.leftovers);
                     }
 
-                    return translatedFrom(`${mult} ${tVars.join(", ")} | ${tBody.res}`, [tBody]);
+                    return translatedFrom(tBody.res, [tBody])
+                                .withQuantifiedVariables(tVars.map(v => `${mult} ${v}`));
                 });
         }
 
@@ -224,30 +233,45 @@ export class TermTranslator {
 
             if (applicableSanitized.endsWith('trigger')) {
                 // TODO: Do we want to ignore these in the end?
-                return leftover(term, "Explicitely ignoring trigger applications for now", []);
+                return leftover(term, "Explicitely ignoring trigger applications", []);
             }
 
-            const args = term.args.map(a => this.toAlloy(a));
+            if (applicableSanitized.startsWith("sm") && term.sort.id === Sort.FVF) {
+                const snapshotMapVar = new VariableTerm(applicableSanitized, term.sort);
+                this.env.recordTempVariable(snapshotMapVar);
+                return this.toAlloy(snapshotMapVar);
+            }
+
+            const quantified: string[] = [];
+            const tVars: string[] = [];
+            const args = term.args;
+            args.forEach((a, index, array) => {
+                if (a instanceof Literal) {
+                    const name = this.env.getFreshName("lit");
+                    tVars.push(`${name}: ${this.env.translate(a.sort)}`);
+                    quantified.push(name);
+                    array[index] = new VariableTerm(name, a.sort);
+                }
+            });
+
+            const translated = this.env.evaluateWithQuantifiedVariables(
+                quantified,
+                () => args.map(a => this.toAlloy(a))
+            );
+            // const args = term.args.map(a => this.toAlloy(a));
 
             // Collect the leftovers from the translation of all arguments
-            const leftovers = args.reduce(
+            const leftovers = translated.reduce(
                 (acc, current) => acc.concat(current.leftovers),
                 <Leftover[]>[]
             );
 
             // Translating some of the arguments has failed.
-            if (args.some(a => a.res === undefined)) {
+            if (translated.some(a => a.res === undefined)) {
                 return leftover(term, "Could not translate some of the arguments", leftovers);
             }
 
-            const sorts: Sort[] = [];
-            term.args.forEach(a => {
-                const s = getSort(a);
-                if (s === undefined) {
-                    throw new DebuggerError(`Could not determine sort of '${a.toString()}' in ` + term.toString());
-                }
-                sorts.push(s);
-            });
+            const sorts = term.args.map(a => getSort(a));
             sorts.push(term.sort);
 
             this.env.recordFunction(applicableSanitized, sorts);
@@ -257,14 +281,20 @@ export class TermTranslator {
                         .withQuantifiedVariables(tVars);
         }
 
-        // TODO: Do we need proper lookups?
         if (term instanceof Lookup) {
             const receiver = this.toAlloy(term.receiver);
             if (!receiver.res) {
                 return leftover(term, "Could not translate receiver", receiver.leftovers);
             }
 
-            return translatedFrom(receiver.res + "." + term.field, [receiver]);
+            const returnSort = getSort(term.fieldValueFunction);
+
+            const f = new Application('lookup_' + term.field,
+                                      [term.fieldValueFunction, term.receiver],
+                                      returnSort);
+            return this.toAlloy(f);
+
+            // return translatedFrom(receiver.res + "." + term.field, [receiver]);
         }
 
         // TODO: Implement this

@@ -143,7 +143,7 @@ export class TranslationEnv {
         throw new DebuggerError(`Unexpected sort '${sort}'`);
     }
 
-    public translate(sort: Sort) {
+    public translate(sort: Sort): string {
         if (sort.isRefLike()) {
             return AlloyTranslator.Ref;
         }
@@ -164,7 +164,11 @@ export class TranslationEnv {
         if (sort.id === "UserSort" && sort.elementsSort) {
             const userSort = sort.elementsSort.id;
             this.recordUserSort(userSort);
-            return sort.elementsSort.id;
+            return userSort;
+        }
+
+        if (sort.id === "FVF" && sort.elementsSort) {
+            return this.translate(sort.elementsSort);
         }
 
         throw new DebuggerError(`Unexpected sort '${sort}'`);
