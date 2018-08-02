@@ -2,6 +2,7 @@ import { Verifiable } from './model/Verifiable';
 import { Record } from './model/Record';
 import { Logger } from './logger';
 import * as vscode from 'vscode';
+import { Term } from './model/Term';
 
 
 /** Events that can be listened on. */
@@ -24,7 +25,7 @@ export class DebuggerSession {
     private currentRecord: Record;
     private currentVerifiable: Verifiable;
 
-    constructor(readonly debuggedFile: vscode.Uri, readonly verifiables: Verifiable[]) {
+    constructor(readonly debuggedFile: vscode.Uri, readonly verifiables: Verifiable[], readonly axioms: Term[]) {
         this.observers = [];
         // TODO: Put a check for not verifiables?
         this.currentVerifiable = this.verifiables[0];

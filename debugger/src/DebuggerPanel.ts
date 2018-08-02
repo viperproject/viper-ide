@@ -159,7 +159,7 @@ export class DebuggerPanel implements SessionObserver {
 
             const state = record.current.prestate;
             const env = new TranslationEnv(state);
-            const model = AlloyTranslator.translate(record.verifiable, state, env);
+            const model = AlloyTranslator.translate(record.verifiable, this.session!.axioms, state, env);
             this.logModel(model);
 
             Alloy.generate(model).then(

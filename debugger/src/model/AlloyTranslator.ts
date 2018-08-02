@@ -33,7 +33,7 @@ export namespace AlloyTranslator {
     export const Inverse = 'Inv';
     export const PermFun = 'PermFun';
 
-    export function translate(verifiable: Verifiable, state: State, env: TranslationEnv): string {
+    export function translate(verifiable: Verifiable, axioms: Term[], state: State, env: TranslationEnv): string {
 
         // The translation environment keeps track of the known variable names and the signature they belong to
         const mb = new AlloyModelBuilder();
@@ -45,6 +45,13 @@ export namespace AlloyTranslator {
         translateStore(env, mb);
         translateHeap(env, mb, termTranslator, state.heap);
         encodePermissions(state.heap, env, mb, termTranslator);
+
+        mb.comment("Domain Axioms");
+        axioms.forEach(a => {
+            termToFact(a, mb, termTranslator);
+            env.clearFreshNames();  // Not sure if this is needed
+        });
+        mb.blank();
 
         mb.comment("Path Conditions");
         state.pathConditions.forEach(pc => translatePathCondition(pc, mb, termTranslator));

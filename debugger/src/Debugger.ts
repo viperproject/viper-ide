@@ -10,6 +10,7 @@ import { DebuggerSession } from './DebuggerSession';
 import { DebuggerPanel } from './DebuggerPanel';
 import { DecorationsManager } from './DecorationsManager';
 import * as external from './external';
+import { Term } from './model/Term';
 
 
 /** An object that wants to be notified when the debugger session changes.
@@ -83,10 +84,11 @@ export namespace Debugger {
         // Setup a handler for the symbolic execution logs sent by ViperServer
         viperApi.registerServerMessageCallback('symbolic_execution_logger_report', (messageType: string, message: any) => {
             if (panel) {
-                let entries = <SymbExLogEntry[]>(message.msg_body.log);
+                let entries = <SymbExLogEntry[]>(message.msg_body.members);
+                let axioms = <any[]>(message.msg_body.axioms);
 
                 panel.postOriginalSymbExLog(entries);
-                update(entries);
+                update(entries, axioms);
             }
         });
     }
@@ -121,15 +123,16 @@ export namespace Debugger {
 
 
     /** Update the state of the debugger (both panel and view). */
-    function update(entries: SymbExLogEntry[]) {
+    function update(entries: SymbExLogEntry[], rawAxioms: any[]) {
         const verifiables = entries.map(Verifiable.from);
+        const axioms = rawAxioms.map(Term.from);
 
         if (session) {
             session.removeListeners();
             session = undefined;
         }
 
-        session = new DebuggerSession(debuggedFile, verifiables);
+        session = new DebuggerSession(debuggedFile, verifiables, axioms);
 
         sessionObservers.forEach(observer => {
             observer.clearSession();

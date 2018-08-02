@@ -14,6 +14,8 @@ export class TranslationEnv {
 
     public fields: Map<string, FieldChunk | QuantifiedFieldChunk>;
     public predicates: Map<string, PredicateChunk[]>;
+    private freshNames: Map<string, number>;
+    private freshVariables: Map<string, number>;
 
     private quantifiedVariables: Set<string>;
     public storeVariables: Map<string, StoreVariable>;
@@ -29,6 +31,8 @@ export class TranslationEnv {
         
         this.fields = new Map();
         this.predicates = new Map();
+        this.freshNames = new Map();
+        this.freshVariables = new Map();
 
         this.storeVariables = new Map();
         this.heapSnapshots = new Set();
@@ -73,6 +77,32 @@ export class TranslationEnv {
         this.inverseFunctions = new Map();
         this.functions = new Map();
         this.totalCombines = 0;
+    }
+
+    public getFreshVariable(base: string) {
+        const count = this.freshVariables.get(base);
+        if (count !== undefined) {
+            this.freshVariables.set(base, count + 1);
+            return `${base}_${count + 1}'`;
+        } else {
+            this.freshVariables.set(base, 0);
+            return `${base}_0'`;
+        }
+    }
+
+    public getFreshName(base: string) {
+        const count = this.freshNames.get(base);
+        if (count !== undefined) {
+            this.freshNames.set(base, count + 1);
+            return `${base}_${count + 1}'`;
+        } else {
+            this.freshNames.set(base, 0);
+            return `${base}_0'`;
+        }
+    }
+
+    public clearFreshNames() {
+        this.freshNames.clear();
     }
 
     public resolve(variable: VariableTerm): string | undefined {
