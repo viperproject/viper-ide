@@ -69,6 +69,8 @@ function setupMessageHandlers() {
 
     on('logModel', message => handleModelMessage(message));
     on('displayGraph', message => displayGraph(message));
+    on('clearGraph', _ => clearGraph());
+    on('graphMessage', message => graphMessage(message));
     on('stateUpdate', message => handleStateUpdate(message));
     on('verifiables', message => handleVerifiableUpdate(message.data));
     on('symbExLogEntries', message => handleSymbExLogEntries(message));
@@ -139,19 +141,6 @@ function setupInputHandlers() {
 function setupGraph() {
     // Ensures that when we actually draw the graph we have a renderer instance ready
     graph = d3.select("#graph").graphviz();
-    
-    // var drag = d3.drag()
-    //     .on("drag", dragmove);
-    
-    // d3.select('ellipse')
-    //     .style('fill', '#f00')
-    //     .call(drag);
-
-    // function dragmove(this: any, d: any, i: any, n: any) {
-    //     console.log(d3.event);
-    //     d3.select(this)
-    //         .attr("transform", `translate(${d3.event.x},${d3.event.y})`);
-    // }
 }
 
 
@@ -168,9 +157,7 @@ function handleStateUpdate(message: any) {
     }
 
     // Add state type to the panel
-    if (state.type && state.type !== 'None') {
-        stateDiv.removeClass();
-        stateDiv.addClass(state.type.toLowerCase());
+    if (state.type) {
         const elem = $(`<h3>(${state.index}) ${state.type}</h3>`);
         elem.append($(`<pre>${state.formula}</pre>`));
         stateDiv.append(elem);
@@ -258,18 +245,32 @@ function handleStateUpdate(message: any) {
 
 
 function displayGraph(message: any) {
-    // Retreieve the renderer instance created in the setup and display the graph
+    // TODO: Reemove this and log it to the diagnostics panel
     console.log(message.text);
 
-    $('#graph').remove();
-    $('#graphPanel').append($('<div id="graph"></div>'));
+    clearGraph();
+    $('#graphPanel').append($('<div id="graph"></div>').hide());
 
     graph = d3.select("#graph")
                 .graphviz()
                 .dot(message.text)
                 .render();
+    
+    $("#graph").fadeIn(30);
 }
 
+
+function clearGraph() {
+    $('#graphPanel').empty();
+}
+
+
+function graphMessage(message: any) {
+    const panel = $('#graphPanel');
+    clearGraph();
+    const messageItem = $('<div></div>').addClass('graphMessage').text(message.text).hide().delay(500).fadeIn(200);
+    panel.append(messageItem);
+}
 
 /** Handles the message containing new verifiables for this session. */
 function handleVerifiableUpdate(verifiables: any[]) {
