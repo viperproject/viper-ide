@@ -21,7 +21,6 @@ export namespace AlloyTranslator {
     export const SymbVal = 'SymbVal';
     export const Perm = 'Perm';
     export const WritePerm = 'W';
-    export const ReadPerm = 'R';
     export const NoPerm = 'Z';
 
     export const Heap = 'Heap';
@@ -86,10 +85,6 @@ export namespace AlloyTranslator {
         ]);
         mb.oneSignature(WritePerm).in(Perm).withConstraints(['num = 1', 'denom = 1']);
         mb.oneSignature(NoPerm).in(Perm).withConstraints(['num = 0', 'denom = 1']);
-
-        // All permissions either come from the permission function or are zero.
-        // Prevent Alloy from adding instances of permission that are not used for anything
-        mb.fact(`${Perm} = ${PermFun}[${Ref}] + ${NoPerm}`);
         mb.blank();
     }
 
@@ -114,12 +109,18 @@ export namespace AlloyTranslator {
         mb.blank();
 
         if (env.fields.size > 0) {
+            const permFuns: string[] = [];
             mb.comment("Constraints on field permission/existence");
             for (const field of env.fields.keys()) {
                 const funName = `${Function}.${PermFun}_${field}`;
-                mb.fact(`all o: ${Ref} | one o.${field} <=> ${Function}.${PermFun}_${field}[o] in (${WritePerm} + ${ReadPerm})`);
-                mb.fact(`${funName}[${Null}] = none`);
+                permFuns.push(funName + `[${Ref}]`);
+                mb.fact(`all o: ${Ref} | one o.${field} <=> ${Function}.${PermFun}_${field}[o].num > 0`);
+                // mb.fact(`${funName}[${Null}] = none`);
             }
+
+            // All permissions either come from the permission function or are zero.
+            // Prevent Alloy from adding instances of permission that are not used for anything
+            mb.fact(`${Perm} = ${permFuns.concat(NoPerm).join(' + ')}`);
             mb.blank();
         }
 
