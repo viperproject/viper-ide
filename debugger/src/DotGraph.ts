@@ -3,7 +3,7 @@ import { AlloyInstance } from './external';
 import { AlloyTranslator } from './model/AlloyTranslator';
 import { TranslationEnv } from './model/TranslationEnv';
 import { sanitize } from './model/TermTranslator';
-import { VariableTerm, Literal } from './model/Term';
+import { VariableTerm, Literal, Lookup } from './model/Term';
 import { DebuggerError } from './Errors';
 
 
@@ -119,6 +119,8 @@ export class DotGraph {
                 } else if (v.value instanceof Literal) {
                     const label = new Label(`${v.name}: ${v.sort} == ${v.value.toString}\\l`);
                     storeGraph.add(new Node(sanitize(v.name), label));
+                } else if (v.value instanceof Lookup) {
+                    storeGraph.add(new Node("lookup" + sanitize(v.value.field), new Label(`${v.name}: ${v.sort} (lookup)\\l`)));
                 } else {
                     throw new DebuggerError(`Unexpected value type in store: ${v.value}`);
                 }
@@ -142,25 +144,17 @@ export class DotGraph {
         });
 
         let integerNodes: Map<string, number> = new Map();
-        alloyInstance.signatures.forEach(sig => {
-            if (sig.label === 'this/' + AlloyTranslator.Int) {
-                sig.fields.forEach(f => {
-                    f.atoms.forEach(rel => {
-                        integerNodes.set(sanitize(rel[0]), Number.parseInt(rel[1]));
-                    });
-                });
-            }
-        });
 
         let relations: string[] = [];
         alloyInstance.signatures.forEach(sig => {
             if (sig.label === 'this/' + AlloyTranslator.Store) {
                 sig.fields.forEach(f => {
                     if (f.name !== "refTypedVars'") {
+                        const name = sanitize(f.name).replace("'", "");
                         f.atoms.forEach(rel => {
                             const to = sanitize(rel[1]);
                             if (heapNodes.has(to)) {
-                                relations.push(`${f.name}:e -> ${to}`);
+                                relations.push(`${name}:e -> ${to}`);
                                 // relations.push(`${f.name} -> ${to} [dir=both, arrowtail=dot]`);
                             }
                         });
