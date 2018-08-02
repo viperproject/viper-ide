@@ -80,18 +80,17 @@ export namespace AlloyTranslator {
         mb.signature(Snap).extends(SymbVal);
         mb.oneSignature(Unit).extends(Snap);
         mb.signature(Int).extends(SymbVal).withMember('v: one Int');
-        mb.abstractSignature(Perm).withMembers(['num: one Int', 'denom: one Int']);
-        mb.oneSignature(WritePerm).extends(Perm).withConstraints([
-            'num = 1',
-            'denom = 1'
+        mb.abstractSignature(Perm).extends(SymbVal).withMembers(['num: one Int', 'denom: one Int']).withConstraints([
+            'num >= 0',
+            'denom > 0',
+            'num <= denom',
         ]);
-        mb.oneSignature(ReadPerm).extends(Perm).withConstraints([
-            'num > 0',
-            'num <= 1',
-            'num < denom'
-        ]);
-        // mb.sig('one', Sig.NoPerm + " extends " + Sig.Perm, [], []);
-        mb.oneSignature(NoPerm).extends(Perm).withConstraints(['num = 0', 'denom = 1']);
+        mb.oneSignature(WritePerm).in(Perm).withConstraints(['num = 1', 'denom = 1']);
+        mb.oneSignature(NoPerm).in(Perm).withConstraints(['num = 0', 'denom = 1']);
+
+        // All permissions either come from the permission function or are zero.
+        // Prevent Alloy from adding instances of permission that are not used for anything
+        mb.fact(`${Perm} = ${PermFun}[${Ref}] + ${NoPerm}`);
         mb.blank();
     }
 
