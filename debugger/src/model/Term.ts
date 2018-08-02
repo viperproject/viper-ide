@@ -1,7 +1,5 @@
 import { DebuggerError } from "../Errors";
 import { WithSort, Sort } from "./Sort";
-import { sanitize } from "./TermTranslator";
-import { AlloyTranslator } from './AlloyTranslator';
 
 
 export function mustHave(type: string, obj: any, entries: string[]) {
@@ -46,14 +44,6 @@ export class SortWrapper implements Term, WithSort {
 
 export class VariableTerm implements Term, WithSort {
     constructor(readonly id: string, readonly sort: Sort) {}
-
-    toAlloyWithType(): string {
-        // TODO: Retrieve the actual type from some env object?
-        if (this.sort.id === "Ref") {
-            return `${sanitize(this.id)}: ${AlloyTranslator.Ref}`;
-        }
-        return `${sanitize(this.id)}: ${this.sort}`;
-    }
 
     toString(): string {
         return this.id;
