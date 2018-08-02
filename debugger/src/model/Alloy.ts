@@ -16,7 +16,7 @@ export class Alloy {
                     let options = {
                         url: url + '/alloy', 
                         headers: {'content-type': 'application/json'},
-                        body: JSON.stringify({ arg: model })
+                        body: JSON.stringify({ arg: model, solver: 'sat4j' })
                     };
                     request.post(options, (error, response, body) => {
                         if (error) {
