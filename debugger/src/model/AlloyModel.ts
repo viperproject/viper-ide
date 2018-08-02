@@ -81,10 +81,15 @@ export class Signature implements ModelPart {
             sig.push(` in ${this.inSignature}`);
         }
 
-        sig = sig.concat([
-            mkString(indent(this.members, indentLevel), " {" + spacer, ", " + spacer, spacer + "}"),
-            mkString(indent(this.constraints, indentLevel), " {" + spacer, " && " + spacer, spacer + "}")
-        ]);
+        if (this.members.length > 0) {
+            sig.push(mkString(indent(this.members, indentLevel), " {" + spacer, ", " + spacer, spacer + "}"));
+        } else {
+            sig.push(" {}");
+        }
+
+        if (this.constraints.length > 0) {
+            sig.push(mkString(indent(this.constraints, indentLevel), " {" + spacer, " && " + spacer, spacer + "}"));
+        }
 
         return sig.join("");
     }
@@ -151,16 +156,26 @@ export class AlloyModelBuilder {
         this.parts.push(new Fact(fact));
     }
 
-    public build(numberOfInstances: number): string {
+    public pred(p: string) {
+        this.parts.push({ build: () => p});
+    }
+
+    public build(baseCount: number, countPerInstance: Map<string, number>): string {
         // TODO: Fix this
         const outputReadableModel = DebuggerSettings.logLevel === LogLevel.DEBUG;
         const model = this.parts
             .map(p => p.build(outputReadableModel))
             .join("\n");
 
+        const counts: string[] = [];
+        countPerInstance.forEach((count, instance) => {
+            if (count > 0) {
+                counts.push(`${count} ${instance}`);
+            }
+        });
 
         return model + '\n' +
             'pred generate() {}\n' +
-            `run generate for ${numberOfInstances} but 3 int`;
+            `run generate for ${baseCount} but ${counts.join(', ')}`;
     }
 }
