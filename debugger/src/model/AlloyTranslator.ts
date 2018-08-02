@@ -30,7 +30,6 @@ export namespace AlloyTranslator {
 
     export const Combine = 'Combine';
     export const Function = 'Fun';
-    export const Inverse = 'Inv';
     export const PermFun = 'PermFun';
 
     export function translate(verifiable: Verifiable, axioms: Term[], state: State, env: TranslationEnv): string {
@@ -252,26 +251,20 @@ export namespace AlloyTranslator {
 
     }
 
+    // NOTE: Inverse function, functions and temp variables are added to the Alloy model "at the bottom" because
+    // we gather them mostly when traversing the path conditions. Alloy does not care for where the variables are
+    // declared as long as they are.
     function encodeGatheredFacts(env: TranslationEnv, mb: AlloyModelBuilder) {
-
-        // NOTE: Inverse function, functions and temp variables are added to the Alloy model "at the bottom" because
-        // we gather them mostly when traversing the path conditions. Alloy does not care for where the variables are
-        // declared as long as they are.
-        if (env.inverseFunctions.size > 0) {
-            mb.comment("Inverse Functions");
-            const members: string[] = [];
-            for (let [name, sorts] of env.inverseFunctions) {
-                members.push(name + ': (' + sorts.map(s => env.translate(s)).join(' -> ') + ')');
-            }
-            mb.oneSignature(Inverse).withMembers(members);
-            mb.blank();
-        }
 
         if (env.functions.size > 0) {
             mb.comment("Functions");
             const members: string[] = [];
             for (let [name, sorts] of env.functions) {
-                members.push(name + ': (' + sorts.map(s => env.translate(s)).join(' -> ') + ')');
+                // Add multiplicity of 'lone' to return type of function
+                const tSorts = sorts.map(s => env.translate(s));
+                tSorts[tSorts.length - 1] = 'lone ' + tSorts[tSorts.length - 1];
+
+                members.push(name + ': (' + tSorts.join(' -> ') + ')');
             }
             mb.oneSignature(Function).withMembers(members);
             mb.blank();

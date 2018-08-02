@@ -202,14 +202,11 @@ export class TermTranslator {
             });
             sorts.push(term.sort);
 
-            // We save INV functions in a sapearate "namespace"
-            if (term.applicable.match(/inv@\d+@\d+/)) {
-                this.env.recordInverseFunction(applicableSanitized, sorts);
-                return translatedFrom(`Inv.${applicableSanitized}[${args.map(a => a.res).join(", ")}]`, args);
-            } else {
-                this.env.recordFunction(applicableSanitized, sorts);
-                return translatedFrom(`Fun.${applicableSanitized}[${args.map(a => a.res).join(", ")}]`, args);
-            }
+            this.env.recordFunction(applicableSanitized, sorts);
+            const callName = `${AlloyTranslator.Function}.${applicableSanitized}`;
+            const callArgs = translated.map(a => a.res).join(", ");
+            return translatedFrom(`${callName}[${callArgs}]`, translated)
+                        .withQuantifiedVariables(tVars);
         }
 
         // TODO: Do we need proper lookups?

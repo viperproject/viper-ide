@@ -21,7 +21,6 @@ export class TranslationEnv {
     public storeVariables: Map<string, StoreVariable>;
     public heapSnapshots: Set<string>;
     public tempVariables: Map<string, string>;
-    public inverseFunctions: Map<string, Sort[]>;
     public functions: Map<string, Sort[]>;
     public totalCombines: number;
     public introduceMissingTempVars: boolean = true;
@@ -74,7 +73,6 @@ export class TranslationEnv {
             }
         });
 
-        this.inverseFunctions = new Map();
         this.functions = new Map();
         this.totalCombines = 0;
     }
@@ -176,12 +174,6 @@ export class TranslationEnv {
         const res = f();
         this.quantifiedVariables = new Set();
         return res;
-    }
-
-    public recordInverseFunction(name: string, sorts: Sort[]) {
-        if (!this.inverseFunctions.has(name)) {
-            this.functions.set(name, sorts);
-        }
     }
 
     public recordFunction(name: string, sorts: Sort[]) {
