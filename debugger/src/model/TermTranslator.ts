@@ -153,7 +153,7 @@ export class TermTranslator {
 
         // TODO: Fix this
         if (term instanceof SortWrapper) {
-            const fromSort = getSort(term);
+            const fromSort = getSort(term.term);
             const toSort = term.sort;
 
             const applicable = `sortwrapper_${fromSort}_to_${toSort}`;
@@ -207,21 +207,25 @@ export class TermTranslator {
             }
 
             if (applicableSanitized.startsWith("sm") && term.sort.id === Sort.FVF) {
-                const snapshotMapVar = new VariableTerm(applicableSanitized, term.sort);
-                this.env.recordTempVariable(snapshotMapVar);
-                return this.toAlloy(snapshotMapVar);
+                if (this.env.introduceMissingTempVars) {
+                    const snapshotMapVar = new VariableTerm(applicableSanitized, term.sort);
+                    this.env.recordTempVariable(snapshotMapVar);
+                    return this.toAlloy(snapshotMapVar);
+                } else {
+                    return leftover(term, "Not introducing new variable for snapshot map", []);
+                }
             }
 
             const args = term.args.map(a => this.toAlloy(a));
 
             // Collect the leftovers from the translation of all arguments
-            const leftovers = translated.reduce(
+            const leftovers = args.reduce(
                 (acc, current) => acc.concat(current.leftovers),
                 <Leftover[]>[]
             );
 
             // Translating some of the arguments has failed.
-            if (translated.some(a => a.res === undefined)) {
+            if (args.some(a => a.res === undefined)) {
                 return leftover(term, "Could not translate some of the arguments", leftovers);
             }
 
@@ -230,9 +234,8 @@ export class TermTranslator {
 
             this.env.recordFunction(applicableSanitized, sorts);
             const callName = `${AlloyTranslator.Function}.${applicableSanitized}`;
-            const callArgs = translated.map(a => a.res).join(", ");
-            return translatedFrom(`${callName}[${callArgs}]`, translated)
-                        .withQuantifiedVariables(tVars);
+            const callArgs = args.map(a => a.res).join(", ");
+            return translatedFrom(`${callName}[${callArgs}]`, args);
         }
 
         if (term instanceof Lookup) {
