@@ -85,7 +85,7 @@ export class DotGraph {
             '}';
     }
 
-    static what(state: Record, alloyInstance: AlloyInstance, env: TranslationEnv) {
+    static from(state: Record, alloyInstance: AlloyInstance, env: TranslationEnv) {
         let graph = new DotGraph('G');
         graph.attr('bgcolor', 'none');
         graph.attr('rankdir', 'LR');
@@ -179,7 +179,7 @@ export class DotGraph {
                                 // const label = `<td port="${f.name}">${f.name}</td>`;
                                 const label = `<${f.name}> ${f.name}`;
                                 heapNodes.get(from)!.label.parts.push(label);
-                                relations.push(`${from}:${f.name}:e -> ${to}`);
+                                relations.push(`${from}:${f.name} -> ${to}`);
                             } else if (integerNodes.has(to)) {
                                 // const label = `<td port="${f.name}">${f.name} == ${integerNodes.get(to)}</td>`;
                                 const label = `<${f.name}> ${f.name} == ${integerNodes.get(to)}`;

@@ -162,16 +162,24 @@ export class DebuggerPanel implements SessionObserver {
             const model = AlloyTranslator.translate(record.verifiable, this.session!.axioms, state, env);
             this.logModel(model);
 
+            this.postMessage({ type: "graphMessage", text: "Generating..." });
             Alloy.generate(model).then(
                 (instance) => {
-                    Logger.info(JSON.stringify(instance, undefined, 2));
-                    const graph = DotGraph.what(record.current, instance, env);
+                    // TODO: log this to the diagnostics panel
+                    // Logger.info(JSON.stringify(instance, undefined, 2));
+                    const graph = DotGraph.from(record.current, instance, env);
                     this.postMessage({
                         type: "displayGraph",
                         text: graph.toString()
                     });
                 },
-                (reason) => Logger.error(reason)
+                (reason) => {
+                    // this.postMessage({ type: "clearGraph" });
+                    this.postMessage({ type: "graphMessage", text: "No counterexample" });
+                    const msg = "Could not find a counterexample for the current verification state";
+                    vscode.window.showWarningMessage(msg);
+                    Logger.error(reason);
+                }
             );
         });
     }
