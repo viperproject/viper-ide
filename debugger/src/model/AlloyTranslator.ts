@@ -185,6 +185,8 @@ export namespace AlloyTranslator {
                 if (hc.snap instanceof VariableTerm) {
                     heapChunks.add(`${sanitize(hc.snap.id)}: one ${env.translate(hc.snap.sort)}`);
                 }
+            } else if (hc instanceof QuantifiedFieldChunk) {
+                hc.invAxioms.forEach(axiom => termToFact(axiom, mb, termTranslator));
             } else {
                 Logger.error(`Heap chunk translation not implemented yet: '${hc}'`);
             }
