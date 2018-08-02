@@ -229,6 +229,9 @@ export class DecorationsManager implements SessionObserver {
 
         let childrenDecorations: vscode.DecorationOptions[] = [];
         states.current.children.forEach(state => {
+            if (state.position.line === 0 && state.position.character === 0) {
+                return;
+            }
             let range = state.range();
 
             let opts: vscode.DecorationOptions = {
