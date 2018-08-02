@@ -39,7 +39,7 @@ export namespace AlloyTranslator {
         emitPrelude(mb);
 
         encodeRefSignature(env, mb);
-        translateStore(env, mb);
+        translateStore(env, mb, termTranslator);
         translateHeap(env, mb, termTranslator, state.heap);
         encodePermissions(state.heap, env, mb, termTranslator);
 
@@ -129,13 +129,21 @@ export namespace AlloyTranslator {
         mb.blank();
     }
 
-    function translateStore(env: TranslationEnv, mb: AlloyModelBuilder) {
+    function translateStore(env: TranslationEnv, mb: AlloyModelBuilder, translator: TermTranslator) {
         const refTypedStoreVariables: string[] = [];
         const store = mb.oneSignature(Store);
+        const constraints: string[] = [];
 
-        env.storeVariables.forEach((variable, id) => {
-            const name = sanitize(id);
+        env.storeVariables.forEach((variable, n) => {
+            const name = `${n}'`;
             store.withMember(name + ': ' + env.declarationSignature(variable.sort));
+
+            const value = translator.toAlloy(variable.value);
+            if (value.res) {
+                constraints.push(`${Store}.${name} = ${value.res}`);
+            } else {
+                Logger.error(`Could not translate store value for ${name}: ` + value.leftovers);
+            }
 
             if (variable.sort.isRefLike()) {
                 refTypedStoreVariables.push(name);
@@ -147,6 +155,7 @@ export namespace AlloyTranslator {
         store.withConstraint("refTypedVars' = " + (refTypedStoreVariables.length > 0
                                                            ? refTypedStoreVariables.join(" + ")
                                                            : 'none'));
+        constraints.forEach(c => mb.fact(c));
         mb.blank();
     }
 

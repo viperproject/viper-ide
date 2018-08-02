@@ -42,12 +42,9 @@ export class TranslationEnv {
         state.store.forEach(v => {
             // We save the names of symbolic value for store variables
             if (v.value instanceof VariableTerm) {
-                this.storeVariables.set(v.value.id, v);
+                this.tempVariables.set(sanitize(v.value.id), this.translate(v.sort))
             }
-
-            if (!(v.value instanceof Literal || v.value instanceof VariableTerm)) {
-                Logger.error("Unexpected store variable type: " + v.toString());
-            }
+            this.storeVariables.set(v.name, v);
         });
 
         state.heap.forEach(hc => {
@@ -106,10 +103,6 @@ export class TranslationEnv {
     public resolve(variable: VariableTerm): string | undefined {
         if (this.quantifiedVariables.has(variable.id)) {
             return variable.id;
-        }
-
-        if (this.storeVariables.has(variable.id)) {
-            return AlloyTranslator.Store + '.' + sanitize(variable.id);
         }
 
         if (this.heapSnapshots.has(variable.id)) {

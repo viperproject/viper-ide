@@ -7,9 +7,8 @@ import { mkString } from "../util";
 import { Logger } from "../logger";
 
 export function sanitize(name: string) {
-    return name.replace(/@/g, "_")
-               .replace(/^\$/g, "")
-               .replace(/\$/g, "_");
+    return name.replace(/^\$/g, "")
+               .replace(/[@[\]$]/g, "_");
 }
 
 export class Leftover {
@@ -311,8 +310,6 @@ export class TermTranslator {
             if (term.sort.id === Sort.Perm) {
                 if (term.value === AlloyTranslator.WritePerm) {
                     return translatedFrom(AlloyTranslator.WritePerm, []);
-                } else if (term.value === AlloyTranslator.ReadPerm) {
-                    return translatedFrom(AlloyTranslator.ReadPerm, []);
                 } else if (term.value === AlloyTranslator.NoPerm) {
                     return translatedFrom(AlloyTranslator.NoPerm, []);
                 }
@@ -323,7 +320,7 @@ export class TermTranslator {
 
                 const parts = term.value.split('/');
                 additionalFacts = [
-                    `${freshName} in ${AlloyTranslator.ReadPerm}`,
+                    `${freshName} in ${AlloyTranslator.Perm}`,
                     `${freshName}.num = ${parts[0]}`,
                     `${freshName}.denom = ${parts[1]}`
                 ];
