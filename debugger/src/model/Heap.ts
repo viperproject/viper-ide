@@ -38,11 +38,7 @@ export namespace HeapChunk {
             // TODO: might need proper retrieval of sorts
             const snap = Term.from(obj.snap);
             const sort = getSort(snap);
-            if (sort) {
-                return new FieldChunk(obj.field, sort, Term.from(obj.receiver), snap, Term.from(obj.perm));
-            } else {
-                throw new DebuggerError(`Heap chunk value must have a sort, but '${snap.toString()}' did not`);
-            }
+            return new FieldChunk(obj.field, sort, Term.from(obj.receiver), snap, Term.from(obj.perm));
         }
 
         if (obj.type === 'basic_magic_wand_chunk') {
