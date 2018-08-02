@@ -62,13 +62,13 @@ export namespace AlloyTranslator {
         encodeFailedSMTFact(verifiable, env, mb, termTranslator);
 
         // TODO: Devise a formula for this
-        const numberOfInstances = env.tempVariables.size +
-                                  env.totalCombines +
-                                  env.storeVariables.size +
-                                  env.functions.size +
-                                  env.predicates.size +
-                                  3;
-        return mb.build(numberOfInstances);
+        const baseCount = 5 + env.storeVariables.size + env.functions.size + env.predicates.size + 3;
+        const countPerInstance = new Map([
+            // [AlloyTranslator.Combine, env.totalCombines],
+            ['int', 4]
+        ]);
+            
+        return mb.build(baseCount, countPerInstance);
     }
 
     /** Emits the definitions that never change in the model. */
