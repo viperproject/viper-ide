@@ -2,7 +2,7 @@ import { AlloyModelBuilder } from "./AlloyModel";
 import { State } from "./Record";
 import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, HeapChunk } from "./Heap";
 import { Logger } from "../logger";
-import { VariableTerm, Unary, Term, Application, Binary } from "./Term";
+import { VariableTerm, Unary, Term, Application, Binary, Quantification, Literal } from "./Term";
 import { getSort, Sort } from './Sort';
 import { Verifiable } from "./Verifiable";
 import { TermTranslator, sanitize } from "./TermTranslator";
@@ -149,30 +149,45 @@ export namespace AlloyTranslator {
     }
 
     function translateHeap(env: TranslationEnv, mb: AlloyModelBuilder, termTranslator: TermTranslator, chunks: HeapChunk[]) {
-        const heapChunks: string[] = [];
+        const heapChunks: Set<string> = new Set();
         const constraints: string[] = [];
 
         chunks.forEach(hc => {
             if (hc instanceof FieldChunk) {
                 if (hc.snap instanceof VariableTerm) {
-                    heapChunks.push(`${sanitize(hc.snap.id)}: one ${env.translate(hc.snap.sort)}`);
+                    heapChunks.add(`${sanitize(hc.snap.id)}: one ${env.translate(hc.snap.sort)}`);
                     const rec = termTranslator.toAlloy(hc.receiver);
                     if (rec.res) {
                         constraints.push(rec.res + '.' + hc.field + ' = ' + env.resolve(hc.snap));
                     } else {
                         Logger.warn("Could not translate field receiver: " + rec.leftovers.join("\n"));
                     }
+                } else if (hc.snap instanceof Literal) {
+                    
+                    const rec = termTranslator.toAlloy(hc.receiver);
+                    const lit = termTranslator.toAlloy(hc.snap);
+
+                    if (!rec.res) {
+                        Logger.error("Could not translate field receiver: " + rec.leftovers.join("\n"));
+                        return;
+                    }
+                    if (!lit.res) {
+                        Logger.error("Could not translate field literal: " + lit.leftovers.join("\n"));
+                        return;
+                    }
+                    const fieldSort = getSort(hc.snap);
+                    constraints.push(rec.res + "." + hc.field + TermTranslator.getFieldKey(fieldSort) + " = " + lit.res);
                 }
             } else if (hc instanceof PredicateChunk) {
                 if (hc.snap instanceof VariableTerm) {
-                    heapChunks.push(`${sanitize(hc.snap.id)}: one ${env.translate(hc.snap.sort)}`);
+                    heapChunks.add(`${sanitize(hc.snap.id)}: one ${env.translate(hc.snap.sort)}`);
                 }
             } else {
                 Logger.error(`Heap chunk translation not implemented yet: '${hc}'`);
             }
         });
 
-        mb.oneSignature(Heap).withMembers(heapChunks);
+        mb.oneSignature(Heap).withMembers([...heapChunks.keys()]);
         constraints.forEach(c => mb.fact(c));
         mb.blank();
 
@@ -180,7 +195,7 @@ export namespace AlloyTranslator {
             const name = "pred_" + id;
             let preds = <PredicateChunk[]> env.predicates.get(id);
             let first = preds[0];
-            const vars = 'args: ' + first.args.map(a => env.translate(getSort(a)!)).join(' one -> one ');
+            const vars = 'args: ' + first.args.map(a => env.translate(getSort(a))).join(' one -> one ');
 
             mb.signature(name).withMembers([vars]);
             preds.forEach(p => {
