@@ -26,7 +26,6 @@ export namespace AlloyTranslator {
 
     export const Heap = 'Heap';
     export const Store = 'Store';
-    // export const Temp = 'Temp';
 
     export const Combine = 'Combine';
     export const Function = 'Fun';
@@ -288,12 +287,9 @@ export namespace AlloyTranslator {
 
         if (env.tempVariables.size > 0) {
             mb.comment("Temp variables");
-            // const members: string[] = [];
             for(const [name, sort] of env.tempVariables) {
                 mb.oneSignature(name).in(sort);
-                // members.push(name + ': one ' + sort);
             }
-            // mb.oneSignature(Temp).withMembers(members);
             mb.blank();
         }
     }

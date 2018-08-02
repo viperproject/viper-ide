@@ -116,11 +116,12 @@ export class TranslationEnv {
             return AlloyTranslator.Heap + '.' + sanitize(variable.id);
         }
 
+        if (this.tempVariables.has(sanitize(variable.id))) {
+            return variable.id;
+        }
+
         if (variable.id.startsWith("$t") && this.introduceMissingTempVars) {
-            const sanitized = sanitize(variable.id);
-            this.tempVariables.set(sanitized, this.translate(variable.sort));
-            // return AlloyTranslator.Temp + '.' + sanitized;
-            return sanitized;
+            return this.recordTempVariable(variable);
         }
 
         return undefined;
@@ -182,7 +183,9 @@ export class TranslationEnv {
         }
     }
 
-    public recordCombine() {
+    public recordCombine(name: string) {
+        // HAHCKY: fix this?
+        this.tempVariables.set(name, "Combine");
         this.totalCombines += 1;
     }
     
@@ -190,7 +193,9 @@ export class TranslationEnv {
         this.userSorts.add(userSort);
     }
 
-    // public recordField(field: string) {
-    //     this.fields.push(field);
-    // }
+    public recordTempVariable(variable: VariableTerm): string {
+        const sanitized = sanitize(variable.id);
+        this.tempVariables.set(sanitized, this.translate(variable.sort));
+        return sanitized;
+    }
 }
