@@ -68,7 +68,7 @@ export namespace HeapChunk {
                 fvf.sort,
                 fvf,
                 Term.from(obj.perm),
-                obj.invs !== null ? obj.invs : undefined,
+                obj.invs !== null ? obj.invs.map(Term.from) : [],
                 obj.cond !== null ? Term.from(obj.cond) : undefined,
                 obj.receiver !== null ? Term.from(obj.receiver) : undefined,
                 obj.hints !== null ? obj.hints.map(Term.from) : []
@@ -93,7 +93,7 @@ export namespace HeapChunk {
                 psf.sort,
                 psf,
                 Term.from(obj.perm),
-                obj.invs !== null ? obj.invs : undefined,
+                obj.invs !== null ? obj.invs.map(Term.from) : [],
                 obj.cond !== null ? Term.from(obj.cond) : undefined,
                 obj.singleton_args !== null ? obj.singleton_args.map(Term.from) : [],
                 obj.hints !== null ? obj.hints.map(Term.from) : []
@@ -108,7 +108,7 @@ export namespace HeapChunk {
                 obj.vars.map(Term.from),
                 Term.from(obj.wand_snap_function),
                 Term.from(obj.perm),
-                obj.invs !== null ? obj.invs : undefined,
+                obj.invs !== null ? obj.invs.map(Term.from) : [],
                 obj.cond !== null ? Term.from(obj.cond) : undefined,
                 obj.singleton_args !== null ? obj.singleton_args.map(Term.from) : [],
                 obj.hints !== null ? obj.hints.map(Term.from) : []
@@ -164,7 +164,7 @@ export class QuantifiedFieldChunk implements HeapChunk {
         readonly sort: Sort,
         readonly fieldValueFunction: Term,
         readonly perm: Term,
-        readonly invertibles: string | undefined,
+        readonly invAxioms: Term[],
         readonly cond: Term | undefined,
         readonly receiver: Term | undefined,
         readonly hints: Term[]
@@ -182,7 +182,7 @@ export class QuantifiedPredicateChunk implements HeapChunk {
         readonly sort: Sort,
         readonly predicateSnapFunction: Term,
         readonly perm: Term,
-        readonly invertibles: string | undefined,
+        readonly invAxioms: Term[],
         readonly cond: Term | undefined,
         readonly singletonArgs: Term[],
         readonly hints: Term[]
@@ -200,7 +200,7 @@ export class QuantifiedMagicWandChunk implements HeapChunk {
         readonly vars: Term[],
         readonly wandSnapFunction: Term,
         readonly perm: Term,
-        readonly invertibles: string | undefined,
+        readonly invAxioms: Term[],
         readonly cond: Term | undefined,
         readonly singletonArgs: Term[],
         readonly hints: Term[]

@@ -47,11 +47,11 @@ describe('Heap', () => {
                                  field: 'fieldName',
                                  field_value_function: fvfJSON,
                                  perm: termJSON,
-                                 invs: 'invs',
+                                 invs: [termJSON],
                                  cond: termJSON,
                                  receiver: termJSON,
                                  hints: [termJSON] }),
-                new QuantifiedFieldChunk('fieldName', fvf.sort, fvf, term, 'invs', term, term, [term]));
+                new QuantifiedFieldChunk('fieldName', fvf.sort, fvf, term, [term], term, term, [term]));
         });
 
         it('should parse well-formed quantified_field_chunk correctly allowing some null keys', () => {
@@ -64,7 +64,7 @@ describe('Heap', () => {
                                  cond: null,
                                  receiver: null,
                                  hints:  null }),
-                new QuantifiedFieldChunk('f', fvf.sort, fvf, term, undefined, undefined, undefined, []));
+                new QuantifiedFieldChunk('f', fvf.sort, fvf, term, [], undefined, undefined, []));
         });
 
         const psfJSON = { type: 'variable', id: 'v', sort: { id: 'PSF', elementsSort: { id: 'Int' } } };
@@ -77,11 +77,11 @@ describe('Heap', () => {
                                  predicate: 'p',
                                  predicate_snap_function: psfJSON,
                                  perm: termJSON,
-                                 invs: 'one',
+                                 invs: [termJSON],
                                  cond: termJSON,
                                  singleton_args: [termJSON],
                                  hints:  [termJSON] }),
-                new QuantifiedPredicateChunk('p', [term], psf.sort, psf, term, 'one', term, [term], [term]));
+                new QuantifiedPredicateChunk('p', [term], psf.sort, psf, term, [term], term, [term], [term]));
         });
 
         it('should parse well-formed quantified_predicate_chunk correctly allowing some null keys', () => {
@@ -95,7 +95,7 @@ describe('Heap', () => {
                                  cond: null,
                                  singleton_args: null,
                                  hints:  null }),
-                new QuantifiedPredicateChunk('p', [term], psf.sort, psf, term, undefined, undefined, [], []));
+                new QuantifiedPredicateChunk('p', [term], psf.sort, psf, term, [], undefined, [], []));
         });
 
         it('should parse well-formed quantified_magic_wand_chunk correctly', () => {
@@ -105,11 +105,11 @@ describe('Heap', () => {
                                  predicate: 'p',
                                  wand_snap_function: psfJSON,
                                  perm: termJSON,
-                                 invs: 'one',
+                                 invs: [termJSON],
                                  cond: termJSON,
                                  singleton_args: [termJSON],
                                  hints:  [termJSON] }),
-                new QuantifiedMagicWandChunk('p', [term], psf, term, 'one', term, [term], [term]));
+                new QuantifiedMagicWandChunk('p', [term], psf, term, [term], term, [term], [term]));
         });
 
         it('should parse well-formed quantified_magic_wand_chunk correctly allowing some null keys', () => {
@@ -123,7 +123,7 @@ describe('Heap', () => {
                                  cond: null,
                                  singleton_args: null,
                                  hints:  null }),
-                new QuantifiedMagicWandChunk('p', [term], psf, term, undefined, undefined, [], []));
+                new QuantifiedMagicWandChunk('p', [term], psf, term, [], undefined, [], []));
         });
 
         it('should thrown an error when there are missing keys', () => {
