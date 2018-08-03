@@ -75,6 +75,7 @@ export namespace AlloyTranslator {
 
     /** Emits the definitions that never change in the model. */
     function emitPrelude(mb: AlloyModelBuilder) {
+        mb.text('open util/boolean');
         mb.abstractSignature(SymbVal);
         mb.signature(Snap).extends(SymbVal);
         mb.oneSignature(Unit).extends(Snap);

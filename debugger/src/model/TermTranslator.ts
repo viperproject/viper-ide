@@ -100,6 +100,27 @@ export class TermTranslator {
             const leftSort = getSort(term.lhs);
             const rightSort = getSort(term.rhs);
 
+            // If the left and right terms are of Bool sort and not the result of a computation, then we need to wrap 
+            // them to perform the operation
+            if (leftSort.id === Sort.Bool || rightSort.id === Sort.Bool) {
+                if (term.op === '==>' || term.op === 'implies' || term.op === '==') {
+                    let lhs = left.res;
+                    if ((term.lhs instanceof VariableTerm || term.lhs instanceof Application || term.lhs instanceof Lookup)
+                            && leftSort.id === Sort.Bool) {
+                        lhs = `isTrue[${left.res}]`;
+                    }
+                    let rhs = left.res;
+                    if ((term.rhs instanceof VariableTerm || term.rhs instanceof Application || term.rhs instanceof Lookup)
+                            && leftSort.id === Sort.Bool) {
+                        rhs = `isTrue[${right.res}]`;
+                    }
+                    return translatedFrom(`(${lhs} ${alloyOp} ${rhs})`, [left, right]);
+                } else {
+                    Logger.error("Unexpected operator for operands of type Bool :" + term);
+                    throw new DebuggerError("Unexpected operator for operands of type Bool :" + term);
+                }
+            }
+
             if (leftSort.id === Sort.Int || rightSort.id === Sort.Int) {
                 switch (term.op) {
                     case '-': return this.application('minus', [left.res, right.res], [left, right]);
@@ -146,6 +167,13 @@ export class TermTranslator {
             const operand  = this.toAlloy(term.p); 
             if (!operand.res) {
                 return leftover(term, "Operand not translated", operand.leftovers);
+            }
+
+            if ((term.p instanceof VariableTerm || term.p instanceof Application || term.p instanceof Lookup)
+                    && getSort(term.p).id === Sort.Bool) {
+                if (term.op === "!") {
+                    return translatedFrom(`isFalse[${operand.res}]`, [operand]);
+                }
             }
 
             return translatedFrom(`${term.op}(${operand.res})`, [operand]);
