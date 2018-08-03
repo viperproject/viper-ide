@@ -19,7 +19,7 @@ export class TranslationEnv {
     private quantifiedVariables: Set<string>;
     public storeVariables: Map<string, StoreVariable>;
     public heapSnapshots: Set<string>;
-    public tempVariables: Map<string, string>;
+    public tempVariables: Map<string, Sort>;
     public functions: Map<string, Sort[]>;
     public totalCombines: number;
     public introduceMissingTempVars: boolean = true;
@@ -41,7 +41,7 @@ export class TranslationEnv {
         state.store.forEach(v => {
             // We save the names of symbolic value for store variables
             if (v.value instanceof VariableTerm) {
-                this.tempVariables.set(sanitize(v.value.id), this.translate(v.sort))
+                this.tempVariables.set(sanitize(v.value.id), v.sort);
             }
             this.storeVariables.set(v.name, v);
         });
@@ -180,8 +180,8 @@ export class TranslationEnv {
     }
 
     public recordCombine(name: string) {
-        // HAHCKY: fix this?
-        this.tempVariables.set(name, "Combine");
+        // HACK: fix this?
+        this.tempVariables.set(name, new Sort(Sort.Snap));
         this.totalCombines += 1;
     }
     
@@ -191,7 +191,7 @@ export class TranslationEnv {
 
     public recordTempVariable(variable: VariableTerm): string {
         const sanitized = sanitize(variable.id);
-        this.tempVariables.set(sanitized, this.translate(variable.sort));
+        this.tempVariables.set(sanitized, variable.sort);
         return sanitized;
     }
 }

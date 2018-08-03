@@ -310,7 +310,12 @@ export namespace AlloyTranslator {
         if (env.tempVariables.size > 0) {
             mb.comment("Temp variables");
             for(const [name, sort] of env.tempVariables) {
-                mb.oneSignature(name).in(sort);
+                const sortString = env.translate(sort);
+                if (sort.id === Sort.Set) {
+                    mb.signature(name).in(sortString);
+                } else {
+                    mb.oneSignature(name).in(sortString);
+                }
             }
             mb.blank();
         }
