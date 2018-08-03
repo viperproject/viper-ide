@@ -245,10 +245,14 @@ export class TermTranslator {
             }
 
             const returnSort = getSort(term.fieldValueFunction);
+            if (!(returnSort.id === Sort.FVF && returnSort.elementsSort !== undefined)) {
+                Logger.error(`Expected sort to a FVF, but was '${returnSort}': ` + term);
+                throw new DebuggerError(`Expected sort to a FVF, but was '${returnSort}': ` + term);
+            }
 
             const f = new Application('lookup_' + term.field,
                                       [term.fieldValueFunction, term.receiver],
-                                      returnSort);
+                                      returnSort.elementsSort);
             return this.toAlloy(f);
 
             // return translatedFrom(receiver.res + "." + term.field, [receiver]);

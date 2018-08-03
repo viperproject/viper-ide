@@ -1,8 +1,7 @@
 import { State } from "./Record";
 import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, MagicWandChunk } from "./Heap";
 import { AlloyTranslator } from './AlloyTranslator';
-import { Logger } from "../logger";
-import { VariableTerm, Literal  } from "./Term";
+import { VariableTerm  } from "./Term";
 import { Sort } from './Sort';
 import { DebuggerError } from "../Errors";
 import { sanitize } from "./TermTranslator";
@@ -161,7 +160,7 @@ export class TranslationEnv {
         }
 
         if (sort.id === "FVF" && sort.elementsSort) {
-            return this.translate(sort.elementsSort);
+            return 'FVF_' + this.translate(sort.elementsSort);
         }
 
         throw new DebuggerError(`Unexpected sort '${sort}'`);
