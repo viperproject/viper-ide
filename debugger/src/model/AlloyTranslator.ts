@@ -297,6 +297,9 @@ export namespace AlloyTranslator {
         // Add signature for Combines only if we have found some in the path conditions and constrain its cardinality to
         // be at most the number we have found.
         mb.comment("Combine operations");
+        mb.text(`fun combine [ l, r: Snap ]: Snap {
+    { c: Combine | c.left = l && c.right = r }
+}`);
         mb.abstractSignature(Combine).extends(Snap).withMembers(
                 ['left: one ' + SymbVal, 'right: one ' + SymbVal]);
         mb.blank();

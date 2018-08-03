@@ -57,30 +57,26 @@ function leftover(leftover: Term, reason: string, other: Leftover[]) {
 export class TermTranslator {
     constructor(readonly env: TranslationEnv) {}
 
+    private funCall(name: string, args: Term[]): TranslationRes {
+        const tArgs = args.map(a => this.toAlloy(a));
+        tArgs.forEach(a => {
+            if (a.res === undefined) {
+                Logger.error("Could not translate argument: " + a);
+                return leftover(a, "Could not translate argument", []);
+            }
+        });
+
+        return translatedFrom(`${name}[${tArgs.map(a => a.res).join(", ")}]`, tArgs);
+    }
+
     private application(name: string, args: string[], from: TranslationRes[]): TranslationRes {
         return translatedFrom(name + mkString(args, '[', ', ', ']'), from);
     }
 
     public toAlloy(term: Term): TranslationRes {
 
-        if (term instanceof Binary && term.rhs instanceof Binary && term.rhs.op === "Combine") {
-            const left = this.toAlloy(term.lhs);
-            if (left.res === undefined) {
-                return leftover(term, "Left-hand side operand not translated", left.leftovers);
-            }
-            const combine = term.rhs;
-            const combineLeft = this.toAlloy(combine.lhs);
-            const combineRight = this.toAlloy(combine.rhs);
-
-            if (combineLeft.res === undefined) {
-                return leftover(combine, "Left-hand side operand not translated", combineLeft.leftovers);
-            }
-
-            if (combineRight.res === undefined) {
-                return leftover(combine, "Right-hand side operand not translated", combineRight.leftovers);
-            }
-
-            return translatedFrom(`${left.res}.left = ${combineLeft.res} && ${left.res}.right = ${combineRight.res}`, [combineLeft, combineRight]);
+        if (term instanceof Binary && term.op === "Combine") {
+            return this.funCall("combine", [term.lhs, term.rhs]);
         }
 
         if (term instanceof Binary) {
