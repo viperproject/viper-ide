@@ -156,6 +156,10 @@ export class AlloyModelBuilder {
         this.parts.push(new Fact(fact));
     }
 
+    public fun(f: string) {
+        this.parts.push({ build: () => f});
+    }
+
     // TODO: Remove this.
     public text(t: string) {
         this.parts.push({ build: () => t});

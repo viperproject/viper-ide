@@ -15,6 +15,7 @@ export class TranslationEnv {
     public predicates: Map<string, PredicateChunk[]>;
     private freshNames: Map<string, number>;
     private freshVariables: Map<string, number>;
+    public sortWrappers: Map<string, Sort>;
 
     private quantifiedVariables: Set<string>;
     public storeVariables: Map<string, StoreVariable>;
@@ -31,6 +32,7 @@ export class TranslationEnv {
         this.predicates = new Map();
         this.freshNames = new Map();
         this.freshVariables = new Map();
+        this.sortWrappers = new Map();
 
         this.storeVariables = new Map();
         this.heapSnapshots = new Set();

@@ -294,14 +294,25 @@ export namespace AlloyTranslator {
             mb.blank();
         }
 
+        env.sortWrappers.forEach((sort, name) => {
+            const sigName = name.charAt(0).toUpperCase() + name.slice(1);
+            const tSort = env.translate(sort);
+            mb.abstractSignature(sigName).extends(Sort.Snap)
+                .withMember('v: ' + env.translate(sort));
+            mb.fun(`fun ${name.toLowerCase()} [ o: ${tSort} ]: ${Sort.Snap} {
+    { s: ${sigName} | s.v = o }
+}`);
+        });
+        mb.blank();
+
         // Add signature for Combines only if we have found some in the path conditions and constrain its cardinality to
         // be at most the number we have found.
         mb.comment("Combine operations");
-        mb.text(`fun combine [ l, r: Snap ]: Snap {
-    { c: Combine | c.left = l && c.right = r }
-}`);
         mb.abstractSignature(Combine).extends(Snap).withMembers(
                 ['left: one ' + SymbVal, 'right: one ' + SymbVal]);
+        mb.fun(`fun combine [ l, r: Snap ]: Snap {
+    { c: Combine | c.left = l && c.right = r }
+}`);
         mb.blank();
 
         if (env.userSorts.size > 0) {

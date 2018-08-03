@@ -180,10 +180,15 @@ export class TermTranslator {
             const fromSort = getSort(term.term);
             const toSort = term.sort;
 
-            const applicable = `sortwrapper_${fromSort}_to_${toSort}`;
-            const application = new Application(applicable, [term.term], toSort);
+            const funName = `sortwrapper_${this.env.translate(fromSort)}_to_${this.env.translate(toSort)}`;
+            if (!this.env.sortWrappers.has(funName)) {
+                this.env.sortWrappers.set(funName, fromSort);
+            }
 
-            return this.toAlloy(application);
+            return this.funCall(funName.toLowerCase(), [term.term]);
+
+            // const application = new Application(funName, [term.term], toSort); 
+            // return this.toAlloy(application);
             // return leftover(term, "Not translating SortWrappers", []);
         }
 
