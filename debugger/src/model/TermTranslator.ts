@@ -5,6 +5,7 @@ import { DebuggerError } from "../Errors";
 import { getSort, Sort } from "./Sort";
 import { mkString } from "../util";
 import { Logger } from "../logger";
+import { BinaryOp } from './Term';
 
 export function sanitize(name: string) {
     return name.replace(/^\$/g, "")
@@ -79,6 +80,7 @@ export class TermTranslator {
             return this.funCall("combine", [term.lhs, term.rhs]);
         }
 
+        // TODO: MultiSets / Seqs
         if (term instanceof Binary) {
             const left = this.toAlloy(term.lhs);
             if (left.res === undefined) {
@@ -91,21 +93,26 @@ export class TermTranslator {
             }
 
             // Alloy operators only have one equal sign, but are otherwise the same as the Viper ones.
-            const alloyOp = term.op.replace("==", "=");
+            let alloyOp = term.op.replace("==", "=");
 
             const leftSort = getSort(term.lhs);
             const rightSort = getSort(term.rhs);
+
+            const res = (s: string) => translatedFrom(s, [left, right]);
 
             // If the left and right terms are of Bool sort and not the result of a computation, then we need to wrap 
             // them to perform the operation
             if (leftSort.id === Sort.Bool || rightSort.id === Sort.Bool) {
                 if (term.op === '==>' || term.op === 'implies' || term.op === '==') {
+                    if (term.op === '==') {
+                        alloyOp = "&&";
+                    }
                     let lhs = left.res;
                     if ((term.lhs instanceof VariableTerm || term.lhs instanceof Application || term.lhs instanceof Lookup)
                             && leftSort.id === Sort.Bool) {
                         lhs = `isTrue[${left.res}]`;
                     }
-                    let rhs = left.res;
+                    let rhs = right.res;
                     if ((term.rhs instanceof VariableTerm || term.rhs instanceof Application || term.rhs instanceof Lookup)
                             && leftSort.id === Sort.Bool) {
                         rhs = `isTrue[${right.res}]`;
@@ -114,6 +121,18 @@ export class TermTranslator {
                 } else {
                     Logger.error("Unexpected operator for operands of type Bool :" + term);
                     throw new DebuggerError("Unexpected operator for operands of type Bool :" + term);
+                }
+            }
+
+            if (leftSort.id === Sort.Set || rightSort.id === Sort.Set) {
+                switch (term.op) {
+                    case BinaryOp.SetAdd: return res(`${left.res} in ${right.res}`);
+                    case BinaryOp.SetDifference: return res(`${left.res} - ${right.res}`);
+                    case BinaryOp.SetIntersection: return res(`${left.res} & ${right.res}`);
+                    case BinaryOp.SetUnion: return res(`${left.res} + ${right.res}`);
+                    case BinaryOp.SetIn: return res(`${left.res} in ${right.res}`);
+                    case BinaryOp.SetSubset: return res(`${left.res} in ${right.res}`);
+                    case BinaryOp.SetDisjoint: return res(`disj[${left.res}, ${right.res}]`);
                 }
             }
 
@@ -164,9 +183,14 @@ export class TermTranslator {
             if (!operand.res) {
                 return leftover(term, "Operand not translated", operand.leftovers);
             }
+            const termSort = getSort(term.p);
+
+            if (term.op === "SetCardinality:" && termSort.id === Sort.Set) {
+                    return translatedFrom(`#(${operand.res})`, [operand]);
+            }
 
             if ((term.p instanceof VariableTerm || term.p instanceof Application || term.p instanceof Lookup)
-                    && getSort(term.p).id === Sort.Bool) {
+                    && termSort.id === Sort.Bool) {
                 if (term.op === "!") {
                     return translatedFrom(`isFalse[${operand.res}]`, [operand]);
                 }

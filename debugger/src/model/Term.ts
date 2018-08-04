@@ -26,6 +26,16 @@ export class Binary implements Term {
     }
 }
 
+export namespace BinaryOp {
+    export const SetAdd = 'in';
+    export const SetDifference = '\\';
+    export const SetIntersection = '∩';
+    export const SetUnion = '∪';
+    export const SetIn = 'in';
+    export const SetSubset = '⊂';
+    export const SetDisjoint = 'disj';
+}
+
 export class Unary implements Term {
     constructor(readonly op: string, readonly p: Term) {}
 
