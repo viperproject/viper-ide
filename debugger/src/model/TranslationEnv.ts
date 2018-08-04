@@ -6,12 +6,12 @@ import { Sort } from './Sort';
 import { DebuggerError } from "../Errors";
 import { sanitize } from "./TermTranslator";
 import { StoreVariable } from "./StoreVariable";
-
+import { Logger } from "../logger";
 
 
 export class TranslationEnv {
 
-    public fields: Map<string, FieldChunk | QuantifiedFieldChunk>;
+    public fields: Map<string, Sort>;
     public predicates: Map<string, PredicateChunk[]>;
     private freshNames: Map<string, number>;
     private freshVariables: Map<string, number>;
@@ -25,6 +25,7 @@ export class TranslationEnv {
     public totalCombines: number;
     public introduceMissingTempVars: boolean = true;
     public userSorts: Set<string>;
+    public sorts: Set<Sort>;
 
     constructor(readonly state: State) {
         
@@ -39,6 +40,7 @@ export class TranslationEnv {
         this.quantifiedVariables = new Set();
         this.tempVariables = new Map();
         this.userSorts = new Set;
+        this.sorts = new Set();
 
         state.store.forEach(v => {
             // We save the names of symbolic value for store variables
@@ -50,9 +52,14 @@ export class TranslationEnv {
 
         state.heap.forEach(hc => {
             if (hc instanceof FieldChunk) {
-                this.fields.set(hc.field, hc);
+                this.fields.set(hc.field, hc.sort);
             } else if (hc instanceof QuantifiedFieldChunk) {
-                this.fields.set(hc.field, hc);
+                if (hc.sort.id === Sort.FVF && hc.sort.elementsSort !== undefined) {
+                    this.sorts.add(hc.sort);
+                    this.fields.set(hc.field, hc.sort.elementsSort);
+                } else {
+                    Logger.error('Unexpected quantified field sort: ' + hc.sort);
+                }
             }
 
             if (hc instanceof FieldChunk || hc instanceof PredicateChunk || hc instanceof MagicWandChunk) {
@@ -121,24 +128,28 @@ export class TranslationEnv {
         return undefined;
     }
 
-    public declarationSignature(sort: Sort) {
+    public sortMultiplicity(sort: Sort) {
         // TODO: Complete this
         if (sort.id === Sort.Int ||
                 sort.id === Sort.Ref ||
                 sort.id === Sort.Bool ||
                 sort.id === Sort.Snap ||
                 sort.id === Sort.UserSort) {
-            return 'one ' + this.translate(sort);
+            return 'one';
         }
         if (sort.id === 'Set') {
-            return 'set ' + this.translate(sort);
+            return 'set';
         }
 
+        Logger.error(`Unexpected sort '${sort}'`);
         throw new DebuggerError(`Unexpected sort '${sort}'`);
     }
 
     public translate(sort: Sort): string {
-        if (sort.isRefLike()) {
+        if (sort.id === Sort.Ref) {
+            return AlloyTranslator.Ref;
+        }
+        if (sort.id === Sort.Set && sort.elementsSort !== undefined) {
             return AlloyTranslator.Ref;
         }
         if (sort.id === Sort.Int) {

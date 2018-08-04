@@ -6,11 +6,6 @@ import { DebuggerError } from "../Errors";
 export class Sort {
     constructor(readonly id: string, readonly elementsSort?: Sort) {}
 
-    /** Tell if the sort is a Ref or contains Refs (e.g. sets, sequences, ...). */
-    public isRefLike(): boolean {
-        return this.id === 'Ref' || (this.elementsSort !== undefined && this.elementsSort.isRefLike());
-    }
-
     public toString(): string {
         if (this.elementsSort) {
             return `${this.id}[${this.elementsSort.toString()}]`;

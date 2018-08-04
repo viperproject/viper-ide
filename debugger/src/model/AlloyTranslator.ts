@@ -93,9 +93,10 @@ export namespace AlloyTranslator {
 
         const objectMembers: string[] = [];
         const successors: string[] = [];
-        env.fields.forEach((chunk, field) => {
-            objectMembers.push(`${field}: lone ${env.translate(chunk.sort)}`);
-            if (chunk.sort.isRefLike()) {
+        env.fields.forEach((sort, field) => {
+            const sig = env.translate(sort);
+            objectMembers.push(`${field}: lone ${sig}`);
+            if (sig === Ref) {
                 successors.push(field);
             }
         });
@@ -137,7 +138,9 @@ export namespace AlloyTranslator {
 
         env.storeVariables.forEach((variable, n) => {
             const name = `${n}'`;
-            store.withMember(name + ': ' + env.declarationSignature(variable.sort));
+            const sig = env.translate(variable.sort);
+            const multiplicity = env.sortMultiplicity(variable.sort);
+            store.withMember(`${name}: ${multiplicity} ${sig}`);
 
             const value = translator.toAlloy(variable.value);
             if (value.res) {
@@ -146,7 +149,7 @@ export namespace AlloyTranslator {
                 Logger.error(`Could not translate store value for ${name}: ` + value.leftovers);
             }
 
-            if (variable.sort.isRefLike()) {
+            if (sig === Ref) {
                 refTypedStoreVariables.push(name);
             }
         });
@@ -321,6 +324,12 @@ export namespace AlloyTranslator {
             mb.blank();
         } 
 
+        if (env.sorts.size > 0) {
+            mb.comment("Other sorts");
+            env.sorts.forEach(s => mb.signature(env.translate(s)));
+            mb.blank();
+        }
+
         if (env.tempVariables.size > 0) {
             mb.comment("Temp variables");
             for(const [name, sort] of env.tempVariables) {
@@ -344,7 +353,9 @@ export namespace AlloyTranslator {
         // If there are functions that return reference-like object, they have to be accounted in the constraint as
         // well, otherwise we may prevent Alloy from generating any Object.
         for (const [name, sorts] of env.functions) {
-            if (sorts[sorts.length - 1].isRefLike()) { 
+            const returnSort = sorts[sorts.length - 1];
+            const returnSig = env.translate(returnSort);
+            if (returnSig === Ref) { 
                 const params = sorts.slice(0, -1).map(s => env.translate(s)).join(', ');
                 reachable.push(Function + '.' + name + `[${params}]`);
             }
