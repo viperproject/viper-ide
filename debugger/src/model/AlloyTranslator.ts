@@ -342,6 +342,9 @@ export namespace AlloyTranslator {
             }
             mb.blank();
         }
+
+        mb.fact(`#${Combine} <= ${env.totalCombines}`);
+        mb.blank();
     }
 
     function encodeReachabilityConstraints(env: TranslationEnv, mb: AlloyModelBuilder) {
