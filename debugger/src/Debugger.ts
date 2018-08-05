@@ -1,16 +1,15 @@
 import * as vscode from 'vscode';
 import { Logger } from './logger';
 import { viperApi } from './extension';
-import { SymbExLogEntry } from './external';
+import { SymbExLog } from './external';
 import { Success, Failure, isFailure } from './util';
 import { DebuggerError } from './Errors';
-import { Verifiable } from './model/Verifiable';
 import { DebuggerCommand } from './Commands';
 import { DebuggerSession } from './DebuggerSession';
 import { DebuggerPanel } from './DebuggerPanel';
 import { DecorationsManager } from './DecorationsManager';
 import * as external from './external';
-import { Term } from './model/Term';
+import { Program } from './model/Program';
 
 
 /** An object that wants to be notified when the debugger session changes.
@@ -84,11 +83,10 @@ export namespace Debugger {
         // Setup a handler for the symbolic execution logs sent by ViperServer
         viperApi.registerServerMessageCallback('symbolic_execution_logger_report', (messageType: string, message: any) => {
             if (panel) {
-                let entries = <SymbExLogEntry[]>(message.msg_body.members);
-                let axioms = <any[]>(message.msg_body.axioms);
+                let log = <SymbExLog>message.msg_body;
 
-                panel.postOriginalSymbExLog(entries);
-                update(entries, axioms);
+                panel.postOriginalSymbExLog(log);
+                update(log);
             }
         });
     }
@@ -123,23 +121,20 @@ export namespace Debugger {
 
 
     /** Update the state of the debugger (both panel and view). */
-    function update(entries: SymbExLogEntry[], rawAxioms: any[]) {
-        const verifiables = entries.map(Verifiable.from);
-        const axioms = rawAxioms.map(Term.from);
+    function update(log: SymbExLog) {
+        const program = Program.from(log);
 
         if (session) {
             session.removeListeners();
             session = undefined;
         }
 
-        session = new DebuggerSession(debuggedFile, verifiables, axioms);
+        session = new DebuggerSession(debuggedFile, program);
 
         sessionObservers.forEach(observer => {
             observer.clearSession();
             observer.setSession(session!);
         });
-
-        // session.notifyStateChange();
     }
 
 

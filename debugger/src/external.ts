@@ -25,11 +25,17 @@ export namespace ViperApi {
     }
 }
 
+export interface SymbExLog {
+    members: SymbExLogEntry[];
+    axioms: any[];
+    macros: { macro: any, body: any }[];
+    timestamp: string;
+}
+
 export interface SymbExLogEntry {
     value: string;
     type?: string;
     kind?: string;
-    // open: boolean;
     pos?: string;
     prestate?: SymbExLogState;
     lastSMTQuery?: string;
@@ -37,10 +43,10 @@ export interface SymbExLogEntry {
 }
 
 export interface SymbExLogState {
-        store: SymbExLogStoreVariable[];
-        heap: string[];
-        oldHeap: string[];
-        pcs: any[];
+    store: SymbExLogStoreVariable[];
+    heap: string[];
+    oldHeap: string[];
+    pcs: any[];
 }
 
 export interface SymbExLogStoreVariable {

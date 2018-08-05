@@ -73,10 +73,9 @@ function setupMessageHandlers() {
     on('graphMessage', message => graphMessage(message));
     on('stateUpdate', message => handleStateUpdate(message));
     on('verifiables', message => handleVerifiableUpdate(message.data));
-    on('symbExLogEntries', message => handleSymbExLogEntries(message));
+    on('symbExLogMessage', message => handleSymbExLogMessage(message));
     Logger.debug("Done setting up message handlers.");
 }
-
 
 /** Sets up handlers for button events in the debugger pane. */
 function setupInputHandlers() {
@@ -301,7 +300,7 @@ function handleVerifiableUpdate(verifiables: any[]) {
     }
 }
 
-function handleSymbExLogEntries(message: any) {
+function handleSymbExLogMessage(message: any) {
     const options: JSONFormatterConfiguration = {
         animateOpen: false,
         animateClose: false,

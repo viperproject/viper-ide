@@ -2,7 +2,7 @@ import { Verifiable } from './model/Verifiable';
 import { Record } from './model/Record';
 import { Logger } from './logger';
 import * as vscode from 'vscode';
-import { Term } from './model/Term';
+import { Program } from './model/Program';
 
 
 /** Events that can be listened on. */
@@ -25,10 +25,10 @@ export class DebuggerSession {
     private currentRecord: Record;
     private currentVerifiable: Verifiable;
 
-    constructor(readonly debuggedFile: vscode.Uri, readonly verifiables: Verifiable[], readonly axioms: Term[]) {
+    constructor(readonly debuggedFile: vscode.Uri, readonly program: Program) {
         this.observers = [];
         // TODO: Put a check for not verifiables?
-        this.currentVerifiable = this.verifiables[0];
+        this.currentVerifiable = this.program.verifiables[0];
         this.currentRecord = this.currentVerifiable.records[0];
     }
 
@@ -56,7 +56,7 @@ export class DebuggerSession {
     }
 
     public selectVerifiable(name: string) {
-        const verifiable = this.verifiables.find(v => v.name === name);
+        const verifiable = this.program.verifiables.find(v => v.name === name);
         if (!verifiable) {
             Logger.error(`Could not find verifiable '${name}'`);
             return;
@@ -143,5 +143,6 @@ export class DebuggerSession {
             }
             parent = parent.parent;
         }
+        return undefined;
     }
 }

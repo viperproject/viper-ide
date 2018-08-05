@@ -30,7 +30,12 @@ export namespace AlloyTranslator {
     export const Function = 'Fun';
     export const PermFun = 'PermFun';
 
-    export function translate(verifiable: Verifiable, axioms: Term[], state: State, env: TranslationEnv): string {
+    // TODO: Don't like this signature
+    export function translate(verifiable: Verifiable,
+                              axioms: Term[],
+                              macros: Map<Application, Term>,
+                              state: State,
+                              env: TranslationEnv): string {
 
         // The translation environment keeps track of the known variable names and the signature they belong to
         const mb = new AlloyModelBuilder();
@@ -59,6 +64,34 @@ export namespace AlloyTranslator {
 
         // Translate values and types that have been gathered during translation
         encodeGatheredFacts(env, mb);
+
+        if (macros.size > 0) {
+            mb.comment("Macros");
+            macros.forEach((body, app) => {
+                const params = app.args.map(a => {
+                    const translated = termTranslator.toAlloy(a);
+                    if (!translated.res) {
+                        Logger.error("Could not translate macro argument: " + a);
+                    }
+                    return `${a}: ${env.translate(getSort(a))}`;
+                });
+
+                env.evaluateWithAdditionalVariables(
+                    app.args.map(t => t.toString()),
+                    () => {
+                const tBody = termTranslator.toAlloy(body);
+                if (!tBody.res) {
+                    Logger.error("Could not translate macro body: " + body);
+                }
+
+                const retSort = env.translate(app.sort);
+        mb.fun(`fun ${sanitize(app.applicable)} [ ${params.join(', ')} ]: ${retSort} {
+    { r': ${retSort} | r' = ${tBody.res} }
+}`);
+            });
+                    }
+                );
+        }
 
         encodeReachabilityConstraints(env, mb);
         encodeFailedSMTFact(verifiable, env, mb, termTranslator);

@@ -2,7 +2,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { SessionObserver } from './Debugger';
-import { SymbExLogEntry } from './external';
 import { Logger } from './logger';
 import { DebuggerSession, StateUpdate } from './DebuggerSession';
 import { DebuggerError } from './Errors';
@@ -62,8 +61,8 @@ export class DebuggerPanel implements SessionObserver {
 
         // Verifiables are a cyclic structure, they need to be converted before
         // sending them to the HTML panel
-        const verifiables = this.session.verifiables.filter((v) => v.records.length > 0)
-                                                    .map((v) => ({ name: v.name }) );
+        const verifiables = this.session.program.verifiables.filter((v) => v.records.length > 0)
+                                                            .map((v) => ({ name: v.name }) );
 
         this.postMessage(PanelMessage.Verifiables(verifiables));
     }
@@ -81,10 +80,10 @@ export class DebuggerPanel implements SessionObserver {
         });
     }
 
-    public postOriginalSymbExLog(entries: SymbExLogEntry[]) {
+    public postOriginalSymbExLog(symbExLog: any) {
         let message = {
-            type: 'symbExLogEntries',
-            text: entries
+            type: 'symbExLogMessage',
+            text: symbExLog
         };
 
         this.panel.webview.postMessage(message);
@@ -159,7 +158,12 @@ export class DebuggerPanel implements SessionObserver {
 
             const state = record.current.prestate;
             const env = new TranslationEnv(state);
-            const model = AlloyTranslator.translate(record.verifiable, this.session!.axioms, state, env);
+            const program = this.session!.program;
+            const model = AlloyTranslator.translate(record.verifiable,
+                                                    program.axioms,
+                                                    program.macros,
+                                                    state,
+                                                    env);
             this.logModel(model);
 
             this.postMessage({ type: "graphMessage", text: "Generating..." });
