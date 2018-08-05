@@ -356,9 +356,16 @@ export namespace AlloyTranslator {
             mb.blank();
         } 
 
-        if (env.sorts.size > 0) {
+        if (env.sorts.length > 0) {
+            const added = new Set<string>();
             mb.comment("Other sorts");
-            env.sorts.forEach(s => mb.signature(env.translate(s)));
+            env.sorts.forEach(s => {
+                const sig = env.translate(s);
+                if (!added.has(sig)) {
+                    added.add(sig);
+                    mb.signature(sig);
+                }
+            });
             mb.blank();
         }
 
@@ -380,7 +387,7 @@ export namespace AlloyTranslator {
     }
 
     function encodeReachabilityConstraints(env: TranslationEnv, mb: AlloyModelBuilder) {
-        const reachable = [ Store + ".refTypedVars'.*refTypedFields'" ];
+        const reachable = [ Store + ".refTypedVars'.*refTypedFields' + NULL" ];
         
         reachable.push(`(${Combine}.left :> ${Ref})`);
         reachable.push(`(${Combine}.right :> ${Ref})`);

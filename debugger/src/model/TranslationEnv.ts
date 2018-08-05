@@ -17,15 +17,17 @@ export class TranslationEnv {
     private freshVariables: Map<string, number>;
     public sortWrappers: Map<string, Sort>;
 
-    private quantifiedVariables: Set<string>;
+    private additionalVariables: Set<string>;
     public storeVariables: Map<string, StoreVariable>;
     public heapSnapshots: Set<string>;
     public tempVariables: Map<string, Sort>;
     public functions: Map<string, Sort[]>;
+    public actualFucntions: Map<string, Sort[]>;
+    public lookupFunctions: [Sort, string][];
     public totalCombines: number;
     public introduceMissingTempVars: boolean = true;
     public userSorts: Set<string>;
-    public sorts: Set<Sort>;
+    public sorts: Sort[];
 
     constructor(readonly state: State) {
         
@@ -37,10 +39,10 @@ export class TranslationEnv {
 
         this.storeVariables = new Map();
         this.heapSnapshots = new Set();
-        this.quantifiedVariables = new Set();
+        this.additionalVariables = new Set();
         this.tempVariables = new Map();
         this.userSorts = new Set;
-        this.sorts = new Set();
+        this.sorts = [];
 
         state.store.forEach(v => {
             // We save the names of symbolic value for store variables
@@ -55,7 +57,7 @@ export class TranslationEnv {
                 this.fields.set(hc.field, hc.sort);
             } else if (hc instanceof QuantifiedFieldChunk) {
                 if (hc.sort.id === Sort.FVF && hc.sort.elementsSort !== undefined) {
-                    this.sorts.add(hc.sort);
+                    this.sorts.push(hc.sort);
                     this.fields.set(hc.field, hc.sort.elementsSort);
                 } else {
                     Logger.error('Unexpected quantified field sort: ' + hc.sort);
@@ -79,6 +81,8 @@ export class TranslationEnv {
         });
 
         this.functions = new Map();
+        this.actualFucntions = new Map();
+        this.lookupFunctions = [];
         this.totalCombines = 0;
     }
 
@@ -109,7 +113,7 @@ export class TranslationEnv {
     }
 
     public resolve(variable: VariableTerm): string | undefined {
-        if (this.quantifiedVariables.has(variable.id)) {
+        if (this.additionalVariables.has(variable.id)) {
             return variable.id;
         }
 
@@ -179,10 +183,10 @@ export class TranslationEnv {
         throw new DebuggerError(`Unexpected sort '${sort}'`);
     }
 
-    evaluateWithQuantifiedVariables<T>(vars: string[], f: () => T) {
-        vars.forEach(v => this.quantifiedVariables.add(v));
+    evaluateWithAdditionalVariables<T>(vars: string[], f: () => T) {
+        vars.forEach(v => this.additionalVariables.add(v));
         const res = f();
-        vars.forEach(v => this.quantifiedVariables.delete(v));
+        vars.forEach(v => this.additionalVariables.delete(v));
         return res;
     }
 

@@ -239,7 +239,7 @@ export class TermTranslator {
             }
 
             // Inside quantifiers, the quantified variables are defined as well
-            return this.env.evaluateWithQuantifiedVariables(
+            return this.env.evaluateWithAdditionalVariables(
                 term.vars.map(v => v.id),
                 () => {
                     const tBody = this.toAlloy(term.body);
