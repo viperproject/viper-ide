@@ -150,7 +150,7 @@ export class TranslationEnv {
             return AlloyTranslator.Ref;
         }
         if (sort.id === Sort.Set && sort.elementsSort !== undefined) {
-            return AlloyTranslator.Ref;
+            return this.translate(sort.elementsSort);
         }
         if (sort.id === Sort.Int) {
             return AlloyTranslator.Int;
@@ -192,12 +192,6 @@ export class TranslationEnv {
         }
     }
 
-    public recordCombine(name: string) {
-        // HACK: fix this?
-        this.tempVariables.set(name, new Sort(Sort.Snap));
-        this.totalCombines += 1;
-    }
-    
     public recordUserSort(userSort: string) {
         this.userSorts.add(userSort);
     }

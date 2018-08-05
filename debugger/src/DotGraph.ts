@@ -4,7 +4,7 @@ import { AlloyTranslator } from './model/AlloyTranslator';
 import { TranslationEnv } from './model/TranslationEnv';
 import { sanitize } from './model/TermTranslator';
 import { VariableTerm, Literal, Lookup } from './model/Term';
-import { DebuggerError } from './Errors';
+import { Logger } from './logger';
 
 
 export interface DotElem {
@@ -122,7 +122,7 @@ export class DotGraph {
                 } else if (v.value instanceof Lookup) {
                     storeGraph.add(new Node("lookup" + sanitize(v.value.field), new Label(`${v.name}: ${v.sort} (lookup)\\l`)));
                 } else {
-                    throw new DebuggerError(`Unexpected value type in store: ${v.value}`);
+                    Logger.error(`Unexpected value type in store: ${v.value}`);
                 }
             });
         }

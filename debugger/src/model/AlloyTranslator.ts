@@ -61,7 +61,6 @@ export namespace AlloyTranslator {
             env.clearFreshNames();
         });
         mb.blank();
-
         // Translate values and types that have been gathered during translation
         encodeGatheredFacts(env, mb);
 

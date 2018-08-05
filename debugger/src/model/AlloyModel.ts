@@ -184,7 +184,6 @@ export class AlloyModelBuilder {
         });
 
         return model + '\n' +
-            'pred generate() {}\n' +
-            `run generate for ${baseCount} but ${counts.join(', ')}`;
+            `run {} for ${baseCount} but ${counts.join(', ')}`;
     }
 }
