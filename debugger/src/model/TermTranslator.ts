@@ -60,12 +60,12 @@ export class TermTranslator {
 
     private funCall(name: string, args: Term[]): TranslationRes {
         const tArgs = args.map(a => this.toAlloy(a));
-        tArgs.forEach(a => {
-            if (a.res === undefined) {
-                Logger.error("Could not translate argument: " + a);
-                return leftover(a, "Could not translate argument", []);
-            }
-        });
+
+        const nonTranslated = tArgs.find(a => a.res === undefined);
+        if (nonTranslated !== undefined) {
+            Logger.error("Could not translate argument: " + nonTranslated);
+            return leftover(nonTranslated, "Could not translate argument", []);
+        }
 
         return translatedFrom(`${name}[${tArgs.map(a => a.res).join(", ")}]`, tArgs);
     }
@@ -77,6 +77,7 @@ export class TermTranslator {
     public toAlloy(term: Term): TranslationRes {
 
         if (term instanceof Binary && term.op === "Combine") {
+            this.env.totalCombines += 1;
             return this.funCall("combine", [term.lhs, term.rhs]);
         }
 
@@ -126,10 +127,11 @@ export class TermTranslator {
 
             if (leftSort.id === Sort.Set || rightSort.id === Sort.Set) {
                 switch (term.op) {
-                    case BinaryOp.SetAdd: return res(`${left.res} in ${right.res}`);
-                    case BinaryOp.SetDifference: return res(`${left.res} - ${right.res}`);
-                    case BinaryOp.SetIntersection: return res(`${left.res} & ${right.res}`);
-                    case BinaryOp.SetUnion: return res(`${left.res} + ${right.res}`);
+                    case BinaryOp.SetAdd: return res(`(${left.res} + ${right.res})`);
+                    case BinaryOp.SetDifference: return res(`(${left.res} - ${right.res})`);
+                    case BinaryOp.SetIntersection: return res(`(${left.res} & ${right.res})`);
+                    case BinaryOp.SetUnion: return res(`(${left.res} + ${right.res})`);
+
                     case BinaryOp.SetIn: return res(`${left.res} in ${right.res}`);
                     case BinaryOp.SetSubset: return res(`${left.res} in ${right.res}`);
                     case BinaryOp.SetDisjoint: return res(`disj[${left.res}, ${right.res}]`);
@@ -266,6 +268,12 @@ export class TermTranslator {
                     return this.toAlloy(snapshotMapVar);
                 } else {
                     return leftover(term, "Not introducing new variable for snapshot map", []);
+                }
+            }
+
+            if (applicableSanitized.startsWith("pTaken")) {
+                if (!this.env.actualFucntions.has(applicableSanitized)) {
+                    return this.funCall(applicableSanitized, term.args);
                 }
             }
 
@@ -409,9 +417,15 @@ export class TermTranslator {
             return leftover(term, "SeqUpdate translation not implemented", []);
         }
 
-        // TODO: Implement this
+        // TODO: Sets of sets
+        // Substantially everything in Alloy is a set, so we can simply translate the value
         if (term instanceof SetSingleton) {
-            return leftover(term, "SetSingleton translation not implemented", []);
+            const value = this.toAlloy(term.value);
+            if (value.res) {
+                return translatedFrom(`{ ${value.res} }`, [value]);
+            } else {
+                return leftover(term, "Could not translate set value", value.leftovers);
+            }
         }
 
         // TODO: Implement this

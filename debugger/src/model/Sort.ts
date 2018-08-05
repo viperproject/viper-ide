@@ -1,4 +1,4 @@
-import { mustHave, Term, Binary, Unary, And, Or, Ite, Lookup } from "./Term";
+import { mustHave, Term, Binary, Unary, And, Or, Ite, Lookup, SetSingleton, BinaryOp } from "./Term";
 import { Logger } from "../logger";
 import { DebuggerError } from "../Errors";
 
@@ -65,6 +65,21 @@ export function getSort(term: Term): Sort {
             return leftSort;
         } else if (term.op === "in" || term.op ===  "==>" || term.op === "<==>") {
             return new Sort(Sort.Bool);
+        
+        } else if (leftSort.id === Sort.Set || rightSort.id === Sort.Set) {
+            if (term.op === BinaryOp.SetAdd ||
+                term.op === BinaryOp.SetDifference ||
+                term.op === BinaryOp.SetIntersection ||
+                term.op === BinaryOp.SetUnion) {
+                return leftSort.id === Sort.Set ? leftSort : rightSort;
+            } else if (term.op === BinaryOp.SetDisjoint ||
+                       term.op === BinaryOp.SetIn ||
+                       term.op === BinaryOp.SetSubset) {
+                return new Sort(Sort.Bool);
+            } else {
+                Logger.error("Unexpected set operation: " + term);
+                throw new DebuggerError("Unexpected set operation: " + term);
+            }
         } else {
             Logger.error("Mismatching sorts in binary operation :" + leftSort + ", " + rightSort);
             throw new DebuggerError("Mismatching sorts in binary operation :" + leftSort + ", " + rightSort);
@@ -102,6 +117,10 @@ export function getSort(term: Term): Sort {
         if (fvfSort.id === Sort.FVF && fvfSort.elementsSort) {
             return fvfSort.elementsSort;
         }
+    }
+
+    if (term instanceof SetSingleton) {
+        return new Sort(Sort.Set, getSort(term.value));
     }
 
     Logger.error("Could not determine the sort of :" + term);

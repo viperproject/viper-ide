@@ -27,7 +27,7 @@ export class Binary implements Term {
 }
 
 export namespace BinaryOp {
-    export const SetAdd = 'in';
+    export const SetAdd = '+';
     export const SetDifference = '\\';
     export const SetIntersection = '∩';
     export const SetUnion = '∪';
