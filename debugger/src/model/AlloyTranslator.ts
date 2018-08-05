@@ -48,12 +48,14 @@ export namespace AlloyTranslator {
         translateHeap(env, mb, termTranslator, state.heap);
         encodePermissions(state.heap, env, mb, termTranslator);
 
-        mb.comment("Domain Axioms");
-        axioms.forEach(a => {
-            termToFact(a, mb, termTranslator);
-            env.clearFreshNames();  // Not sure if this is needed
-        });
-        mb.blank();
+        if (axioms.length > 0) {
+            mb.comment("Domain Axioms");
+            axioms.forEach(a => {
+                termToFact(a, mb, termTranslator);
+                env.clearFreshNames();  // Not sure if this is needed
+            });
+            mb.blank();
+        }
 
         mb.comment("Path Conditions");
         state.pathConditions.forEach(pc => {
@@ -108,6 +110,8 @@ export namespace AlloyTranslator {
     /** Emits the definitions that never change in the model. */
     function emitPrelude(mb: AlloyModelBuilder) {
         mb.text('open util/boolean');
+        mb.text('open util/ternary');
+        mb.blank();
         mb.abstractSignature(SymbVal);
         mb.signature(Snap).extends(SymbVal);
         mb.oneSignature(Unit).extends(Snap);
@@ -290,8 +294,8 @@ export namespace AlloyTranslator {
         mb.blank();
     }
 
-    function termToFact(pc: Term, mb: AlloyModelBuilder, termTranslator: TermTranslator) {
-        let body = termTranslator.toAlloy(pc);
+    function termToFact(t: Term, mb: AlloyModelBuilder, termTranslator: TermTranslator) {
+        let body = termTranslator.toAlloy(t);
         if (!body.res) {
             mb.comment("!!! Non-translated fact: ");
             mb.comment(body.leftovers.map(l => "    " + l.toString()).join("\n"));
@@ -302,10 +306,10 @@ export namespace AlloyTranslator {
         // The translation of a fact might have introduces some variables and facts to constrain them.
         let facts = [body.res].concat(body.additionalFacts).join(" && ");
         if (body.quantifiedVariables.length > 0) {
-            // mb.comment(pc.toString());
+            mb.comment(t.toString());
             mb.fact(body.quantifiedVariables.concat(facts).join(" | "));
         } else {
-            // mb.comment(pc.toString());
+            mb.comment(t.toString());
             mb.fact(facts);
         }
     }
@@ -328,6 +332,16 @@ export namespace AlloyTranslator {
             mb.oneSignature(Function).withMembers(members);
             mb.blank();
         }
+
+        const fvfFacts = new Set<string>();
+        env.lookupFunctions.forEach((v) => {
+            const [sort, field] = v;
+            const f = `all fvf: ${env.translate(sort)}, r: Ref | r in mid[Fun.lookup_${field}] => Fun.lookup_${field}[fvf, r] = r.${field}`;
+            if (!fvfFacts.has(f)) {
+                fvfFacts.add(f);
+                mb.fact(f);
+            }
+        });
 
         env.sortWrappers.forEach((sort, name) => {
             const sigName = name.charAt(0).toUpperCase() + name.slice(1);

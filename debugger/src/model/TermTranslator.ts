@@ -311,9 +311,12 @@ export class TermTranslator {
                 throw new DebuggerError(`Expected sort to a FVF, but was '${returnSort}': ` + term);
             }
 
-            const f = new Application('lookup_' + term.field,
+            const name = 'lookup_' + term.field;
+            const f = new Application(name,
                                       [term.fieldValueFunction, term.receiver],
                                       returnSort.elementsSort);
+            this.env.lookupFunctions.push([returnSort, term.field]);
+            
             return this.toAlloy(f);
 
             // return translatedFrom(receiver.res + "." + term.field, [receiver]);
