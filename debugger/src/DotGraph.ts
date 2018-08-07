@@ -2,9 +2,9 @@ import { Record } from './model/Record';
 import { AlloyInstance } from './external';
 import { AlloyTranslator } from './model/AlloyTranslator';
 import { TranslationEnv } from './model/TranslationEnv';
-import { sanitize } from './model/TermTranslator';
 import { VariableTerm, Literal, Lookup } from './model/Term';
 import { Logger } from './logger';
+import { sanitize } from './model/TermTranslator';
 
 
 export interface DotElem {

@@ -1,5 +1,6 @@
 import { DebuggerError } from "../Errors";
 import { WithSort, Sort } from "./Sort";
+import { TermVisitor } from "./TermTranslator";
 
 
 export function mustHave(type: string, obj: any, entries: string[]) {
@@ -12,10 +13,15 @@ export function mustHave(type: string, obj: any, entries: string[]) {
 
 export interface Term {
     toString(): string;
+    accept<T>(visitor: TermVisitor<T>): T;
 }
 
 export class Binary implements Term {
     constructor(readonly op: string, readonly lhs: Term, readonly rhs: Term) {}
+
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitBinary(this);
+    }
 
     toString() {
         if (this.op === 'Combine') {
@@ -39,6 +45,10 @@ export namespace BinaryOp {
 export class Unary implements Term {
     constructor(readonly op: string, readonly p: Term) {}
 
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitUnary(this);
+    }
+
     toString() {
         return `${this.op}(${this.p})`;
     }
@@ -47,6 +57,10 @@ export class Unary implements Term {
 export class SortWrapper implements Term, WithSort {
     constructor(readonly term: Term, readonly sort: Sort) {}
 
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitSortWrapper(this);
+    }
+
     toString() {
         return `SortWrapper(${this.term.toString()}, ${this.sort.toString()})`;
     }
@@ -54,6 +68,10 @@ export class SortWrapper implements Term, WithSort {
 
 export class VariableTerm implements Term, WithSort {
     constructor(readonly id: string, readonly sort: Sort) {}
+
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitVariableTerm(this);
+    }
 
     toString(): string {
         return this.id;
@@ -66,6 +84,10 @@ export class Quantification implements Term {
                 readonly body: Term,
                 readonly name: string | null) {}
 
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitQuantification(this);
+    }
+
     public toString() {
         return `${this.quantifier} ${this.vars.join(", ")} :: ${this.body}`;
     }
@@ -73,6 +95,10 @@ export class Quantification implements Term {
 
 export class Application implements Term, WithSort {
     constructor(readonly applicable: string, readonly args: Term[], readonly sort: Sort) {}
+
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitApplication(this);
+    }
 
     toString() {
         return `${this.applicable}(${this.args.join(", ")})`;
@@ -82,6 +108,10 @@ export class Application implements Term, WithSort {
 export class Lookup implements Term {
     constructor(readonly field: string, readonly fieldValueFunction: Term, readonly receiver: Term) {}
 
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitLookup(this);
+    }
+
     toString() {
         return `Lookup(${this.field}, ${this.fieldValueFunction}, ${this.receiver})`;
     }
@@ -89,6 +119,10 @@ export class Lookup implements Term {
 
 export class PredicateLookup implements Term {
     constructor(readonly predicate: string, readonly predicateSnapFunction: Term, readonly args: Term[]) {}
+
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitPredicateLookup(this);
+    }
 
     toString() {
         return `Lookup(${this.predicate}, ${this.predicateSnapFunction}, ${this.args})`;
@@ -98,6 +132,10 @@ export class PredicateLookup implements Term {
 export class And implements Term {
     constructor(readonly terms: Term[]) {}
 
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitAnd(this);
+    }
+
     toString() {
         return this.terms.join(' && ');
     }
@@ -105,6 +143,10 @@ export class And implements Term {
 
 export class Or implements Term {
     constructor(readonly terms: Term[]) {}
+
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitOr(this);
+    }
 
     toString() {
         return this.terms.join(' || ');
@@ -114,6 +156,10 @@ export class Or implements Term {
 export class Distinct implements Term {
     constructor(readonly symbols: string[]) {}
 
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitDistinct(this);
+    }
+
     toString() {
         return `distinct(${this.symbols.join(", ")})`;
     }
@@ -121,6 +167,10 @@ export class Distinct implements Term {
 
 export class Ite implements Term {
     constructor(readonly condition: Term, readonly thenBranch: Term, readonly elseBranch: Term) {}
+
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitIte(this);
+    }
 
     toString () {
         return `${this.condition} ? ${this.thenBranch} : ${this.elseBranch}`;
@@ -130,6 +180,10 @@ export class Ite implements Term {
 export class Let implements Term {
     constructor(readonly bindings: [VariableTerm, Term][], readonly body: Term) {}
 
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitLet(this);
+    }
+
     toString () {
         return `let ${this.bindings.toString} in ${this.body}`;
     }
@@ -137,6 +191,10 @@ export class Let implements Term {
 
 export class Literal implements Term, WithSort {
     constructor(readonly sort: Sort, readonly value: string) {}
+
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitLiteral(this);
+    }
 
     toString() {
         return this.value;
@@ -146,6 +204,10 @@ export class Literal implements Term, WithSort {
 export class SeqRanged implements Term {
     constructor(readonly lhs: Term, readonly rhs: Term) {}
 
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitSeqRanged(this);
+    }
+
     public toString() {
         return `[${this.lhs}..${this.rhs}]`;
     }
@@ -153,6 +215,10 @@ export class SeqRanged implements Term {
 
 export class SeqSingleton implements Term {
     constructor(readonly value: Term) {}
+
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitSeqSingleton(this);
+    }
 
     public toString() {
         return `[${this.value}]`;
@@ -162,6 +228,10 @@ export class SeqSingleton implements Term {
 export class SeqUpdate implements Term {
     constructor(readonly seq: Term, readonly index: Term, readonly value: Term) {}
 
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitSeqUpdate(this);
+    }
+
     public toString() {
         return `${this.seq}[${this.index}] := ${this.value}`;
     }
@@ -170,6 +240,10 @@ export class SeqUpdate implements Term {
 export class SetSingleton implements Term {
     constructor(readonly value: Term) {}
 
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitSetSingleton(this);
+    }
+
     public toString() {
         return `{${this.value}}`;
     }
@@ -177,6 +251,10 @@ export class SetSingleton implements Term {
 
 export class MultisetSingleton implements Term {
     constructor(readonly value: Term) {}
+
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitMultiSetSingleton(this);
+    }
 
     public toString() {
         return `{${this.value}}`;

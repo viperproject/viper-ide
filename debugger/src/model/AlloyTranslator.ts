@@ -5,8 +5,8 @@ import { Logger } from "../logger";
 import { VariableTerm, Unary, Term, Application, Binary, Quantification, Literal } from "./Term";
 import { getSort, Sort } from './Sort';
 import { Verifiable } from "./Verifiable";
-import { TermTranslator, sanitize } from "./TermTranslator";
 import { TranslationEnv } from "./TranslationEnv";
+import { TermTranslatorVisitor, sanitize } from "./TermTranslator";
 
 
 export namespace AlloyTranslator {
@@ -39,7 +39,7 @@ export namespace AlloyTranslator {
 
         // The translation environment keeps track of the known variable names and the signature they belong to
         const mb = new AlloyModelBuilder();
-        const termTranslator = new TermTranslator(env);
+        const termTranslator = new TermTranslatorVisitor(env);
 
         emitPrelude(mb);
 
@@ -70,7 +70,7 @@ export namespace AlloyTranslator {
             mb.comment("Macros");
             macros.forEach((body, app) => {
                 const params = app.args.map(a => {
-                    const translated = termTranslator.toAlloy(a);
+                    const translated = a.accept(termTranslator);
                     if (!translated.res) {
                         Logger.error("Could not translate macro argument: " + a);
                     }
@@ -80,7 +80,7 @@ export namespace AlloyTranslator {
                 env.evaluateWithAdditionalVariables(
                     app.args.map(t => t.toString()),
                     () => {
-                const tBody = termTranslator.toAlloy(body);
+                const tBody = body.accept(termTranslator);
                 if (!tBody.res) {
                     Logger.error("Could not translate macro body: " + body);
                 }
@@ -167,7 +167,7 @@ export namespace AlloyTranslator {
         mb.blank();
     }
 
-    function translateStore(env: TranslationEnv, mb: AlloyModelBuilder, translator: TermTranslator) {
+    function translateStore(env: TranslationEnv, mb: AlloyModelBuilder, translator: TermTranslatorVisitor) {
         const refTypedStoreVariables: string[] = [];
         const store = mb.oneSignature(Store);
         const constraints: string[] = [];
@@ -178,7 +178,7 @@ export namespace AlloyTranslator {
             const multiplicity = env.sortMultiplicity(variable.sort);
             store.withMember(`${name}: ${multiplicity} ${sig}`);
 
-            const value = translator.toAlloy(variable.value);
+            const value = variable.value.accept(translator);
             if (value.res) {
                 constraints.push(`${Store}.${name} = ${value.res}`);
             } else {
@@ -199,7 +199,7 @@ export namespace AlloyTranslator {
         mb.blank();
     }
 
-    function translateHeap(env: TranslationEnv, mb: AlloyModelBuilder, termTranslator: TermTranslator, chunks: HeapChunk[]) {
+    function translateHeap(env: TranslationEnv, mb: AlloyModelBuilder, termTranslator: TermTranslatorVisitor, chunks: HeapChunk[]) {
         const heapChunks: Set<string> = new Set();
         const constraints: string[] = [];
 
@@ -207,7 +207,7 @@ export namespace AlloyTranslator {
             if (hc instanceof FieldChunk) {
                 if (hc.snap instanceof VariableTerm) {
                     heapChunks.add(`${sanitize(hc.snap.id)}: one ${env.translate(hc.snap.sort)}`);
-                    const rec = termTranslator.toAlloy(hc.receiver);
+                    const rec = hc.receiver.accept(termTranslator);
                     if (rec.res) {
                         constraints.push(rec.res + '.' + hc.field + ' = ' + env.resolve(hc.snap));
                     } else {
@@ -215,8 +215,8 @@ export namespace AlloyTranslator {
                     }
                 } else if (hc.snap instanceof Literal) {
                     
-                    const rec = termTranslator.toAlloy(hc.receiver);
-                    const lit = termTranslator.toAlloy(hc.snap);
+                    const rec = hc.receiver.accept(termTranslator);
+                    const lit = hc.snap.accept(termTranslator);
 
                     if (!rec.res) {
                         Logger.error("Could not translate field receiver: " + rec.leftovers.join("\n"));
@@ -253,7 +253,7 @@ export namespace AlloyTranslator {
             preds.forEach(p => {
                 const args: string[] = [];
                 p.args.forEach(a => {
-                    const translated = termTranslator.toAlloy(a);
+                    const translated = a.accept(termTranslator);
                     if (translated.res) {
                         args.push(translated.res);
                     } else {
@@ -270,7 +270,7 @@ export namespace AlloyTranslator {
     function encodePermissions(chunks: HeapChunk[],
                                env: TranslationEnv,
                                mb: AlloyModelBuilder,
-                               termTranslator: TermTranslator) {
+                               termTranslator: TermTranslatorVisitor) {
         chunks.forEach(chunk => {
             if (chunk instanceof FieldChunk) {
                 const functionName = PermFun + "_" + chunk.field;
@@ -294,8 +294,8 @@ export namespace AlloyTranslator {
         mb.blank();
     }
 
-    function termToFact(t: Term, mb: AlloyModelBuilder, termTranslator: TermTranslator) {
-        let body = termTranslator.toAlloy(t);
+    function termToFact(t: Term, mb: AlloyModelBuilder, termTranslator: TermTranslatorVisitor) {
+        let body = t.accept(termTranslator);
         if (!body.res) {
             mb.comment("!!! Non-translated fact: ");
             mb.comment(body.leftovers.map(l => "    " + l.toString()).join("\n"));
@@ -425,7 +425,7 @@ export namespace AlloyTranslator {
     function encodeFailedSMTFact(verifiable: Verifiable,
                                        env: TranslationEnv,
                                        mb: AlloyModelBuilder,
-                                       termTranslator: TermTranslator) {
+                                       termTranslator: TermTranslatorVisitor) {
         // Note that the translation of this fact may not be posssible in statements earlier than the failing one. For
         // example, when the failing query refers to a variable that did not exist yet.
         if (verifiable.lastSMTQuery) {
@@ -436,7 +436,7 @@ export namespace AlloyTranslator {
             } else {
                 constraint = new Unary('!', constraint);
             }
-            const failedQuery = termTranslator.toAlloy(constraint);
+            const failedQuery = constraint.accept(termTranslator);
             if (failedQuery.res) {
                 mb.comment("Constraint from last non-proved smt query");
                 mb.fact(failedQuery.res);
