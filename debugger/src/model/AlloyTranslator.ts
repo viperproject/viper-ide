@@ -7,6 +7,9 @@ import { getSort, Sort } from './Sort';
 import { Verifiable } from "./Verifiable";
 import { TranslationEnv } from "./TranslationEnv";
 import { TermTranslatorVisitor, sanitize } from "./TermTranslator";
+import * as fs from 'fs';
+import * as path from 'path';
+import { getAbsolutePath } from "../extension";
 
 
 export namespace AlloyTranslator {
@@ -109,20 +112,9 @@ export namespace AlloyTranslator {
 
     /** Emits the definitions that never change in the model. */
     function emitPrelude(mb: AlloyModelBuilder) {
-        mb.text('open util/boolean');
-        mb.text('open util/ternary');
-        mb.blank();
-        mb.abstractSignature(SymbVal);
-        mb.signature(Snap).extends(SymbVal);
-        mb.oneSignature(Unit).extends(Snap);
-        mb.abstractSignature(Perm).extends(SymbVal).withMembers(['num: one Int', 'denom: one Int']).withConstraints([
-            'num >= 0',
-            'denom > 0',
-            'num <= denom',
-        ]);
-        mb.oneSignature(WritePerm).in(Perm).withConstraints(['num = 1', 'denom = 1']);
-        mb.oneSignature(NoPerm).in(Perm).withConstraints(['num = 0', 'denom = 1']);
-        mb.blank();
+        const preamblePath = getAbsolutePath(path.join('resources/preamble.als'));
+        mb.text(fs.readFileSync(preamblePath).toString());
+    }
     }
 
     function encodeRefSignature(env: TranslationEnv, mb: AlloyModelBuilder) {
@@ -352,16 +344,6 @@ export namespace AlloyTranslator {
     { s: ${sigName} | s.v = o }
 }`);
         });
-        mb.blank();
-
-        // Add signature for Combines only if we have found some in the path conditions and constrain its cardinality to
-        // be at most the number we have found.
-        mb.comment("Combine operations");
-        mb.abstractSignature(Combine).extends(Snap).withMembers(
-                ['left: one ' + SymbVal, 'right: one ' + SymbVal]);
-        mb.fun(`fun combine [ l, r: Snap ]: Snap {
-    { c: Combine | c.left = l && c.right = r }
-}`);
         mb.blank();
 
         if (env.userSorts.size > 0) {

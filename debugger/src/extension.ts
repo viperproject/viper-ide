@@ -10,6 +10,12 @@ import { DebuggerSettings } from './DebuggerSettings';
  *  It allows listening for verification events.
  */
 export var viperApi: any;
+let extensionContext: vscode.ExtensionContext;
+
+
+export function getAbsolutePath(relativePath: string) {
+    return extensionContext.asAbsolutePath(relativePath);
+}
 
 
 /** Called by VS Code when loading the extension. */
@@ -19,6 +25,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     Logger.debug('Viper Debugger extension starting');
+    extensionContext = context;
 
     // Retrieve the Viper API so we can listen on verification eventes
     let viper = vscode.extensions.getExtension('viper-admin.viper-experimental');
