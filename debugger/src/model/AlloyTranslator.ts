@@ -54,7 +54,7 @@ export namespace AlloyTranslator {
         if (axioms.length > 0) {
             mb.comment("Domain Axioms");
             axioms.forEach(a => {
-                termToFact(a, mb, termTranslator);
+                termToFact(a, env, mb, termTranslator);
                 env.clearFreshNames();  // Not sure if this is needed
             });
             mb.blank();
@@ -62,7 +62,7 @@ export namespace AlloyTranslator {
 
         mb.comment("Path Conditions");
         state.pathConditions.forEach(pc => {
-            termToFact(pc, mb, termTranslator);
+            termToFact(pc, env, mb, termTranslator);
             env.clearFreshNames();
         });
         mb.blank();
@@ -114,7 +114,9 @@ export namespace AlloyTranslator {
     function emitPrelude(mb: AlloyModelBuilder) {
         const preamblePath = getAbsolutePath(path.join('resources/preamble.als'));
         mb.text(fs.readFileSync(preamblePath).toString());
-    }
+
+        const setDefinitions = getAbsolutePath(path.join('resources/set_fun.als'));
+        mb.text(fs.readFileSync(setDefinitions).toString());
     }
 
     function encodeRefSignature(env: TranslationEnv, mb: AlloyModelBuilder) {
@@ -171,8 +173,17 @@ export namespace AlloyTranslator {
             store.withMember(`${name}: ${multiplicity} ${sig}`);
 
             const value = variable.value.accept(translator);
+
             if (value.res) {
-                constraints.push(`${Store}.${name} = ${value.res}`);
+                let fact = value.additionalFacts
+                                .concat(`${Store}.${name} = ${value.res}`)
+                                .join(" && \n");
+                constraints.push(fact);
+                while (env.freshVariablesToDeclare.length > 0) {
+                    const [name, sort] = env.freshVariablesToDeclare.shift()!;
+                    mb.oneSignature(name).in(env.translate(sort));
+                }
+
             } else {
                 Logger.error(`Could not translate store value for ${name}: ` + value.leftovers);
             }
@@ -225,7 +236,7 @@ export namespace AlloyTranslator {
                     heapChunks.add(`${sanitize(hc.snap.id)}: one ${env.translate(hc.snap.sort)}`);
                 }
             } else if (hc instanceof QuantifiedFieldChunk) {
-                hc.invAxioms.forEach(axiom => termToFact(axiom, mb, termTranslator));
+                hc.invAxioms.forEach(axiom => termToFact(axiom, env, mb, termTranslator));
             } else {
                 Logger.error(`Heap chunk translation not implemented yet: '${hc}'`);
             }
@@ -270,7 +281,7 @@ export namespace AlloyTranslator {
                                            new Application(functionName, [chunk.receiver], new Sort('Perm')),
                                            chunk.perm);
 
-                termToFact(permFun, mb, termTranslator);
+                termToFact(permFun, env, mb, termTranslator);
 
             } else if (chunk instanceof QuantifiedFieldChunk) {
                 const r = new VariableTerm('r', new Sort('Ref'));
@@ -280,13 +291,13 @@ export namespace AlloyTranslator {
                                             chunk.perm);
                 const quant = new Quantification('QA', [r], permFun, null);
 
-                termToFact(quant, mb, termTranslator);
+                termToFact(quant, env, mb, termTranslator);
             }
         });
         mb.blank();
     }
 
-    function termToFact(t: Term, mb: AlloyModelBuilder, termTranslator: TermTranslatorVisitor) {
+    function termToFact(t: Term, env: TranslationEnv, mb: AlloyModelBuilder, termTranslator: TermTranslatorVisitor) {
         let body = t.accept(termTranslator);
         if (!body.res) {
             mb.comment("!!! Non-translated fact: ");
@@ -296,7 +307,12 @@ export namespace AlloyTranslator {
         }
 
         // The translation of a fact might have introduces some variables and facts to constrain them.
-        let facts = [body.res].concat(body.additionalFacts).join(" && ");
+        let facts = body.additionalFacts.concat(body.res).join(" && \n");
+        while (env.freshVariablesToDeclare.length > 0) {
+            const [name, sort] = env.freshVariablesToDeclare.shift()!;
+            mb.oneSignature(name).in(env.translate(sort));
+        }
+        // let facts = [body.res].concat(body.additionalFacts).join(" && ");
         if (body.quantifiedVariables.length > 0) {
             mb.comment(t.toString());
             mb.fact(body.quantifiedVariables.concat(facts).join(" | "));
@@ -352,16 +368,9 @@ export namespace AlloyTranslator {
             mb.blank();
         } 
 
-        if (env.sorts.length > 0) {
-            const added = new Set<string>();
+        if (env.sorts.size > 0) {
             mb.comment("Other sorts");
-            env.sorts.forEach(s => {
-                const sig = env.translate(s);
-                if (!added.has(sig)) {
-                    added.add(sig);
-                    mb.signature(sig);
-                }
-            });
+            env.sorts.forEach(s => mb.signature(s));
             mb.blank();
         }
 
@@ -369,11 +378,7 @@ export namespace AlloyTranslator {
             mb.comment("Temp variables");
             for(const [name, sort] of env.tempVariables) {
                 const sortString = env.translate(sort);
-                if (sort.id === Sort.Set) {
-                    mb.signature(name).in(sortString);
-                } else {
-                    mb.oneSignature(name).in(sortString);
-                }
+                mb.oneSignature(name).in(sortString);
             }
             mb.blank();
         }

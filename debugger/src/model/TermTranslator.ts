@@ -79,7 +79,25 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
     constructor(readonly env: TranslationEnv) {}
 
-    private funCall(name: string, args: Term[]): TranslationRes {
+    private coll_call(name: string, sort: Sort, args: Term[]): TranslationRes {
+        const freshName = this.env.getFreshVariable('fun_res', sort);
+
+        const tArgs: TranslationRes[] = [];
+        args.forEach(a => {
+            const res = a.accept(this);
+            if (res.res === undefined) {
+                Logger.error("Could not translate argument: " + res);
+                return leftover(a, "Could not translate argument", []);
+            }
+            tArgs.push(res);
+        });
+        
+        const fun_res = freshName + " = " + name + mkString(tArgs.map(a => a.res), '[', ", ", ']');
+        return translatedFrom(freshName, tArgs)
+                .withAdditionalFacts([fun_res]);
+    }
+
+    private call(name: string, args: Term[]): TranslationRes {
         const tArgs: TranslationRes[] = [];
         args.forEach(a => {
             const res = a.accept(this);
@@ -90,17 +108,29 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             tArgs.push(res);
         });
 
-        return translatedFrom(`${name}[${tArgs.map(a => a.res).join(", ")}]`, tArgs);
-    }
-
-    private application(name: string, args: string[], from: TranslationRes[]): TranslationRes {
-        return translatedFrom(name + mkString(args, '[', ', ', ']'), from);
+        return translatedFrom(name + mkString(tArgs.map(a => a.res), '[', ", ", ']'), tArgs);
     }
 
     visitBinary(binary: Binary): TranslationRes {
         if (binary.op === "Combine") {
             this.env.totalCombines += 1;
-            return this.funCall("combine", [binary.lhs, binary.rhs]);
+            return this.call("combine", [binary.lhs, binary.rhs]);
+        }
+
+        const leftSort = getSort(binary.lhs);
+        const rightSort = getSort(binary.rhs);
+
+        if (leftSort.id === Sort.Set || rightSort.id === Sort.Set) {
+            switch (binary.op) {
+                case BinaryOp.SetAdd: return this.coll_call('set_add', leftSort, [binary.lhs, binary.rhs]);
+                case BinaryOp.SetDifference: return this.coll_call('SetFun.difference', leftSort, [binary.lhs, binary.rhs]);
+                case BinaryOp.SetIntersection: return this.coll_call('SetFun.intersection', leftSort, [binary.lhs, binary.rhs]);
+                case BinaryOp.SetUnion: return this.coll_call('set_union', leftSort, [binary.lhs, binary.rhs]);
+
+                case BinaryOp.SetIn: return this.coll_call('SetFun.setIn', leftSort, [binary.lhs, binary.rhs]);
+                case BinaryOp.SetSubset: return this.coll_call('SetFun.subset', leftSort, [binary.lhs, binary.rhs]);
+                case BinaryOp.SetDisjoint: return this.coll_call('SetFun.setDisjoint', leftSort, [binary.lhs, binary.rhs]);
+            }
         }
 
         const left = binary.lhs.accept(this);
@@ -115,11 +145,6 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
         // Alloy operators only have one equal sign, but are otherwise the same as the Viper ones.
         let alloyOp = binary.op.replace("==", "=");
-
-        const leftSort = getSort(binary.lhs);
-        const rightSort = getSort(binary.rhs);
-
-        const res = (s: string) => translatedFrom(s, [left, right]);
 
         // If the left and right terms are of Bool sort and not the result of a computation, then we need to wrap 
         // them to perform the operation
@@ -145,26 +170,14 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             }
         }
 
-        if (leftSort.id === Sort.Set || rightSort.id === Sort.Set) {
-            switch (binary.op) {
-                case BinaryOp.SetAdd: return res(`(${left.res} + ${right.res})`);
-                case BinaryOp.SetDifference: return res(`(${left.res} - ${right.res})`);
-                case BinaryOp.SetIntersection: return res(`(${left.res} & ${right.res})`);
-                case BinaryOp.SetUnion: return res(`(${left.res} + ${right.res})`);
-
-                case BinaryOp.SetIn: return res(`${left.res} in ${right.res}`);
-                case BinaryOp.SetSubset: return res(`${left.res} in ${right.res}`);
-                case BinaryOp.SetDisjoint: return res(`disj[${left.res}, ${right.res}]`);
-            }
-        }
 
         if (leftSort.id === Sort.Int || rightSort.id === Sort.Int) {
             switch (binary.op) {
-                case '-': return this.application('minus', [left.res, right.res], [left, right]);
-                case '+': return this.application('plus', [left.res, right.res], [left, right]);
-                case '*': return this.application('mul', [left.res, right.res], [left, right]);
-                case '/': return this.application('div', [left.res, right.res], [left, right]);
-                case '%': return this.application('rem', [left.res, right.res], [left, right]);
+                case '-': return this.call('minus', [binary.lhs, binary.rhs]);
+                case '+': return this.call('plus', [binary.lhs, binary.rhs]);
+                case '*': return this.call('mul', [binary.lhs, binary.rhs]);
+                case '/': return this.call('div', [binary.lhs, binary.rhs]);
+                case '%': return this.call('rem', [binary.lhs, binary.rhs]);
                 case '<': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
                 case '<=': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
                 case '>': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
@@ -175,17 +188,17 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         // TODO: IntPermTimes, IntPermDIv, PermMin, 
         // Operations on permissions are translated to predicate calls
         if (leftSort.id === Sort.Perm || rightSort.id === Sort.Perm) {
-            const pred = (name: string) => this.application(name, [left.res!, right.res!], [left, right]);
             switch (binary.op) {
-                case '<': return pred('perm_less');
-                case '<=': return pred('perm_at_most');
-                case '+': return pred('perm_plus');
-                case '-': return pred('perm_minus');
+                case '<': return this.call('perm_less', [binary.lhs, binary.rhs]);
+                case '<=': return this.call('perm_at_most', [binary.lhs, binary.rhs]);
+                case '+': return this.call('perm_plus', [binary.lhs, binary.rhs]);
+                case '-': return this.call('perm_minus', [binary.lhs, binary.rhs]);
                 // Int-Perm multiplication always has the integer on the left in Silicon
-                case '*': return leftSort.id === Sort.Int ? pred('int_perm_mul') : pred('perm_mul');
+                case '*': return leftSort.id === Sort.Int ? this.call('int_perm_mul', [binary.lhs, binary.rhs])
+                                                          : this.call('perm_mul', [binary.lhs, binary.rhs]);
                 // Int-Perm division always has the integer on the left in Silicon
-                case '/': return pred('int_perm_div');
-                case 'PermMin': return pred('perm_min');
+                case '/': return this.call('int_perm_div', [binary.lhs, binary.rhs]);
+                case 'PermMin': return this.call('perm_min', [binary.lhs, binary.rhs]);
                 case '==': return translatedFrom(`(${left.res} = ${right.res})`, [left, right]);
                 default: Logger.error(`Unexpected perm operator: ${binary.op}`);
             }
@@ -196,14 +209,16 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
     }
 
     visitUnary(unary: Unary): TranslationRes {
-        const operand  = unary.p.accept(this); 
-        if (!operand.res) {
-            return leftover(unary, "Operand not translated", operand.leftovers);
-        }
         const termSort = getSort(unary.p);
 
         if (unary.op === "SetCardinality:" && termSort.id === Sort.Set) {
-                return translatedFrom(`#(${operand.res})`, [operand]);
+            return this.coll_call('set_cardinality', new Sort('Int'), [unary.p]);
+                // return translatedFrom(`#(${operand.res})`, [operand]);
+        }
+
+        const operand  = unary.p.accept(this); 
+        if (!operand.res) {
+            return leftover(unary, "Operand not translated", operand.leftovers);
         }
 
         if ((unary.p instanceof VariableTerm || unary.p instanceof Application || unary.p instanceof Lookup)
@@ -225,7 +240,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             this.env.sortWrappers.set(funName, fromSort);
         }
 
-        return this.funCall(funName.toLowerCase(), [sortWrapper.term]);
+        return this.call(funName.toLowerCase(), [sortWrapper.term]);
     }
 
     visitVariableTerm(variable: VariableTerm): TranslationRes {
@@ -284,7 +299,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
         if (applicableSanitized.startsWith("pTaken")) {
             if (!this.env.actualFucntions.has(applicableSanitized)) {
-                return this.funCall(applicableSanitized, application.args);
+                return this.call(applicableSanitized, application.args);
             }
         }
 
@@ -395,14 +410,28 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
     }
 
     visitLiteral(literal: Literal): TranslationRes {
-        if (literal.sort.id === Sort.Ref && literal.value === "Null") {
-            return translatedFrom("NULL", []);
+        // TODO: Check bounds with env
+        if (literal.sort.id === Sort.Int) {
+            return translatedFrom(literal.value, []);
         }
-
         if (literal.sort.id === Sort.Snap && literal.value === '_') {
             return translatedFrom(AlloyTranslator.Unit, []);
         }
-
+        if (literal.sort.id === Sort.Bool && (literal.value === "True" || literal.value === "False")) {
+            return translatedFrom(literal.value, []);
+        }
+        if (literal.sort.id === Sort.Ref && literal.value === "Null") {
+            return translatedFrom("NULL", []);
+        }
+        if (literal.sort.id === Sort.Seq && literal.value === "Nil") {
+            return leftover(literal, "Empty seq not implemented", []);
+        }
+        if (literal.sort.id === Sort.Set && literal.value === 'Ø') {
+            return translatedFrom("EmptySet", []);
+        }
+        if (literal.sort.id === Sort.Set && literal.value === 'Ø') {
+            return leftover(literal, "Empty multiset not implemented", []);
+        }
         if (literal.sort.id === Sort.Perm) {
             if (literal.value === AlloyTranslator.WritePerm) {
                 return translatedFrom(AlloyTranslator.WritePerm, []);
@@ -427,7 +456,8 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
                     .withAdditionalFacts(additionalFacts);
         }
 
-        return translatedFrom(literal.value, []);
+        Logger.error("Unexpected literal: " + literal);
+        return leftover(literal, "Unexpected literal: " + literal, []);
     }
 
     // TODO: Implement this
@@ -445,9 +475,8 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         return leftover(seqUpdate, "SeqUpdate translation not implemented", []);
     }
 
-    // TODO: Implement this
     visitSetSingleton(setSingleton: SetSingleton): TranslationRes {
-        return leftover(setSingleton, "SetSingleton translation not implemented", []);
+        return this.coll_call("set_singleton", getSort(setSingleton), [setSingleton.value]);
     }
 
     // TODO: Implement this

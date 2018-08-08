@@ -15,6 +15,7 @@ export class TranslationEnv {
     public predicates: Map<string, PredicateChunk[]>;
     private freshNames: Map<string, number>;
     private freshVariables: Map<string, number>;
+    public freshVariablesToDeclare: [string, Sort][];
     public sortWrappers: Map<string, Sort>;
 
     private additionalVariables: Set<string>;
@@ -27,7 +28,7 @@ export class TranslationEnv {
     public totalCombines: number;
     public introduceMissingTempVars: boolean = true;
     public userSorts: Set<string>;
-    public sorts: Sort[];
+    public sorts: Set<string>;
 
     constructor(readonly state: State) {
         
@@ -35,14 +36,15 @@ export class TranslationEnv {
         this.predicates = new Map();
         this.freshNames = new Map();
         this.freshVariables = new Map();
+        this.freshVariablesToDeclare = [];
         this.sortWrappers = new Map();
 
         this.storeVariables = new Map();
         this.heapSnapshots = new Set();
         this.additionalVariables = new Set();
         this.tempVariables = new Map();
-        this.userSorts = new Set;
-        this.sorts = [];
+        this.userSorts = new Set();
+        this.sorts = new Set();
 
         state.store.forEach(v => {
             // We save the names of symbolic value for store variables
@@ -57,7 +59,6 @@ export class TranslationEnv {
                 this.fields.set(hc.field, hc.sort);
             } else if (hc instanceof QuantifiedFieldChunk) {
                 if (hc.sort.id === Sort.FVF && hc.sort.elementsSort !== undefined) {
-                    this.sorts.push(hc.sort);
                     this.fields.set(hc.field, hc.sort.elementsSort);
                 } else {
                     Logger.error('Unexpected quantified field sort: ' + hc.sort);
@@ -86,14 +87,18 @@ export class TranslationEnv {
         this.totalCombines = 0;
     }
 
-    public getFreshVariable(base: string) {
+    public getFreshVariable(base: string, sort: Sort) {
         const count = this.freshVariables.get(base);
         if (count !== undefined) {
+            const name = `${base}_${count + 1}'`;
             this.freshVariables.set(base, count + 1);
-            return `${base}_${count + 1}'`;
+            this.freshVariablesToDeclare.push([name, sort]);
+            return name;
         } else {
+            const name = `${base}_0'`;
             this.freshVariables.set(base, 0);
-            return `${base}_0'`;
+            this.freshVariablesToDeclare.push([name, sort]);
+            return name;
         }
     }
 
@@ -154,7 +159,9 @@ export class TranslationEnv {
             return AlloyTranslator.Ref;
         }
         if (sort.id === Sort.Set && sort.elementsSort !== undefined) {
-            return this.translate(sort.elementsSort);
+            const name = "Set_" + this.translate(sort.elementsSort);
+            this.recordSort(name, "Set");
+            return name;
         }
         if (sort.id === Sort.Int) {
             return AlloyTranslator.Int;
@@ -169,7 +176,7 @@ export class TranslationEnv {
             return AlloyTranslator.Perm;
         }
 
-        // TODO: sanititze names
+        // TODO: sanititze names + it should be someone else's business to record the user sort
         if (sort.id === "UserSort" && sort.elementsSort) {
             const userSort = sort.elementsSort.id;
             this.recordUserSort(userSort);
@@ -177,7 +184,9 @@ export class TranslationEnv {
         }
 
         if (sort.id === "FVF" && sort.elementsSort) {
-            return 'FVF_' + this.translate(sort.elementsSort);
+            const name = 'FVF_' + this.translate(sort.elementsSort);
+            this.recordSort(name);
+            return name;
         }
 
         throw new DebuggerError(`Unexpected sort '${sort}'`);
@@ -193,6 +202,14 @@ export class TranslationEnv {
     public recordFunction(name: string, sorts: Sort[]) {
         if (!this.functions.has(name)) {
             this.functions.set(name, sorts);
+        }
+    }
+
+    public recordSort(sort: string, base?: string) {
+        if (base !== undefined) {
+            this.sorts.add(sort + " extends " + base);
+        } else {
+            this.sorts.add(sort);
         }
     }
 
