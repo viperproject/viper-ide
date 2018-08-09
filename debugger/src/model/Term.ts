@@ -16,6 +16,18 @@ export interface Term {
     accept<T>(visitor: TermVisitor<T>): T;
 }
 
+export class LogicalWrapper implements Term {
+    constructor(readonly term: Term) {}
+
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitLogicalWrapper(this);
+    }
+
+    toString(): string {
+        return `ToRelation(${this.term.toString()})`;
+    }
+}
+
 export class Binary implements Term {
     constructor(readonly op: string, readonly lhs: Term, readonly rhs: Term) {}
 
@@ -35,7 +47,7 @@ export class Binary implements Term {
 export namespace BinaryOp {
     export const Equals = '==';
     export const Iff = '<=>';
-    export const Implies = '=>';
+    export const Implies = '==>';
 
     export const Minus = '-';
     export const Plus = '+';

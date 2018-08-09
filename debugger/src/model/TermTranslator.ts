@@ -1,4 +1,4 @@
-import { Binary, Unary, VariableTerm, Quantification, Application, Lookup, PredicateLookup, And, Or, Distinct, Ite, Let, Literal, SeqRanged, SeqSingleton, SeqUpdate, SetSingleton, MultisetSingleton, SortWrapper, Term, BinaryOp } from "./Term";
+import { Binary, Unary, VariableTerm, Quantification, Application, Lookup, PredicateLookup, And, Or, Distinct, Ite, Let, Literal, SeqRanged, SeqSingleton, SeqUpdate, SetSingleton, MultisetSingleton, SortWrapper, Term, BinaryOp, LogicalWrapper } from "./Term";
 import { TranslationEnv } from "./TranslationEnv";
 import { Logger } from "../logger";
 import { getSort, Sort } from "./Sort";
@@ -27,6 +27,8 @@ export interface TermVisitor<T> {
     visitSeqUpdate(seqUpdate: SeqUpdate): T;
     visitSetSingleton(setSingleton: SetSingleton): T;
     visitMultiSetSingleton(multiSetSingleton: MultisetSingleton): T;
+
+    visitLogicalWrapper(boolWrapper: LogicalWrapper): T;
 }
 
 export function sanitize(name: string) {
@@ -133,16 +135,6 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             }
         }
 
-        const left = binary.lhs.accept(this);
-        if (left.res === undefined) {
-            return leftover(binary, "Left-hand side operand not translated", left.leftovers);
-        }
-
-        const right = binary.rhs.accept(this);
-        if (right.res === undefined) {
-            return leftover(binary, "Right-hand side operand not translated", right.leftovers);
-        }
-
         // Alloy operators only have one equal sign, but are otherwise the same as the Viper ones.
         let alloyOp = binary.op.replace("==", "=");
 
@@ -150,34 +142,55 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         // them to perform the operation
         if (leftSort.id === Sort.Bool || rightSort.id === Sort.Bool) {
             if (binary.op === '==>' || binary.op === 'implies' || binary.op === '==') {
-                if (binary.op === '==') {
-                    alloyOp = "&&";
+
+                const left = leftSort.id === Sort.Bool ? new LogicalWrapper(binary.lhs).accept(this)
+                                                       : binary.lhs.accept(this);
+                if (left.res === undefined) {
+                    return leftover(binary, "Left-hand side operand not translated", left.leftovers);
                 }
-                let lhs = left.res;
-                if ((binary.lhs instanceof VariableTerm || binary.lhs instanceof Application || binary.lhs instanceof Lookup)
-                        && leftSort.id === Sort.Bool) {
-                    lhs = `isTrue[${left.res}]`;
+
+                const right = rightSort.id === Sort.Bool ? new LogicalWrapper(binary.rhs).accept(this)
+                                                         : binary.rhs.accept(this);
+                if (right.res === undefined) {
+                    return leftover(binary, "Right-hand side operand not translated", right.leftovers);
                 }
-                let rhs = right.res;
-                if ((binary.rhs instanceof VariableTerm || binary.rhs instanceof Application || binary.rhs instanceof Lookup)
-                        && leftSort.id === Sort.Bool) {
-                    rhs = `isTrue[${right.res}]`;
-                }
-                return translatedFrom(`(${lhs} ${alloyOp} ${rhs})`, [left, right]);
+                // if (binary.op === '==') {
+                //     alloyOp = "&&";
+                // }
+                // if ((binary.lhs instanceof VariableTerm || binary.lhs instanceof Application || binary.lhs instanceof Lookup)
+                //         && leftSort.id === Sort.Bool) {
+                //     lhs = `isTrue[${left.res}]`;
+                // }
+                // let rhs = right.res;
+                // if ((binary.rhs instanceof VariableTerm || binary.rhs instanceof Application || binary.rhs instanceof Lookup)
+                //         && leftSort.id === Sort.Bool) {
+                //     rhs = `isTrue[${right.res}]`;
+                // }
+                // return translatedFrom(`(${lhs} ${alloyOp} ${rhs})`, [left, right]);
+                return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
             } else {
                 Logger.error("Unexpected operator for operands of type Bool :" + binary);
                 throw new DebuggerError("Unexpected operator for operands of type Bool :" + binary);
             }
         }
 
+        const left = leftSort.id === Sort.Bool ? new LogicalWrapper(binary.lhs).accept(this) : binary.lhs.accept(this);
+        if (left.res === undefined) {
+            return leftover(binary, "Left-hand side operand not translated", left.leftovers);
+        }
+
+        const right = rightSort.id === Sort.Bool ? new LogicalWrapper(binary.rhs).accept(this) : binary.rhs.accept(this);
+        if (right.res === undefined) {
+            return leftover(binary, "Right-hand side operand not translated", right.leftovers);
+        }
 
         if (leftSort.id === Sort.Int || rightSort.id === Sort.Int) {
             switch (binary.op) {
-                case '-': return this.call('minus', [binary.lhs, binary.rhs]);
-                case '+': return this.call('plus', [binary.lhs, binary.rhs]);
-                case '*': return this.call('mul', [binary.lhs, binary.rhs]);
-                case '/': return this.call('div', [binary.lhs, binary.rhs]);
-                case '%': return this.call('rem', [binary.lhs, binary.rhs]);
+                case '-': return this.coll_call('minus', leftSort, [binary.lhs, binary.rhs]);
+                case '+': return this.coll_call('plus', leftSort, [binary.lhs, binary.rhs]);
+                case '*': return this.coll_call('mul', leftSort, [binary.lhs, binary.rhs]);
+                case '/': return this.coll_call('div', leftSort, [binary.lhs, binary.rhs]);
+                case '%': return this.coll_call('rem', leftSort, [binary.lhs, binary.rhs]);
                 case '<': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
                 case '<=': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
                 case '>': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
@@ -189,16 +202,20 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         // Operations on permissions are translated to predicate calls
         if (leftSort.id === Sort.Perm || rightSort.id === Sort.Perm) {
             switch (binary.op) {
-                case '<': return this.call('perm_less', [binary.lhs, binary.rhs]);
-                case '<=': return this.call('perm_at_most', [binary.lhs, binary.rhs]);
-                case '+': return this.call('perm_plus', [binary.lhs, binary.rhs]);
-                case '-': return this.call('perm_minus', [binary.lhs, binary.rhs]);
+                // Perm comparison
+                case '<': return this.coll_call('perm_less', new Sort(Sort.Bool), [binary.lhs, binary.rhs]);
+                case '<=': return this.coll_call('perm_at_most', new Sort(Sort.Bool), [binary.lhs, binary.rhs]);
+                case '>=': return this.coll_call('perm_at_least', new Sort(Sort.Bool), [binary.lhs, binary.rhs]);
+                case '>': return this.coll_call('perm_greater', new Sort(Sort.Bool), [binary.lhs, binary.rhs]);
+                // Perm arithmetic
+                case '+': return this.coll_call('perm_plus', leftSort, [binary.lhs, binary.rhs]);
+                case '-': return this.coll_call('perm_minus', leftSort, [binary.lhs, binary.rhs]);
                 // Int-Perm multiplication always has the integer on the left in Silicon
-                case '*': return leftSort.id === Sort.Int ? this.call('int_perm_mul', [binary.lhs, binary.rhs])
-                                                          : this.call('perm_mul', [binary.lhs, binary.rhs]);
+                case '*': return leftSort.id === Sort.Int ? this.coll_call('int_perm_mul', rightSort, [binary.lhs, binary.rhs])
+                                                          : this.coll_call('perm_mul', leftSort, [binary.lhs, binary.rhs]);
                 // Int-Perm division always has the integer on the left in Silicon
-                case '/': return this.call('int_perm_div', [binary.lhs, binary.rhs]);
-                case 'PermMin': return this.call('perm_min', [binary.lhs, binary.rhs]);
+                case '/': return this.coll_call('int_perm_div', rightSort, [binary.lhs, binary.rhs]);
+                case 'PermMin': return this.coll_call('perm_min', leftSort, [binary.lhs, binary.rhs]);
                 case '==': return translatedFrom(`(${left.res} = ${right.res})`, [left, right]);
                 default: Logger.error(`Unexpected perm operator: ${binary.op}`);
             }
@@ -482,5 +499,21 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
     // TODO: Implement this
     visitMultiSetSingleton(multiSetSeingleton: MultisetSingleton): TranslationRes {
         return leftover(multiSetSeingleton, "MultisetSingleton translation not implemented", []);
+    }
+
+    visitLogicalWrapper(wrapper: LogicalWrapper): TranslationRes {
+        const sort = getSort(wrapper.term);
+        if (sort.id === Sort.Bool) {
+            const wrapped = wrapper.term.accept(this)
+            if (wrapped.res) {
+                return translatedFrom(`isTrue[${wrapped.res}]`, [wrapped]);
+            } else {
+                return leftover(wrapper, "Could not translate wrapped term", wrapped.leftovers);
+            }
+        } else if (sort.id === Sort.Logical) {
+            return wrapper.term.accept(this);
+        }
+
+        return leftover(wrapper, "Unexpected sort in boolean wrapper: " + sort, []);
     }
 }

@@ -1,4 +1,4 @@
-import { mustHave, Term, Binary, Unary, And, Or, Ite, Lookup, SetSingleton, BinaryOp, UnaryOp, SortWrapper, VariableTerm, Quantification, Application, PredicateLookup, Distinct, Literal, Let, SeqRanged, SeqSingleton, SeqUpdate, MultisetSingleton } from "./Term";
+import { mustHave, Term, Binary, Unary, And, Or, Ite, Lookup, SetSingleton, BinaryOp, UnaryOp, SortWrapper, VariableTerm, Quantification, Application, PredicateLookup, Distinct, Literal, Let, SeqRanged, SeqSingleton, SeqUpdate, MultisetSingleton, LogicalWrapper } from "./Term";
 import { Logger } from "../logger";
 import { DebuggerError } from "../Errors";
 import { TermVisitor } from "./TermTranslator";
@@ -37,14 +37,9 @@ class TermSortVisitor implements TermVisitor<Sort> {
         // We don't need to know the sorts of the operands to distinguish these
         switch (term.op) {
             // Booleans
-            case BinaryOp.Implies: return new Sort(Sort.Bool);
-            case BinaryOp.Iff: return new Sort(Sort.Bool);
-            case BinaryOp.Equals: return new Sort(Sort.Bool);
-            // Arithmetic/Perm comparisons
-            case BinaryOp.Less: return new Sort(Sort.Bool);
-            case BinaryOp.AtMost: return new Sort(Sort.Bool);
-            case BinaryOp.AtLeast: return new Sort(Sort.Bool);
-            case BinaryOp.Greater: return new Sort(Sort.Bool);
+            case BinaryOp.Implies: return new Sort(Sort.Logical);
+            case BinaryOp.Iff: return new Sort(Sort.Logical);
+            case BinaryOp.Equals: return new Sort(Sort.Logical);
             // Combine
             case BinaryOp.Combine: return new Sort(Sort.Snap);
         }
@@ -59,6 +54,11 @@ class TermSortVisitor implements TermVisitor<Sort> {
                 case BinaryOp.Times: return new Sort(Sort.Int);
                 case BinaryOp.Div: return new Sort(Sort.Int);
                 case BinaryOp.Mod: return new Sort(Sort.Int);
+                // Arithmetic comparisons
+                case BinaryOp.Less: return new Sort(Sort.Logical);
+                case BinaryOp.AtMost: return new Sort(Sort.Logical);
+                case BinaryOp.AtLeast: return new Sort(Sort.Logical);
+                case BinaryOp.Greater: return new Sort(Sort.Logical);
             }
         }
 
@@ -81,6 +81,11 @@ class TermSortVisitor implements TermVisitor<Sort> {
                 case BinaryOp.Minus: return new Sort(Sort.Perm);
                 case BinaryOp.Times: return new Sort(Sort.Perm);
                 case BinaryOp.Div: return new Sort(Sort.Perm);
+
+                case BinaryOp.Less: return new Sort(Sort.Bool);
+                case BinaryOp.AtMost: return new Sort(Sort.Bool);
+                case BinaryOp.AtLeast: return new Sort(Sort.Bool);
+                case BinaryOp.Greater: return new Sort(Sort.Bool);
             }
         }
 
@@ -92,28 +97,29 @@ class TermSortVisitor implements TermVisitor<Sort> {
         }
         
         if (leftSort.id === Sort.Set || rightSort.id === Sort.Set) {
-            if (term.op === BinaryOp.SetAdd ||
-                term.op === BinaryOp.SetDifference ||
-                term.op === BinaryOp.SetIntersection ||
-                term.op === BinaryOp.SetUnion) {
-                return leftSort.id === Sort.Set ? leftSort : rightSort;
-            } else if (term.op === BinaryOp.SetDisjoint ||
-                       term.op === BinaryOp.SetIn ||
-                       term.op === BinaryOp.SetSubset) {
-                return new Sort(Sort.Bool);
-            } else {
-                Logger.error("Unexpected set operation: " + term);
-                throw new DebuggerError("Unexpected set operation: " + term);
+            const setSort = leftSort.id === Sort.Set ? leftSort : rightSort;
+            switch (term.op) {
+                case BinaryOp.SetAdd: return setSort;
+                case BinaryOp.SetDifference: return setSort;
+                case BinaryOp.SetIntersection: return setSort;
+                case BinaryOp.SetUnion: return setSort;
+
+                case BinaryOp.SetDisjoint: return new Sort(Sort.Bool);
+                case BinaryOp.SetIn: return new Sort(Sort.Bool);
+                case BinaryOp.SetSubset: return new Sort(Sort.Bool);
             }
-        } else {
-            Logger.error("Mismatching sorts in binary operation: " + leftSort + ", " + rightSort);
-            throw new DebuggerError("Mismatching sorts in binary operation: " + leftSort + ", " + rightSort);
+
+            Logger.error("Unexpected set operation: " + term);
+            throw new DebuggerError("Unexpected set operation: " + term);
         }
+
+        Logger.error("Unexpected binary operation: " + term);
+        throw new DebuggerError("Unexpected binary operation: " + term);
     }
 
     public visitUnary(unary: Unary): Sort {
         switch (unary.op) {
-            case UnaryOp.Not: return new Sort(Sort.Bool);
+            case UnaryOp.Not: return new Sort(Sort.Logical);
             case UnaryOp.SeqLength: return new Sort(Sort.Int);
             case UnaryOp.SetCardinality: return new Sort(Sort.Int);
             case UnaryOp.MultiSetCardinality: return new Sort(Sort.Int);
@@ -205,6 +211,9 @@ class TermSortVisitor implements TermVisitor<Sort> {
     public visitMultiSetSingleton(multiSetSingleton: MultisetSingleton): Sort {
         return new Sort(Sort.Seq, multiSetSingleton.accept(this));
     }
+     public visitLogicalWrapper(_: LogicalWrapper): Sort {
+        return new Sort(Sort.Logical);
+     }
 }
 
 export namespace Sort {
@@ -218,6 +227,7 @@ export namespace Sort {
     export const FVF = 'FVF';
     export const Multiset = 'Multiset';
     export const UserSort = 'UserSort';
+    export const Logical = 'Logical';
 
     export const sortVisitor = new TermSortVisitor();
 }
