@@ -24,6 +24,9 @@ export namespace AlloyTranslator {
     export const Perm = 'Perm';
     export const WritePerm = 'W';
     export const NoPerm = 'Z';
+    export const SigSeq = 'Seq';
+    export const SigSet = 'Set';
+    export const Multiset = 'Multiset';
 
     export const Heap = 'Heap';
     export const Store = 'Store';
@@ -177,7 +180,7 @@ export namespace AlloyTranslator {
         chunks.forEach(hc => {
             if (hc instanceof FieldChunk) {
                 if (hc.snap instanceof VariableTerm) {
-                    heapChunks.add(`${sanitize(hc.snap.id)}: one ${env.translate(hc.snap.sort)}`);
+                    heapChunks.add(`${sanitize(hc.snap.id)}: lone ${env.translate(hc.snap.sort)}`);
                     const rec = hc.receiver.accept(termTranslator);
                     if (rec.res) {
                         constraints.push(rec.res + '.' + hc.field + ' = ' + env.resolve(hc.snap));
@@ -201,7 +204,7 @@ export namespace AlloyTranslator {
                 }
             } else if (hc instanceof PredicateChunk) {
                 if (hc.snap instanceof VariableTerm) {
-                    heapChunks.add(`${sanitize(hc.snap.id)}: one ${env.translate(hc.snap.sort)}`);
+                    heapChunks.add(`${sanitize(hc.snap.id)}: lone ${env.translate(hc.snap.sort)}`);
                 }
             } else if (hc instanceof QuantifiedFieldChunk) {
                 hc.invAxioms.forEach(axiom => termToFact(axiom, env, mb, termTranslator));
@@ -346,9 +349,6 @@ export namespace AlloyTranslator {
             env.sorts.forEach(s => mb.signature(s));
             mb.blank();
         }
-
-        mb.fact(`#${Combine} <= ${env.totalCombines}`);
-        mb.blank();
     }
 
     function encodeMacros(macros: Map<Application, Term>, mb: AlloyModelBuilder, env: TranslationEnv, termTranslator: TermTranslatorVisitor) {
@@ -433,9 +433,18 @@ export namespace AlloyTranslator {
     function encodeSignatureRestrictions(mb: AlloyModelBuilder, env: TranslationEnv) {
         if (env.recordedInstances.size > 0) {
             mb.comment("Signarure Restrictions");
-            env.recordedInstances.forEach((names, sortName) => {
-                if (sortName !== 'Int' && sortName !== 'Bool') {
-                    mb.fact(`${sortName} = ${names.join(" + ")}`);
+
+            env.recordedInstances.forEach((names, sigName) => {
+                if (sigName !== 'Int' && sigName !== 'Bool') {
+                    mb.fact(`${sigName} = ${names.join(" + ")}`);
+                }
+            });
+
+            // TODO: Multiset, Snap
+            const sort_sigs = [SigSeq, SigSet];
+            sort_sigs.forEach(sigName => {
+                if (!env.recordedInstances.has(sigName)) {
+                    mb.fact(`${sigName} = none`);
                 }
             });
             mb.blank();

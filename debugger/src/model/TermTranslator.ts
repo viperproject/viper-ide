@@ -116,7 +116,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
     visitBinary(binary: Binary): TranslationRes {
         if (binary.op === "Combine") {
             this.env.totalCombines += 1;
-            return this.call("combine", [binary.lhs, binary.rhs]);
+            return this.coll_call("combine", Sort.Snap,[binary.lhs, binary.rhs]);
         }
 
         const leftSort = getSort(binary.lhs);
@@ -257,7 +257,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             this.env.sortWrappers.set(funName, fromSort);
         }
 
-        return this.call(funName.toLowerCase(), [sortWrapper.term]);
+        return this.coll_call(funName.toLowerCase(), toSort, [sortWrapper.term]);
     }
 
     visitVariableTerm(variable: VariableTerm): TranslationRes {

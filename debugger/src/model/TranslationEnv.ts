@@ -26,7 +26,6 @@ export class TranslationEnv {
     public sortWrappers: Map<string, Sort>;
     public functions: Map<string, Sort[]>;
     public lookupFunctions: [Sort, string][];
-    public totalCombines: number;
 
     public userSorts: Set<string>;
     public sorts: Set<string>;
@@ -47,7 +46,6 @@ export class TranslationEnv {
         this.sortWrappers = new Map();
         this.functions = new Map();
         this.lookupFunctions = [];
-        this.totalCombines = 0;
 
         this.userSorts = new Set();
         this.sorts = new Set();
@@ -55,7 +53,7 @@ export class TranslationEnv {
         state.store.forEach(v => {
             // We save the names of symbolic value for store variables
             if (v.value instanceof VariableTerm) {
-                const sanitized = sanitize(v.value.id)
+                const sanitized = sanitize(v.value.id);
                 this.variablesToDeclare.set(sanitized, v.sort);
                 this.tempVariables.add(sanitized);
             }
@@ -91,6 +89,8 @@ export class TranslationEnv {
                 }
             }
         });
+
+        this.recordInstance(Sort.Snap, 'Unit');
     }
     
     public recordInstance(sort: Sort, name: string) {
@@ -207,6 +207,7 @@ export class TranslationEnv {
         const sanitized = sanitize(variable.id);
         this.variablesToDeclare.set(sanitized, variable.sort);
         this.tempVariables.add(sanitized);
+        this.recordInstance(variable.sort, sanitized);
         return sanitized;
     }
 }
