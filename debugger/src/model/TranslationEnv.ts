@@ -137,23 +137,6 @@ export class TranslationEnv {
         return undefined;
     }
 
-    public sortMultiplicity(sort: Sort) {
-        // TODO: Complete this
-        if (sort.id === Sort.Int ||
-                sort.id === Sort.Ref ||
-                sort.id === Sort.Bool ||
-                sort.id === Sort.Snap ||
-                sort.id === Sort.UserSort) {
-            return 'one';
-        }
-        if (sort.id === 'Set') {
-            return 'set';
-        }
-
-        Logger.error(`Unexpected sort '${sort}'`);
-        throw new DebuggerError(`Unexpected sort '${sort}'`);
-    }
-
     public translate(sort: Sort): string {
         if (sort.id === Sort.Ref) {
             return AlloyTranslator.Ref;

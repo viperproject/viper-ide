@@ -2,7 +2,7 @@ import { AlloyModelBuilder } from "./AlloyModel";
 import { State } from "./Record";
 import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, HeapChunk } from "./Heap";
 import { Logger } from "../logger";
-import { VariableTerm, Unary, Term, Application, Binary, Quantification, Literal } from "./Term";
+import { VariableTerm, Unary, Term, Application, Binary, Quantification, Literal, LogicalWrapper } from "./Term";
 import { getSort, Sort } from './Sort';
 import { Verifiable } from "./Verifiable";
 import { TranslationEnv } from "./TranslationEnv";
@@ -182,11 +182,10 @@ export namespace AlloyTranslator {
         env.storeVariables.forEach((variable, n) => {
             const name = `${n}'`;
             const sig = env.translate(variable.sort);
-            const multiplicity = env.sortMultiplicity(variable.sort);
-            store.withMember(`${name}: ${multiplicity} ${sig}`);
+            store.withMember(`${name}: one ${sig}`);
 
+            // TODO: Do this via termToFact?
             const value = variable.value.accept(translator);
-
             if (value.res) {
                 let fact = value.additionalFacts
                                 .concat(`${Store}.${name} = ${value.res}`)
@@ -311,7 +310,7 @@ export namespace AlloyTranslator {
     }
 
     function termToFact(t: Term, env: TranslationEnv, mb: AlloyModelBuilder, termTranslator: TermTranslatorVisitor) {
-        let body = t.accept(termTranslator);
+        let body = new LogicalWrapper(t).accept(termTranslator);
         if (!body.res) {
             mb.comment("!!! Non-translated fact: ");
             mb.comment(body.leftovers.map(l => "    " + l.toString()).join("\n"));
