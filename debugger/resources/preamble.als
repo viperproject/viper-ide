@@ -1,5 +1,6 @@
 open util/boolean
 open util/ternary
+open util/sequniv   // Required for sequences
 
 abstract sig SymbVal {}
 sig Snap extends SymbVal {}
@@ -13,11 +14,11 @@ abstract sig Perm {
     denom > 0
     num <= denom
 }
-one sig W in Perm {} {
+lone sig W in Perm {} {
     num = 1
     denom = 1
 }
-one sig Z in Perm {} {
+lone sig Z in Perm {} {
     num = 0
     denom = 1
 }
