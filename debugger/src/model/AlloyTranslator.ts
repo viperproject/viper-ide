@@ -143,8 +143,8 @@ export namespace AlloyTranslator {
             .withConstraint(fieldsConstraint);
         mb.blank();
 
+        const permFuns: string[] = [];
         if (env.fields.size > 0) {
-            const permFuns: string[] = [];
             mb.comment("Constraints on field permission/existence");
             for (const field of env.fields.keys()) {
                 const funName = `${Function}.${PermFun}_${field}`;
@@ -152,12 +152,16 @@ export namespace AlloyTranslator {
                 mb.fact(`all o: ${Ref} | one o.${field} <=> ${Function}.${PermFun}_${field}[o].num > 0`);
                 // mb.fact(`${funName}[${Null}] = none`);
             }
-
-            // All permissions either come from the permission function or are zero.
-            // Prevent Alloy from adding instances of permission that are not used for anything
-            mb.fact(`${Perm} = ${permFuns.concat(NoPerm).join(' + ')}`);
-            mb.blank();
         }
+
+        // All permissions either come from the permission function or are zero.
+        // Prevent Alloy from adding instances of permission that are not used for anything
+        if (permFuns.length > 0) {
+            mb.fact(`${Perm} = ${permFuns.concat(NoPerm).join(' + ')}`);
+        } else {
+            mb.fact(`${Perm} = none`);
+        }
+        mb.blank();
 
         // The null reference
         mb.loneSignature(Null).extends(Ref).withConstraint("refTypedFields' = none");
