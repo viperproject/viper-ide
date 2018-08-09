@@ -6,22 +6,6 @@ abstract sig SymbVal {}
 sig Snap extends SymbVal {}
 one sig Unit extends Snap {}
 
-abstract sig Perm {
-    num: one Int,
-    denom: one Int
-} {
-    num >= 0
-    denom > 0
-    num <= denom
-}
-lone sig W in Perm {} {
-    num = 1
-    denom = 1
-}
-lone sig Z in Perm {} {
-    num = 0
-    denom = 1
-}
 
 abstract sig Combine extends Snap {
     left: one SymbVal,

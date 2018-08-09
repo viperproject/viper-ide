@@ -112,14 +112,20 @@ export namespace AlloyTranslator {
 
     /** Emits the definitions that never change in the model. */
     function emitPrelude(mb: AlloyModelBuilder) {
-        const preamblePath = getAbsolutePath(path.join('resources/preamble.als'));
-        mb.text(fs.readFileSync(preamblePath).toString());
+        const files = [
+            ["Preamble", 'resources/preamble.als'],
+            ["Perms", 'resources/perms.als'],
+            ["Sets", 'resources/set_fun.als'],
+            ["Seqs", 'resources/seq.als']
+        ];
 
-        const setDefinitions = getAbsolutePath(path.join('resources/set_fun.als'));
-        mb.text(fs.readFileSync(setDefinitions).toString());
-
-        const seqDefinitions = getAbsolutePath(path.join('resources/seq.als'));
-        mb.text(fs.readFileSync(seqDefinitions).toString());
+        files.forEach(p => {
+            const [name, filename] = p;
+            const path = getAbsolutePath(filename);
+            mb.comment('='.repeat(5) + ` ${name} (${filename}) ` + '='.repeat(5));
+            mb.text(fs.readFileSync(path).toString());
+            mb.blank();
+        });
     }
 
     function encodeRefSignature(env: TranslationEnv, mb: AlloyModelBuilder) {
