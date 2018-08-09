@@ -13,20 +13,21 @@ export class TranslationEnv {
 
     public fields: Map<string, Sort>;
     public predicates: Map<string, PredicateChunk[]>;
-    private freshNames: Map<string, number>;
-    private freshVariables: Map<string, number>;
-    public freshVariablesToDeclare: [string, Sort][];
-    public sortWrappers: Map<string, Sort>;
-
-    private additionalVariables: Set<string>;
     public storeVariables: Map<string, StoreVariable>;
     public heapSnapshots: Set<string>;
-    public tempVariables: Map<string, Sort>;
+
+    public introduceMissingTempVars: boolean = true;
+    private freshVariables: Map<string, number>;
+    public variablesToDeclare: Map<string, Sort>;
+    private tempVariables: Set<string>;
+    private additionalVariables: Set<string>;
+    public recordedInstances: Map<string, string[]>;
+
+    public sortWrappers: Map<string, Sort>;
     public functions: Map<string, Sort[]>;
-    public actualFucntions: Map<string, Sort[]>;
     public lookupFunctions: [Sort, string][];
     public totalCombines: number;
-    public introduceMissingTempVars: boolean = true;
+
     public userSorts: Set<string>;
     public sorts: Set<string>;
 
@@ -34,24 +35,34 @@ export class TranslationEnv {
         
         this.fields = new Map();
         this.predicates = new Map();
-        this.freshNames = new Map();
-        this.freshVariables = new Map();
-        this.freshVariablesToDeclare = [];
-        this.sortWrappers = new Map();
-
         this.storeVariables = new Map();
         this.heapSnapshots = new Set();
+
+        this.freshVariables = new Map();
+        this.variablesToDeclare = new Map();
+        this.tempVariables = new Set();
         this.additionalVariables = new Set();
-        this.tempVariables = new Map();
+        this.recordedInstances = new Map();
+
+        this.sortWrappers = new Map();
+        this.functions = new Map();
+        this.lookupFunctions = [];
+        this.totalCombines = 0;
+
         this.userSorts = new Set();
         this.sorts = new Set();
 
         state.store.forEach(v => {
             // We save the names of symbolic value for store variables
             if (v.value instanceof VariableTerm) {
-                this.tempVariables.set(sanitize(v.value.id), v.sort);
+                const sanitized = sanitize(v.value.id)
+                this.variablesToDeclare.set(sanitized, v.sort);
+                this.tempVariables.add(sanitized);
             }
-            this.storeVariables.set(v.name, v);
+            const name = v.name + "'";
+            this.storeVariables.set(name, v);
+
+            this.recordInstance(v.sort, 'Store.' + name);
         });
 
         state.heap.forEach(hc => {
@@ -80,41 +91,33 @@ export class TranslationEnv {
                 }
             }
         });
-
-        this.functions = new Map();
-        this.actualFucntions = new Map();
-        this.lookupFunctions = [];
-        this.totalCombines = 0;
+    }
+    
+    public recordInstance(sort: Sort, name: string) {
+        const sortName = this.translate(sort);
+        const recorded = this.recordedInstances.get(sortName);
+        if (recorded !== undefined) {
+            recorded.push(name);
+        } else {
+            this.recordedInstances.set(sortName, [name]);
+        }
     }
 
     public getFreshVariable(base: string, sort: Sort) {
         const count = this.freshVariables.get(base);
+        let name: string;
         if (count !== undefined) {
-            const name = `${base}_${count + 1}'`;
+            name = `${base}_${count + 1}'`;
             this.freshVariables.set(base, count + 1);
-            this.freshVariablesToDeclare.push([name, sort]);
-            return name;
+            this.variablesToDeclare.set(name, sort);
         } else {
-            const name = `${base}_0'`;
+            name = `${base}_0'`;
             this.freshVariables.set(base, 0);
-            this.freshVariablesToDeclare.push([name, sort]);
-            return name;
+            this.variablesToDeclare.set(name, sort);
         }
-    }
+        this.recordInstance(sort, name);
 
-    public getFreshName(base: string) {
-        const count = this.freshNames.get(base);
-        if (count !== undefined) {
-            this.freshNames.set(base, count + 1);
-            return `${base}_${count + 1}'`;
-        } else {
-            this.freshNames.set(base, 0);
-            return `${base}_0'`;
-        }
-    }
-
-    public clearFreshNames() {
-        this.freshNames.clear();
+        return name;
     }
 
     public resolve(variable: VariableTerm): string | undefined {
@@ -202,7 +205,8 @@ export class TranslationEnv {
 
     public recordTempVariable(variable: VariableTerm): string {
         const sanitized = sanitize(variable.id);
-        this.tempVariables.set(sanitized, variable.sort);
+        this.variablesToDeclare.set(sanitized, variable.sort);
+        this.tempVariables.add(sanitized);
         return sanitized;
     }
 }

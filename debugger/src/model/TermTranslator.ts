@@ -315,9 +315,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         }
 
         if (applicableSanitized.startsWith("pTaken")) {
-            if (!this.env.actualFucntions.has(applicableSanitized)) {
-                return this.call(applicableSanitized, application.args);
-            }
+            return this.call(applicableSanitized, application.args);
         }
 
         const args = application.args.map(a => a.accept(this));
@@ -455,22 +453,12 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             } else if (literal.value === AlloyTranslator.NoPerm) {
                 return translatedFrom(AlloyTranslator.NoPerm, []);
             }
-            // TODO: proper fresh name?
-            const freshName = this.env.getFreshName("p");
-            const quantifiedVariables = [`one ${freshName}: ${AlloyTranslator.Perm}`];
-            let additionalFacts: string[] = [];
 
+            const freshName = this.env.getFreshVariable('perm', Sort.Perm);
             const parts = literal.value.split('/');
-            additionalFacts = [
-                `${freshName} in ${AlloyTranslator.Perm}`,
-                `${freshName}.num = ${parts[0]}`,
-                `${freshName}.denom = ${parts[1]}`
-            ];
-
-            // In the end, the translated combine is simply the fresh name
+            const fun_res = freshName + " = perm_new" + mkString(parts, '[', ", ", ']');
             return translatedFrom(freshName, [])
-                    .withQuantifiedVariables(quantifiedVariables)
-                    .withAdditionalFacts(additionalFacts);
+                    .withAdditionalFacts([fun_res]);
         }
 
         Logger.error("Unexpected literal: " + literal);
