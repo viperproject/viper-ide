@@ -11,7 +11,7 @@ export interface TermVisitor<T> {
     visitBinary(binary: Binary): T;
     visitUnary(unary: Unary): T;
     visitSortWrapper(sortWrapper: SortWrapper): T;
-    visitVariableTerm(variabe: VariableTerm): T;
+    visitVariableTerm(variable: VariableTerm): T;
     visitQuantification(quantification: Quantification): T;
     visitApplication(application: Application): T;
     visitLookup(lookup: Lookup): T;
@@ -26,7 +26,7 @@ export interface TermVisitor<T> {
     visitSeqSingleton(seqSingleton: SeqSingleton): T;
     visitSeqUpdate(seqUpdate: SeqUpdate): T;
     visitSetSingleton(setSingleton: SetSingleton): T;
-    visitMultiSetSingleton(multiSetSeingleton: MultisetSingleton): T;
+    visitMultiSetSingleton(multiSetSingleton: MultisetSingleton): T;
 }
 
 export function sanitize(name: string) {
@@ -123,13 +123,13 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         if (leftSort.id === Sort.Set || rightSort.id === Sort.Set) {
             switch (binary.op) {
                 case BinaryOp.SetAdd: return this.coll_call('set_add', leftSort, [binary.lhs, binary.rhs]);
-                case BinaryOp.SetDifference: return this.coll_call('SetFun.difference', leftSort, [binary.lhs, binary.rhs]);
-                case BinaryOp.SetIntersection: return this.coll_call('SetFun.intersection', leftSort, [binary.lhs, binary.rhs]);
+                case BinaryOp.SetDifference: return this.coll_call('set_difference', leftSort, [binary.lhs, binary.rhs]);
+                case BinaryOp.SetIntersection: return this.coll_call('set_intersection', leftSort, [binary.lhs, binary.rhs]);
                 case BinaryOp.SetUnion: return this.coll_call('set_union', leftSort, [binary.lhs, binary.rhs]);
 
-                case BinaryOp.SetIn: return this.coll_call('SetFun.setIn', leftSort, [binary.lhs, binary.rhs]);
-                case BinaryOp.SetSubset: return this.coll_call('SetFun.subset', leftSort, [binary.lhs, binary.rhs]);
-                case BinaryOp.SetDisjoint: return this.coll_call('SetFun.setDisjoint', leftSort, [binary.lhs, binary.rhs]);
+                case BinaryOp.SetIn: return this.coll_call('set_in', new Sort(Sort.Bool), [binary.lhs, binary.rhs]);
+                case BinaryOp.SetSubset: return this.coll_call('set_subset', new Sort(Sort.Bool), [binary.lhs, binary.rhs]);
+                case BinaryOp.SetDisjoint: return this.coll_call('set_disjoint', new Sort(Sort.Bool), [binary.lhs, binary.rhs]);
             }
         }
 

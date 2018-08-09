@@ -117,6 +117,9 @@ export namespace AlloyTranslator {
 
         const setDefinitions = getAbsolutePath(path.join('resources/set_fun.als'));
         mb.text(fs.readFileSync(setDefinitions).toString());
+
+        const seqDefinitions = getAbsolutePath(path.join('resources/seq.als'));
+        mb.text(fs.readFileSync(seqDefinitions).toString());
     }
 
     function encodeRefSignature(env: TranslationEnv, mb: AlloyModelBuilder) {
@@ -426,7 +429,12 @@ export namespace AlloyTranslator {
             const failedQuery = constraint.accept(termTranslator);
             if (failedQuery.res) {
                 mb.comment("Constraint from last non-proved smt query");
-                mb.fact(failedQuery.res);
+                let facts = failedQuery.additionalFacts.concat(failedQuery.res).join(" && \n");
+                while (env.freshVariablesToDeclare.length > 0) {
+                    const [name, sort] = env.freshVariablesToDeclare.shift()!;
+                    mb.oneSignature(name).in(env.translate(sort));
+                }
+                mb.fact(facts);
                 mb.blank();
             } else {
                 Logger.debug('Could not translate last SMT query: ' + failedQuery.leftovers.join("\n"));

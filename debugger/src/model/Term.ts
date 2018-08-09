@@ -1,6 +1,6 @@
 import { DebuggerError } from "../Errors";
-import { WithSort, Sort } from "./Sort";
 import { TermVisitor } from "./TermTranslator";
+import { Sort } from "./Sort";
 
 
 export function mustHave(type: string, obj: any, entries: string[]) {
@@ -33,6 +33,21 @@ export class Binary implements Term {
 }
 
 export namespace BinaryOp {
+    export const Equals = '==';
+    export const Iff = '<=>';
+    export const Implies = '=>';
+
+    export const Minus = '-';
+    export const Plus = '+';
+    export const Times = '*';
+    export const Div = '/';
+    export const Mod = '%';
+
+    export const Less = '<';
+    export const AtMost = '<=';
+    export const AtLeast = '>=';
+    export const Greater = '>';
+
     export const SetAdd = '+';
     export const SetDifference = '\\';
     export const SetIntersection = '∩';
@@ -40,6 +55,15 @@ export namespace BinaryOp {
     export const SetIn = 'in';
     export const SetSubset = '⊂';
     export const SetDisjoint = 'disj';
+
+    export const Combine = "Combine";
+}
+
+export namespace UnaryOp {
+    export const Not = '!';
+    export const SeqLength = 'SeqLength:';
+    export const SetCardinality = 'SetCardinality:';
+    export const MultiSetCardinality = 'MultiSetCardinality:';
 }
 
 export class Unary implements Term {
@@ -54,7 +78,7 @@ export class Unary implements Term {
     }
 }
 
-export class SortWrapper implements Term, WithSort {
+export class SortWrapper implements Term {
     constructor(readonly term: Term, readonly sort: Sort) {}
 
     accept<T>(visitor: TermVisitor<T>): T {
@@ -66,7 +90,7 @@ export class SortWrapper implements Term, WithSort {
     }
 }
 
-export class VariableTerm implements Term, WithSort {
+export class VariableTerm implements Term {
     constructor(readonly id: string, readonly sort: Sort) {}
 
     accept<T>(visitor: TermVisitor<T>): T {
@@ -93,7 +117,7 @@ export class Quantification implements Term {
     }
 }
 
-export class Application implements Term, WithSort {
+export class Application implements Term {
     constructor(readonly applicable: string, readonly args: Term[], readonly sort: Sort) {}
 
     accept<T>(visitor: TermVisitor<T>): T {
@@ -189,7 +213,7 @@ export class Let implements Term {
     }
 }
 
-export class Literal implements Term, WithSort {
+export class Literal implements Term {
     constructor(readonly sort: Sort, readonly value: string) {}
 
     accept<T>(visitor: TermVisitor<T>): T {

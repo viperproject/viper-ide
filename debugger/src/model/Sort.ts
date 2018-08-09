@@ -1,6 +1,7 @@
-import { mustHave, Term, Binary, Unary, And, Or, Ite, Lookup, SetSingleton, BinaryOp } from "./Term";
+import { mustHave, Term, Binary, Unary, And, Or, Ite, Lookup, SetSingleton, BinaryOp, UnaryOp, SortWrapper, VariableTerm, Quantification, Application, PredicateLookup, Distinct, Literal, Let, SeqRanged, SeqSingleton, SeqUpdate, MultisetSingleton } from "./Term";
 import { Logger } from "../logger";
 import { DebuggerError } from "../Errors";
+import { TermVisitor } from "./TermTranslator";
 
 
 export class Sort {
@@ -30,43 +31,67 @@ export class Sort {
     }
 }
 
-export namespace Sort {
-    export const Ref = 'Ref';
-    export const Int = 'Int';
-    export const Bool = 'Bool';
-    export const Snap = 'Snap';
-    export const Perm = 'Perm';
-    export const Set = 'Set';
-    export const Seq = 'Seq';
-    export const FVF = 'FVF';
-    export const Multiset = 'Multiset';
-    export const UserSort = 'UserSort';
-}
+class TermSortVisitor implements TermVisitor<Sort> {
+
+    public visitBinary(term: Binary): Sort {
+        // We don't need to know the sorts of the operands to distinguish these
+        switch (term.op) {
+            // Booleans
+            case BinaryOp.Implies: return new Sort(Sort.Bool);
+            case BinaryOp.Iff: return new Sort(Sort.Bool);
+            case BinaryOp.Equals: return new Sort(Sort.Bool);
+            // Arithmetic/Perm comparisons
+            case BinaryOp.Less: return new Sort(Sort.Bool);
+            case BinaryOp.AtMost: return new Sort(Sort.Bool);
+            case BinaryOp.AtLeast: return new Sort(Sort.Bool);
+            case BinaryOp.Greater: return new Sort(Sort.Bool);
+            // Combine
+            case BinaryOp.Combine: return new Sort(Sort.Snap);
+        }
+
+        const leftSort = term.lhs.accept(this);
+        const rightSort = term.rhs.accept(this);
+
+        if (leftSort.id === Sort.Int && rightSort.id === Sort.Int) {
+            switch (term.op) {
+                case BinaryOp.Minus: return new Sort(Sort.Int);
+                case BinaryOp.Plus: return new Sort(Sort.Int);
+                case BinaryOp.Times: return new Sort(Sort.Int);
+                case BinaryOp.Div: return new Sort(Sort.Int);
+                case BinaryOp.Mod: return new Sort(Sort.Int);
+            }
+        }
+
+        if (leftSort.id === Sort.Set) {
+            switch (term.op) {
+                case BinaryOp.SetAdd: return new Sort(Sort.Set);
+                case BinaryOp.SetDifference: return new Sort(Sort.Set);
+                case BinaryOp.SetIntersection: return new Sort(Sort.Set);
+                case BinaryOp.SetUnion: return new Sort(Sort.Set);
+
+                case BinaryOp.SetIn: return new Sort(Sort.Bool);
+                case BinaryOp.SetSubset: return new Sort(Sort.Bool);
+                case BinaryOp.SetDisjoint: return new Sort(Sort.Bool);
+            }
+        }
+
+        if (leftSort.id === Sort.Perm || rightSort.id === Sort.Perm) {
+            switch (term.op) {
+                case BinaryOp.Plus: return new Sort(Sort.Perm);
+                case BinaryOp.Minus: return new Sort(Sort.Perm);
+                case BinaryOp.Times: return new Sort(Sort.Perm);
+                case BinaryOp.Div: return new Sort(Sort.Perm);
+            }
+        }
 
 
-export interface WithSort {
-    sort: Sort;
-}
+        if (leftSort.id === Sort.Seq) {
+        }
 
-export function hasSort(object: any): object is WithSort {
-    return 'sort' in object;
-}
-
-export function getSort(term: Term): Sort {
-    if (hasSort(term)) {
-        return term.sort;
-    }
-
-    // TODO: Fix this
-    if (term instanceof Binary) {
-        const leftSort = getSort(term.lhs);
-        const rightSort = getSort(term.rhs);
-        if (leftSort.id === rightSort.id) {
-            return leftSort;
-        } else if (term.op === "in" || term.op ===  "==>" || term.op === "<==>") {
-            return new Sort(Sort.Bool);
+        if (leftSort.id === Sort.Multiset) {
+        }
         
-        } else if (leftSort.id === Sort.Set || rightSort.id === Sort.Set) {
+        if (leftSort.id === Sort.Set || rightSort.id === Sort.Set) {
             if (term.op === BinaryOp.SetAdd ||
                 term.op === BinaryOp.SetDifference ||
                 term.op === BinaryOp.SetIntersection ||
@@ -81,28 +106,68 @@ export function getSort(term: Term): Sort {
                 throw new DebuggerError("Unexpected set operation: " + term);
             }
         } else {
-            Logger.error("Mismatching sorts in binary operation :" + leftSort + ", " + rightSort);
-            throw new DebuggerError("Mismatching sorts in binary operation :" + leftSort + ", " + rightSort);
+            Logger.error("Mismatching sorts in binary operation: " + leftSort + ", " + rightSort);
+            throw new DebuggerError("Mismatching sorts in binary operation: " + leftSort + ", " + rightSort);
         }
     }
-    if (term instanceof Unary) {
-        return getSort(term.p);
+
+    public visitUnary(unary: Unary): Sort {
+        switch (unary.op) {
+            case UnaryOp.Not: return new Sort(Sort.Bool);
+            case UnaryOp.SeqLength: return new Sort(Sort.Int);
+            case UnaryOp.SetCardinality: return new Sort(Sort.Int);
+            case UnaryOp.MultiSetCardinality: return new Sort(Sort.Int);
+        }
+
+        Logger.error("Unexpected unary operation: " + unary);
+        throw new DebuggerError("Unexpected unary operation: " + unary);
     }
 
-    if (term instanceof And || term instanceof Or) {
-        const sorts = term.terms.map(t => getSort(t));
-        const first = sorts[0];
-        // if (sorts.some(s => s.id !== first.id)) {
-        //     Logger.error("Mismatching sorts:" + sorts);
-        //     throw new DebuggerError("Mismatching sorts:" + sorts);
-        // } else {
-        return first;
-        // }
+    public visitSortWrapper(sortWrapper: SortWrapper): Sort {
+        return sortWrapper.sort;
     }
 
-    if (term instanceof Ite) {
-        const thenSort = getSort(term.thenBranch);
-        const elseSort = getSort(term.elseBranch);
+    public visitVariableTerm(variable: VariableTerm): Sort {
+        return variable.sort;
+    }
+
+    public visitQuantification(quantification: Quantification): Sort {
+        Logger.error("Unexpected sort retrieval on quantifications: " + quantification);
+        throw new DebuggerError("Unexpected sort retrieval on quantifications: " + quantification);
+    }
+
+    public visitApplication(application: Application): Sort {
+        return application.sort;
+    }
+
+    public visitLookup(lookup: Lookup): Sort {
+        const fvfSort = getSort(lookup.fieldValueFunction);
+        if (fvfSort.id === Sort.FVF && fvfSort.elementsSort) {
+            return fvfSort.elementsSort;
+        }
+        Logger.error("Unexpected FVF sort: " + fvfSort);
+        throw new DebuggerError("Unexpected FVF sort: " + fvfSort);
+    }
+
+    public visitPredicateLookup(lookup: PredicateLookup): Sort {
+        Logger.error("Predicate lookup sort retrieval not implemented");
+        throw new DebuggerError("Predicate lookup sort retrieval not implemented");
+    }
+
+    public visitAnd(_: And): Sort {
+        return new Sort(Sort.Bool);
+    }
+
+    public visitOr(_: Or): Sort {
+        return new Sort(Sort.Bool);
+    }
+
+    public visitDistinct(_: Distinct): Sort {
+        return new Sort(Sort.Bool);
+    }
+    public visitIte(ite: Ite): Sort {
+        const thenSort = getSort(ite.thenBranch);
+        const elseSort = getSort(ite.elseBranch);
         if (thenSort.id === elseSort.id) {
             return thenSort;
         } else {
@@ -111,18 +176,53 @@ export function getSort(term: Term): Sort {
         }
     }
 
-    // TODO: Fix this
-    if (term instanceof Lookup) {
-        const fvfSort = getSort(term.fieldValueFunction);
-        if (fvfSort.id === Sort.FVF && fvfSort.elementsSort) {
-            return fvfSort.elementsSort;
-        }
+    public visitLet(term: Let): Sort {
+        Logger.error("Unexpected sort retrieval on let: " + term);
+        throw new DebuggerError("Unexpected sort retrieval on let: " + term);
     }
 
-    if (term instanceof SetSingleton) {
-        return new Sort(Sort.Set, getSort(term.value));
+    public visitLiteral(literal: Literal): Sort {
+        return literal.sort;
     }
 
-    Logger.error("Could not determine the sort of :" + term);
-    throw new DebuggerError("Could not determine the sort of :" + term);
+    public visitSeqRanged(seqRanged: SeqRanged): Sort {
+        return new Sort(Sort.Seq, new Sort(Sort.Int));
+    }
+
+    public visitSeqSingleton(seqSingleton: SeqSingleton): Sort {
+        return new Sort(Sort.Seq, seqSingleton.accept(this));
+    }
+
+    public visitSeqUpdate(seqUpdate: SeqUpdate): Sort {
+        Logger.error("Unexpected sort retrieval on seq update: " + seqUpdate);
+        throw new DebuggerError("Unexpected sort retrieval on seq update: " + seqUpdate);
+    }
+
+    public visitSetSingleton(setSingleton: SetSingleton): Sort {
+        return new Sort(Sort.Seq, setSingleton.accept(this));
+    }
+
+    public visitMultiSetSingleton(multiSetSingleton: MultisetSingleton): Sort {
+        return new Sort(Sort.Seq, multiSetSingleton.accept(this));
+    }
 }
+
+export namespace Sort {
+    export const Ref = 'Ref';
+    export const Int = 'Int';
+    export const Bool = 'Bool';
+    export const Snap = 'Snap';
+    export const Perm = 'Perm';
+    export const Set = 'Set';
+    export const Seq = 'Seq';
+    export const FVF = 'FVF';
+    export const Multiset = 'Multiset';
+    export const UserSort = 'UserSort';
+
+    export const sortVisitor = new TermSortVisitor();
+}
+
+export function getSort(term: Term): Sort {
+    return term.accept(Sort.sortVisitor);
+}
+
