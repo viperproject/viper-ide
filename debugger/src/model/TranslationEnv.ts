@@ -89,8 +89,6 @@ export class TranslationEnv {
                 }
             }
         });
-
-        this.recordInstance(Sort.Snap, 'Unit');
     }
     
     public recordInstance(sort: Sort, name: string) {

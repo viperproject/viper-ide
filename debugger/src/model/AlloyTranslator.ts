@@ -132,7 +132,7 @@ export namespace AlloyTranslator {
         }
 
         // The null reference
-        mb.loneSignature(Null).extends(Ref).withConstraint("refTypedFields' = none");
+        mb.oneSignature(Null).extends(Ref).withConstraint("refTypedFields' = none");
         mb.blank();
     }
 
@@ -382,7 +382,7 @@ export namespace AlloyTranslator {
     }
 
     function encodeReachabilityConstraints(env: TranslationEnv, mb: AlloyModelBuilder) {
-        const reachable = [ Store + ".refTypedVars'.*refTypedFields' + NULL" ];
+        const reachable = [ Store + ".refTypedVars'.*refTypedFields'", Null ];
         
         reachable.push(`(${Combine}.left :> ${Ref})`);
         reachable.push(`(${Combine}.right :> ${Ref})`);
@@ -433,6 +433,11 @@ export namespace AlloyTranslator {
     function encodeSignatureRestrictions(mb: AlloyModelBuilder, env: TranslationEnv) {
         if (env.recordedInstances.size > 0) {
             mb.comment("Signarure Restrictions");
+
+            env.recordInstance(Sort.Ref, Null);
+            env.recordInstance(Sort.Snap, Unit);
+            env.recordInstance(Sort.Perm, WritePerm);
+            env.recordInstance(Sort.Perm, NoPerm);
 
             env.recordedInstances.forEach((names, sigName) => {
                 if (sigName !== 'Int' && sigName !== 'Bool') {

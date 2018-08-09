@@ -9,11 +9,11 @@ abstract sig Perm {
     // from having sums of permissions that exceed W
     // num <= denom
 }
-lone sig W in Perm {} {
+one sig W in Perm {} {
     num = 1
     denom = 1
 }
-lone sig Z in Perm {} {
+one sig Z in Perm {} {
     num = 0
     denom = 1
 }
