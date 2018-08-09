@@ -164,12 +164,12 @@ export class TermSortVisitor implements TermVisitor<Sort> {
         return literal.sort;
     }
 
-    public visitSeqRanged(seqRanged: SeqRanged): Sort {
+    public visitSeqRanged(_: SeqRanged): Sort {
         return Sort.Seq(Sort.Int);
     }
 
     public visitSeqSingleton(seqSingleton: SeqSingleton): Sort {
-        return Sort.Seq(seqSingleton.accept(this));
+        return Sort.Seq(seqSingleton.value.accept(this));
     }
 
     public visitSeqUpdate(seqUpdate: SeqUpdate): Sort {
@@ -178,11 +178,11 @@ export class TermSortVisitor implements TermVisitor<Sort> {
     }
 
     public visitSetSingleton(setSingleton: SetSingleton): Sort {
-        return Sort.Seq(setSingleton.accept(this));
+        return Sort.Set(setSingleton.value.accept(this));
     }
 
     public visitMultiSetSingleton(multiSetSingleton: MultisetSingleton): Sort {
-        return Sort.Seq(multiSetSingleton.accept(this));
+        return Sort.Seq(multiSetSingleton.value.accept(this));
     }
      public visitLogicalWrapper(_: LogicalWrapper): Sort {
         return Sort.Logical;
