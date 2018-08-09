@@ -127,7 +127,9 @@ export namespace AlloyTranslator {
                 // Record the function as an instance of Perm, so that the signature
                 // can be properly constrained later.
                 env.recordInstance(Sort.Perm, funName + `[${Ref}]`);
-                mb.fact(`all o: ${Ref} | one o.${field} <=> ${Function}.${PermFun}_${field}[o].num > 0`);
+                mb.fact(`all o: ${Ref} | one o.${field} <=> ${funName}[o].num > 0`);
+                // We canno give permission to the null reference.
+                mb.fact(`NULL not in (${funName}).univ`);
             }
         }
 
