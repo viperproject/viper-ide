@@ -7,6 +7,16 @@ import { DebuggerError } from "../Errors";
 export class TermSortVisitor implements TermVisitor<Sort> {
 
     public visitBinary(term: Binary): Sort {
+
+        const leftSort = term.lhs.accept(this);
+        const rightSort = term.rhs.accept(this);
+
+        // Perm equality is implemented via a function, because we need to check
+        // if fractions are multiples of each other, so it returns a Bool
+        if (leftSort.is(Sort.Perm) && rightSort.is(Sort.Perm) && term.op === BinaryOp.Equals) {
+            return Sort.Bool;
+        }
+
         // We don't need to know the sorts of the operands to distinguish these
         switch (term.op) {
             // Booleans
@@ -16,9 +26,6 @@ export class TermSortVisitor implements TermVisitor<Sort> {
             // Combine
             case BinaryOp.Combine: return Sort.Snap;
         }
-
-        const leftSort = term.lhs.accept(this);
-        const rightSort = term.rhs.accept(this);
 
         if (leftSort.is(Sort.Int) && rightSort.is(Sort.Int)) {
             switch (term.op) {
