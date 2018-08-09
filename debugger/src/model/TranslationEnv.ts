@@ -58,7 +58,7 @@ export class TranslationEnv {
             if (hc instanceof FieldChunk) {
                 this.fields.set(hc.field, hc.sort);
             } else if (hc instanceof QuantifiedFieldChunk) {
-                if (hc.sort.id === Sort.FVF && hc.sort.elementsSort !== undefined) {
+                if (hc.sort.is('FVF') && hc.sort.elementsSort !== undefined) {
                     this.fields.set(hc.field, hc.sort.elementsSort);
                 } else {
                     Logger.error('Unexpected quantified field sort: ' + hc.sort);
@@ -138,24 +138,24 @@ export class TranslationEnv {
     }
 
     public translate(sort: Sort): string {
-        if (sort.id === Sort.Ref) {
+        if (sort.is(Sort.Ref)) {
             return AlloyTranslator.Ref;
         }
-        if (sort.id === Sort.Set && sort.elementsSort !== undefined) {
+        if (sort.is('Set') && sort.elementsSort !== undefined) {
             const name = "Set_" + this.translate(sort.elementsSort);
             this.recordSort(name, "Set");
             return name;
         }
-        if (sort.id === Sort.Int) {
+        if (sort.is(Sort.Int)) {
             return AlloyTranslator.Int;
         }
-        if (sort.id === Sort.Snap) {
+        if (sort.is(Sort.Snap)) {
             return AlloyTranslator.Snap;
         }
-        if (sort.id === Sort.Bool) {
+        if (sort.is(Sort.Bool)) {
             return AlloyTranslator.Bool;
         }
-        if (sort.id === Sort.Perm) {
+        if (sort.is(Sort.Perm)) {
             return AlloyTranslator.Perm;
         }
 
