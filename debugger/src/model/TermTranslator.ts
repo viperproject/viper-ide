@@ -115,7 +115,6 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
     visitBinary(binary: Binary): TranslationRes {
         if (binary.op === "Combine") {
-            this.env.totalCombines += 1;
             return this.coll_call("combine", Sort.Snap,[binary.lhs, binary.rhs]);
         }
 
@@ -216,7 +215,8 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
                 // Int-Perm division always has the integer on the left in Silicon
                 case '/': return this.coll_call('int_perm_div', rightSort, [binary.lhs, binary.rhs]);
                 case 'PermMin': return this.coll_call('perm_min', leftSort, [binary.lhs, binary.rhs]);
-                case '==': return translatedFrom(`(${left.res} = ${right.res})`, [left, right]);
+                case '==': return this.coll_call('perm_equals', Sort.Bool, [binary.lhs, binary.rhs]);
+                // case '==': return translatedFrom(`(${left.res} = ${right.res})`, [left, right]);
                 default: Logger.error(`Unexpected perm operator: ${binary.op}`);
             }
         }

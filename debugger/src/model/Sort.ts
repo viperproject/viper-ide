@@ -21,7 +21,7 @@ export class Sort {
 
     constructor(readonly id: string, readonly elementsSort?: Sort) {}
 
-    public is(other: Sort | 'Set' | 'Seq' | 'Multiset' | 'FVF'): boolean {
+    public is(other: Sort | 'Set' | 'Seq' | 'Multiset' | 'FVF' | 'UserSort'): boolean {
         if (other instanceof Sort) {
             if (this.elementsSort === undefined) {
                 return this.id === other.id && this.elementsSort === other.elementsSort;

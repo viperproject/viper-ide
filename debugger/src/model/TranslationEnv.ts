@@ -92,12 +92,23 @@ export class TranslationEnv {
     }
     
     public recordInstance(sort: Sort, name: string) {
-        const sortName = this.translate(sort);
-        const recorded = this.recordedInstances.get(sortName);
+        // Sets, Seqs and Multisets count towards the totoal of the generic signature
+        // User sorts count towards their specific signature
+        // Everything else counts towards the built-in signature
+        let sigName: string;
+        if (sort.is('Set') || sort.is('Seq') || sort.is('Multiset')) {
+            sigName = sort.id;
+        } else if (sort.is('UserSort')) {
+            sigName = sort.elementsSort!.id;
+        } else {
+            sigName = this.translate(sort);
+        }
+
+        const recorded = this.recordedInstances.get(sigName);
         if (recorded !== undefined) {
             recorded.push(name);
         } else {
-            this.recordedInstances.set(sortName, [name]);
+            this.recordedInstances.set(sigName, [name]);
         }
     }
 

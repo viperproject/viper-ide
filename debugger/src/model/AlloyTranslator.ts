@@ -415,9 +415,9 @@ export namespace AlloyTranslator {
             env.introduceMissingTempVars = false;
             let constraint: Term = verifiable.lastSMTQuery;
             if (constraint instanceof Unary && constraint.op === '!') {
-                constraint = constraint.p;
+                constraint = new LogicalWrapper(constraint.p);
             } else {
-                constraint = new Unary('!', constraint);
+                constraint = new Unary('!', new LogicalWrapper(constraint));
             }
             const failedQuery = constraint.accept(termTranslator);
             if (failedQuery.res) {
@@ -442,13 +442,13 @@ export namespace AlloyTranslator {
             env.recordInstance(Sort.Perm, NoPerm);
 
             env.recordedInstances.forEach((names, sigName) => {
-                if (sigName !== 'Int' && sigName !== 'Bool') {
+                if (sigName !== Int && sigName !== Bool && sigName !== Ref) {
                     mb.fact(`${sigName} = ${names.join(" + ")}`);
                 }
             });
 
-            // TODO: Multiset, Snap
-            const sort_sigs = [SigSeq, SigSet];
+            // TODO: Multiset
+            const sort_sigs = [SigSeq, SigSet, Perm, Snap];
             sort_sigs.forEach(sigName => {
                 if (!env.recordedInstances.has(sigName)) {
                     mb.fact(`${sigName} = none`);
