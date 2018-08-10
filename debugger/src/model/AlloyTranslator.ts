@@ -141,7 +141,6 @@ export namespace AlloyTranslator {
     function translateStore(env: TranslationEnv, mb: AlloyModelBuilder, translator: TermTranslatorVisitor) {
         const refTypedStoreVariables: string[] = [];
         const store = mb.oneSignature(Store);
-        const constraints: string[] = [];
 
         env.storeVariables.forEach((variable, name) => {
             const sig = env.translate(variable.sort);
@@ -153,7 +152,7 @@ export namespace AlloyTranslator {
                 let fact = value.additionalFacts
                                 .concat(`${Store}.${name} = ${value.res}`)
                                 .join(" && \n       ");
-                constraints.push(fact);
+                mb.fact(fact);
                 env.variablesToDeclare.forEach((sort, name) => mb.oneSignature(name).in(env.translate(sort)));
                 env.variablesToDeclare.clear();
 
@@ -171,7 +170,6 @@ export namespace AlloyTranslator {
         store.withConstraint("refTypedVars' = " + (refTypedStoreVariables.length > 0
                                                            ? refTypedStoreVariables.join(" + ")
                                                            : 'none'));
-        constraints.forEach(c => mb.fact(c));
         mb.blank();
     }
 
