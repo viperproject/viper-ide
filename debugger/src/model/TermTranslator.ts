@@ -333,11 +333,10 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
         const sorts = application.args.map(a => getSort(a));
         sorts.push(application.sort);
-
         this.env.recordFunction(applicableSanitized, sorts);
+
         const callName = `${AlloyTranslator.Function}.${applicableSanitized}`;
-        const callArgs = args.map(a => a.res).join(", ");
-        return translatedFrom(`${callName}[${callArgs}]`, args);
+        return this.coll_call(callName, application.sort, application.args);
     }
 
     visitLookup(lookup: Lookup): TranslationRes {
