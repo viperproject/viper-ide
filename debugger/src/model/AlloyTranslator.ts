@@ -129,7 +129,7 @@ export namespace AlloyTranslator {
                 env.recordInstance(Sort.Perm, funName + `[${Ref}]`);
                 mb.fact(`all o: ${Ref} | one o.${field} <=> ${funName}[o].num > 0`);
                 // We canno give permission to the null reference.
-                mb.fact(`NULL not in (${funName}).univ`);
+                mb.fact(`(${Null} in (${funName}).univ) <=> (${funName}[${Null}].num = 0)`);
             }
         }
 
