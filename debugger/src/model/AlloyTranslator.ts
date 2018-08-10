@@ -248,12 +248,25 @@ export namespace AlloyTranslator {
         chunks.forEach(chunk => {
             if (chunk instanceof FieldChunk) {
                 const functionName = PermFun + "_" + chunk.field;
-                const permFun = new Binary('==', 
-                                           new Application(functionName, [chunk.receiver], new Sort('Perm')),
-                                           chunk.perm);
+                // const permFun = new Binary('==', 
+                //                            new Application(functionName, [chunk.receiver], new Sort('Perm')),
+                //                            chunk.perm);
+                env.recordFunction(functionName, [Sort.Ref, Sort.Perm]);
+                const rec = chunk.receiver.accept(termTranslator);
+                const perm = chunk.perm.accept(termTranslator);
 
-                termToFact(permFun, env, mb, termTranslator);
+                if (rec.res && perm.res) {
+                    const facts = rec.additionalFacts
+                                     .concat(perm.additionalFacts)
+                                     .concat(`(${rec.res} -> ${perm.res}) in Fun.${functionName}`)
+                                     .join(" && \n       ");
+                    env.variablesToDeclare.forEach((sort, name) => mb.oneSignature(name).in(env.translate(sort)));
+                    env.variablesToDeclare.clear();
+                    mb.fact(facts);
+                }
+                // termToFact(permFun, env, mb, termTranslator);
 
+            // TODO: this should use the 'in' construct as well
             } else if (chunk instanceof QuantifiedFieldChunk) {
                 const r = new VariableTerm('r', new Sort('Ref'));
                 const functionName = PermFun + "_" + chunk.field;
