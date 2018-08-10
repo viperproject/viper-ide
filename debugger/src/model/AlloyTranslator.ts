@@ -333,7 +333,7 @@ export namespace AlloyTranslator {
             const sigName = name.charAt(0).toUpperCase() + name.slice(1);
             const tSort = env.translate(sort);
             mb.abstractSignature(sigName).extends(AlloyTranslator.Snap)
-                .withMember('v: ' + env.translate(sort));
+                .withMember('v: lone ' + env.translate(sort));
             mb.fun(`fun ${name.toLowerCase()} [ o: ${tSort} ]: ${Sort.Snap} {
     { s: ${sigName} | s.v = o }
 }`);
