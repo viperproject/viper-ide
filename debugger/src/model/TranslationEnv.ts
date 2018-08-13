@@ -25,6 +25,7 @@ export class TranslationEnv {
 
     public sortWrappers: Map<string, Sort>;
     public functions: Map<string, Sort[]>;
+    public functionCalls: Map<string, string[][]>;
     public lookupFunctions: [Sort, string][];
 
     public userSorts: Set<string>;
@@ -45,6 +46,7 @@ export class TranslationEnv {
 
         this.sortWrappers = new Map();
         this.functions = new Map();
+        this.functionCalls = new Map();
         this.lookupFunctions = [];
 
         this.userSorts = new Set();
@@ -197,6 +199,15 @@ export class TranslationEnv {
     public recordFunction(name: string, sorts: Sort[]) {
         if (!this.functions.has(name)) {
             this.functions.set(name, sorts);
+        }
+    }
+
+    public recordFunctionCall(name: string, args: string[], returnName: string) {
+        const calls = this.functionCalls.get(name);
+        if (calls !== undefined) {
+            calls.push(args.concat(returnName));
+        } else {
+            this.functionCalls.set(name, [args.concat(returnName)]);
         }
     }
 
