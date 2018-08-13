@@ -141,9 +141,6 @@ function setupInputHandlers() {
         vscode.postMessage({ command: 'selectVerifiable', data: name });
     };
 
-    console.log(domElem('#verifiables'));
-    console.log(domElem('#verifiables').onchange);
-
     Logger.debug("Done setting up input handlers.");
 }
 
@@ -335,14 +332,19 @@ function displayGraph(message: any) {
     clearGraph();
     const graphElem = document.createElement('div');
     graphElem.id = 'graph';
-    graphElem.style.transition = 'opacity 0.03s ease-in-out 0';
     graphElem.style.opacity = '0';
+    graphElem.style.transition = 'opacity 0.03s ease-in-out 0';
     domElem('#graphPanel').appendChild(graphElem);
 
-    graph = d3.select("#graph")
+    const some = d3.select("#graph");
+    console.log(some);
+
+    graph = some
                 .graphviz()
                 .dot(message.text)
                 .render();
+
+    window.setTimeout(() => graphElem.style.opacity = '1', 100);
 }
 
 
@@ -359,9 +361,10 @@ function graphMessage(message: any) {
     messageItem.classList.add('graphMessage');
     messageItem.innerText = message.text;
     messageItem.style.opacity = '0';
-    messageItem.style.transition = 'opacity 0.2s ease-in-out 0.5s';
+    messageItem.style.transition = 'opacity 0.4s ease-in-out 0';
     panel.appendChild(messageItem);
-    messageItem.style.opacity = '1';
+    
+    window.setTimeout(() => messageItem.style.opacity = '1', 500);
 }
 
 /** Handles the message containing new verifiables for this session. */
