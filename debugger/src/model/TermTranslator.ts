@@ -1,4 +1,4 @@
-import { Binary, Unary, VariableTerm, Quantification, Application, Lookup, PredicateLookup, And, Or, Distinct, Ite, Let, Literal, SeqRanged, SeqSingleton, SeqUpdate, SetSingleton, MultisetSingleton, SortWrapper, Term, BinaryOp, LogicalWrapper } from "./Term";
+import { Binary, Unary, VariableTerm, Quantification, Application, Lookup, PredicateLookup, And, Or, Distinct, Ite, Let, Literal, SeqRanged, SeqSingleton, SeqUpdate, SetSingleton, MultisetSingleton, SortWrapper, Term, BinaryOp, LogicalWrapper, BooleanWrapper } from "./Term";
 import { TranslationEnv } from "./TranslationEnv";
 import { Logger } from "../logger";
 import { getSort, Sort } from "./Sort";
@@ -28,7 +28,8 @@ export interface TermVisitor<T> {
     visitSetSingleton(setSingleton: SetSingleton): T;
     visitMultiSetSingleton(multiSetSingleton: MultisetSingleton): T;
 
-    visitLogicalWrapper(boolWrapper: LogicalWrapper): T;
+    visitLogicalWrapper(logicalWrapper: LogicalWrapper): T;
+    visitBooleanWrapper(boolWrapper: BooleanWrapper): T;
 }
 
 export function sanitize(name: string) {
@@ -137,10 +138,29 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         // Alloy operators only have one equal sign, but are otherwise the same as the Viper ones.
         let alloyOp = binary.op.replace("==", "=");
 
-        // If the left and right terms are of Bool sort and not the result of a computation, then we need to wrap 
-        // them to perform the operation
+        // If both operands are boolean, then translating to alloy equality is fine. In all other cases we need to wrap
+        // at least one of the two operands.
+        if (leftSort.is(Sort.Bool) && rightSort.is(Sort.Bool) && binary.op === BinaryOp.Equals) {
+            const left = binary.lhs.accept(this);
+            if (left.res === undefined) {
+                return leftover(binary, "Left-hand side operand not translated", left.leftovers);
+            }
+            const right = binary.rhs.accept(this);
+            if (right.res === undefined) {
+                return leftover(binary, "Right-hand side operand not translated", right.leftovers);
+            }
+
+            return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
+        }
+
+        // If any of the operands are Bools and this is a "logical" operatino, we need to wrap them
         if (leftSort.is(Sort.Bool) || rightSort.is(Sort.Bool)) {
             if (binary.op === '==>' || binary.op === 'implies' || binary.op === '==') {
+
+                // If one of the operands has logical type, then equality must be turned into a conjunction
+                if (binary.op === BinaryOp.Equals) {
+                    alloyOp = '&&';
+                }
 
                 const left = leftSort.is(Sort.Bool) ? new LogicalWrapper(binary.lhs).accept(this)
                                                        : binary.lhs.accept(this);
@@ -153,19 +173,6 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
                 if (right.res === undefined) {
                     return leftover(binary, "Right-hand side operand not translated", right.leftovers);
                 }
-                // if (binary.op === '==') {
-                //     alloyOp = "&&";
-                // }
-                // if ((binary.lhs instanceof VariableTerm || binary.lhs instanceof Application || binary.lhs instanceof Lookup)
-                //         && leftSort.is(Sort.Bool) {
-                //     lhs = `isTrue[${left.res}]`;
-                // }
-                // let rhs = right.res;
-                // if ((binary.rhs instanceof VariableTerm || binary.rhs instanceof Application || binary.rhs instanceof Lookup)
-                //         && leftSort.is(Sort.Bool) {
-                //     rhs = `isTrue[${right.res}]`;
-                // }
-                // return translatedFrom(`(${lhs} ${alloyOp} ${rhs})`, [left, right]);
                 return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
             } else {
                 Logger.error("Unexpected operator for operands of type Bool :" + binary);
@@ -382,7 +389,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
     }
 
     visitAnd(and: And): TranslationRes {
-        const terms = and.terms.map(t => t.accept(this));
+        const terms = and.terms.map(t => new LogicalWrapper(t).accept(this));
 
         // Collect the leftovers from the translation of all terms
         const leftovers = terms.reduce(
@@ -399,7 +406,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
     }
 
     visitOr(or: Or): TranslationRes {
-        const terms = or.terms.map(t => t.accept(this));
+        const terms = or.terms.map(t => new LogicalWrapper(t).accept(this));
 
         // Collect the leftovers from the translation of all terms
         const leftovers = terms.reduce(
@@ -513,9 +520,25 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             if (wrapped.res) {
                 return translatedFrom(`isTrue[${wrapped.res}]`, [wrapped]);
             } else {
-                return leftover(wrapper, "Could not translate wrapped term", wrapped.leftovers);
+                return leftover(wrapper, "Could not translate wrapped boolean term", wrapped.leftovers);
             }
         } else if (sort.is(Sort.Logical)) {
+            return wrapper.term.accept(this);
+        }
+
+        return leftover(wrapper, "Unexpected sort in logical wrapper: " + sort, []);
+    }
+
+    visitBooleanWrapper(wrapper: BooleanWrapper): TranslationRes {
+        const sort = getSort(wrapper.term);
+        if (sort.is(Sort.Logical)) {
+            const wrapped = wrapper.term.accept(this);
+            if (wrapped.res) {
+                return translatedFrom(`(${wrapped.res} => True else False)`, [wrapped]);
+            } else {
+                return leftover(wrapper, "Could not translate wrapped boolean term", wrapped.leftovers);
+            }
+        } else if (sort.is(Sort.Bool)) {
             return wrapper.term.accept(this);
         }
 

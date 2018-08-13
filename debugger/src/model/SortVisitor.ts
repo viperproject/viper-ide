@@ -1,6 +1,6 @@
 import { TermVisitor } from "./TermTranslator";
 import { Sort } from "./Sort";
-import { Binary, BinaryOp, Unary, UnaryOp, SortWrapper, VariableTerm, Quantification, Application, Lookup, PredicateLookup, And, Or, Distinct, Ite, Let, Literal, SeqRanged, SeqSingleton, SeqUpdate, SetSingleton, MultisetSingleton, LogicalWrapper } from "./Term";
+import { Binary, BinaryOp, Unary, UnaryOp, SortWrapper, VariableTerm, Quantification, Application, Lookup, PredicateLookup, And, Or, Distinct, Ite, Let, Literal, SeqRanged, SeqSingleton, SeqUpdate, SetSingleton, MultisetSingleton, LogicalWrapper, BooleanWrapper } from "./Term";
 import { Logger } from "../logger";
 import { DebuggerError } from "../Errors";
 
@@ -190,7 +190,12 @@ export class TermSortVisitor implements TermVisitor<Sort> {
     public visitMultiSetSingleton(multiSetSingleton: MultisetSingleton): Sort {
         return Sort.Seq(multiSetSingleton.value.accept(this));
     }
-     public visitLogicalWrapper(_: LogicalWrapper): Sort {
-        return Sort.Logical;
-     }
+
+    public visitLogicalWrapper(_: LogicalWrapper): Sort {
+       return Sort.Logical;
+    }
+
+    public visitBooleanWrapper(_: BooleanWrapper): Sort {
+        return Sort.Bool;
+    }
 }

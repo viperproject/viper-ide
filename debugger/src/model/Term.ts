@@ -24,7 +24,19 @@ export class LogicalWrapper implements Term {
     }
 
     toString(): string {
-        return `ToRelation(${this.term.toString()})`;
+        return `BoolToLogical(${this.term.toString()})`;
+    }
+}
+
+export class BooleanWrapper implements Term {
+    constructor(readonly term: Term) {}
+
+    accept<T>(visitor: TermVisitor<T>): T {
+        return visitor.visitBooleanWrapper(this);
+    }
+
+    toString(): string {
+        return `LogicalToBool(${this.term.toString()})`;
     }
 }
 

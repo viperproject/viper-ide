@@ -318,16 +318,48 @@ export namespace AlloyTranslator {
 
         if (env.functions.size > 0) {
             mb.comment("Functions");
-            const members: string[] = [];
             for (let [name, sorts] of env.functions) {
                 // Add multiplicity of 'lone' to return type of function
                 const tSorts = sorts.map(s => env.translate(s));
-                tSorts[tSorts.length - 1] = 'lone ' + tSorts[tSorts.length - 1];
+                const argSorts = tSorts.slice(0, -1);
+                const [retSort] = tSorts.slice(-1);
 
-                members.push(name + ': (' + tSorts.join(' -> ') + ')');
+                let argCount = 0;
+                const members = argSorts.map(s => {
+                    const member = `a${argCount}: ${s}`;
+                    argCount += 1;
+                    return member;
+                });
+                members.push(`ret: ${retSort}`);
+
+                mb.abstractSignature('fun_' + name)
+                    .withMembers(members);
             }
-            mb.oneSignature(Function).withMembers(members);
             mb.blank();
+        }
+
+        if (env.functionCalls.size > 0) {
+            mb.comment("Function Calls");
+            env.functionCalls.forEach((calls, name) => {
+                let count = 0;
+                calls.forEach((call) => {
+                    const args = call.slice(0, -1);
+                    const [ret] = call.slice(-1);
+
+                    let argNum = 0;
+                    const constraints = args.map(arg => {
+                        const c = `a${argNum} = ${arg}`;
+                        argNum += 1;
+                        return c;
+                    });
+                    constraints.push(`ret = ${ret}`);
+
+                    mb.loneSignature(name +  '_call_' + count)
+                        .extends('fun_' + name)
+                        .withConstraints(constraints);
+                    count += 1;
+                });
+            });
         }
 
         const fvfFacts = new Set<string>();
@@ -402,12 +434,14 @@ export namespace AlloyTranslator {
 
         // If there are functions that return reference-like object, they have to be accounted in the constraint as
         // well, otherwise we may prevent Alloy from generating any Object.
-        for (const [name, sorts] of env.functions) {
+
+        for (const [name, calls] of env.functionCalls) {
+            const sorts = env.functions.get(name)!;
             const returnSort = sorts[sorts.length - 1];
-            const returnSig = env.translate(returnSort);
-            if (returnSig === Ref) { 
-                const params = sorts.slice(0, -1).map(s => env.translate(s)).join(', ');
-                reachable.push(Function + '.' + name + `[${params}]`);
+            if (returnSort.is(Sort.Ref)) {
+                for (let i = 0; i < calls.length; i++) {
+                    reachable.push(name + `_call_${i}.ret`);
+                }
             }
         }
 
