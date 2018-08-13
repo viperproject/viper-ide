@@ -405,7 +405,9 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
     }
 
     visitIte(ite: Ite): TranslationRes {
-        const cond = ite.condition.accept(this);
+        const conditionSort = getSort(ite.condition);
+        const cond = conditionSort.is(Sort.Bool) ? new LogicalWrapper(ite.condition).accept(this)
+                                                 : ite.condition.accept(this);
         const thenBranch = ite.thenBranch.accept(this);
         const elseBranch = ite.elseBranch.accept(this);
 

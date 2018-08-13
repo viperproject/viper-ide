@@ -118,8 +118,7 @@ export class TermSortVisitor implements TermVisitor<Sort> {
     }
 
     public visitQuantification(quantification: Quantification): Sort {
-        Logger.error("Unexpected sort retrieval on quantifications: " + quantification);
-        throw new DebuggerError("Unexpected sort retrieval on quantifications: " + quantification);
+        return Sort.Logical;
     }
 
     public visitApplication(application: Application): Sort {
