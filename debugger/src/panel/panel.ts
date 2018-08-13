@@ -162,12 +162,13 @@ function handleStateUpdate(message: any) {
 
     // Add state type to the panel
     if (state.type) {
+        const elem = document.createElement('h3');
+        elem.innerText = `Current Record: ${state.type}`;
+
         const formula = document.createElement('pre');
         formula.innerText = state.formula;
-
-        const elem = document.createElement('h3');
-        elem.innerText = `(${state.index}) ${state.type}`;
         elem.appendChild(formula);
+
         stateDiv.appendChild(elem);
     }
 
@@ -178,86 +179,9 @@ function handleStateUpdate(message: any) {
     (domElem('button#parent') as HTMLInputElement).disabled = !data.hasParent;
     (domElem('button#child') as HTMLInputElement).disabled = !data.hasChild;
 
-
-    const navigator = domElem("#navigation");
-    removeAllChildren(navigator);
-    const topLevelList = document.createElement('ul');
-    
-    message.data.topLevel.forEach((tl: any) => {
-        const li = document.createElement('li');
-        li.onclick = () => vscode.postMessage({ command: 'goToStateByIndex', data: tl.index });
-
-        // TODO: If the the index of the current state is smaller than the index
-        // of the tl state, then format the current state with children
-        if (state.index > tl.index) {
-            const currentListItem = document.createElement('li');
-            const c = document.createElement('span');
-            c.id = "current";
-            c.innerText = "Current";
-            currentListItem.appendChild(c);
-
-            if (state.children.length > 0) {
-                // Update the JSON view of the state tree
-                const list = document.createElement('ul');
-
-                state.children.forEach((e: any) => {
-                    const li = document.createElement('li');
-                    li.onclick = () => vscode.postMessage({ command: 'goToStateByIndex', data: e.index });
-                    if (e.formula) {
-                        li.innerText = e.type + ":";
-                        const pre = document.createElement('pre');
-                        pre.innerText = e.formula;
-                        li.appendChild(pre);
-                    } else { 
-                        li.appendChild(e.toString());
-                    }
-                    list.appendChild(li);
-                });
-                currentListItem.appendChild(list);
-            }
-
-            topLevelList.appendChild(currentListItem);
-        }
-
-        if (tl.formula) {
-            li.innerText = `(${tl.index})` + tl.type + ":";
-            const pre = document.createElement('pre');
-            pre.innerText = tl.formula;
-            li.appendChild(pre);
-        } else { 
-            li.appendChild(tl.toString());
-        }
-        topLevelList.appendChild(li);
-    });
-    navigator.appendChild(topLevelList);
-
-    if (state.children.length > 0) {
-        // Update the JSON view of the state tree
-        const list = document.createElement('ul');
-
-        const c = document.createElement('span');
-        c.id = "current";
-        c.innerText = "Current";
-        list.appendChild(c);
-
-        state.children.forEach((e: any) => {
-            const li = document.createElement('li');
-            li.onclick = () => vscode.postMessage({ command: 'goToStateByIndex', data: e.index });
-            if (e.formula) {
-                li.innerText = e.type + ":";
-                const pre = document.createElement('pre');
-                pre.innerText = e.formula;
-                li.appendChild(pre);
-            } else { 
-                li.appendChild(e.toString());
-            }
-            list.appendChild(li);
-        });
-        navigator.appendChild(list);
-    }
+    updateNavigationTree(state, message.data.topLevel);
 
     type parts = { text: string, id?: string }[];
-
     if (state.state.heap.length > 0) {
         const title = document.createElement('h4');
         title.innerText = 'Heap';
@@ -328,6 +252,79 @@ function handleStateUpdate(message: any) {
         const span = document.createElement('span');
         domElem(`span[highlightId='${id}']`).classList.remove('highlighted');
     };
+}
+
+
+function updateNavigationTree(state: any, topLevel: any[]) {
+    const doYourStuff = (record: any): [HTMLLIElement, boolean] => {
+        const li = document.createElement('li');
+        const span = document.createElement('span');
+        span.innerText = record.type + ":";
+        const pre = document.createElement('pre');
+        pre.innerText = record.formula;
+        span.appendChild(pre);
+        li.appendChild(span);
+
+        if (state.index === record.index) {
+            li.id = "current";
+
+            if (state.children.length > 0) {
+                const childrenList = document.createElement('ul');
+                childrenList.classList.add('nested');
+
+                state.children.forEach((e: any) => {
+                    const li = document.createElement('li');
+                    const span = document.createElement('span');
+                    span.classList.add("stateLink");
+                    span.onclick = () => vscode.postMessage({ command: 'goToStateByIndex', data: e.index });
+                    span.innerText = e.type + ":";
+                    const pre = document.createElement('pre');
+                    pre.innerText = e.formula;
+                    span.appendChild(pre);
+                    li.appendChild(span);
+                    childrenList.appendChild(li);
+                });
+                li.appendChild(childrenList);
+            }
+
+            return [li, true];
+        }
+
+        span.classList.add("stateLink");
+        span.onclick = () => vscode.postMessage({ command: 'goToStateByIndex', data: record.index });
+
+        let children: HTMLLIElement[] = [];
+        let holdsCurrent = false;
+        record.children.forEach((c: any) => {
+            const [n, holdsCurr] = doYourStuff(c);
+            holdsCurrent = holdsCurrent || holdsCurr;
+            children.push(n);
+        });
+
+        if (holdsCurrent) {
+            const ul = document.createElement('ul');
+            ul.classList.add('nested');
+            children.forEach(c => ul.appendChild(c));
+            li.appendChild(ul);
+        } else {
+            const childNumber = document.createElement('span');
+            childNumber.classList.add('childrenNumber');
+            childNumber.innerText = (record.children.length === 1 ? '(1 child)' : `(${record.children.length} children)`);
+            span.appendChild(childNumber);
+        }
+        return [li, holdsCurrent];
+    };
+
+    const navigator = domElem("#navigation");
+    removeAllChildren(navigator);
+    const topLevelList = document.createElement('ul');
+    
+    topLevel.forEach((tl: any) => {
+        const [node, _] = doYourStuff(tl);
+        topLevelList.appendChild(node);
+    });
+    navigator.appendChild(topLevelList);
+
 }
 
 

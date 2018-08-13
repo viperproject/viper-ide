@@ -55,18 +55,43 @@ nav {
 }
 
 #navigation {
-    li:hover {
+    ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    span {
+        display: inline-block;
+        padding: 1px 2px;
+        border-radius: 2px;
+    }
+    span.stateLink:hover {
         cursor: pointer;
         background-color: #A66321;
     }
     pre {
-        margin: 0 0.5em;
+        margin: 0;
+        margin-left: 1em;
         display: inline-block;
     }
-
-    #current {
-        font-weight: bold;
-        font-style: italic;
+    #current > span {
+        background-color: #114215;
+    }
+    .nested {
+        padding-left: 1.5em;
+        li:before {
+            content: '▸ '
+        }
+        // li:not(last-child):before {
+        //     content: '┣━  ';
+        // }
+        // li:last-child:before {
+        //     content: '┗━  ';
+        // }
+    }
+    .childrenNumber {
+        color: #444444;
+        margin-left: 1em;
     }
 }
 
