@@ -12,6 +12,9 @@ export type SessionEvent = 'StateChange';
 export type StateUpdate = {
     verifiable: Verifiable,
     current: Record,
+    topLevel: Record[],
+    next: Record | undefined,
+    previous: Record | undefined,
     hasNext: boolean,
     hasPrevious: boolean,
     hasParent: boolean,
@@ -42,6 +45,9 @@ export class DebuggerSession {
             const states: StateUpdate = {
                 verifiable: this.currentVerifiable,
                 current: this.currentRecord,
+                topLevel: this.currentVerifiable.records,
+                next: this.currentRecord.next,
+                previous: this.currentRecord.previous,
                 hasNext: this.findNextState() !== undefined,
                 hasPrevious: this.findPrevState() !== undefined,
                 hasParent: this.currentRecord.parent !== undefined,
@@ -74,6 +80,21 @@ export class DebuggerSession {
     public goToState(state: Record) {
         this.currentRecord = state;
         this.notifyStateChange();
+    }
+
+    public goToStateByIndex(index: number) {
+        const traverse = (r: Record): boolean => {
+            if (r.index === index) {
+                this.goToState(r);
+                return true;
+            } 
+            return r.children.some(c => traverse(c));
+        }
+
+        const changed = this.currentVerifiable.records.some(r => traverse(r));
+        if (!changed) {
+            Logger.error("Could not find a record with index " + index);
+        }
     }
 
     public goToNextState() {

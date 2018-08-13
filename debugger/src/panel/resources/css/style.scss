@@ -54,6 +54,22 @@ nav {
     font-family: monospace;
 }
 
+#navigation {
+    li:hover {
+        cursor: pointer;
+        background-color: #A66321;
+    }
+    pre {
+        margin: 0 0.5em;
+        display: inline-block;
+    }
+
+    #current {
+        font-weight: bold;
+        font-style: italic;
+    }
+}
+
 #currentState {
     h3 {
         margin-top: 0;

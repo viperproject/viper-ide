@@ -26,6 +26,7 @@ export class State {
 }
 
 type RecordType = 'Execute' | 'Evaluate' | 'Consume' | 'Produce' | 'Other';
+let index = 0;
 
 export class Record {
 
@@ -34,7 +35,7 @@ export class Record {
 
     constructor(readonly type: RecordType,
                 readonly formula: string,
-                readonly index: number,  // TODO: Don't like this here
+                readonly index: number,
                 readonly position: Position,
                 readonly prestate?: State,
                 readonly parent?: Record,
@@ -108,13 +109,6 @@ export class Record {
 
         const formula = entry.value;
 
-        let index = 0;
-        if (previous) {
-            index = previous.index + 1;
-        } else if (parent) {
-            index = parent.index + 1;
-        }
-
         let prestate: State | undefined = undefined;
         if (entry.prestate) {
             prestate = State.from(entry.prestate);
@@ -129,6 +123,7 @@ export class Record {
             parent,
             previous
         );
+        index = index + 1;
 
         // Build all children of the entry and make sure they are connected with siblings and parent
         if (entry.children) {

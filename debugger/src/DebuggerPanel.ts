@@ -119,6 +119,10 @@ export class DebuggerPanel implements SessionObserver {
             case 'parentState':
                 this.session!.goToParentState();
                 break;
+            case 'goToStateByIndex':
+                const index = message.data as number;
+                this.session!.goToStateByIndex(index);
+                break;
             case 'selectVerifiable':
                 const verifiableName = message.data;
                 this.session!.selectVerifiable(verifiableName);
@@ -144,6 +148,9 @@ export class DebuggerPanel implements SessionObserver {
             // which keeps the importa information and discards cyclic links
             let message: any = {
                 current: RecordView.from(record.current),
+                topLevel: record.topLevel.map(tl => RecordView.from(tl)),
+                next: record.next ? RecordView.from(record.next) : undefined,
+                previous: record.previous ? RecordView.from(record.previous) : undefined,
                 hasNext: record.hasNext,
                 hasPrevious: record.hasPrevious,
                 hasParent: record.hasParent,
