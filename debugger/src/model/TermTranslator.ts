@@ -325,25 +325,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             return this.call(applicableSanitized, application.args);
         }
 
-        const args: TranslationRes[] = [];
-        const argStrings: string[] = [];
-        const sorts: Sort[] = [];
-        application.args.forEach(a => {
-            const sort = getSort(a);
-            let translated: TranslationRes;
-            if (sort.is(Sort.Logical)) {
-                translated = new BooleanWrapper(a).accept(this);
-                sorts.push(Sort.Bool);
-            } else {
-                translated = a.accept(this);
-                sorts.push(sort);
-            }
-            if (translated.res === undefined) {
-                return leftover(application, "Could not translate some of the arguments", leftovers);
-            }
-            args.push(translated);
-            argStrings.push(translated.res);
-        });
+        const args = application.args.map(a => a.accept(this));
 
         // Collect the leftovers from the translation of all arguments
         const leftovers = args.reduce(
@@ -351,15 +333,17 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             <Leftover[]>[]
         );
 
-        // TODO: We probably need to handle inverse functions in a special way
+        // Translating some of the arguments has failed.
+        if (args.some(a => a.res === undefined)) {
+            return leftover(application, "Could not translate some of the arguments", leftovers);
+        }
+
+        const sorts = application.args.map(a => getSort(a));
         sorts.push(application.sort);
         this.env.recordFunction(applicableSanitized, sorts);
 
-        // Get a fresh variable for the return value of the function and record the function call
-        const callRes = this.env.getFreshVariable('fun_res', application.sort);
-        this.env.recordFunctionCall(applicableSanitized, argStrings, callRes);
-        
-        return translatedFrom(callRes, args);
+        const callName = `${AlloyTranslator.Function}.${applicableSanitized}`;
+        return this.call(callName, application.args);
     }
 
     visitLookup(lookup: Lookup): TranslationRes {

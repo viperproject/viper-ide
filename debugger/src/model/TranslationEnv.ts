@@ -25,11 +25,10 @@ export class TranslationEnv {
 
     public sortWrappers: Map<string, Sort>;
     public functions: Map<string, Sort[]>;
-    public functionCalls: Map<string, string[][]>;
     public lookupFunctions: [Sort, string][];
 
     public userSorts: Set<string>;
-    public sorts: Set<string>;
+    public sorts: Map<string, string | undefined>;
 
     constructor(readonly state: State) {
         
@@ -46,11 +45,10 @@ export class TranslationEnv {
 
         this.sortWrappers = new Map();
         this.functions = new Map();
-        this.functionCalls = new Map();
         this.lookupFunctions = [];
 
         this.userSorts = new Set();
-        this.sorts = new Set();
+        this.sorts = new Map();
 
         state.store.forEach(v => {
             // We save the names of symbolic value for store variables
@@ -156,8 +154,10 @@ export class TranslationEnv {
             return AlloyTranslator.Ref;
         }
         if (sort.is('Set') && sort.elementsSort !== undefined) {
-            const name = "Set_" + this.translate(sort.elementsSort);
-            this.recordSort(name, "Set");
+            const elementSort = this.translate(sort.elementsSort);
+            const name = "Set_" + elementSort;
+            const constraint = 'elems in ' + elementSort;
+            this.recordSort(name, "Set", constraint);
             return name;
         }
         if (sort.is(Sort.Int)) {
@@ -202,20 +202,11 @@ export class TranslationEnv {
         }
     }
 
-    public recordFunctionCall(name: string, args: string[], returnName: string) {
-        const calls = this.functionCalls.get(name);
-        if (calls !== undefined) {
-            calls.push(args.concat(returnName));
-        } else {
-            this.functionCalls.set(name, [args.concat(returnName)]);
-        }
-    }
-
-    public recordSort(sort: string, base?: string) {
+    public recordSort(sort: string, base?: string, constraint?: string) {
         if (base !== undefined) {
-            this.sorts.add(sort + " extends " + base);
+            this.sorts.set(sort + " extends " + base, constraint);
         } else {
-            this.sorts.add(sort);
+            this.sorts.set(sort, undefined);
         }
     }
 

@@ -318,48 +318,16 @@ export namespace AlloyTranslator {
 
         if (env.functions.size > 0) {
             mb.comment("Functions");
+            const members: string[] = [];
             for (let [name, sorts] of env.functions) {
                 // Add multiplicity of 'lone' to return type of function
                 const tSorts = sorts.map(s => env.translate(s));
-                const argSorts = tSorts.slice(0, -1);
-                const [retSort] = tSorts.slice(-1);
+                tSorts[tSorts.length - 1] = 'lone ' + tSorts[tSorts.length - 1];
 
-                let argCount = 0;
-                const members = argSorts.map(s => {
-                    const member = `a${argCount}: ${s}`;
-                    argCount += 1;
-                    return member;
-                });
-                members.push(`ret: ${retSort}`);
-
-                mb.abstractSignature('fun_' + name)
-                    .withMembers(members);
+                members.push(name + ': (' + tSorts.join(' -> ') + ')');
             }
+            mb.oneSignature(Function).withMembers(members);
             mb.blank();
-        }
-
-        if (env.functionCalls.size > 0) {
-            mb.comment("Function Calls");
-            env.functionCalls.forEach((calls, name) => {
-                let count = 0;
-                calls.forEach((call) => {
-                    const args = call.slice(0, -1);
-                    const [ret] = call.slice(-1);
-
-                    let argNum = 0;
-                    const constraints = args.map(arg => {
-                        const c = `a${argNum} = ${arg}`;
-                        argNum += 1;
-                        return c;
-                    });
-                    constraints.push(`ret = ${ret}`);
-
-                    mb.loneSignature(name +  '_call_' + count)
-                        .extends('fun_' + name)
-                        .withConstraints(constraints);
-                    count += 1;
-                });
-            });
         }
 
         const fvfFacts = new Set<string>();
@@ -377,8 +345,8 @@ export namespace AlloyTranslator {
             const tSort = env.translate(sort);
             mb.abstractSignature(sigName).extends(AlloyTranslator.Snap)
                 .withMember('v: lone ' + env.translate(sort));
-            mb.fun(`fun ${name.toLowerCase()} [ o: ${tSort} ]: ${Sort.Snap} {
-    { s: ${sigName} | s.v = o }
+            mb.fun(`pred ${name.toLowerCase()} [ o: ${tSort}, s: ${Sort.Snap} ] {
+    s.v = o
 }`);
         });
         mb.blank();
@@ -391,7 +359,13 @@ export namespace AlloyTranslator {
 
         if (env.sorts.size > 0) {
             mb.comment("Other sorts");
-            env.sorts.forEach(s => mb.signature(s));
+            env.sorts.forEach((constraint, name) => {
+                if (constraint !== undefined) {
+                    mb.signature(name).withConstraint(constraint);
+                } else {
+                    mb.signature(name);
+                }
+            });
             mb.blank();
         }
     }
@@ -434,14 +408,12 @@ export namespace AlloyTranslator {
 
         // If there are functions that return reference-like object, they have to be accounted in the constraint as
         // well, otherwise we may prevent Alloy from generating any Object.
-
-        for (const [name, calls] of env.functionCalls) {
-            const sorts = env.functions.get(name)!;
+        for (const [name, sorts] of env.functions) {
             const returnSort = sorts[sorts.length - 1];
-            if (returnSort.is(Sort.Ref)) {
-                for (let i = 0; i < calls.length; i++) {
-                    reachable.push(name + `_call_${i}.ret`);
-                }
+            const returnSig = env.translate(returnSort);
+            if (returnSig === Ref) { 
+                const params = sorts.slice(0, -1).map(s => env.translate(s)).join(', ');
+                reachable.push(Function + '.' + name + `[${params}]`);
             }
         }
 
