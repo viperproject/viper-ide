@@ -415,6 +415,10 @@ export namespace AlloyTranslator {
         // If there are functions that return reference-like object, they have to be accounted in the constraint as
         // well, otherwise we may prevent Alloy from generating any Object.
         for (const [name, sorts] of env.functions) {
+            // Inverse functions should not limit references
+            if (name.startsWith('inv')) {
+                continue;
+            }
             const returnSort = sorts[sorts.length - 1];
             const returnSig = env.translate(returnSort);
             if (returnSig === Ref) { 
