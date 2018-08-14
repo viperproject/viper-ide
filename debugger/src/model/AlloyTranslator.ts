@@ -2,11 +2,11 @@ import { AlloyModelBuilder } from "./AlloyModel";
 import { State } from "./Record";
 import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, HeapChunk } from "./Heap";
 import { Logger } from "../logger";
-import { VariableTerm, Unary, Term, Application, Binary, Quantification, Literal, LogicalWrapper } from "./Term";
+import { VariableTerm, Unary, Term, Application, Binary, Quantification, Literal, LogicalWrapper, BooleanWrapper } from "./Term";
 import { getSort, Sort } from './Sort';
 import { Verifiable } from "./Verifiable";
 import { TranslationEnv } from "./TranslationEnv";
-import { TermTranslatorVisitor, sanitize } from "./TermTranslator";
+import { TermTranslatorVisitor, sanitize, TranslationRes } from "./TermTranslator";
 import * as fs from 'fs';
 import { getAbsolutePath } from "../extension";
 
@@ -142,12 +142,18 @@ export namespace AlloyTranslator {
         const refTypedStoreVariables: string[] = [];
         const store = mb.oneSignature(Store);
 
-        env.storeVariables.forEach((variable, name) => {
+        env.storeVariables.forEach((variable, rawName) => {
+            const name = sanitize(rawName);
             const sig = env.translate(variable.sort);
             store.withMember(`${name}: one ${sig}`);
 
             // TODO: Do this via termToFact?
-            const value = variable.value.accept(translator);
+            let value: TranslationRes;
+            if (variable.sort.is(Sort.Bool)) {
+                value = new BooleanWrapper(variable.value).accept(translator);
+            } else {
+                value = variable.value.accept(translator);
+            }
             if (value.res) {
                 let fact = value.additionalFacts
                                 .concat(`${Store}.${name} = ${value.res}`)
