@@ -5,6 +5,7 @@ import { TranslationEnv } from './model/TranslationEnv';
 import { VariableTerm, Literal, Lookup } from './model/Term';
 import { Logger } from './logger';
 import { sanitize } from './model/TermTranslator';
+import { Sort } from './model/Sort';
 
 
 export interface DotElem {
@@ -15,8 +16,10 @@ class Label {
     public parts: string[];
     constructor(readonly label?: string) {
         this.parts = [];
-        if (label) {
+        if (label !== undefined) {
             this.parts.push(label);
+        } else {
+            this.parts.push('');
         }
     }
 
@@ -41,7 +44,7 @@ class Node implements DotElem {
     }
 
     public toString() {
-        const attrs = this.attributes.concat([`label="${this.label}"`]);
+        const attrs = this.attributes.concat([`label="${this.label.toString()}"`]);
         return `${this.name} [${attrs.join(', ')}]`;
     }
 }
@@ -112,8 +115,14 @@ export class DotGraph {
         storeGraph.edgeAttr('color', '"#ffffff"');
         storeGraph.edgeAttr('fontcolor', '"#ffffff"');
 
+        const fromNodes: Set<string> = new Set();
+
         if (state.prestate) {
             state.prestate.store.forEach(v => {
+                if (v.sort.is(Sort.Ref)) {
+                    storeGraph.add(new Node(sanitize(v.name), new Label(`${v.name}\\l`)));
+                    return;
+                }
                 if (v.value instanceof VariableTerm) {
                     storeGraph.add(new Node(sanitize(v.value.id), new Label(`${v.name}: ${v.sort}\\l`)));
                 } else if (v.value instanceof Literal) {
@@ -127,36 +136,18 @@ export class DotGraph {
             });
         }
 
-        const objType = `{this/${AlloyTranslator.Ref}}`;
-        const nullType = `{this/${AlloyTranslator.Null}}`;
-        let heapNodes: Map<string, Node> = new Map();
-        alloyInstance.atoms.forEach(atom => {
-            const name = sanitize(atom.name);
-            if (atom.type === objType) {
-                heapNodes.set(name, new Node(name, new Label()));
-                // heapNodes.set(sanitize(atom.name), `[label="\\l"]`);
-            } else if (atom.type === nullType) {
-                const node = new Node(name, new Label("NULL"));
-                node.attr('shape', 'plaintext');
-                heapNodes.set(name, node);
-                // heapNodes.set(sanitize(atom.name), `[shape=none, label="NULL\\l"]`);
-            }
-        });
-
-        let integerNodes: Map<string, number> = new Map();
-
         let relations: string[] = [];
+        const stuffNodes: Set<string> = new Set();
+
         alloyInstance.signatures.forEach(sig => {
             if (sig.label === 'this/' + AlloyTranslator.Store) {
-                sig.fields.forEach(f => {
+              sig.fields.forEach(f => {
                     if (f.name !== "refTypedVars'") {
-                        const name = sanitize(f.name).replace("'", "");
+                        const name = f.name.replace("'", "");
                         f.atoms.forEach(rel => {
                             const to = sanitize(rel[1]);
-                            if (heapNodes.has(to)) {
-                                relations.push(`${name}:e -> ${to}`);
-                                // relations.push(`${f.name} -> ${to} [dir=both, arrowtail=dot]`);
-                            }
+                            stuffNodes.add(to);
+                            relations.push(`${name}:e -> ${to}`);
                         });
                     }
                 });
@@ -165,25 +156,70 @@ export class DotGraph {
                     if (f.name !== "refTypedFields'") {
                         f.atoms.forEach(rel => {
                             const from = sanitize(rel[0]);
-                            if (!heapNodes.has(from)) {
-                                return;
-                            }
                             const to = sanitize(rel[1]);
-                            if (heapNodes.has(to)) {
-                                // const label = `<td port="${f.name}">${f.name}</td>`;
-                                const label = `<${f.name}> ${f.name}`;
-                                heapNodes.get(from)!.label.parts.push(label);
-                                relations.push(`${from}:${f.name} -> ${to}`);
-                            } else if (integerNodes.has(to)) {
-                                // const label = `<td port="${f.name}">${f.name} == ${integerNodes.get(to)}</td>`;
-                                const label = `<${f.name}> ${f.name} == ${integerNodes.get(to)}`;
-                                heapNodes.get(from)!.label.parts.push(label);
-                            }
+                            // const label = `<td port="${f.name}">${f.name}</td>`;
+                            // const label = `<${f.name}> ${f.name}`;
+                            stuffNodes.add(from);
+                            stuffNodes.add(to);
+                            // heapNodes.get(from)!.label.parts.push(label);
+                            // relations.push(`${from}:${f.name} -> ${to}`);
+                            relations.push(`${from} -> ${to}`);
                         });
                     }
                 });
             }
         });
+
+        const refType = `{this/${AlloyTranslator.Ref}}`;
+        const nullType = `{this/${AlloyTranslator.Null}}`;
+        let heapNodes: Map<string, Node> = new Map();
+        alloyInstance.atoms.forEach(atom => {
+            const name = sanitize(atom.name);
+            if (atom.type === refType && stuffNodes.has(name)) {
+                heapNodes.set(name, new Node(name, new Label()));
+                // heapNodes.set(sanitize(atom.name), `[label="\\l"]`);
+            } else if (atom.type === nullType && stuffNodes.has(name)) {
+                const node = new Node(name, new Label("NULL"));
+                node.attr('shape', 'plaintext');
+                heapNodes.set(name, node);
+                // heapNodes.set(sanitize(atom.name), `[shape=none, label="NULL\\l"]`);
+            }
+        });
+
+        // alloyInstance.signatures.forEach(sig => {
+        //     if (sig.label === 'this/' + AlloyTranslator.Store) {
+        //         sig.fields.forEach(f => {
+        //             if (f.name !== "refTypedVars'") {
+        //                 const name = f.name.replace("'", "");
+        //                 f.atoms.forEach(rel => {
+        //                     const to = sanitize(rel[1]);
+        //                     if (heapNodes.has(to)) {
+        //                         relations.push(`${name}:e -> ${to}`);
+        //                         // relations.push(`${f.name} -> ${to} [dir=both, arrowtail=dot]`);
+        //                     }
+        //                 });
+        //             }
+        //         });
+        //     } else if (sig.label === 'this/' + AlloyTranslator.Ref) {
+        //         sig.fields.forEach(f => {
+        //             if (f.name !== "refTypedFields'") {
+        //                 f.atoms.forEach(rel => {
+        //                     const from = sanitize(rel[0]);
+        //                     if (!heapNodes.has(from)) {
+        //                         return;
+        //                     }
+        //                     const to = sanitize(rel[1]);
+        //                     if (heapNodes.has(to)) {
+        //                         // const label = `<td port="${f.name}">${f.name}</td>`;
+        //                         const label = `<${f.name}> ${f.name}`;
+        //                         heapNodes.get(from)!.label.parts.push(label);
+        //                         relations.push(`${from}:${f.name} -> ${to}`);
+        //                     }
+        //                 });
+        //             }
+        //         });
+        //     }
+        // });
 
         let heapGraph = new DotGraph('clusterHeap', true);
         heapGraph.attr('label', '< <u>Heap</u> >');
