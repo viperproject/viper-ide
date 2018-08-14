@@ -116,6 +116,7 @@ function setupInputHandlers() {
         }
     }
 
+    domElem('span#toggleExecutionRecords').onclick = () => toggleSection('span#toggleExecutionRecords', '#navigation');
     domElem('button#toggleAlloyModel').onclick = () => toggleSection('button#toggleAlloyModel', '#alloyModel');
     domElem('button#toggleSymbExLog').onclick = () => toggleSection('button#toggleSymbExLog', '#symbExLog');
     domElem('button#copyAlloyModel').onclick = () => {

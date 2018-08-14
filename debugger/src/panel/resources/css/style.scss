@@ -54,6 +54,25 @@ nav {
     font-family: monospace;
 }
 
+#toggleExecutionRecords {
+    margin-left: 0.5em;
+    color: #444444;
+    font-weight: normal;
+}
+
+#toggleExecutionRecords:before {
+    content: " ["
+}
+
+#toggleExecutionRecords::after {
+    content: "]"
+}
+
+#toggleExecutionRecords:hover {
+    cursor: pointer;
+    text-decoration: underline;
+}
+
 #navigation {
     ul {
         list-style: none;
@@ -73,6 +92,7 @@ nav {
         margin: 0;
         margin-left: 1em;
         display: inline-block;
+        white-space: pre-wrap;
     }
     #current > span {
         background-color: #114215;
