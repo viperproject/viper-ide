@@ -82,6 +82,24 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
     constructor(readonly env: TranslationEnv) {}
 
+    private pred_call(name: string, sort: Sort, args: Term[]): TranslationRes {
+        const freshName = this.env.getFreshVariable('fun_res', sort);
+
+        const tArgs: TranslationRes[] = [];
+        args.forEach(a => {
+            const res = a.accept(this);
+            if (res.res === undefined) {
+                Logger.error("Could not translate argument: " + res);
+                return leftover(a, "Could not translate argument", []);
+            }
+            tArgs.push(res);
+        });
+        
+        const fun_res = name + mkString(tArgs.map(a => a.res).concat(freshName), '[', ", ", ']');
+        return translatedFrom(freshName, tArgs)
+                .withAdditionalFacts([fun_res]);
+    }
+
     private coll_call(name: string, sort: Sort, args: Term[]): TranslationRes {
         const freshName = this.env.getFreshVariable('fun_res', sort);
 
@@ -116,7 +134,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
     visitBinary(binary: Binary): TranslationRes {
         if (binary.op === "Combine") {
-            return this.coll_call("combine", Sort.Snap,[binary.lhs, binary.rhs]);
+            return this.pred_call("combine", Sort.Snap, [binary.lhs, binary.rhs]);
         }
 
         const leftSort = getSort(binary.lhs);
@@ -129,7 +147,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
                 case BinaryOp.SetIntersection: return this.coll_call('set_intersection', leftSort, [binary.lhs, binary.rhs]);
                 case BinaryOp.SetUnion: return this.coll_call('set_union', leftSort, [binary.lhs, binary.rhs]);
 
-                case BinaryOp.SetIn: return this.coll_call('set_in', Sort.Bool, [binary.lhs, binary.rhs]);
+                case BinaryOp.SetIn: return this.call('set_in', [binary.lhs, binary.rhs]);
                 case BinaryOp.SetSubset: return this.coll_call('set_subset', Sort.Bool, [binary.lhs, binary.rhs]);
                 case BinaryOp.SetDisjoint: return this.coll_call('set_disjoint', Sort.Bool, [binary.lhs, binary.rhs]);
             }
@@ -222,7 +240,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
                 // Int-Perm division always has the integer on the left in Silicon
                 case '/': return this.coll_call('int_perm_div', rightSort, [binary.lhs, binary.rhs]);
                 case 'PermMin': return this.coll_call('perm_min', leftSort, [binary.lhs, binary.rhs]);
-                case '==': return this.coll_call('perm_equals', Sort.Bool, [binary.lhs, binary.rhs]);
+                case '==': return this.call('perm_equals', [binary.lhs, binary.rhs]);
                 // case '==': return translatedFrom(`(${left.res} = ${right.res})`, [left, right]);
                 default: Logger.error(`Unexpected perm operator: ${binary.op}`);
             }
@@ -264,7 +282,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             this.env.sortWrappers.set(funName, fromSort);
         }
 
-        return this.coll_call(funName.toLowerCase(), toSort, [sortWrapper.term]);
+        return this.pred_call(funName.toLowerCase(), toSort, [sortWrapper.term]);
     }
 
     visitVariableTerm(variable: VariableTerm): TranslationRes {

@@ -73,9 +73,14 @@ fun perm_new [ n, d: Int ]: one Perm {
   { p': Perm | p'.num = n && p'.denom = d }
 }
 
-fun perm_equals [ p1, p2: Perm ]: one Bool {
-	p1 = p2 => True
-	else (p1.num = p2.num && p1.denom = p2.denom) => True
-	else (mul[p1.num, p2.denom] = mul[p1.denom, p2.num]) => True
-	else False
+--fun perm_equals [ p1, p2: Perm ]: one Bool {
+--  p1 = p2 => True
+--  else (p1.num = p2.num && p1.denom = p2.denom) => True
+--  else (mul[p1.num, p2.denom] = mul[p1.denom, p2.num]) => True
+--  else False
+--}
+pred perm_equals [ p1, p2: Perm ] {
+	p1 = p2 ||
+	(p1.num = p2.num && p1.denom = p2.denom) ||
+	(mul[p1.num, p2.denom] = mul[p1.denom, p2.num])
 }

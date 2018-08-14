@@ -11,6 +11,9 @@ abstract sig Combine extends Snap {
     left: one SymbVal,
     right: one SymbVal
 }
-fun combine [ l, r: Snap ]: Snap {
-    { c: Combine | c.left = l && c.right = r }
+--fun combine [ l, r: Snap ]: Snap {
+--    { c: Combine | c.left = l && c.right = r }
+--}
+pred combine [ l, r: Snap, c: Combine ] {
+    c.left = l && c.right = r
 }

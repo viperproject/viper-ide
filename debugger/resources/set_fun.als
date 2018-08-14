@@ -22,8 +22,11 @@ fun set_intersection [ s1, s2: Set ]: one Set {
 fun set_union [ s1, s2: Set ]: one Set {
 	{ s': Set | s'.elems = s1.elems + s2.elems }
 }
-fun set_in [ e: univ, s1: Set ]: one Bool {
-	e in s1.elems => True else False
+// fun set_in [ e: univ, s1: Set ]: one Bool {
+// 	e in s1.elems => True else False
+// }
+pred set_in [ e: univ, s1: Set ] {
+	e in s1.elems
 }
 fun set_subset [ s1, s2: Set ]: one Bool {
 	s1.elems in s2.elems => True else False

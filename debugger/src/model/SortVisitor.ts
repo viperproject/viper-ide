@@ -42,19 +42,6 @@ export class TermSortVisitor implements TermVisitor<Sort> {
             }
         }
 
-        if (leftSort.is('Set')) {
-            switch (term.op) {
-                case BinaryOp.SetAdd: return leftSort;
-                case BinaryOp.SetDifference: return leftSort;
-                case BinaryOp.SetIntersection: return leftSort;
-                case BinaryOp.SetUnion: return leftSort;
-
-                case BinaryOp.SetIn: return Sort.Bool;
-                case BinaryOp.SetSubset: return Sort.Bool;
-                case BinaryOp.SetDisjoint: return Sort.Bool;
-            }
-        }
-
         if (leftSort.is(Sort.Perm) || rightSort.is(Sort.Perm)) {
             switch (term.op) {
                 case BinaryOp.Plus: return Sort.Perm;
@@ -84,8 +71,8 @@ export class TermSortVisitor implements TermVisitor<Sort> {
                 case BinaryOp.SetIntersection: return setSort;
                 case BinaryOp.SetUnion: return setSort;
 
+                case BinaryOp.SetIn: return Sort.Logical;
                 case BinaryOp.SetDisjoint: return Sort.Bool;
-                case BinaryOp.SetIn: return Sort.Bool;
                 case BinaryOp.SetSubset: return Sort.Bool;
             }
 
