@@ -216,9 +216,11 @@ export class TranslationEnv {
 
     public recordTempVariable(variable: VariableTerm): string {
         const sanitized = sanitize(variable.id);
-        this.variablesToDeclare.set(sanitized, variable.sort);
-        this.tempVariables.add(sanitized);
-        this.recordInstance(variable.sort, sanitized);
+        if (!this.tempVariables.has(sanitized)) {
+            this.variablesToDeclare.set(sanitized, variable.sort);
+            this.tempVariables.add(sanitized);
+            this.recordInstance(variable.sort, sanitized);
+        }
         return sanitized;
     }
 }
