@@ -121,12 +121,17 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
     private call(name: string, args: Term[]): TranslationRes {
         const tArgs: TranslationRes[] = [];
         args.forEach(a => {
-            const res = a.accept(this);
-            if (res.res === undefined) {
-                Logger.error("Could not translate argument: " + res);
-                return leftover(a, "Could not translate argument", []);
+            const sort = getSort(a);
+            let translated: TranslationRes;
+            if (sort.is(Sort.Logical)) {
+                translated = new BooleanWrapper(a).accept(this);
+            } else {
+                translated = a.accept(this);
             }
-            tArgs.push(res);
+            if (translated.res === undefined) {
+                return leftover(a, "Could not translate one of the arguments", translated.leftovers);
+            }
+            tArgs.push(translated);
         });
 
         return translatedFrom(name + mkString(tArgs.map(a => a.res), '[', ", ", ']'), tArgs);
@@ -343,25 +348,23 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             return this.call(applicableSanitized, application.args);
         }
 
-        const args = application.args.map(a => a.accept(this));
-
-        // Collect the leftovers from the translation of all arguments
-        const leftovers = args.reduce(
-            (acc, current) => acc.concat(current.leftovers),
-            <Leftover[]>[]
-        );
-
-        // Translating some of the arguments has failed.
-        if (args.some(a => a.res === undefined)) {
-            return leftover(application, "Could not translate some of the arguments", leftovers);
+        const callName = `${AlloyTranslator.Function}.${applicableSanitized}`;
+        const translated = this.call(callName, application.args);
+        if (translated.res === undefined) {
+            return leftover(application, "Could not translate call", translated.leftovers);
         }
 
-        const sorts = application.args.map(a => getSort(a));
+        const sorts = application.args.map(a => {
+            const s = getSort(a);
+            if (s.is(Sort.Logical)) {
+                return Sort.Bool;
+            } else {
+                return s;
+            }
+        });
         sorts.push(application.sort);
         this.env.recordFunction(applicableSanitized, sorts);
-
-        const callName = `${AlloyTranslator.Function}.${applicableSanitized}`;
-        return this.call(callName, application.args);
+        return translated;
     }
 
     visitLookup(lookup: Lookup): TranslationRes {
