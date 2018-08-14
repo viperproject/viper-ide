@@ -127,11 +127,11 @@ export class TermSortVisitor implements TermVisitor<Sort> {
     }
 
     public visitAnd(_: And): Sort {
-        return Sort.Bool;
+        return Sort.Logical;
     }
 
     public visitOr(_: Or): Sort {
-        return Sort.Bool;
+        return Sort.Logical;
     }
 
     public visitDistinct(_: Distinct): Sort {
