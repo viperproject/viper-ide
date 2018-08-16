@@ -7,6 +7,7 @@ import { DebuggerError } from "../Errors";
 import { sanitize } from "./TermTranslator";
 import { StoreVariable } from "./StoreVariable";
 import { Logger } from "../logger";
+import { Signature } from "./AlloyModel";
 
 
 export class TranslationEnv {
@@ -23,6 +24,9 @@ export class TranslationEnv {
     private additionalVariables: Set<string>;
     public recordedInstances: Map<string, string[]>;
 
+    public quantifiedSignatureCount: number;
+    public recordedSignatures: Map<string, Signature>;
+
     public sortWrappers: Map<string, Sort>;
     public functions: Map<string, [Sort[], Sort]>;
     public functionCalls: Map<string, [string, string[]][]>;
@@ -30,6 +34,9 @@ export class TranslationEnv {
 
     public userSorts: Set<string>;
     public sorts: Map<string, string | undefined>;
+
+    // HACK: Kinda dirty, there surely is a better way
+    public insideQuantifier = false;
 
     constructor(readonly state: State) {
         
@@ -43,6 +50,9 @@ export class TranslationEnv {
         this.tempVariables = new Set();
         this.additionalVariables = new Set();
         this.recordedInstances = new Map();
+        this.recordedSignatures = new Map();
+
+        this.quantifiedSignatureCount = 0;
 
         this.sortWrappers = new Map();
         this.functions = new Map();
@@ -114,7 +124,7 @@ export class TranslationEnv {
         }
     }
 
-    public getFreshVariable(base: string, sort: Sort) {
+    private getNormalFreshVariable(base: string, sort: Sort) {
         const count = this.freshVariables.get(base);
         let name: string;
         if (count !== undefined) {
@@ -129,6 +139,36 @@ export class TranslationEnv {
         this.recordInstance(sort, name);
 
         return name;
+    }
+
+    // TODO: We probably need to know the sort of the object we are quantifying over
+    private getQuantifiedFreshVariable(base: string, sort: Sort) {
+        const quantifierNumber = this.quantifiedSignatureCount;
+        const sigName = 'fresh_quantifier_vars_' + quantifierNumber;
+        let sig = this.recordedSignatures.get(sigName);
+        if (sig === undefined) {
+            sig = new Signature(sigName).withMultiplicity('one');
+            this.recordedSignatures.set(sigName, sig);
+        }
+
+        const count = sig.numberOfMembers();
+        let varName: string;
+        if (count !== undefined) {
+            varName = `${base}_${count + 1}'`;
+        } else {
+            varName = `${base}_0'`;
+        }
+
+        sig.withMember(varName + ": univ -> lone " + this.translate(sort));
+        return sigName + '.' + varName;
+    }
+
+    public getFreshVariable(base: string, sort: Sort) {
+        if (this.insideQuantifier) {
+            return this.getQuantifiedFreshVariable(base, sort);
+        } else { 
+            return this.getNormalFreshVariable(base, sort);
+        }
     }
 
     public resolve(variable: VariableTerm): string | undefined {

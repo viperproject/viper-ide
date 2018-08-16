@@ -155,13 +155,12 @@ export namespace AlloyTranslator {
                 value = variable.value.accept(translator);
             }
             if (value.res) {
+                encodeFreshVariables(env, mb);
+
                 let fact = value.additionalFacts
                                 .concat(`${Store}.${name} = ${value.res}`)
                                 .join(" && \n       ");
                 mb.fact(fact);
-                env.variablesToDeclare.forEach((sort, name) => mb.oneSignature(name).in(env.translate(sort)));
-                env.variablesToDeclare.clear();
-
             } else {
                 Logger.error(`Could not translate store value for ${name}: ` + value.leftovers);
             }
@@ -262,12 +261,12 @@ export namespace AlloyTranslator {
                 const perm = chunk.perm.accept(termTranslator);
 
                 if (rec.res && perm.res) {
+                    encodeFreshVariables(env, mb);
+
                     const facts = rec.additionalFacts
                                      .concat(perm.additionalFacts)
                                      .concat(`(${rec.res} -> ${perm.res}) in Fun.${functionName}`)
                                      .join(" && \n       ");
-                    env.variablesToDeclare.forEach((sort, name) => mb.oneSignature(name).in(env.translate(sort)));
-                    env.variablesToDeclare.clear();
                     mb.fact(facts);
                 }
                 // termToFact(permFun, env, mb, termTranslator);
@@ -305,16 +304,25 @@ export namespace AlloyTranslator {
         }
 
         mb.comment(t.toString());
+        encodeFreshVariables(env, mb);
         // The translation of a fact might have introduces some variables and facts to constrain them.
-        let facts = body.additionalFacts.concat(body.res).join(" && \n       ");
-        env.variablesToDeclare.forEach((sort, name) => mb.oneSignature(name).in(env.translate(sort)));
-        env.variablesToDeclare.clear();
+        let facts = body.additionalFacts
+                        .concat(body.res)
+                        .join(" && \n       ");
         // let facts = [body.res].concat(body.additionalFacts).join(" && ");
         if (body.quantifiedVariables.length > 0) {
             mb.fact(body.quantifiedVariables.concat(facts).join(" | "));
         } else {
             mb.fact(facts);
         }
+    }
+
+    function encodeFreshVariables(env: TranslationEnv, mb: AlloyModelBuilder) {
+        env.variablesToDeclare.forEach((sort, name) => mb.oneSignature(name).in(env.translate(sort)));
+        env.variablesToDeclare.clear();
+        env.recordedSignatures.forEach((sig, _) => mb.addSignature(sig));
+        env.quantifiedSignatureCount += 1;
+        env.recordedSignatures.clear();
     }
 
     // NOTE: Inverse function, functions and temp variables are added to the Alloy model "at the bottom" because
@@ -464,8 +472,10 @@ export namespace AlloyTranslator {
             const failedQuery = constraint.accept(termTranslator);
             if (failedQuery.res) {
                 mb.comment("Constraint from last non-proved smt query");
-                let facts = failedQuery.additionalFacts.concat(failedQuery.res).join(" && \n       ");
-                env.variablesToDeclare.forEach((sort, name) =>  mb.oneSignature(name).in(env.translate(sort)));
+                encodeFreshVariables(env, mb);
+                let facts = failedQuery.additionalFacts
+                                       .concat(failedQuery.res)
+                                       .join(" && \n       ");
                 mb.fact(facts);
                 mb.blank();
             } else {

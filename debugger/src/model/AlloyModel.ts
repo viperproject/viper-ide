@@ -48,6 +48,10 @@ export class Signature implements ModelPart {
         return this;
     }
 
+    public numberOfMembers() {
+        return this.members.length;
+    }
+
     public withConstraint(constraint: string) {
         this.constraints.push(constraint);
         return this;
@@ -132,6 +136,10 @@ export class AlloyModelBuilder {
         if (DebuggerSettings.logLevel === LogLevel.DEBUG) {
             this.parts.push(Blank);
         }
+    }
+
+    public addSignature(sig: Signature) {
+        this.parts.push(sig);
     }
 
     public signature(name: string) {
