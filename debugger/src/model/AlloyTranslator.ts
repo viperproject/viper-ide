@@ -257,7 +257,7 @@ export namespace AlloyTranslator {
                 // const permFun = new Binary('==', 
                 //                            new Application(functionName, [chunk.receiver], new Sort('Perm')),
                 //                            chunk.perm);
-                env.recordFunction(functionName, [Sort.Ref, Sort.Perm]);
+                env.recordFunction(functionName, [Sort.Ref], Sort.Perm);
                 const rec = chunk.receiver.accept(termTranslator);
                 const perm = chunk.perm.accept(termTranslator);
 
@@ -324,16 +324,33 @@ export namespace AlloyTranslator {
 
         if (env.functions.size > 0) {
             mb.comment("Functions");
-            const members: string[] = [];
-            for (let [name, sorts] of env.functions) {
+            for (let [name, [argSorts, retSort]] of env.functions) {
                 // Add multiplicity of 'lone' to return type of function
-                const tSorts = sorts.map(s => env.translate(s));
-                tSorts[tSorts.length - 1] = 'lone ' + tSorts[tSorts.length - 1];
+                const members: string[] = [];
+                argSorts.forEach((s, index) => members.push(`a${index}: one ` + env.translate(s)));
 
-                members.push(name + ': (' + tSorts.join(' -> ') + ')');
+                members.push(`ret: one ` + env.translate(retSort));
+                mb.abstractSignature('fun_' + name)
+                    .withMembers(members);
             }
-            mb.oneSignature(Function).withMembers(members);
             mb.blank();
+        }
+
+        if (env.functionCalls.size > 0) {
+            mb.comment("Function Calls");
+            env.functionCalls.forEach((calls, name) => {
+                calls.forEach((c) => {
+                    const [callName, args] = c;
+
+                    const constraints = [`one ${callName}.ret`];
+                    args.forEach((a, index) => constraints.push(`${callName}.a${index} = ${a} && one ${callName}.a${index}`));
+
+                    mb.loneSignature(callName)
+                       .extends('fun_' + name);
+                    // TODO: Should this be an iff?
+                    mb.fact(`one ${callName} <=> ` + constraints.join(' && '));
+                });
+            });
         }
 
         const fvfFacts = new Set<string>();
@@ -414,16 +431,14 @@ export namespace AlloyTranslator {
 
         // If there are functions that return reference-like object, they have to be accounted in the constraint as
         // well, otherwise we may prevent Alloy from generating any Object.
-        for (const [name, sorts] of env.functions) {
+        for (const [name, [_, retSort]] of env.functions) {
             // Inverse functions should not limit references
             if (name.startsWith('inv')) {
                 continue;
             }
-            const returnSort = sorts[sorts.length - 1];
-            const returnSig = env.translate(returnSort);
+            const returnSig = env.translate(retSort);
             if (returnSig === Ref) { 
-                const params = sorts.slice(0, -1).map(s => env.translate(s)).join(', ');
-                reachable.push(Function + '.' + name + `[${params}]`);
+                reachable.push('fun_' + name + '.ret');
             }
         }
 

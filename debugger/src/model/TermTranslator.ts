@@ -348,23 +348,47 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             return this.call(applicableSanitized, application.args);
         }
 
-        const callName = `${AlloyTranslator.Function}.${applicableSanitized}`;
-        const translated = this.call(callName, application.args);
-        if (translated.res === undefined) {
-            return leftover(application, "Could not translate call", translated.leftovers);
-        }
-
-        const sorts = application.args.map(a => {
-            const s = getSort(a);
-            if (s.is(Sort.Logical)) {
-                return Sort.Bool;
+        const args: TranslationRes[] = [];
+        const argStrings: string[] = [];
+        const sorts: Sort[] = [];
+        application.args.forEach(a => {
+            const sort = getSort(a);
+            let translated: TranslationRes;
+            if (sort.is(Sort.Logical)) {
+                translated = new BooleanWrapper(a).accept(this);
+                sorts.push(Sort.Bool);
             } else {
-                return s;
+                translated = a.accept(this);
+                sorts.push(sort);
             }
+            if (translated.res === undefined) {
+                return leftover(application, "Could not translate some of the arguments", translated.leftovers);
+            }
+            args.push(translated);
+            argStrings.push(translated.res);
         });
-        sorts.push(application.sort);
-        this.env.recordFunction(applicableSanitized, sorts);
-        return translated;
+        this.env.recordFunction(applicableSanitized, sorts, application.sort);
+        const callName = this.env.recordFunctionCall(applicableSanitized, argStrings);
+
+        return translatedFrom(callName + '.ret', args);
+
+        // const callName = `${AlloyTranslator.Function}.${applicableSanitized}`;
+        // const translated = this.call(callName, application.args);
+        // if (translated.res === undefined) {
+        //     return leftover(application, "Could not translate call", translated.leftovers);
+        // }
+
+        // const sorts = application.args.map(a => {
+        //     const s = getSort(a);
+        //     if (s.is(Sort.Logical)) {
+        //         return Sort.Bool;
+        //     } else {
+        //         return s;
+        //     }
+        // });
+        // sorts.push(application.sort);
+        // this.env.recordFunction(applicableSanitized, sorts);
+        // return translated;
     }
 
     visitLookup(lookup: Lookup): TranslationRes {
