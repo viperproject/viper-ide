@@ -23,6 +23,7 @@ export class TermSortVisitor implements TermVisitor<Sort> {
             case BinaryOp.Implies: return Sort.Logical;
             case BinaryOp.Iff: return Sort.Logical;
             case BinaryOp.Equals: return Sort.Logical;
+            case BinaryOp.CustomEquals: return Sort.Logical;
             // Combine
             case BinaryOp.Combine: return Sort.Snap;
         }
@@ -72,8 +73,8 @@ export class TermSortVisitor implements TermVisitor<Sort> {
                 case BinaryOp.SetUnion: return setSort;
 
                 case BinaryOp.SetIn: return Sort.Logical;
-                case BinaryOp.SetDisjoint: return Sort.Bool;
-                case BinaryOp.SetSubset: return Sort.Bool;
+                case BinaryOp.SetDisjoint: return Sort.Logical;
+                case BinaryOp.SetSubset: return Sort.Logical;
             }
 
             Logger.error("Unexpected set operation: " + term);

@@ -2,37 +2,37 @@ abstract sig Set {
 	elems: set univ
 }
 
-lone sig EmptySet in Set {} { elems = none }
-
-fun set_singleton [ e: univ ]: one Set {
-	{ s': Set | s'.elems = e }
+pred set_singleton [ e: univ, s': Set ] {
+	s'.elems = e
+	one e
 }
-fun set_add [ s1: Set, e: univ ]: one Set {
-	{ s': Set | s'.elems = s1.elems + e }
+pred set_add [ s1: Set, e: univ, s': Set ] {
+	s'.elems = s1.elems + e
+	one e
 }
-fun set_cardinality [ s1: Set ]: one Int {
-	#(s1.elems)
+pred set_cardinality [ s1: Set, c: one Int ] {
+	#(s1.elems) = c
 }
-fun set_difference [ s1, s2: Set ]: one Set {
-	{ s': Set | s'.elems = s1.elems - s2.elems }
+pred set_difference [ s1, s2, s': Set ] {
+	s'.elems = s1.elems - s2.elems
 }
-fun set_intersection [ s1, s2: Set ]: one Set {
-	{ s': Set | s'.elems = s1.elems & s2.elems }
+pred set_intersection [ s1, s2, s': Set ] {
+	s'.elems = s1.elems & s2.elems
 }
-fun set_union [ s1, s2: Set ]: one Set {
-	{ s': Set | s'.elems = s1.elems + s2.elems }
+pred set_union [ s1, s2, s': Set ] {
+	s'.elems = s1.elems + s2.elems
 }
-// fun set_in [ e: univ, s1: Set ]: one Bool {
-// 	e in s1.elems => True else False
-// }
 pred set_in [ e: univ, s1: Set ] {
 	e in s1.elems
 	&& one e
 	&& some s1.elems
 }
-fun set_subset [ s1, s2: Set ]: one Bool {
-	s1.elems in s2.elems => True else False
+pred set_subset [ s1, s2: Set ] {
+	s1.elems in s2.elems
 }
-fun set_disjoint [ s1, s2: Set ]: one Bool {
-	disjoint[s1.elems, s2.elems] => True else False
+pred set_disjoint [ s1, s2: Set ] {
+	disjoint[s1.elems, s2.elems]
+}
+pred set_equals [ s1, s2: Set ] {
+	s1.elems = s2.elems
 }

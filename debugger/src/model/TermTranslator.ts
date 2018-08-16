@@ -1,4 +1,4 @@
-import { Binary, Unary, VariableTerm, Quantification, Application, Lookup, PredicateLookup, And, Or, Distinct, Ite, Let, Literal, SeqRanged, SeqSingleton, SeqUpdate, SetSingleton, MultisetSingleton, SortWrapper, Term, BinaryOp, LogicalWrapper, BooleanWrapper } from "./Term";
+import { Binary, Unary, VariableTerm, Quantification, Application, Lookup, PredicateLookup, And, Or, Distinct, Ite, Let, Literal, SeqRanged, SeqSingleton, SeqUpdate, SetSingleton, MultisetSingleton, SortWrapper, Term, BinaryOp, LogicalWrapper, BooleanWrapper, UnaryOp } from "./Term";
 import { TranslationEnv } from "./TranslationEnv";
 import { Logger } from "../logger";
 import { getSort, Sort } from "./Sort";
@@ -147,19 +147,20 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
         if (leftSort.is('Set') || rightSort.is('Set')) {
             switch (binary.op) {
-                case BinaryOp.SetAdd: return this.coll_call('set_add', leftSort, [binary.lhs, binary.rhs]);
-                case BinaryOp.SetDifference: return this.coll_call('set_difference', leftSort, [binary.lhs, binary.rhs]);
-                case BinaryOp.SetIntersection: return this.coll_call('set_intersection', leftSort, [binary.lhs, binary.rhs]);
-                case BinaryOp.SetUnion: return this.coll_call('set_union', leftSort, [binary.lhs, binary.rhs]);
+                case BinaryOp.SetAdd: return this.pred_call('set_add', leftSort, [binary.lhs, binary.rhs]);
+                case BinaryOp.SetDifference: return this.pred_call('set_difference', leftSort, [binary.lhs, binary.rhs]);
+                case BinaryOp.SetIntersection: return this.pred_call('set_intersection', leftSort, [binary.lhs, binary.rhs]);
+                case BinaryOp.SetUnion: return this.pred_call('set_union', leftSort, [binary.lhs, binary.rhs]);
 
+                // case BinaryOp.CustomEquals: return this.call('set_equals', [binary.lhs, binary.rhs]);
                 case BinaryOp.SetIn: return this.call('set_in', [binary.lhs, binary.rhs]);
-                case BinaryOp.SetSubset: return this.coll_call('set_subset', Sort.Bool, [binary.lhs, binary.rhs]);
-                case BinaryOp.SetDisjoint: return this.coll_call('set_disjoint', Sort.Bool, [binary.lhs, binary.rhs]);
+                case BinaryOp.SetSubset: return this.call('set_subset', [binary.lhs, binary.rhs]);
+                case BinaryOp.SetDisjoint: return this.call('set_disjoint', [binary.lhs, binary.rhs]);
             }
         }
 
         // Alloy operators only have one equal sign, but are otherwise the same as the Viper ones.
-        let alloyOp = binary.op.replace("==", "=");
+        let alloyOp = binary.op.replace('===', '=').replace("==", "=");
 
         // If both operands are boolean, then translating to alloy equality is fine. In all other cases we need to wrap
         // at least one of the two operands.
@@ -258,9 +259,9 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
     visitUnary(unary: Unary): TranslationRes {
         const termSort = getSort(unary.p);
 
-        if (unary.op === "SetCardinality:" && termSort.is('Set')) {
             return this.coll_call('set_cardinality', Sort.Int, [unary.p]);
-                // return translatedFrom(`#(${operand.res})`, [operand]);
+        if (unary.op === UnaryOp.SetCardinality && termSort.is('Set')) {
+            return this.pred_call('set_cardinality', Sort.Int, [unary.p]);
         }
 
         const operand  = unary.p.accept(this); 
@@ -534,7 +535,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
     }
 
     visitSetSingleton(setSingleton: SetSingleton): TranslationRes {
-        return this.coll_call("set_singleton", getSort(setSingleton), [setSingleton.value]);
+        return this.pred_call("set_singleton", getSort(setSingleton), [setSingleton.value]);
     }
 
     // TODO: Implement this

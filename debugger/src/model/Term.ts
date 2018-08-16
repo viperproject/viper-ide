@@ -58,6 +58,7 @@ export class Binary implements Term {
 
 export namespace BinaryOp {
     export const Equals = '==';
+    export const CustomEquals = '===';
     export const Iff = '<=>';
     export const Implies = '==>';
 
