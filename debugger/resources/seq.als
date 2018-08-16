@@ -1,36 +1,41 @@
 abstract sig Seq {
-	rel: Int -> lone univ
+	// rel: Int -> lone univ
+	rel: seq univ
 } {
 	isSeq[rel]
 }
 
-fun seq_ranged [ s: Seq, from, to: Int ]: one Seq {
-	{ s': Seq | s'.rel = subseq[ s.rel, from, to ] }
+pred seq_ranged [ from, to: Int, s': Seq ] {
+	// { all i: Int | 0 <= i && i < sub[to, from] => s[i] = plus[from, i] }
+	// #s = sub[to, from]
+	s'.rel = subseq[iden, from, sub[to, 1]]
 }
-fun seq_singleton [ e: univ ]: one Seq {
-	{ s': Seq | (0 -> e) in s'.rel && #(s'.rel) = 1 }
+pred seq_singleton [ e: univ, s': Seq ] {
+	s'.rel[0] = e
+	#(s'.rel) = 1
 }
-// NOTE: The wrapped 'add' operation might not return a new sequence in case
-//		 we exceed the length of available indices.
-fun seq_append [ s1: Seq, e: univ ]: one Seq {
-	{ s': Seq | s'.rel = add[s1.rel, e] }
+// NOTE: The sequence resulting from the wrapped 'append' operation may be
+//		 truncated if the sequences are too long.
+pred seq_append [ s1, s2, s': Seq ] {
+	s'.rel = append[s1.rel, s2.rel]
 }
-fun seq_length [ s: Seq ]: one Int {
-	#(s.rel)
+pred seq_length [ s: Seq, l: Int ] {
+	#(s.rel) = l
 }
-fun seq_at [ s: Seq, i: Int ]: one univ {
-	s.rel[i]
+pred seq_at [ s: Seq, i: Int, e: one univ ] {
+	s.rel[i] = e
 }
-fun seq_take [ s: Seq, i: Int ]: one Seq {
-	{ s': Seq | s'.rel = subseq[ s.rel, 0, i] }
+pred seq_take [ s: Seq, i: Int, s': Seq ] {
+	let to = sub[i, 1] |
+	s'.rel = subseq[ s.rel, 0, to]
 }
-fun seq_drop [ s: Seq, i: Int ]: one Seq {
+pred seq_drop [ s: Seq, i: Int, s': Seq ] {
 	let to = sub[#s.rel, 1] |
-	{ s': Seq | s'.rel = subseq[ s.rel, i, to ] }
+	s'.rel = subseq[ s.rel, i, to ]
 }
-fun seq_in [ s1, s2: Seq ]: one Bool {
-	(s1.rel in s2.rel) => True else False
+pred seq_in [ s1: Seq, e: univ ] {
+	e in elems[s1.rel]
 }
-fun seq_update [ s: Seq, i: Int, e: univ ]: one Seq {
-	{ s': Seq | s'.rel = setAt[s.rel, i, e] }
+pred seq_update [ s: Seq, i: Int, e: univ, s': Seq ] {
+	s'.rel = setAt[s.rel, i, e]
 } 

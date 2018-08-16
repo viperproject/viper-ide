@@ -159,6 +159,19 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             }
         }
 
+        if (leftSort.is('Seq') || rightSort.is('Seq')) {
+            const sort = leftSort.is('Seq') ? leftSort : rightSort;
+            switch (binary.op) {
+                case BinaryOp.SeqAppend: return this.pred_call('seq_append', sort, [binary.lhs, binary.rhs]);
+                case BinaryOp.SeqAt: return this.pred_call('seq_at', sort.elementsSort!, [binary.lhs, binary.rhs]);
+                case BinaryOp.SeqTake: return this.pred_call('seq_take', sort, [binary.lhs, binary.rhs]);
+                case BinaryOp.SeqDrop: return this.pred_call('seq_drop', sort, [binary.lhs, binary.rhs]);
+
+                // case BinaryOp.CustomEquals: return this.call('set_equals', [binary.lhs, binary.rhs]);
+                case BinaryOp.SeqIn: return this.call('seq_in', [binary.lhs, binary.rhs]);
+            }
+        }
+
         // Alloy operators only have one equal sign, but are otherwise the same as the Viper ones.
         let alloyOp = binary.op.replace('===', '=').replace("==", "=");
 
@@ -259,9 +272,16 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
     visitUnary(unary: Unary): TranslationRes {
         const termSort = getSort(unary.p);
 
-            return this.coll_call('set_cardinality', Sort.Int, [unary.p]);
         if (unary.op === UnaryOp.SetCardinality && termSort.is('Set')) {
             return this.pred_call('set_cardinality', Sort.Int, [unary.p]);
+        }
+
+        if (unary.op === UnaryOp.SeqLength && termSort.is('Seq')) {
+            return this.pred_call('seq_length', Sort.Int, [unary.p]);
+        }
+
+        if (unary.op === UnaryOp.MultiSetCardinality && termSort.is('Multiset')) {
+            return this.pred_call('multiset_cardinality', Sort.Int, [unary.p]);
         }
 
         const operand  = unary.p.accept(this); 
@@ -519,19 +539,16 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         return leftover(literal, "Unexpected literal: " + literal, []);
     }
 
-    // TODO: Implement this
     visitSeqRanged(seqRanged: SeqRanged): TranslationRes {
-        return leftover(seqRanged, "SeqRanged translation not implemented", []);
+        return this.pred_call('seq_ranged', getSort(seqRanged), [seqRanged.lhs, seqRanged.rhs]);
     }
 
-    // TODO: Implement this
     visitSeqSingleton(seqSingleton: SeqSingleton): TranslationRes {
-        return leftover(seqSingleton, "SeqSingleton translation not implemented", []);
+        return this.pred_call('seq_singleton', getSort(seqSingleton), [seqSingleton.value]);
     }
 
-    // TODO: Implement this
     visitSeqUpdate(seqUpdate: SeqUpdate): TranslationRes {
-        return leftover(seqUpdate, "SeqUpdate translation not implemented", []);
+        return this.pred_call('seq_update', getSort(seqUpdate), [seqUpdate.seq, seqUpdate.index, seqUpdate.value]);
     }
 
     visitSetSingleton(setSingleton: SetSingleton): TranslationRes {

@@ -162,6 +162,13 @@ export class TranslationEnv {
             this.recordSort(name, "Set", constraint);
             return name;
         }
+        if (sort.is('Seq') && sort.elementsSort !== undefined) {
+            const elementSort = this.translate(sort.elementsSort);
+            const name = "Seq_" + elementSort;
+            const constraint = 'univ.rel in ' + elementSort;
+            this.recordSort(name, "Seq", constraint);
+            return name;
+        }
         if (sort.is(Sort.Int)) {
             return AlloyTranslator.Int;
         }

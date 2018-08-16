@@ -81,6 +81,12 @@ export namespace BinaryOp {
     export const SetSubset = '⊂';
     export const SetDisjoint = 'disj';
 
+    export const SeqAppend = '++';
+    export const SeqAt = 'SeqAt';
+    export const SeqTake = 'SeqTake';
+    export const SeqDrop = 'SeqDrop';
+    export const SeqIn = 'SeqIn';
+
     export const Combine = "Combine";
 }
 

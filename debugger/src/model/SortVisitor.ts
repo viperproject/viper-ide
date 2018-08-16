@@ -58,7 +58,16 @@ export class TermSortVisitor implements TermVisitor<Sort> {
         }
 
 
-        if (leftSort.is('Seq')) {
+        if (leftSort.is('Seq') || rightSort.is('Seq')) {
+            const sort = leftSort.is('Seq') ? leftSort : rightSort;
+            switch (term.op) {
+                case BinaryOp.SeqAppend: return sort;
+                case BinaryOp.SeqAt: return sort.elementsSort!;
+                case BinaryOp.SeqTake: return sort;
+                case BinaryOp.SeqDrop: return sort;
+
+                case BinaryOp.SeqIn: return Sort.Logical;
+            }
         }
 
         if (leftSort.is('Multiset')) {
@@ -167,8 +176,7 @@ export class TermSortVisitor implements TermVisitor<Sort> {
     }
 
     public visitSeqUpdate(seqUpdate: SeqUpdate): Sort {
-        Logger.error("Unexpected sort retrieval on seq update: " + seqUpdate);
-        throw new DebuggerError("Unexpected sort retrieval on seq update: " + seqUpdate);
+        return seqUpdate.seq.accept(this);
     }
 
     public visitSetSingleton(setSingleton: SetSingleton): Sort {
