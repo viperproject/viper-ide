@@ -319,9 +319,13 @@ export class AlloyTranslator {
     private encodeFreshVariables() {
         this.env.variablesToDeclare.forEach((sort, name) => this.mb.oneSignature(name).in(this.env.translate(sort)));
         this.env.variablesToDeclare.clear();
-        this.env.recordedSignatures.forEach((sig, _) => this.mb.addSignature(sig));
-        this.env.quantifiedSignatureCount += 1;
-        this.env.recordedSignatures.clear();
+
+        // Wrapped in an if to avoid increasing the counter when not needed
+        if (this.env.recordedSignatures.size > 0) {
+            this.env.recordedSignatures.forEach((sig, _) => this.mb.addSignature(sig));
+            this.env.quantifiedSignatureCount += 1;
+            this.env.recordedSignatures.clear();
+        }
     }
 
     // NOTE: Inverse function, functions and temp variables are added to the Alloy model "at the bottom" because
