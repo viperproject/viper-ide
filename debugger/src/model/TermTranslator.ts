@@ -335,14 +335,14 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         return this.env.evaluateWithAdditionalVariables(
             quantification.vars.map(v => v.id),
             () => {
-                this.env.insideQuantifier = true;
+                this.env.quantifierVariables = quantification.vars;
                 const tBody = quantification.body.accept(this);
 
                 if (!tBody.res) {
                     return leftover(quantification, "Could not translate quantified variables", tBody!.leftovers);
                 }
 
-                this.env.insideQuantifier = false;
+                this.env.quantifierVariables = undefined;
                 return translatedFrom(tBody.res, [tBody])
                             .withQuantifiedVariables(tVars.map(v => `${mult} ${v}`));
             });

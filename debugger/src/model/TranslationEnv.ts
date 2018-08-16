@@ -8,6 +8,7 @@ import { sanitize } from "./TermTranslator";
 import { StoreVariable } from "./StoreVariable";
 import { Logger } from "../logger";
 import { Signature } from "./AlloyModel";
+import { mkString } from "../util";
 
 
 export class TranslationEnv {
@@ -36,7 +37,7 @@ export class TranslationEnv {
     public sorts: Map<string, string | undefined>;
 
     // HACK: Kinda dirty, there surely is a better way
-    public insideQuantifier = false;
+    public quantifierVariables: VariableTerm[] | undefined;
 
     constructor(readonly state: State) {
         
@@ -159,12 +160,17 @@ export class TranslationEnv {
             varName = `${base}_0'`;
         }
 
-        sig.withMember(varName + ": univ -> lone " + this.translate(sort));
-        return sigName + '.' + varName;
+        const parts = this.quantifierVariables!.map(v => this.translate(v.sort));
+        parts.push("lone " + this.translate(sort));
+
+        sig.withMember(varName + ": " + parts.join(' -> '));
+
+        const varNames = this.quantifierVariables!.map(v => sanitize(v.id));
+        return sigName + '.' + varName + mkString(varNames, '[', ', ', ']');
     }
 
     public getFreshVariable(base: string, sort: Sort) {
-        if (this.insideQuantifier) {
+        if (this.quantifierVariables !== undefined) {
             return this.getQuantifiedFreshVariable(base, sort);
         } else { 
             return this.getNormalFreshVariable(base, sort);
