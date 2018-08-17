@@ -34,6 +34,7 @@ export class AlloyTranslator {
     public static Combine = 'Combine';
     public static Function = 'Fun';
     public static PermFun = 'PermFun';
+    public static Lookup = 'Lookup';
 
     private mb: AlloyModelBuilder;
     private termTranslator: TermTranslatorVisitor;
@@ -125,7 +126,7 @@ export class AlloyTranslator {
         if (this.env.fields.size > 0) {
             this.mb.comment("Constraints on field permission/existence");
             for (const field of this.env.fields.keys()) {
-                const funName = `${AlloyTranslator.Function}.${AlloyTranslator.PermFun}_${field}`;
+                const funName = `${AlloyTranslator.PermFun}.${field}`;
                 // Record the function as an instance of Perm, so that the signature
                 // can be properly constrained later.
                 this.env.recordInstance(Sort.Perm, funName + `[${AlloyTranslator.Ref}]`);
@@ -250,12 +251,10 @@ export class AlloyTranslator {
 
     private encodePermissions(chunks: HeapChunk[]) {
         chunks.forEach(chunk => {
+            // TODO: this should probably be unified per field
             if (chunk instanceof FieldChunk) {
-                const functionName = AlloyTranslator.PermFun + "_" + chunk.field;
-                // const permFun = new Binary('==', 
-                //                            new Application(functionName, [chunk.receiver], new Sort('Perm')),
-                //                            chunk.perm);
-                this.env.recordFunction(functionName, [Sort.Ref], Sort.Perm);
+                const functionName = `${AlloyTranslator.PermFun}.${chunk.field}`;
+                this.env.recordPermFunction(chunk.field);
                 const rec = chunk.receiver.accept(this.termTranslator);
                 const perm = chunk.perm.accept(this.termTranslator);
 
@@ -264,14 +263,13 @@ export class AlloyTranslator {
 
                     const facts = rec.additionalFacts
                                      .concat(perm.additionalFacts)
-                                     .concat(`(${rec.res} -> ${perm.res}) in Fun.${functionName}`)
+                                     .concat(`(${rec.res} -> ${perm.res}) in ${functionName}`)
                                      .join(" && \n       ");
                     this.mb.fact(facts);
                 }
-                // termToFact(permFun, env, mb, termTranslator);
 
-            // TODO: this should use the 'in' construct as well
             } else if (chunk instanceof QuantifiedFieldChunk) {
+                this.env.recordPermFunction(chunk.field);
                 const r = new VariableTerm('r', new Sort('Ref'));
                 const functionName = AlloyTranslator.PermFun + "_" + chunk.field;
                 const permFun = new Binary('==',
@@ -333,6 +331,19 @@ export class AlloyTranslator {
     // declared as long as they are.
     private encodeGatheredFacts() {
 
+        if (this.env.permFunctions.size > 0) {
+            const typeSig = `( ${this.env.translate(Sort.Ref)} -> lone ${this.env.translate(Sort.Perm)})`;
+
+            const members: string[] = [];
+            this.env.permFunctions.forEach(name => {
+                members.push(name + ': ' + typeSig);
+            });
+
+            this.mb.comment("Permission functions");
+            this.mb.oneSignature(AlloyTranslator.PermFun).withMembers(members);
+            this.mb.blank();
+        }
+
         if (this.env.functions.size > 0) {
             const members: string[] = [];
             this.mb.comment("Functions");
@@ -348,14 +359,20 @@ export class AlloyTranslator {
         }
 
         const fvfFacts = new Set<string>();
-        this.env.lookupFunctions.forEach((v) => {
-            const [sort, field] = v;
-            const f = `all fvf: ${this.env.translate(sort)}, r: Ref | r in mid[Fun.lookup_${field}] => Fun.lookup_${field}[fvf, r] = r.${field}`;
+        const members = new Set<string>();
+        this.env.lookupFunctions.forEach(([fvfSort, field]) => {
+            const sorts = [fvfSort, Sort.Ref].map(s => this.env.translate(s));
+            sorts.push('lone ' + this.env.translate(fvfSort.elementsSort!));
+            members.add(`${field}: (${sorts.join(' -> ')})`);
+            const funName = AlloyTranslator.Lookup + '.' + field;
+            const f = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | r in mid[${funName}] => ${funName}[fvf, r] = r.${field}`;
             if (!fvfFacts.has(f)) {
                 fvfFacts.add(f);
-                this.mb.fact(f);
             }
         });
+        this.mb.oneSignature(AlloyTranslator.Lookup)
+            .withMembers(Array.from(members.values()));
+        fvfFacts.forEach(f => this.mb.fact(f));
 
         this.env.sortWrappers.forEach((sort, name) => {
             const sigName = name.charAt(0).toUpperCase() + name.slice(1);

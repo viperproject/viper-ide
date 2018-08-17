@@ -30,6 +30,7 @@ export class TranslationEnv {
 
     public sortWrappers: Map<string, Sort>;
     public functions: Map<string, [Sort[], Sort]>;
+    public permFunctions: Set<string>;
     public lookupFunctions: [Sort, string][];
 
     public userSorts: Set<string>;
@@ -56,6 +57,7 @@ export class TranslationEnv {
 
         this.sortWrappers = new Map();
         this.functions = new Map();
+        this.permFunctions = new Set();
         this.lookupFunctions = [];
 
         this.userSorts = new Set();
@@ -260,6 +262,12 @@ export class TranslationEnv {
     public recordFunction(name: string, argSorts: Sort[], retSort: Sort) {
         if (!this.functions.has(name)) {
             this.functions.set(name, [argSorts, retSort]);
+        }
+    }
+
+    public recordPermFunction(name: string) {
+        if (!this.permFunctions.has(name)) {
+            this.permFunctions.add(name);
         }
     }
 

@@ -401,13 +401,15 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             throw new DebuggerError(`Expected sort to a FVF, but was '${returnSort}': ` + lookup);
         }
 
-        const name = 'lookup_' + lookup.field;
-        const f = new Application(name,
-                                    [lookup.fieldValueFunction, lookup.receiver],
-                                    returnSort.elementsSort);
+        const callName = `${AlloyTranslator.Lookup}.${sanitize(lookup.field)}`;
         this.env.lookupFunctions.push([returnSort, lookup.field]);
-        
-        return f.accept(this);
+
+        const translated = this.call(callName, [lookup.fieldValueFunction, lookup.receiver]);
+        if (translated.res === undefined) {
+            return leftover(lookup, "Could not translate lookup call", translated.leftovers);
+        }
+
+        return translated; 
     }
 
     // TODO: Implement this
