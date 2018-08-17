@@ -125,7 +125,7 @@ export class AlloyTranslator {
         if (this.env.fields.size > 0) {
             this.mb.comment("Constraints on field permission/existence");
             for (const field of this.env.fields.keys()) {
-                const funName = `${Function}.${AlloyTranslator.PermFun}_${field}`;
+                const funName = `${AlloyTranslator.Function}.${AlloyTranslator.PermFun}_${field}`;
                 // Record the function as an instance of Perm, so that the signature
                 // can be properly constrained later.
                 this.env.recordInstance(Sort.Perm, funName + `[${AlloyTranslator.Ref}]`);

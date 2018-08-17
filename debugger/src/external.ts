@@ -62,6 +62,7 @@ export interface AlloyField {
 
 export interface AlloySignature {
     label: string;
+    atoms: string[];
     fields: AlloyField[];
 }
 

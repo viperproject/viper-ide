@@ -1,7 +1,7 @@
 import { State } from "./Record";
 import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, MagicWandChunk } from "./Heap";
 import { AlloyTranslator } from './AlloyTranslator';
-import { VariableTerm  } from "./Term";
+import { VariableTerm, Application  } from "./Term";
 import { Sort } from './Sort';
 import { DebuggerError } from "../Errors";
 import { sanitize } from "./TermTranslator";
@@ -31,6 +31,7 @@ export class TranslationEnv {
     public sortWrappers: Map<string, Sort>;
     public functions: Map<string, [Sort[], Sort]>;
     public functionCalls: Map<string, [string, string[]][]>;
+    public applicableToName: Map<Application, string>;
     public lookupFunctions: [Sort, string][];
 
     public userSorts: Set<string>;
@@ -58,6 +59,7 @@ export class TranslationEnv {
         this.sortWrappers = new Map();
         this.functions = new Map();
         this.functionCalls = new Map();
+        this.applicableToName = new Map();
         this.lookupFunctions = [];
 
         this.userSorts = new Set();
@@ -271,10 +273,10 @@ export class TranslationEnv {
             if (oldCall !== undefined) {
                 return oldCall[0];
             }
-            callName = name + '_call' + calls.length;
+            callName = 'call_' + name + '_' + calls.length;
             calls.push([callName, args]);
         } else {
-            callName = name + '_call0';
+            callName = 'call_' + name + '_0';
             this.functionCalls.set(name, [[callName, args]]);
         }
         return callName;

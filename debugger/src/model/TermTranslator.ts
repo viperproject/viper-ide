@@ -392,6 +392,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         });
         this.env.recordFunction(applicableSanitized, sorts, application.sort);
         const callName = this.env.recordFunctionCall(applicableSanitized, argStrings);
+        this.env.applicableToName.set(application, callName);
 
         return translatedFrom(callName + '.ret', args);
 
