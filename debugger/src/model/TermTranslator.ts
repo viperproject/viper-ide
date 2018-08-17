@@ -83,7 +83,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
     constructor(readonly env: TranslationEnv) {}
 
     private pred_call(name: string, sort: Sort, args: Term[]): TranslationRes {
-        const freshName = this.env.getFreshVariable('fun_res', sort);
+        const freshName = this.env.getFreshVariable('temp', sort);
 
         const tArgs: TranslationRes[] = [];
         args.forEach(a => {
@@ -95,13 +95,13 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             tArgs.push(res);
         });
         
-        const fun_res = name + mkString(tArgs.map(a => a.res).concat(freshName), '[', ", ", ']');
+        const call = name + mkString(tArgs.map(a => a.res).concat(freshName), '[', ", ", ']');
         return translatedFrom(freshName, tArgs)
-                .withAdditionalFacts([fun_res]);
+                .withAdditionalFacts([call]);
     }
 
     private coll_call(name: string, sort: Sort, args: Term[]): TranslationRes {
-        const freshName = this.env.getFreshVariable('fun_res', sort);
+        const freshName = this.env.getFreshVariable('temp', sort);
 
         const tArgs: TranslationRes[] = [];
         args.forEach(a => {
@@ -113,9 +113,9 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             tArgs.push(res);
         });
         
-        const fun_res = freshName + " = " + name + mkString(tArgs.map(a => a.res), '[', ", ", ']');
+        const call = freshName + " = " + name + mkString(tArgs.map(a => a.res), '[', ", ", ']');
         return translatedFrom(freshName, tArgs)
-                .withAdditionalFacts([fun_res]);
+                .withAdditionalFacts([call]);
     }
 
     private call(name: string, args: Term[]): TranslationRes {
@@ -533,9 +533,9 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
             const freshName = this.env.getFreshVariable('perm', Sort.Perm);
             const parts = literal.value.split('/');
-            const fun_res = freshName + " = perm_new" + mkString(parts, '[', ", ", ']');
+            const call = freshName + " = perm_new" + mkString(parts, '[', ", ", ']');
             return translatedFrom(freshName, [])
-                    .withAdditionalFacts([fun_res]);
+                    .withAdditionalFacts([call]);
         }
 
         Logger.error("Unexpected literal: " + literal);
