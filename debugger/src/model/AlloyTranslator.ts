@@ -334,34 +334,17 @@ export class AlloyTranslator {
     private encodeGatheredFacts() {
 
         if (this.env.functions.size > 0) {
+            const members: string[] = [];
             this.mb.comment("Functions");
             for (let [name, [argSorts, retSort]] of this.env.functions) {
                 // Add multiplicity of 'lone' to return type of function
-                const members: string[] = [];
-                argSorts.forEach((s, index) => members.push(`a${index}: one ` + this.env.translate(s)));
+                const tSorts = argSorts.map(s => this.env.translate(s));
+                tSorts.push('lone ' + this.env.translate(retSort));
 
-                members.push(`ret: one ` + this.env.translate(retSort));
-                this.mb.abstractSignature('fun_' + name)
-                    .withMembers(members);
+                members.push(name + ': (' + tSorts.join(' -> ') + ')');
             }
+            this.mb.oneSignature(AlloyTranslator.Function).withMembers(members);
             this.mb.blank();
-        }
-
-        if (this.env.functionCalls.size > 0) {
-            this.mb.comment("Function Calls");
-            this.env.functionCalls.forEach((calls, name) => {
-                calls.forEach((c) => {
-                    const [callName, args] = c;
-
-                    const constraints = [`one ${callName}.ret`];
-                    args.forEach((a, index) => constraints.push(`${callName}.a${index} = ${a} && one ${callName}.a${index}`));
-
-                    this.mb.loneSignature(callName)
-                       .extends('fun_' + name);
-                    // TODO: Should this be an iff?
-                    this.mb.fact(`one ${callName} <=> ` + constraints.join(' && '));
-                });
-            });
         }
 
         const fvfFacts = new Set<string>();
@@ -442,14 +425,15 @@ export class AlloyTranslator {
 
         // If there are functions that return reference-like object, they have to be accounted in the constraint as
         // well, otherwise we may prevent Alloy from generating any Object.
-        for (const [name, [_, retSort]] of this.env.functions) {
+        for (const [name, [argSorts, retSort]] of this.env.functions) {
             // Inverse functions should not limit references
             if (name.startsWith('inv')) {
                 continue;
             }
             const returnSig = this.env.translate(retSort);
             if (returnSig === AlloyTranslator.Ref) { 
-                reachable.push('fun_' + name + '.ret');
+                const params = argSorts.map(s => this.env.translate(s)).join(', ');
+                reachable.push(AlloyTranslator.Function + '.' + name + `[${params}]`);
             }
         }
 

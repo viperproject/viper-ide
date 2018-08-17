@@ -274,24 +274,24 @@ export class DotGraph {
                     const label = new Label(`${v.name}: ${v.sort} == ${v.value.toString()}`);
                     storeGraph.add(new Node(sanitize(v.name), label));
 
-                } else if (v.value instanceof Application && v.sort.is(Sort.Ref)) {
-                    const callName = env.applicableToName.get(v.value);
-                    const res = funResult(callName!)!;
-                    const nodeId = sanitize(v.name);
-                    if (clean(res) !== 'NULL') {
-                        storeGraph.add(new Node(nodeId, new Label(v.name)));
-                        relations.push(new Rel(nodeId, sanitize(res)));
-                    } else {
-                        storeGraph.add(new Node(nodeId, new Label(`${v.name}: Ref == null`)));
-                    }
-                    relations.push(new Rel(nodeId, callName + "_res", ['style=dashed']));
+                // } else if (v.value instanceof Application && v.sort.is(Sort.Ref)) {
+                //     // const callName = env.applicableToName.get(v.value);
+                //     const res = funResult(callName!)!;
+                //     const nodeId = sanitize(v.name);
+                //     if (clean(res) !== 'NULL') {
+                //         storeGraph.add(new Node(nodeId, new Label(v.name)));
+                //         relations.push(new Rel(nodeId, sanitize(res)));
+                //     } else {
+                //         storeGraph.add(new Node(nodeId, new Label(`${v.name}: Ref == null`)));
+                //     }
+                //     relations.push(new Rel(nodeId, callName + "_res", ['style=dashed']));
 
-                } else if (v.value instanceof Application) {
-                    const callName = env.applicableToName.get(v.value);
-                    const nodeId = sanitize(v.name);
-                    const label = new Label(`${v.name}: ${v.sort} == ${funResult(callName!)}`);
-                    storeGraph.add(new Node(nodeId, label));
-                    relations.push(new Rel(nodeId, callName + "_res", ['style=dashed']));
+                // } else if (v.value instanceof Application) {
+                //     // const callName = env.applicableToName.get(v.value);
+                //     const nodeId = sanitize(v.name);
+                //     const label = new Label(`${v.name}: ${v.sort} == ${funResult(callName!)}`);
+                //     storeGraph.add(new Node(nodeId, label));
+                //     relations.push(new Rel(nodeId, callName + "_res", ['style=dashed']));
 
                 } else if (v.value instanceof Lookup) {
                     storeGraph.add(new Node("lookup" + sanitize(v.value.field), new Label(`${v.name}: ${v.sort} (lookup)\\l`)));
