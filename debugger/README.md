@@ -1,4 +1,4 @@
-# Viper Debuggerj
+# Viper Debugger
 
 This is the debugger for the Viper verification framework.
 

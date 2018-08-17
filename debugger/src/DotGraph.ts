@@ -9,11 +9,6 @@ import { Sort } from './model/Sort';
 import { mkString } from './util';
 
 
-function clean(s: string) {
-    return sanitize(s.replace(/'$/, '').replace(/\$\d$/, ''));
-}
-
-
 export interface DotElem {
     toDotString(): string;
 }
@@ -117,6 +112,13 @@ class Rel implements DotElem {
     }
 }
 
+class SetViz {
+    public elems: string[];
+    constructor(readonly id: string) {
+        this.elems = [];
+    }
+}
+
 export class DotGraph {
     private graphAttributes: string[];
     private nodeAttributes: string[];
@@ -201,6 +203,8 @@ export class DotGraph {
             }
         });
 
+        const sets: Map<string, SetViz> = new Map();
+
         alloyInstance.signatures.forEach(sig => {
             sig.atoms.forEach(a => signatureToAtom.set(sanitize(sig.label).replace(/this\//, ''), sanitize(a)));
 
@@ -210,15 +214,16 @@ export class DotGraph {
                         // Each field in the store has cardinality one and the first (zeroeth)
                         // element of the atom is the store itself
                         const val = field.atoms[0][1];
-                        storeRelations.set(sanitize(field.name), sanitize(val));
+                        storeRelations.set(sanitize(field.name.replace(/'$/, '')), sanitize(val));
                     }
                 });
+
             } else if (sig.label.startsWith('this/fun_')) {
                 sig.fields.forEach(field => {
                     const argName = field.name;
                     const isArg = argName.startsWith('a');
                     field.atoms.forEach(atom => {
-                        const callName = clean(atom[0]);
+                        const callName = sanitize(atom[0].replace(/\$\d$/, ''));
                         const displayName = callName.replace(/^call_/, '').replace(/_\d$/, '');
                         const argValue = sanitize(atom[1]);
 
@@ -234,6 +239,19 @@ export class DotGraph {
                         }
                     });
                 });
+
+            } else if (sig.label === 'this/Set') {
+                const elems = sig.fields.find(f => f.name === 'elems')!;
+                elems.atoms.forEach(a => {
+                    const id = sanitize(a[0]);
+                    let set = sets.get(id);
+                    if (set === undefined) {
+                        set = new SetViz(id);
+                        sets.set(id, set);
+                    }
+
+                    set.elems.push(sanitize(a[1]));
+                });
             }
         });
 
@@ -241,7 +259,7 @@ export class DotGraph {
             const funSigName = 'this/' + callName.replace(/call/, 'fun').replace(/_\d$/, '');
             const funSig = alloyInstance.signatures.find(s => s.label === funSigName);
             if (funSig) {
-                const atom = funSig.fields.find(f => f.name === 'ret')!.atoms.find(a => clean(a[0]) === callName);
+                const atom = funSig.fields.find(f => f.name === 'ret')!.atoms.find(a => sanitize(a[0].replace(/\$\d$/, '')) === callName);
                 return atom![1];
             }
         };
@@ -252,9 +270,9 @@ export class DotGraph {
 
         if (state.prestate) {
             state.prestate.store.forEach(v => {
+                const nodeId = 'store_' + sanitize(v.name);
                 if (v.value instanceof VariableTerm && v.sort.is(Sort.Ref)) {
                     const atom = signatureToAtom.get(sanitize(v.value.id));
-                    const nodeId = sanitize(v.name);
                     if (atom === "NULL_0") {
                         storeGraph.add(new Node(nodeId, new Label(`${v.name}: Ref == null`)));
                     } else if (atom !== undefined) {
@@ -266,9 +284,25 @@ export class DotGraph {
                     }
 
                 } else if (v.value instanceof VariableTerm) {
-                    const nodeId = sanitize(v.value.id);
-                    const value = storeRelations.get(nodeId);
-                    storeGraph.add(new Node(nodeId, new Label(`${v.name}: ${v.sort} == ${value}`)));
+                    const value = storeRelations.get(v.name);
+
+                    if (!value) {
+                        Logger.error(`Could not find store value for '${v.name}' during graph generation.`);
+                        return;
+                    }
+
+                    if (v.sort.is('Set') && v.sort.elementsSort!.is(Sort.Ref)) {
+                        const setViz = sets.get(value);
+                        if (!setViz) {
+                            Logger.error(`Could not find set with id '${value}'`);
+                            return;
+                        }
+
+                        setViz.elems.forEach(e => relations.push(new Rel(nodeId, e, ['label="in"', 'style=dotted'])));
+                        storeGraph.add(new Node(nodeId, new Label(`${v.name}: ${v.sort}`)));
+                    } else {
+                        storeGraph.add(new Node(nodeId, new Label(`${v.name}: ${v.sort} == ${value}`)));
+                    }
 
                 } else if (v.value instanceof Literal) {
                     const label = new Label(`${v.name}: ${v.sort} == ${v.value.toString()}`);
@@ -346,7 +380,7 @@ export class DotGraph {
         alloyInstance.atoms.forEach(atom => {
             const name = sanitize(atom.name);
             // if (atom.type === refType && fieldRelations.has(name)) {
-            if (atom.type === refType) {
+            if (atom.type === refType && relations.some(r => r.to === name)) {
                 heapNodes.add(new Node(name, new Label()));
                 // heapNodes.set(sanitize(atom.name), `[label="\\l"]`);
             // } else if (atom.type === nullType && fieldRelations.has(name)) {
