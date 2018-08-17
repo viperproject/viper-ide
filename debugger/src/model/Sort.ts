@@ -10,18 +10,19 @@ export class Sort {
     public static Bool = new Sort('Bool');
     public static Snap = new Sort('Snap');
     public static Perm = new Sort('Perm');
-    public static UserSort = new Sort('UserSort');
     public static Logical = new Sort('Logical');
+    public static UserSort = (name: string) => new Sort('UserSort', new Sort(name));
     public static Set = (elementsSort: Sort) => new Sort('Set', Sort.from(elementsSort));
     public static Seq = (elementsSort: Sort) => new Sort('Seq', Sort.from(elementsSort));
     public static Multiset = (elementsSort: Sort) => new Sort('Multiset', Sort.from(elementsSort));
     public static FVF = (elementsSort: Sort) => new Sort('FVF', Sort.from(elementsSort));
+    public static PSF = (elementsSort: Sort) => new Sort('PSF', Sort.from(elementsSort));
 
     public static sortVisitor = new TermSortVisitor();
 
     constructor(readonly id: string, readonly elementsSort?: Sort) {}
 
-    public is(other: Sort | 'Set' | 'Seq' | 'Multiset' | 'FVF' | 'UserSort'): boolean {
+    public is(other: Sort | 'Set' | 'Seq' | 'Multiset' | 'FVF' | 'PSF' | 'UserSort'): boolean {
         if (other instanceof Sort) {
             if (this.elementsSort === undefined) {
                 return this.id === other.id && this.elementsSort === other.elementsSort;
@@ -34,9 +35,10 @@ export class Sort {
         return this.id === other;
     }
 
-
     public toString(): string {
-        if (this.elementsSort) {
+        if (this.id === 'UserSort' && this.elementsSort) {
+            return this.elementsSort.toString();
+        } else if (this.elementsSort) {
             return `${this.id}[${this.elementsSort.toString()}]`;
         } else {
             return this.id;
@@ -48,7 +50,7 @@ export class Sort {
         mustHave('sort', obj, ['id']);
 
         if ('name' in obj && obj.id === 'UserSort') {
-            return new Sort(obj.id, new Sort(obj.name));
+            return Sort.UserSort(obj.name);
         } 
 
         if (!('elementsSort' in obj)) {
@@ -60,13 +62,13 @@ export class Sort {
         if (obj.id === 'Bool') { return Sort.Bool; }
         if (obj.id === 'Snap') { return Sort.Snap; }
         if (obj.id === 'Perm') { return Sort.Perm; }
-        if (obj.id === 'UserSort') { return Sort.UserSort; }
         if (obj.id === 'Logical') { return Sort.Logical; }
 
         if (obj.id === 'Set') { return Sort.Set(Sort.from(obj.elementsSort)); }
         if (obj.id === 'Seq') { return Sort.Seq(Sort.from(obj.elementsSort)); }
         if (obj.id === 'Multiset') { return Sort.Multiset(Sort.from(obj.elementsSort)); }
         if (obj.id === 'FVF') { return Sort.FVF(Sort.from(obj.elementsSort)); }
+        if (obj.id === 'PSF') { return Sort.PSF(Sort.from(obj.elementsSort)); }
 
         Logger.error("Could not parse sort from: " + JSON.stringify(obj));
         throw new DebuggerError("Could not parse sort from: " + JSON.stringify(obj));

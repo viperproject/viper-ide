@@ -132,8 +132,12 @@ export class TermSortVisitor implements TermVisitor<Sort> {
     }
 
     public visitPredicateLookup(lookup: PredicateLookup): Sort {
-        Logger.error("Predicate lookup sort retrieval not implemented");
-        throw new DebuggerError("Predicate lookup sort retrieval not implemented");
+        const psfSort = lookup.predicateSnapFunction.accept(this);
+        if (psfSort.is('PSF') && psfSort.elementsSort) {
+            return psfSort.elementsSort;
+        }
+        Logger.error("Unexpected PSF sort: " + psfSort);
+        throw new DebuggerError("Unexpected PSF sort: " + psfSort);
     }
 
     public visitAnd(_: And): Sort {

@@ -1,7 +1,7 @@
 import { State } from "./Record";
-import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, MagicWandChunk } from "./Heap";
+import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, MagicWandChunk, QuantifiedPredicateChunk } from "./Heap";
 import { AlloyTranslator } from './AlloyTranslator';
-import { VariableTerm, Application  } from "./Term";
+import { VariableTerm } from "./Term";
 import { Sort } from './Sort';
 import { DebuggerError } from "../Errors";
 import { sanitize } from "./TermTranslator";
@@ -98,6 +98,8 @@ export class TranslationEnv {
                 } else {
                     this.predicates.set(hc.id, [hc]);
                 }
+            } else if (hc instanceof QuantifiedPredicateChunk) {
+
             }
         });
     }
@@ -235,6 +237,12 @@ export class TranslationEnv {
 
         if (sort.id === "FVF" && sort.elementsSort) {
             const name = 'FVF_' + this.translate(sort.elementsSort);
+            this.recordSort(name);
+            return name;
+        }
+
+        if (sort.id === 'PSF' && sort.elementsSort) {
+            const name = 'PSF_' + this.translate(sort.elementsSort);
             this.recordSort(name);
             return name;
         }

@@ -1,5 +1,5 @@
 import { DebuggerError } from "../Errors";
-import { Term, Application, VariableTerm } from "./Term";
+import { Term, Application, VariableTerm, SortWrapper } from "./Term";
 import { getSort, Sort } from './Sort';
 
 
@@ -75,7 +75,7 @@ export namespace HeapChunk {
             mustHave(obj, ['predicate', 'vars', 'predicate_snap_function', 'perm', 'invs', 'cond', 'singleton_args', 'hints']);
 
             const psf = Term.from(obj.predicate_snap_function);
-            if (!(psf instanceof Application || psf instanceof VariableTerm)) {
+            if (!(psf instanceof Application || psf instanceof VariableTerm || psf instanceof SortWrapper)) {
                 throw new DebuggerError(`Expected predicate snap function to have a sort, but it was '${psf}'`);
             }
             
