@@ -368,6 +368,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         }
 
         if (applicableSanitized.startsWith("pTaken")) {
+            this.env.recordNeededMacro(applicableSanitized);
             return this.call(applicableSanitized, application.args);
         }
 

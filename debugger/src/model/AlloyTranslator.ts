@@ -52,17 +52,22 @@ export class AlloyTranslator {
     public translate(): string {
         this.emitPrelude();
 
+        this.env.recordInterestingFunctions = true;
         this.encodeRefSignature();
         this.translateStore();
         this.translateHeap(this.state.heap);
         this.encodePermissions(this.state.heap);
+
+        this.env.recordInterestingFunctions = false;
         this.translateAxioms();
+        this.env.recordInterestingFunctions = true;
 
         if (this.state.pathConditions.length > 0) {
             this.mb.comment("Path Conditions");
             this.state.pathConditions.forEach(pc => this.termToFact(pc));
             this.mb.blank();
         }
+        this.env.recordInterestingFunctions = false;
 
         // Translate values and types that have been gathered during translation
         this.encodeGatheredFacts();
@@ -470,9 +475,16 @@ export class AlloyTranslator {
     }
 
     private encodeMacros() {
-        if (this.macros.size > 0) {
+        if (this.macros.size > 0 && this.env.neededMacros.size > 0) {
             this.mb.comment("Macros");
             this.macros.forEach((body, app) => {
+                const sanitizedName = sanitize(app.applicable);
+
+                // Only emit needed mactros
+                if (!this.env.neededMacros.has(sanitizedName)) {
+                    return;
+                }
+
                 const params = app.args.map(a => {
                     const translated = a.accept(this.termTranslator);
                     if (!translated.res) {
@@ -489,9 +501,11 @@ export class AlloyTranslator {
                     Logger.error("Could not translate macro body: " + body);
                 }
 
+                this.encodeFreshVariables();
+                this.mb.fact(tBody.additionalFacts.join(" && \n       "));
                 const retSort = this.env.translate(app.sort);
-        this.mb.fun(`fun ${sanitize(app.applicable)} [ ${params.join(', ')} ]: ${retSort} {
-    { r': ${retSort} | r' = ${tBody.res} }
+        this.mb.fun(`fun ${sanitizedName} [ ${params.join(', ')} ]: ${retSort} {
+    ${tBody.res}
 }`);
                     });
                 }
@@ -500,8 +514,7 @@ export class AlloyTranslator {
     }
 
     private encodeReachabilityConstraints() {
-        const reachable = [ AlloyTranslator.Store + ".refTypedVars'.*refTypedFields'", AlloyTranslator.Null ];
-        
+        const reachable = [ AlloyTranslator.Store + ".refTypedVars'.*refTypedFields'", AlloyTranslator.Null ]; 
         reachable.push(`(${AlloyTranslator.Combine}.left :> ${AlloyTranslator.Ref})`);
         reachable.push(`(${AlloyTranslator.Combine}.right :> ${AlloyTranslator.Ref})`);
 

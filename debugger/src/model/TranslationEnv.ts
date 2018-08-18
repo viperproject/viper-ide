@@ -24,14 +24,18 @@ export class TranslationEnv {
     private tempVariables: Set<string>;
     private additionalVariables: Set<string>;
     public recordedInstances: Map<string, string[]>;
+    public neededMacros: Set<string>;
 
     public quantifiedSignatureCount: number;
     public recordedSignatures: Map<string, Signature>;
 
     public sortWrappers: Map<string, Sort>;
     public functions: Map<string, [Sort[], Sort]>;
-    public permFunctions: Set<string>;
+    public permFunctions: Map<string, Sort>;
     public lookupFunctions: [Sort, string][];
+
+    public recordInterestingFunctions: boolean;
+    public interestingFunctions: Set<string>;
 
     public userSorts: Set<string>;
     public sorts: Map<string, string | undefined>;
@@ -52,13 +56,17 @@ export class TranslationEnv {
         this.additionalVariables = new Set();
         this.recordedInstances = new Map();
         this.recordedSignatures = new Map();
+        this.neededMacros = new Set();
 
         this.quantifiedSignatureCount = 0;
 
         this.sortWrappers = new Map();
         this.functions = new Map();
-        this.permFunctions = new Set();
+        this.permFunctions = new Map();
         this.lookupFunctions = [];
+
+        this.recordInterestingFunctions = true;
+        this.interestingFunctions = new Set();
 
         this.userSorts = new Set();
         this.sorts = new Map();
@@ -125,6 +133,10 @@ export class TranslationEnv {
         } else {
             this.recordedInstances.set(sigName, [name]);
         }
+    }
+
+    public recordNeededMacro(name: string) {
+        this.neededMacros.add(name);
     }
 
     private getNormalFreshVariable(base: string, sort: Sort) {
@@ -262,12 +274,16 @@ export class TranslationEnv {
     public recordFunction(name: string, argSorts: Sort[], retSort: Sort) {
         if (!this.functions.has(name)) {
             this.functions.set(name, [argSorts, retSort]);
+
+            if (this.recordInterestingFunctions) {
+                this.interestingFunctions.add(name);
+            }
         }
     }
 
-    public recordPermFunction(name: string) {
+    public recordPermFunction(name: string, snapSort: Sort) {
         if (!this.permFunctions.has(name)) {
-            this.permFunctions.add(name);
+            this.permFunctions.set(name, snapSort);
         }
     }
 
