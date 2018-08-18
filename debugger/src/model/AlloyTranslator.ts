@@ -21,7 +21,6 @@ export class AlloyTranslator {
     public static Bool = 'Bool';
     public static Snap = 'Snap';
     public static Unit = 'Unit';
-    public static SymbVal = 'SymbVal';
     public static Perm = 'Perm';
     public static WritePerm = 'W';
     public static NoPerm = 'Z';
@@ -124,7 +123,7 @@ export class AlloyTranslator {
         objectMembers.push("refTypedFields': set " + AlloyTranslator.Ref);
         const fieldsConstraint = "refTypedFields' = " + ((successors.length < 1) ? 'none' : successors.join(" + "));
 
-        this.mb.signature(AlloyTranslator.Ref).extends(AlloyTranslator.SymbVal)
+        this.mb.signature(AlloyTranslator.Ref)
             .withMembers(objectMembers)
             .withConstraint(fieldsConstraint);
         this.mb.blank();
@@ -179,7 +178,7 @@ export class AlloyTranslator {
         });
 
         // Add a helper relation to keep track of all the objects that are reachable from the store
-        store.withMember(`refTypedVars': set ${AlloyTranslator.SymbVal}`);
+        store.withMember(`refTypedVars': set ${AlloyTranslator.Ref}`);
         store.withConstraint("refTypedVars' = " + (refTypedStoreVariables.length > 0
                                                            ? refTypedStoreVariables.join(" + ")
                                                            : 'none'));
