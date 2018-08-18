@@ -69,9 +69,6 @@ fun perm_min[ p1, p2: Perm ]: one Perm {
   mul[p1.num, p2.denom] < mul[p2.num, p1.num] => p1 else p2
 }
 
-fun perm_new [ n, d: Int ]: one Perm {
-  { p': Perm | p'.num = n && p'.denom = d }
-}
 
 --fun perm_equals [ p1, p2: Perm ]: one Bool {
 --  p1 = p2 => True
