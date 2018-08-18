@@ -128,20 +128,15 @@ export class AlloyTranslator {
             .withConstraint(fieldsConstraint);
         this.mb.blank();
 
-        const nullConstraints = ["refTypedFields' = none"];
-        if (this.env.fields.size > 0) {
-            this.mb.comment("Constraints on field permission/existence");
-            for (const field of this.env.fields.keys()) {
-                // TODO: Not sure about removing this, should be covered by the constraint on lookups
-                // this.mb.fact(`all o: ${AlloyTranslator.Ref} | one o.${field} <=> ${funName}[o].num > 0`);
+        this.mb.oneSignature(AlloyTranslator.Null).extends(AlloyTranslator.Ref);
 
-                // Null has no fields, the '<:' is to resolve ambiguities with possibly conflicting names
-                nullConstraints.push(`no (${AlloyTranslator.Ref} <: ${field})`);
+        const nullConstraints = [`${AlloyTranslator.Null}.refTypedFields' = none`];
+        if (this.env.fields.size > 0) {
+            for (const field of this.env.fields.keys()) {
+                nullConstraints.push(`no ${AlloyTranslator.Null}.${field}`);
             }
         }
-
-        // The null reference
-        this.mb.oneSignature(AlloyTranslator.Null).extends(AlloyTranslator.Ref).withConstraints(nullConstraints);
+        this.mb.fact(nullConstraints.join(' && '));
         this.mb.blank();
     }
 
