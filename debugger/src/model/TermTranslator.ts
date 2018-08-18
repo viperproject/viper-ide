@@ -258,7 +258,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
                                                        : this.coll_call('perm_mul', leftSort, [binary.lhs, binary.rhs]);
                 // Int-Perm division always has the integer on the left in Silicon
                 case '/': return this.coll_call('int_perm_div', rightSort, [binary.lhs, binary.rhs]);
-                case 'PermMin': return this.coll_call('perm_min', leftSort, [binary.lhs, binary.rhs]);
+                case 'PermMin': return this.call('perm_min', [binary.lhs, binary.rhs]);
                 case '==': return this.call('perm_equals', [binary.lhs, binary.rhs]);
                 // case '==': return translatedFrom(`(${left.res} = ${right.res})`, [left, right]);
                 default: Logger.error(`Unexpected perm operator: ${binary.op}`);

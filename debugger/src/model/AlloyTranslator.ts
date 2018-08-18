@@ -9,6 +9,7 @@ import { TranslationEnv } from "./TranslationEnv";
 import { TermTranslatorVisitor, sanitize, TranslationRes } from "./TermTranslator";
 import * as fs from 'fs';
 import { getAbsolutePath } from "../extension";
+import { mkString } from "../util";
 
 
 export class AlloyTranslator {
@@ -123,21 +124,20 @@ export class AlloyTranslator {
             .withConstraint(fieldsConstraint);
         this.mb.blank();
 
+        const nullConstraints = ["refTypedFields' = none"];
         if (this.env.fields.size > 0) {
             this.mb.comment("Constraints on field permission/existence");
             for (const field of this.env.fields.keys()) {
-                const funName = `${AlloyTranslator.PermFun}.${field}`;
-                // Record the function as an instance of Perm, so that the signature
-                // can be properly constrained later.
-                this.env.recordInstance(Sort.Perm, funName + `[${AlloyTranslator.Ref}]`);
-                this.mb.fact(`all o: ${AlloyTranslator.Ref} | one o.${field} <=> ${funName}[o].num > 0`);
-                // We canno give permission to the null reference.
-                this.mb.fact(`(${AlloyTranslator.Null} in (${funName}).univ) <=> (${funName}[${AlloyTranslator.Null}].num = 0)`);
+                // TODO: Not sure about removing this, should be covered by the constraint on lookups
+                // this.mb.fact(`all o: ${AlloyTranslator.Ref} | one o.${field} <=> ${funName}[o].num > 0`);
+
+                // Null has no fields, the '<:' is to resolve ambiguities with possibly conflicting names
+                nullConstraints.push(`no (${AlloyTranslator.Ref} <: ${field})`);
             }
         }
 
         // The null reference
-        this.mb.oneSignature(AlloyTranslator.Null).extends(AlloyTranslator.Ref).withConstraint("refTypedFields' = none");
+        this.mb.oneSignature(AlloyTranslator.Null).extends(AlloyTranslator.Ref).withConstraints(nullConstraints);
         this.mb.blank();
     }
 
@@ -250,34 +250,82 @@ export class AlloyTranslator {
     }
 
     private encodePermissions(chunks: HeapChunk[]) {
+        // const chunksPerField: Map<string, HeapChunk[]> = new Map();
+        // chunks.forEach(c => {
+        //     if (c instanceof FieldChunk || c instanceof QuantifiedFieldChunk) {
+        //         const chunks = chunksPerField.get(c.field);
+        //         if (chunks !== undefined) {
+        //             chunks.push(c);
+        //         } else {
+        //             chunksPerField.set(c.field, [c]);
+        //         }
+        //     }
+        // });
+
+        // chunksPerField.forEach((chunks, name) => {
+        //     if ((chunks[0] instanceof FieldChunk && chunks.some(c => !(c instanceof FieldChunk))) ||
+        //         (chunks[0] instanceof QuantifiedFieldChunk && chunks.some(c => !(c instanceof QuantifiedFieldChunk))) )
+        //     {
+        //         Logger.error(`Expected all chunks to be of the same type for field '${name}`);
+        //     }
+
+        //     if (chunks[0] instanceof FieldChunk) {
+                
+        //     } else if (chunks[0] instanceof QuantifiedFieldChunk) {
+
+
+        //     }
+        // });
+
         chunks.forEach(chunk => {
             // TODO: this should probably be unified per field
             if (chunk instanceof FieldChunk) {
                 const functionName = `${AlloyTranslator.PermFun}.${chunk.field}`;
-                this.env.recordPermFunction(chunk.field);
+                this.env.recordPermFunction(chunk.field, getSort(chunk.snap));
                 const rec = chunk.receiver.accept(this.termTranslator);
                 const perm = chunk.perm.accept(this.termTranslator);
+                const snap = chunk.snap.accept(this.termTranslator);
 
-                if (rec.res && perm.res) {
+                if (rec.res && perm.res && snap.res) {
                     this.encodeFreshVariables();
 
                     const facts = rec.additionalFacts
                                      .concat(perm.additionalFacts)
-                                     .concat(`(${rec.res} -> ${perm.res}) in ${functionName}`)
+                                     .concat(`${functionName}[${rec.res}, ${snap.res}] = ${perm.res}`)
                                      .join(" && \n       ");
                     this.mb.fact(facts);
                 }
 
             } else if (chunk instanceof QuantifiedFieldChunk) {
-                this.env.recordPermFunction(chunk.field);
+                this.env.recordPermFunction(chunk.field, getSort(chunk.fieldValueFunction));
                 const r = new VariableTerm('r', new Sort('Ref'));
-                const functionName = AlloyTranslator.PermFun + "_" + chunk.field;
-                const permFun = new Binary('==',
-                                            new Application(functionName, [r], new Sort('Perm')),
-                                            chunk.perm);
-                const quant = new Quantification('QA', [r], permFun, null);
 
-                this.termToFact(quant);
+                const perm = this.env.evaluateWithAdditionalVariables(
+                    [r.id],
+                    () => {
+                        this.env.quantifierVariables = [r];
+                        const perm = chunk.perm.accept(this.termTranslator);
+
+                        if (!perm.res) {
+                        }
+
+                        this.env.quantifierVariables = undefined;
+                        return perm;
+                    });
+
+                const fvf = chunk.fieldValueFunction.accept(this.termTranslator);
+                if (perm.res && fvf.res) {
+                    this.encodeFreshVariables();
+
+                    const args = ['r', fvf.res];
+                    const functionName = AlloyTranslator.PermFun + "." + chunk.field ;
+                    const facts = perm.additionalFacts
+                                     .concat(fvf.additionalFacts)
+                                     .concat(`${perm.res} in ${functionName}` + mkString(args, '[', ', ', ']'))
+                                     .join(" && \n       ");
+                    this.mb.fact(`all r: ${this.env.translate(Sort.Ref)} | ${facts}`);
+                }
+                // this.termToFact(quant);
             }
         });
         this.mb.blank();
@@ -332,11 +380,21 @@ export class AlloyTranslator {
     private encodeGatheredFacts() {
 
         if (this.env.permFunctions.size > 0) {
-            const typeSig = `( ${this.env.translate(Sort.Ref)} -> lone ${this.env.translate(Sort.Perm)})`;
 
             const members: string[] = [];
-            this.env.permFunctions.forEach(name => {
-                members.push(name + ': ' + typeSig);
+            this.env.permFunctions.forEach((snapSort, name) => {
+                const typeSigs = [
+                    this.env.translate(Sort.Ref),
+                    this.env.translate(snapSort),
+                ];
+
+                // Record function so it can be constrained later
+                const funName = `${AlloyTranslator.PermFun}.${name}`;
+                this.env.recordInstance(Sort.Perm, funName + mkString(typeSigs, '[', ', ', ']'));
+
+                // Record the member
+                typeSigs.push('set ' + this.env.translate(Sort.Perm));
+                members.push(name + ': ' + mkString(typeSigs, '(', ' -> ', ')'));
             });
 
             this.mb.comment("Permission functions");
@@ -358,21 +416,28 @@ export class AlloyTranslator {
             this.mb.blank();
         }
 
-        const fvfFacts = new Set<string>();
-        const members = new Set<string>();
-        this.env.lookupFunctions.forEach(([fvfSort, field]) => {
-            const sorts = [fvfSort, Sort.Ref].map(s => this.env.translate(s));
-            sorts.push('lone ' + this.env.translate(fvfSort.elementsSort!));
-            members.add(`${field}: (${sorts.join(' -> ')})`);
-            const funName = AlloyTranslator.Lookup + '.' + field;
-            const f = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | r in mid[${funName}] => ${funName}[fvf, r] = r.${field}`;
-            if (!fvfFacts.has(f)) {
-                fvfFacts.add(f);
-            }
-        });
-        this.mb.oneSignature(AlloyTranslator.Lookup)
-            .withMembers(Array.from(members.values()));
-        fvfFacts.forEach(f => this.mb.fact(f));
+        if (this.env.lookupFunctions.length > 0) {
+
+            const fvfFacts = new Set<string>();
+            const members = new Set<string>();
+            this.env.lookupFunctions.forEach(([fvfSort, field]) => {
+                const sorts = [fvfSort, Sort.Ref].map(s => this.env.translate(s));
+                sorts.push('lone ' + this.env.translate(fvfSort.elementsSort!));
+                members.add(`${field}: (${sorts.join(' -> ')})`);
+                const funName = AlloyTranslator.Lookup + '.' + field;
+                // const f = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | r in mid[${funName}] && PermFun.${field}[r].num > 0 => ${funName}[fvf, r] = r.${field}`;
+                // TODO: Should this be a double implication?
+                const f = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | { some p: PermFun.${field}[r, fvf] | p.num > 0 } => (one r.${field} && ${funName}[fvf, r] = r.${field})`;
+                if (!fvfFacts.has(f)) {
+                    fvfFacts.add(f);
+                }
+            });
+
+            this.mb.comment("Lookup functions");
+            this.mb.oneSignature(AlloyTranslator.Lookup)
+                .withMembers(Array.from(members.values()));
+            fvfFacts.forEach(f => this.mb.fact(f));
+        }
 
         this.env.sortWrappers.forEach((sort, name) => {
             const sigName = name.charAt(0).toUpperCase() + name.slice(1);
