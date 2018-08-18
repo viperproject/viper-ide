@@ -2,7 +2,7 @@ import { AlloyModelBuilder } from "./AlloyModel";
 import { State } from "./Record";
 import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, HeapChunk } from "./Heap";
 import { Logger } from "../logger";
-import { VariableTerm, Unary, Term, Application, Binary, Quantification, Literal, LogicalWrapper, BooleanWrapper } from "./Term";
+import { VariableTerm, Unary, Term, Application, Binary, Quantification, Literal, LogicalWrapper, BooleanWrapper, SortWrapper } from "./Term";
 import { getSort, Sort } from './Sort';
 import { Verifiable } from "./Verifiable";
 import { TranslationEnv } from "./TranslationEnv";
@@ -444,9 +444,8 @@ export class AlloyTranslator {
         }
 
         this.env.sortWrappers.forEach((sort, name) => {
-            const sigName = name.charAt(0).toUpperCase() + name.slice(1);
             const tSort = this.env.translate(sort);
-            this.mb.abstractSignature(sigName).extends(AlloyTranslator.Snap)
+            this.mb.abstractSignature(name).extends(AlloyTranslator.Snap)
                 .withMember('v: lone ' + this.env.translate(sort));
             this.mb.fun(`pred ${name.toLowerCase()} [ o: ${tSort}, s: ${Sort.Snap} ] {
     s.v = o
@@ -514,8 +513,12 @@ export class AlloyTranslator {
 
     private encodeReachabilityConstraints() {
         const reachable = [ AlloyTranslator.Store + ".refTypedVars'.*refTypedFields'", AlloyTranslator.Null ]; 
-        reachable.push(`(${AlloyTranslator.Combine}.left :> ${AlloyTranslator.Ref})`);
-        reachable.push(`(${AlloyTranslator.Combine}.right :> ${AlloyTranslator.Ref})`);
+
+        this.env.sortWrappers.forEach((sort, name) => {
+            if (sort.is(Sort.Ref)) {
+                reachable.push(`${name}.v`);
+            }
+        });
 
         // If there are functions that return reference-like object, they have to be accounted in the constraint as
         // well, otherwise we may prevent Alloy from generating any Object.

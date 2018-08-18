@@ -303,12 +303,12 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         const fromSort = getSort(sortWrapper.term);
         const toSort = sortWrapper.sort;
 
-        const funName = `sortwrapper_${this.env.translate(fromSort)}_to_${this.env.translate(toSort)}`;
-        if (!this.env.sortWrappers.has(funName)) {
-            this.env.sortWrappers.set(funName, fromSort);
+        const name = `Sortwrapper_${this.env.translate(fromSort)}_to_${this.env.translate(toSort)}`;
+        if (!this.env.sortWrappers.has(name)) {
+            this.env.sortWrappers.set(name, fromSort);
         }
 
-        return this.pred_call(funName.toLowerCase(), toSort, [sortWrapper.term]);
+        return this.pred_call(name.toLowerCase(), toSort, [sortWrapper.term]);
     }
 
     visitVariableTerm(variable: VariableTerm): TranslationRes {
