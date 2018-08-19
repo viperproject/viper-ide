@@ -38,7 +38,7 @@ export class TranslationEnv {
     public interestingFunctions: Set<string>;
 
     public userSorts: Set<string>;
-    public sorts: Map<string, string | undefined>;
+    public sorts: Map<string, [Sort, string | undefined, string | undefined]>;
 
     // HACK: Kinda dirty, there surely is a better way
     public quantifierVariables: VariableTerm[] | undefined;
@@ -219,16 +219,21 @@ export class TranslationEnv {
             const elementSort = this.translate(sort.elementsSort);
             const name = "Set_" + elementSort;
             const constraint = 'elems in ' + elementSort;
-            this.recordSort(name, "Set", constraint);
+            this.recordSort(name, sort, "Set", constraint);
             return name;
         }
         if (sort.is('Seq') && sort.elementsSort !== undefined) {
             const elementSort = this.translate(sort.elementsSort);
             const name = "Seq_" + elementSort;
             const constraint = 'univ.rel in ' + elementSort;
-            this.recordSort(name, "Seq", constraint);
+            this.recordSort(name, sort, "Seq", constraint);
             return name;
         }
+        if (sort.is('Multiset') && sort.elementsSort !== undefined) {
+            Logger.error("Multiset sort translation not implemented");
+            throw new DebuggerError("Multiset sort translation not implemented");
+        }
+
         if (sort.is(Sort.Int)) {
             return AlloyTranslator.Int;
         }
@@ -251,13 +256,13 @@ export class TranslationEnv {
 
         if (sort.id === "FVF" && sort.elementsSort) {
             const name = 'FVF_' + this.translate(sort.elementsSort);
-            this.recordSort(name);
+            this.recordSort(name, sort);
             return name;
         }
 
         if (sort.id === 'PSF' && sort.elementsSort) {
             const name = 'PSF_' + this.translate(sort.elementsSort);
-            this.recordSort(name);
+            this.recordSort(name, sort);
             return name;
         }
 
@@ -287,12 +292,8 @@ export class TranslationEnv {
         }
     }
 
-    public recordSort(sort: string, base?: string, constraint?: string) {
-        if (base !== undefined) {
-            this.sorts.set(sort + " extends " + base, constraint);
-        } else {
-            this.sorts.set(sort, undefined);
-        }
+    public recordSort(name: string, sort: Sort, base?: string, constraint?: string) {
+        this.sorts.set(name, [sort, base, constraint]);
     }
 
     public recordUserSort(userSort: string) {

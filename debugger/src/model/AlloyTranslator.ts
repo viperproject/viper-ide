@@ -456,11 +456,12 @@ export class AlloyTranslator {
 
         if (this.env.sorts.size > 0) {
             this.mb.comment("Other sorts");
-            this.env.sorts.forEach((constraint, name) => {
+            this.env.sorts.forEach(([_, base, constraint], name) => {
+                const sigName = base ? `${name} extends ${base}` : name;
                 if (constraint !== undefined) {
-                    this.mb.signature(name).withConstraint(constraint);
+                    this.mb.signature(sigName).withConstraint(constraint);
                 } else {
-                    this.mb.signature(name);
+                    this.mb.signature(sigName);
                 }
             });
             this.mb.blank();
@@ -512,6 +513,13 @@ export class AlloyTranslator {
         this.env.sortWrappers.forEach((sort, name) => {
             if (sort.is(Sort.Ref)) {
                 reachable.push(`${name}.v`);
+            }
+        });
+
+        // TODO: Account for other containers and nested containers
+        this.env.sorts.forEach(([sort, base, constraint], name) => {
+            if (sort.is('Set') && sort.elementsSort && sort.elementsSort.is(Sort.Ref)) {
+                reachable.push(`${name}.elems`);
             }
         });
 
