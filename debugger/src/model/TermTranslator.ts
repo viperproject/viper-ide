@@ -358,11 +358,16 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         }
 
         if (applicableSanitized.startsWith("sm") && application.sort.is('FVF')) {
+            const snapshotMapVar = new VariableTerm(applicableSanitized, application.sort);
             if (this.env.introduceMissingTempVars) {
-                const snapshotMapVar = new VariableTerm(applicableSanitized, application.sort);
                 this.env.recordTempVariable(snapshotMapVar);
                 return snapshotMapVar.accept(this);
             } else {
+                // Check that the variable has been recorded before
+                if (this.env.resolve(snapshotMapVar) !== undefined) {
+                    return snapshotMapVar.accept(this);
+                }
+
                 return leftover(application, "Not introducing new variable for snapshot map", []);
             }
         }
