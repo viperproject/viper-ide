@@ -2,7 +2,7 @@ import { Record } from './model/Record';
 import { AlloyInstance } from './external';
 import { AlloyTranslator } from './model/AlloyTranslator';
 import { TranslationEnv } from './model/TranslationEnv';
-import { VariableTerm, Literal, Lookup, Application } from './model/Term';
+import { VariableTerm, Literal, Lookup } from './model/Term';
 import { Logger } from './logger';
 import { sanitize } from './model/TermTranslator';
 import { Sort } from './model/Sort';
@@ -181,7 +181,7 @@ export class DotGraph {
         let storeGraph = new DotGraph('clusterStore', true);
         storeGraph.attr('label', '< <u>Store</u> >');
         storeGraph.attr('labeljust', 'l');
-        storeGraph.attr('style', 'dashed');
+        storeGraph.attr('style', 'dotted');
         storeGraph.attr('nodesep', '0.1');
         storeGraph.nodeAttr('color', '"#ffffff"');
         storeGraph.nodeAttr('fontcolor', '"#ffffff"');
@@ -255,16 +255,14 @@ export class DotGraph {
             }
         });
 
-        const funResult = (callName: string) => {
-            const funSigName = 'this/' + callName.replace(/call/, 'fun').replace(/_\d$/, '');
-            const funSig = alloyInstance.signatures.find(s => s.label === funSigName);
-            if (funSig) {
-                const atom = funSig.fields.find(f => f.name === 'ret')!.atoms.find(a => sanitize(a[0].replace(/\$\d$/, '')) === callName);
-                return atom![1];
-            }
-        };
-
-
+        // const funResult = (callName: string) => {
+        //     const funSigName = 'this/' + callName.replace(/call/, 'fun').replace(/_\d$/, '');
+        //     const funSig = alloyInstance.signatures.find(s => s.label === funSigName);
+        //     if (funSig) {
+        //         const atom = funSig.fields.find(f => f.name === 'ret')!.atoms.find(a => sanitize(a[0].replace(/\$\d$/, '')) === callName);
+        //         return atom![1];
+        //     }
+        // };
 
         const neededHeapNodes: Set<string> = new Set();
 
@@ -298,7 +296,7 @@ export class DotGraph {
                             return;
                         }
 
-                        setViz.elems.forEach(e => relations.push(new Rel(nodeId, e, ['label="in"', 'style=dotted'])));
+                        setViz.elems.forEach(e => relations.push(new Rel(nodeId, e, ['label="in"', 'style=dashed'])));
                         storeGraph.add(new Node(nodeId, new Label(`${v.name}: ${v.sort}`)));
                     } else {
                         storeGraph.add(new Node(nodeId, new Label(`${v.name}: ${v.sort} == ${value}`)));
@@ -336,7 +334,7 @@ export class DotGraph {
             });
         }
 
-        const fieldRelations: Set<string> = new Set();
+        // const fieldRelations: Set<string> = new Set();
 
         // const references: Set<string> = new Set();
         // alloyInstance.atoms.forEach(atom => {
@@ -391,7 +389,7 @@ export class DotGraph {
         let heapGraph = new DotGraph('clusterHeap', true);
         heapGraph.attr('label', '< <u>Heap</u> >');
         // heapGraph.attr('labeljust', 'l');
-        heapGraph.attr('style', 'dashed');
+        heapGraph.attr('style', 'dotted');
         // heapGraph.attr('nodesep', '0.1');
         heapGraph.nodeAttr('color', '"#ffffff"');
         heapGraph.nodeAttr('fontcolor', '"#ffffff"');
