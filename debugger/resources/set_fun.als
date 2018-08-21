@@ -2,6 +2,10 @@ abstract sig Set {
 	elems: set univ
 }
 
+pred empty_set [ s': Set ] {
+	no s'.elems
+}
+
 pred set_singleton [ e: univ, s': Set ] {
 	s'.elems = e
 	one e

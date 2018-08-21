@@ -501,9 +501,9 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             return leftover(literal, "Empty seq not implemented", []);
         }
         if (literal.sort.is('Set') && literal.value === 'Ø') {
-            return translatedFrom("EmptySet", []);
+            return this.pred_call("empty_set", literal.sort, []);
         }
-        if (literal.sort.is('Set') && literal.value === 'Ø') {
+        if (literal.sort.is('Multiset') && literal.value === 'Ø') {
             return leftover(literal, "Empty multiset not implemented", []);
         }
         if (literal.sort.is(Sort.Perm)) {
