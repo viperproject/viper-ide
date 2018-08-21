@@ -5,11 +5,15 @@ import { Verifiable } from "./Verifiable";
 
 export class Program {
 
-    constructor(readonly verifiables: Verifiable[], readonly axioms: Term[], readonly macros: Map<Application, Term>) {}
+    constructor(readonly verifiables: Verifiable[],
+                readonly axioms: Term[],
+                readonly functionPostAxioms: Term[],
+                readonly macros: Map<Application, Term>) {}
 
     public static from(log: SymbExLog): Program {
         const verifiables = log.members.map(Verifiable.from);
         const axioms = log.axioms.map(Term.from);
+        const functionPostAxioms = log.functionPostAxioms.map(Term.from);
         const macros = new Map<Application, Term>();
         log.macros.forEach(m => {
             const app = <Application> Term.from(m.macro);
@@ -17,6 +21,6 @@ export class Program {
             macros.set(app, body);
         });
 
-        return new Program(verifiables, axioms, macros);
+        return new Program(verifiables, axioms, functionPostAxioms, macros);
     }
 }

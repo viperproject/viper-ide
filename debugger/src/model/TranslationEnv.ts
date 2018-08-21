@@ -13,12 +13,14 @@ import { mkString } from "../util";
 
 export class TranslationEnv {
 
+    public introduceMissingTempVars: boolean = true;
+    public failOnMissingFunctions: boolean = false;
+
     public fields: Map<string, Sort>;
     public predicates: Map<string, PredicateChunk[]>;
     public storeVariables: Map<string, StoreVariable>;
     public heapSnapshots: Set<string>;
 
-    public introduceMissingTempVars: boolean = true;
     private freshVariables: Map<string, number>;
     public variablesToDeclare: Map<string, Sort>;
     private tempVariables: Set<string>;

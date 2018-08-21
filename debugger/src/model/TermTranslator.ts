@@ -350,10 +350,12 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
     }
 
     visitApplication(application: Application): TranslationRes {
-        const applicableSanitized = sanitize(application.applicable);
+        let applicableSanitized = sanitize(application.applicable);
+        if (applicableSanitized.endsWith('%limited')) {
+            applicableSanitized = applicableSanitized.replace(/%limited$/, '');
+        }
 
         if (applicableSanitized.endsWith('trigger')) {
-            // TODO: Do we want to ignore these in the end?
             return leftover(application, "Explicitely ignoring trigger applications", []);
         }
 
@@ -375,6 +377,10 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         if (applicableSanitized.startsWith("pTaken")) {
             this.env.recordNeededMacro(applicableSanitized);
             return this.call(applicableSanitized, application.args);
+        }
+
+        if (this.env.failOnMissingFunctions && !this.env.functions.has(applicableSanitized)) {
+            return leftover(application, "Not introducing missing functions", []);
         }
 
         const callName = `${AlloyTranslator.Function}.${applicableSanitized}`;
@@ -494,9 +500,30 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         return translatedFrom(res, [cond, thenBranch, elseBranch]);
     }
 
-    // TODO: Implement this
     visitLet(term: Let): TranslationRes {
-        return leftover(term, "Let translation not implemented", []);
+        const names: string[] = [];
+        const bindings: string[] = [];
+        for (const [name, value] of term.bindings) {
+            names.push(name.id);
+            const translatedValue = value.accept(this);
+            if (translatedValue.res) {
+                bindings.push(`${sanitize(name.id)} = ${translatedValue.res}`);
+            } else {
+                return leftover(term, `Could not translate let binding '${value}'`, translatedValue.leftovers);
+            }
+        }
+
+        return this.env.evaluateWithAdditionalVariables(
+            names,
+            () => {
+                const translatedBody = term.body.accept(this);
+
+                if (!translatedBody.res) {
+                    return leftover(term, `Could not translate let body '${term.body}'`, translatedBody.leftovers);
+                }
+                return translatedFrom('let ' + bindings.join(', ') + ' | ' + translatedBody.res, [translatedBody]);
+            }
+        );
     }
 
     visitLiteral(literal: Literal): TranslationRes {

@@ -10,6 +10,7 @@ import { TermTranslatorVisitor, sanitize, TranslationRes } from "./TermTranslato
 import * as fs from 'fs';
 import { getAbsolutePath } from "../extension";
 import { mkString } from "../util";
+import { Program } from "./Program";
 
 
 export class AlloyTranslator {
@@ -41,8 +42,7 @@ export class AlloyTranslator {
     private termTranslator: TermTranslatorVisitor;
 
     public constructor(readonly verifiable: Verifiable,
-                       readonly axioms: Term[],
-                       readonly macros: Map<Application, Term>,
+                       readonly program: Program,
                        readonly state: State,
                        readonly env: TranslationEnv) {
         this.mb = new AlloyModelBuilder();
@@ -333,9 +333,9 @@ export class AlloyTranslator {
     }
 
     private translateAxioms() {
-        if (this.axioms.length > 0) {
+        if (this.program.axioms.length > 0) {
             this.mb.comment("Domain Axioms");
-            this.axioms.forEach(a => this.termToFact(a));
+            this.program.axioms.forEach(a => this.termToFact(a));
             this.mb.blank();
         }
     }
@@ -419,6 +419,13 @@ export class AlloyTranslator {
             }
             this.mb.oneSignature(AlloyTranslator.Function).withMembers(members);
             this.mb.blank();
+
+            // Introduce axioms for post-conditions. Do not register new functions
+            // if the name is missing, the axioms they appear in belong to other
+            // functions in the file that we do not need now.
+            this.env.failOnMissingFunctions = true;
+            this.program.functionPostAxioms.forEach(f => this.termToFact(f));
+            this.env.failOnMissingFunctions = false;
         }
 
         if (this.env.lookupFunctions.length > 0) {
@@ -491,9 +498,9 @@ export class AlloyTranslator {
     }
 
     private encodeMacros() {
-        if (this.macros.size > 0 && this.env.neededMacros.size > 0) {
+        if (this.program.macros.size > 0 && this.env.neededMacros.size > 0) {
             this.mb.comment("Macros");
-            this.macros.forEach((body, app) => {
+            this.program.macros.forEach((body, app) => {
                 const sanitizedName = sanitize(app.applicable);
 
                 // Only emit needed mactros

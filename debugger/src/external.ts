@@ -28,6 +28,7 @@ export namespace ViperApi {
 export interface SymbExLog {
     members: SymbExLogEntry[];
     axioms: any[];
+    functionPostAxioms: any[];
     macros: { macro: any, body: any }[];
     timestamp: string;
 }

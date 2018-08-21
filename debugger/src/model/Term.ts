@@ -240,7 +240,8 @@ export class Let implements Term {
     }
 
     toString () {
-        return `let ${this.bindings.toString} in ${this.body}`;
+        const binds = this.bindings.map(([name, value]) => `${name.toString()} = ${value.toString()}`);
+        return `let ${binds.join(', ')} in ${this.body}`;
     }
 }
 
