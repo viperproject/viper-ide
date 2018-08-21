@@ -37,6 +37,7 @@ export class AlloyTranslator {
     public static PermFun = 'PermFun';
     public static Lookup = 'Lookup';
     public static PredLookup = 'PredLookup';
+    public static SortWrappers = 'SortWrappers';
 
     private mb: AlloyModelBuilder;
     private termTranslator: TermTranslatorVisitor;
@@ -466,16 +467,21 @@ export class AlloyTranslator {
                 .withMembers(Array.from(members));
         }
 
-        this.env.sortWrappers.forEach((sorts, name) => {
-            const from = this.env.translate(sorts.from);
-            const to = this.env.translate(sorts.to);
-            this.mb.abstractSignature(name).extends(to)
-                .withMember('v: lone ' + from);
-            this.mb.fun(`pred ${name.toLowerCase()} [ from: ${from}, s: ${to} ] {
-    s.v = from
+        if (this.env.sortWrappers.size > 0) {
+            const members: string[] = [];
+            this.env.sortWrappers.forEach((sorts, name) => {
+                const from = this.env.translate(sorts.from);
+                const to = this.env.translate(sorts.to);
+                members.push(`${name}: (${from} -> one ${to})`);
+                this.mb.fun(`pred wrap_${name} [ from: ${from}, to: ${to} ] {
+    (from -> to) in ${AlloyTranslator.SortWrappers}.${name}
 }`);
-        });
-        this.mb.blank();
+            });
+            this.mb.oneSignature(AlloyTranslator.SortWrappers)
+                    .withMembers(members);
+
+            this.mb.blank();
+        }
 
         if (this.env.userSorts.size > 0) {
             this.mb.comment("User sorts");
