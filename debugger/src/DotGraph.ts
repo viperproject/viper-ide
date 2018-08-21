@@ -7,6 +7,7 @@ import { Logger } from './logger';
 import { sanitize } from './model/TermTranslator';
 import { Sort } from './model/Sort';
 import { mkString } from './util';
+import { DebuggerError } from './Errors';
 
 
 export interface DotElem {
@@ -75,8 +76,8 @@ class FunCall implements DotElem {
 
     public toDotString() {
         let call = new DotGraph('cluster' + this.id.replace(/_/, ''), true);
-        call.attr('label', `< <u>Function Call ${this.name}</u> >`);
-        call.attr('style', 'solid');
+        call.attr('label', `< Fun Call <i>${this.name}</i> >`);
+        call.attr('style', 'bold');
 
         this.args.forEach((value, key) => {
             const id = this.id + '_arg_' + key;
@@ -103,6 +104,18 @@ class Rel implements DotElem {
 
     constructor(readonly from: string, readonly to: string, readonly attributes?: string[]) {}
 
+    public static info(from: string,  to: string, label: string) {
+        return new Rel(from, to, [`label="${label}"`,
+                                  'arrowhead=vee', 'style=dashed',
+                                  'color="#777777"', 'fontcolor="#777777"']);
+    }
+
+    public static in(from: string,  to: string, label: string) {
+        return new Rel(from, to, [`label="${label}"`,
+                                  'arrowtail=vee', 'arrowhead=none', 'style=dashed', 'dir=back',
+                                  'color="#777777"', 'fontcolor="#777777"']);
+    }
+
     toDotString() {
         if (this.attributes) {
             return `${this.from} -> ${this.to} ` + mkString(this.attributes, '[', ', ', ']');
@@ -116,6 +129,70 @@ class SetViz {
     public elems: string[];
     constructor(readonly id: string) {
         this.elems = [];
+    }
+}
+
+class RefNode {
+    private fields: Map<string, [string, Sort]>;
+    constructor(readonly id: string) {
+        this.fields = new Map();
+    }
+
+    public setField(fieldName: string, value: string, sort: Sort) {
+        this.fields.set(fieldName, [value, sort]);
+    }
+
+    public toDotString() {
+        if (this.fields.size > 0) {
+            const relations: string[] = [];
+            const labelParts: string[] = [];
+            this.fields.forEach(([value, sort], field) => {
+                if (sort.is(Sort.Ref)) {
+                    if (value === 'NULL_0') {
+                        labelParts.push(`<f${field}> ${field} == null`);
+                    } else {
+                        relations.push(`${this.id}:f${field}:e -> ${value}`);
+                        labelParts.push(`<f${field}> ${field}`);
+                    }
+                } else {
+                    labelParts.push(`<f${field}> ${field}: ${sort} == ${value}`);
+                }
+            });
+
+            return [`${this.id} [label="${labelParts.join(' | ')}";]`].concat(relations).join('\n');
+        } 
+
+        return `${this.id} [label="";]`;
+    }
+}
+
+class PredNode {
+    private args: Map<string, string>;
+    constructor(readonly id: string, readonly name: string) {
+        this.args = new Map();
+    }
+
+    public setArg(arg: string, to: string) {
+        this.args.set(arg, to);
+    }
+
+    public toDotString() {
+        let call = new DotGraph('cluster' + this.id.replace(/_/, ''), true);
+        call.attr('label', `< Pred <i>${this.name}</i> >`);
+        call.attr('style', 'bold');
+
+        const rels: Rel[] = [];
+        this.args.forEach((value, key) => {
+            const id = this.id + '_arg_' + key;
+            if (value !== 'NULL_0') {
+                call.add(new Node(id, new Label(`${key} == ${value}`)));
+                rels.push(new Rel(value, id, ['style=dashed']));
+            } else {
+                call.add(new Node(id, new Label(`${key} == null`)));
+            }
+        });
+
+        return call.toDotString() + rels.map(r => r.toDotString()).join('\n');
     }
 }
 
@@ -176,11 +253,10 @@ export class DotGraph {
         graph.edgeAttr('color', '"#ffffff"');
         graph.edgeAttr('fontcolor', '"#ffffff"');
         graph.edgeAttr('fontname', '"Arial, Helvetica"');
-        // graph.edgeAttr('fontsize', '11');
+        graph.edgeAttr('fontsize', '9');
 
         let storeGraph = new DotGraph('clusterStore', true);
         storeGraph.attr('label', '< <u>Store</u> >');
-        storeGraph.attr('labeljust', 'l');
         storeGraph.attr('style', 'dotted');
         storeGraph.attr('nodesep', '0.1');
         storeGraph.nodeAttr('color', '"#ffffff"');
@@ -191,24 +267,21 @@ export class DotGraph {
 
         let relations: Rel[] = [];
 
-        const storeLabel = 'this/' + AlloyTranslator.Store;
-
         const storeRelations: Map<string, string> = new Map();
         const funCalls: Map<string, FunCall> = new Map();
         const signatureToAtom: Map<string, string> = new Map();
-        const references: Set<string> = new Set();
-        alloyInstance.atoms.forEach(atom => {
-            if (atom.type === '{this/Ref}') {
-                references.add(sanitize(atom.name));
-            }
-        });
+
+        const references: Map<string, RefNode> = new Map();
+        const predicates: Map<string, PredNode> = new Map();
+
+        let nullInHeap = false;
 
         const sets: Map<string, SetViz> = new Map();
 
         alloyInstance.signatures.forEach(sig => {
             sig.atoms.forEach(a => signatureToAtom.set(sanitize(sig.label).replace(/this\//, ''), sanitize(a)));
 
-            if (sig.label === storeLabel) { 
+            if (sig.label === 'this/' + AlloyTranslator.Store) { 
                 sig.fields.forEach(field => {
                     if (field.name !== "refTypedVars'") {
                         // Each field in the store has cardinality one and the first (zeroeth)
@@ -217,14 +290,44 @@ export class DotGraph {
                         storeRelations.set(sanitize(field.name.replace(/'$/, '')), sanitize(val));
                     }
                 });
+            
+            } else if (sig.label === 'this/' + AlloyTranslator.Ref) {
+                sig.fields.forEach((field) => {
+                    if (field.name === "refTypedFields'") { return; }
+
+                    const fieldSort = env.fields.get(field.name);
+                    if (fieldSort === undefined) {
+                        Logger.error("Could not determine field sort when producing graph.");
+                        throw new DebuggerError("Could not determine field sort when producing graph.");
+                    }
+
+                    field.atoms.forEach((rel) => {
+                        const from = sanitize(rel[0]);
+                        const to = sanitize(rel[1]);
+                        let ref = references.get(from);
+                        if (ref === undefined) {
+                            ref = new RefNode(from);
+                            references.set(from, ref);
+                        }
+                        ref.setField(field.name, to, fieldSort);
+                    });
+                });
+
+                sig.atoms.forEach(a => {
+                    const name = sanitize(a);
+                    if (name !== 'NULL_0' && !references.has(name)) {
+                        references.set(name, new RefNode(name));
+                    }
+                });
 
             } else if (sig.label.startsWith('this/fun_')) {
                 sig.fields.forEach(field => {
                     const argName = field.name;
                     const isArg = argName.startsWith('a');
                     field.atoms.forEach(atom => {
-                        const callName = sanitize(atom[0].replace(/\$\d$/, ''));
-                        const displayName = callName.replace(/^call_/, '').replace(/_\d$/, '');
+                        // TODO: replacing $\d might be wrong, there might be multiple calls
+                        const callName = sanitize(atom[0].replace(/\$\d$/g, ''));
+                        const displayName = callName.replace(/^call_/, '').replace(/_\d$/g, '');
                         const argValue = sanitize(atom[1]);
 
                         let call = funCalls.get(callName);
@@ -240,17 +343,39 @@ export class DotGraph {
                     });
                 });
 
+            } else if (sig.label.startsWith('this/pred_')) {
+                sig.fields.forEach((field) => {
+                    const argName = field.name;
+                    field.atoms.forEach(atom => {
+                        const predId = sanitize(atom[0]);
+                        const predName = sanitize(atom[0].replace(/\$\d$/, '').replace(/^pred_/, ''));
+
+                        let pred = predicates.get(predId);
+                        if (pred === undefined) {
+                            pred = new PredNode(predId, predName);
+                            predicates.set(predId, pred);
+                        }
+
+                        pred.setArg(argName, sanitize(atom[1]));
+                    });
+                });
+
+
             } else if (sig.label === 'this/Set') {
                 const elems = sig.fields.find(f => f.name === 'elems')!;
                 elems.atoms.forEach(a => {
                     const id = sanitize(a[0]);
+                    const to = sanitize(a[1]);
                     let set = sets.get(id);
                     if (set === undefined) {
                         set = new SetViz(id);
                         sets.set(id, set);
                     }
 
-                    set.elems.push(sanitize(a[1]));
+                    if (to === 'NULL_0') {
+                        nullInHeap = true;
+                    }
+                    set.elems.push(to);
                 });
             }
         });
@@ -296,7 +421,7 @@ export class DotGraph {
                             return;
                         }
 
-                        setViz.elems.forEach(e => relations.push(new Rel(nodeId, e, ['label="in"', 'style=dashed'])));
+                        setViz.elems.forEach(e => relations.push(Rel.in(nodeId, e, '∈')));
                         storeGraph.add(new Node(nodeId, new Label(`${v.name}: ${v.sort}`)));
                     } else {
                         storeGraph.add(new Node(nodeId, new Label(`${v.name}: ${v.sort} == ${value}`)));
@@ -326,7 +451,23 @@ export class DotGraph {
                 //     relations.push(new Rel(nodeId, callName + "_res", ['style=dashed']));
 
                 } else if (v.value instanceof Lookup) {
-                    storeGraph.add(new Node("lookup" + sanitize(v.value.field), new Label(`${v.name}: ${v.sort} (lookup)\\l`)));
+                    // storeGraph.add(new Node(v.name +"_lookup_" + sanitize(v.value.field), new Label(`${v.name}: ${v.sort} (lookup)\\l`)));
+                    const rel = storeRelations.get(v.name)!;
+                    const nodeId = v.name +"_lookup_" + sanitize(v.value.field)
+
+                    if (v.value.receiver instanceof VariableTerm) {
+                        const ref = signatureToAtom.get(sanitize(v.value.receiver.id))
+                        if (ref !== undefined) {
+                            const field = v.value.field;
+                            storeGraph.add(new Node(nodeId, new Label(`${v.name} == ${rel}\\l`)));
+                            relations.push(Rel.info(nodeId, `${ref}:<f${field}>`, '.' + field));
+                        } else {
+                            storeGraph.add(new Node(nodeId, new Label(`${v.name}: (lookup) == ${rel}\\l`)));
+                        }
+                    } else {
+                        storeGraph.add(new Node(nodeId, new Label(`${v.name}: (lookup) == ${rel}\\l`)));
+                    }
+
 
                 } else {
                     Logger.error(`Unexpected value type in store: ${v.value}`);
@@ -397,15 +538,23 @@ export class DotGraph {
         heapGraph.edgeAttr('color', '"#ffffff"');
         heapGraph.edgeAttr('fontcolor', '"#ffffff"');
         
-        if (heapNodes.size < 1) {
+        if (references.size < 1) {
             const emtpyNode = new Node('heapEmpty', new Label(""));
-            emtpyNode.attr('style', 'none');
+            emtpyNode.attr('style', 'invis');
             heapGraph.add(emtpyNode);
         } else {
-            heapNodes.forEach((node, key) => {
-                heapGraph.add(node);
-                // heapGraph.add(`${key} [label="${node.label.toString()}"]`);
+            references.forEach((refNode, _) => {
+                heapGraph.add(refNode);
             });
+            // heapNodes.forEach((node, key) => {
+            //     heapGraph.add(node);
+            //     // heapGraph.add(`${key} [label="${node.label.toString()}"]`);
+            // });
+        }
+
+        predicates.forEach((predNode, _) => heapGraph.add(predNode));
+        if (nullInHeap) {
+            heapGraph.add(new Node('NULL_0', new Label('NULL')));
         }
 
         graph.add(storeGraph);
