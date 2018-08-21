@@ -242,7 +242,7 @@ export class AlloyTranslator {
                         Logger.warn(translated.leftovers.join(',\n'));
                     }
                 });
-                this.mb.fact(`one p': ${name} | ` + args.map((v, idx) => `${v} = p'.arg${idx}`));
+                this.mb.fact(`one p': ${name} | ` + args.map((v, idx) => `${v} = p'.arg${idx}`).join(' && '));
                 // this.mb.fact(`one p': ${name} | ` + args.join(' -> ') + " in p'.args");
             });
             this.mb.fact(`#${name} = ${preds.length}`);
