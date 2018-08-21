@@ -2,7 +2,7 @@ import { AlloyModelBuilder } from "./AlloyModel";
 import { State } from "./Record";
 import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, HeapChunk } from "./Heap";
 import { Logger } from "../logger";
-import { VariableTerm, Unary, Term, Application, Binary, Quantification, Literal, LogicalWrapper, BooleanWrapper, SortWrapper } from "./Term";
+import { VariableTerm, Unary, Term, Application, Literal, LogicalWrapper, BooleanWrapper } from "./Term";
 import { getSort, Sort } from './Sort';
 import { Verifiable } from "./Verifiable";
 import { TranslationEnv } from "./TranslationEnv";
@@ -35,6 +35,7 @@ export class AlloyTranslator {
     public static Function = 'Fun';
     public static PermFun = 'PermFun';
     public static Lookup = 'Lookup';
+    public static PredLookup = 'PredLookup';
 
     private mb: AlloyModelBuilder;
     private termTranslator: TermTranslatorVisitor;
@@ -228,9 +229,9 @@ export class AlloyTranslator {
             const name = "pred_" + id;
             let preds = <PredicateChunk[]> this.env.predicates.get(id);
             let first = preds[0];
-            const vars = 'args: ' + first.args.map(a => this.env.translate(getSort(a))).join(' one -> one ');
+            const vars = first.args.map((value, index) => `arg${index}: one ${this.env.translate(getSort(value))}`);
 
-            this.mb.signature(name).withMembers([vars]);
+            this.mb.signature(name).withMembers(vars);
             preds.forEach(p => {
                 const args: string[] = [];
                 p.args.forEach(a => {
@@ -241,7 +242,8 @@ export class AlloyTranslator {
                         Logger.warn(translated.leftovers.join(',\n'));
                     }
                 });
-                this.mb.fact(`one p': ${name} | ` + args.join(' -> ') + " in p'.args");
+                this.mb.fact(`one p': ${name} | ` + args.map((v, idx) => `${v} = p'.arg${idx}`));
+                // this.mb.fact(`one p': ${name} | ` + args.join(' -> ') + " in p'.args");
             });
             this.mb.fact(`#${name} = ${preds.length}`);
             this.mb.blank();
@@ -381,23 +383,27 @@ export class AlloyTranslator {
         if (this.env.permFunctions.size > 0) {
 
             const members: string[] = [];
-            this.env.permFunctions.forEach((snapSort, name) => {
+            const fieldExistenceFacts: string[] = [];
+            this.env.permFunctions.forEach((snapSort, field) => {
                 const typeSigs = [
                     this.env.translate(Sort.Ref),
                     this.env.translate(snapSort),
                 ];
 
                 // Record function so it can be constrained later
-                const funName = `${AlloyTranslator.PermFun}.${name}`;
+                const funName = `${AlloyTranslator.PermFun}.${field}`;
                 this.env.recordInstance(Sort.Perm, funName + mkString(typeSigs, '[', ', ', ']'));
 
                 // Record the member
                 typeSigs.push('set ' + this.env.translate(Sort.Perm));
-                members.push(name + ': ' + mkString(typeSigs, '(', ' -> ', ')'));
+                members.push(field + ': ' + mkString(typeSigs, '(', ' -> ', ')'));
+                const f = `all fvf: ${this.env.translate(snapSort)}, r: Ref | { some p: PermFun.${field}[r, fvf] | p.num > 0 } => (one r.${field})`;
+                fieldExistenceFacts.push(f);
             });
 
             this.mb.comment("Permission functions");
             this.mb.oneSignature(AlloyTranslator.PermFun).withMembers(members);
+            fieldExistenceFacts.forEach(f => this.mb.fact(f));
             this.mb.blank();
         }
 
@@ -438,12 +444,28 @@ export class AlloyTranslator {
             fvfFacts.forEach(f => this.mb.fact(f));
         }
 
-        this.env.sortWrappers.forEach((sort, name) => {
-            const tSort = this.env.translate(sort);
-            this.mb.abstractSignature(name).extends(AlloyTranslator.Snap)
-                .withMember('v: lone ' + this.env.translate(sort));
-            this.mb.fun(`pred ${name.toLowerCase()} [ o: ${tSort}, s: ${Sort.Snap} ] {
-    s.v = o
+        if (this.env.predLookupFunctions.length > 0) {
+            const members = new Set<string>();
+            this.env.predLookupFunctions.forEach(([pred, sorts]) => {
+
+                const sigSorts = sorts.map(s => this.env.translate(s));
+                // sigSorts.push('lone ' + this.env.translate(sorts[0].elementsSort!));
+                sigSorts.push('lone ' + this.env.translate(sorts[0].elementsSort!));
+                members.add(pred + ': ' + mkString(sigSorts, '(', ' -> ', ')'));
+            });
+
+            this.mb.comment("Predicate Lookup Functions");
+            this.mb.oneSignature(AlloyTranslator.PredLookup)
+                .withMembers(Array.from(members));
+        }
+
+        this.env.sortWrappers.forEach((sorts, name) => {
+            const from = this.env.translate(sorts.from);
+            const to = this.env.translate(sorts.to);
+            this.mb.abstractSignature(name).extends(to)
+                .withMember('v: lone ' + from);
+            this.mb.fun(`pred ${name.toLowerCase()} [ from: ${from}, s: ${to} ] {
+    s.v = from
 }`);
         });
         this.mb.blank();
@@ -510,8 +532,8 @@ export class AlloyTranslator {
     private encodeReachabilityConstraints() {
         const reachable = [ AlloyTranslator.Store + ".refTypedVars'.*refTypedFields'", AlloyTranslator.Null ]; 
 
-        this.env.sortWrappers.forEach((sort, name) => {
-            if (sort.is(Sort.Ref)) {
+        this.env.sortWrappers.forEach((sorts, name) => {
+            if (sorts.from.is(Sort.Ref)) {
                 reachable.push(`${name}.v`);
             }
         });
@@ -583,6 +605,7 @@ export class AlloyTranslator {
                 }
             });
 
+            // TODO: Should account for empty sets.
             // TODO: Multiset
             const sort_sigs = [AlloyTranslator.SigSeq, AlloyTranslator.SigSet, AlloyTranslator.Perm, AlloyTranslator.Snap];
             sort_sigs.forEach(sigName => {

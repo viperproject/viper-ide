@@ -29,10 +29,11 @@ export class TranslationEnv {
     public quantifiedSignatureCount: number;
     public recordedSignatures: Map<string, Signature>;
 
-    public sortWrappers: Map<string, Sort>;
+    public sortWrappers: Map<string, { from: Sort, to: Sort }>;
     public functions: Map<string, [Sort[], Sort]>;
     public permFunctions: Map<string, Sort>;
     public lookupFunctions: [Sort, string][];
+    public predLookupFunctions: [string, Sort[]][];
 
     public recordInterestingFunctions: boolean;
     public interestingFunctions: Set<string>;
@@ -64,6 +65,7 @@ export class TranslationEnv {
         this.functions = new Map();
         this.permFunctions = new Map();
         this.lookupFunctions = [];
+        this.predLookupFunctions = [];
 
         this.recordInterestingFunctions = true;
         this.interestingFunctions = new Set();

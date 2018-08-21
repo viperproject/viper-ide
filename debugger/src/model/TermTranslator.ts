@@ -305,7 +305,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
         const name = `Sortwrapper_${this.env.translate(fromSort)}_to_${this.env.translate(toSort)}`;
         if (!this.env.sortWrappers.has(name)) {
-            this.env.sortWrappers.set(name, fromSort);
+            this.env.sortWrappers.set(name, { from: fromSort, to: toSort });
         }
 
         return this.pred_call(name.toLowerCase(), toSort, [sortWrapper.term]);
@@ -357,7 +357,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             return leftover(application, "Explicitely ignoring trigger applications", []);
         }
 
-        if (applicableSanitized.startsWith("sm") && application.sort.is('FVF')) {
+        if (applicableSanitized.startsWith("sm") && (application.sort.is('FVF') || application.sort.is('PSF'))) {
             const snapshotMapVar = new VariableTerm(applicableSanitized, application.sort);
             if (this.env.introduceMissingTempVars) {
                 this.env.recordTempVariable(snapshotMapVar);
@@ -403,13 +403,13 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
         const returnSort = getSort(lookup.fieldValueFunction);
         if (!(returnSort.is('FVF') && returnSort.elementsSort !== undefined)) {
-            Logger.error(`Expected sort to a FVF, but was '${returnSort}': ` + lookup);
-            throw new DebuggerError(`Expected sort to a FVF, but was '${returnSort}': ` + lookup);
+            Logger.error(`Expected sort to be a FVF, but was '${returnSort}': ` + lookup);
+            throw new DebuggerError(`Expected sort to be a FVF, but was '${returnSort}': ` + lookup);
         }
 
-        const callName = `${AlloyTranslator.Lookup}.${sanitize(lookup.field)}`;
         this.env.lookupFunctions.push([returnSort, lookup.field]);
 
+        const callName = `${AlloyTranslator.Lookup}.${sanitize(lookup.field)}`;
         const translated = this.call(callName, [lookup.fieldValueFunction, lookup.receiver]);
         if (translated.res === undefined) {
             return leftover(lookup, "Could not translate lookup call", translated.leftovers);
@@ -420,7 +420,23 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
     // TODO: Implement this
     visitPredicateLookup(lookup: PredicateLookup): TranslationRes {
-        return leftover(lookup, "Predicate Lookups not implemented", []);
+        const argSorts = lookup.args.map(a => getSort(a));
+
+        const returnSort = getSort(lookup.predicateSnapFunction);
+        if (!(returnSort.is('PSF')) && returnSort.elementsSort !== undefined) {
+            Logger.error(`Expected sort to be PSF, but was '${returnSort}': ` + lookup);
+            throw new DebuggerError(`Expected sort to be PSF, but was '${returnSort}': ` + lookup);
+        }
+
+        this.env.predLookupFunctions.push([lookup.predicate, [returnSort].concat(argSorts)]);
+
+        const callName = `${AlloyTranslator.PredLookup}.${lookup.predicate}`;
+        const translated = this.call(callName, [lookup.predicateSnapFunction].concat(lookup.args));
+        if (translated.res === undefined) {
+            return leftover(lookup, "Could not translate predicate lookup call", translated.leftovers);
+        }
+
+        return translated;
     }
 
     visitAnd(and: And): TranslationRes {
