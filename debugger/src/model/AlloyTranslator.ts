@@ -2,7 +2,7 @@ import { AlloyModelBuilder } from "./AlloyModel";
 import { State } from "./Record";
 import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, HeapChunk } from "./Heap";
 import { Logger } from "../logger";
-import { VariableTerm, Unary, Term, Application, Literal, LogicalWrapper, BooleanWrapper } from "./Term";
+import { VariableTerm, Unary, Term, Literal, LogicalWrapper, BooleanWrapper } from "./Term";
 import { getSort, Sort } from './Sort';
 import { Verifiable } from "./Verifiable";
 import { TranslationEnv } from "./TranslationEnv";
@@ -472,7 +472,7 @@ export class AlloyTranslator {
             this.env.sortWrappers.forEach((sorts, name) => {
                 const from = this.env.translate(sorts.from);
                 const to = this.env.translate(sorts.to);
-                members.push(`${name}: (${from} -> one ${to})`);
+                members.push(`${name}: (${from} -> lone ${to})`);
                 this.mb.fun(`pred wrap_${name} [ from: ${from}, to: ${to} ] {
     (from -> to) in ${AlloyTranslator.SortWrappers}.${name}
 }`);
