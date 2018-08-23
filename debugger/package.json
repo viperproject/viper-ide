@@ -100,6 +100,16 @@
                     ],
                     "default": "INFO",
                     "description": "The minimum level of importance of the messages to log."
+                },
+                "viperDebuggerSettings.alloySATSolver": {
+                    "type": "string",
+                    "enum": [
+                        "sat4j",
+                        "minisat(jni)",
+                        "minisatprover(jni)"
+                    ],
+                    "default": "minisat(jni)",
+                    "description": "The SAT solver Alloy should use when looking for a counterexample."
                 }
             }
         }

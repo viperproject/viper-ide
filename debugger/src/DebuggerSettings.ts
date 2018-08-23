@@ -6,6 +6,7 @@ export namespace DebuggerSettings {
 
     export var logLevel: LogLevel = LogLevel.INFO;
     export const debugImmediately = settings.get<boolean>("debugImmediately") ? true : false;
+    export const alloySATSolver: string = settings.get<string>("alloySATSolver") || 'minisat(jni)';
 
     let logLevelSetting = <keyof typeof LogLevel> settings.get("logLevel");
     if (logLevelSetting !== undefined) { 
@@ -18,7 +19,6 @@ export namespace DebuggerSettings {
         let highlightingSettings = vscode.workspace.getConfiguration("viperDebuggerSettings.highlighting");
         let colorString = (<string> highlightingSettings.get(key)).trim();
 
-        // TODO: This is not realy a 100% safe check, but we probably don't care that much
         let valid = colorString.match(/^#[a-fA-F\d]{6}$/) ||
                     colorString.match(/^#[a-fA-F\d]{3}$/) ||
                     colorString.match(/^rgb\(\s*\d,\s*\d,\s*\d\s*\)$/);
