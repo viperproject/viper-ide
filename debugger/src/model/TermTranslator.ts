@@ -53,13 +53,7 @@ export class Leftover {
 export class TranslationRes {
     constructor(readonly res: string | undefined,
                 readonly leftovers: Leftover[],
-                readonly quantifiedVariables: string[],
                 readonly additionalFacts: string[]) {}
-    
-    public withQuantifiedVariables(quantifiedVariables: string[]) {
-        quantifiedVariables.forEach(v => this.quantifiedVariables.push(v));
-        return this;
-    }
 
     public withAdditionalFacts(additionalFacts: string[]) {
         additionalFacts.forEach(f => this.additionalFacts.push(f));
@@ -68,14 +62,13 @@ export class TranslationRes {
 }
 function translatedFrom(res: string, others: TranslationRes[]) {
     let leftovers = others.reduce((acc, curr) => acc.concat(curr.leftovers), [] as Leftover[]);
-    let quantifiedVariables = others.reduce((acc, curr) => acc.concat(curr.quantifiedVariables), [] as string[]);
     let additionalFacts = others.reduce((acc, curr) => acc.concat(curr.additionalFacts), [] as string[]);
 
-    return new TranslationRes(res, leftovers, quantifiedVariables, additionalFacts);
+    return new TranslationRes(res, leftovers, additionalFacts);
 }
 
 function leftover(leftover: Term, reason: string, other: Leftover[]) {
-    return new TranslationRes(undefined, [new Leftover(leftover, reason, other)], [], []);
+    return new TranslationRes(undefined, [new Leftover(leftover, reason, other)], []);
 }
 
 export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
@@ -334,8 +327,6 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
     }
 
     visitQuantification(quantification: Quantification): TranslationRes {
-        const tVars = quantification.vars.map(v => `${sanitize(v.id)}: ${this.env.translate(v.sort)}`);
-
         let mult: string;
         if (quantification.quantifier === 'QA') {
             mult = 'all';
@@ -357,8 +348,8 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
                 }
 
                 this.env.quantifierVariables = undefined;
-                return translatedFrom(tBody.res, [tBody])
-                            .withQuantifiedVariables(tVars.map(v => `${mult} ${v}`));
+                const vars = quantification.vars.map(v => `${mult} ${sanitize(v.id)}: ${this.env.translate(v.sort)}`);
+                return translatedFrom(`(${vars.join(', ')} | ${tBody.res})`, [tBody]);
             });
 
     }

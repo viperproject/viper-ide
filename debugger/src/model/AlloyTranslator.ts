@@ -357,11 +357,7 @@ export class AlloyTranslator {
                         .concat(body.res)
                         .join(" && \n       ");
         // let facts = [body.res].concat(body.additionalFacts).join(" && ");
-        if (body.quantifiedVariables.length > 0) {
-            this.mb.fact(body.quantifiedVariables.concat(facts).join(" | "));
-        } else {
-            this.mb.fact(facts);
-        }
+        this.mb.fact(facts);
     }
 
     private encodeFreshVariables() {
