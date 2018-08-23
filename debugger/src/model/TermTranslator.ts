@@ -175,6 +175,20 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         // Alloy operators only have one equal sign, but are otherwise the same as the Viper ones.
         let alloyOp = binary.op.replace('===', '=').replace("==", "=");
 
+        if (leftSort.is(Sort.Logical) && rightSort.is(Sort.Logical) && binary.op === BinaryOp.Equals) {
+            alloyOp = '&&';
+            const left = binary.lhs.accept(this);
+            if (left.res === undefined) {
+                return leftover(binary, "Left-hand side operand not translated", left.leftovers);
+            }
+            const right = binary.rhs.accept(this);
+            if (right.res === undefined) {
+                return leftover(binary, "Right-hand side operand not translated", right.leftovers);
+            }
+
+            return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
+        }
+
         // If both operands are boolean, then translating to alloy equality is fine. In all other cases we need to wrap
         // at least one of the two operands.
         if (leftSort.is(Sort.Bool) && rightSort.is(Sort.Bool) && binary.op === BinaryOp.Equals) {
