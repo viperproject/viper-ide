@@ -341,7 +341,8 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             quantification.vars.map(v => v.id),
             () => {
                 this.env.quantifierVariables = quantification.vars;
-                const tBody = quantification.body.accept(this);
+                // Make sure the body of a quantifier has logical sort
+                const tBody = new LogicalWrapper(quantification.body).accept(this);
 
                 if (!tBody.res) {
                     return leftover(quantification, "Could not translate quantified variables", tBody!.leftovers);
