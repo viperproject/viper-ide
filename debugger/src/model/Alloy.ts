@@ -2,6 +2,7 @@ import * as request from 'request';
 
 import { viperApi } from "../extension";
 import { AlloyInstance } from '../external';
+import { DebuggerSettings } from '../DebuggerSettings';
 
 
 export class Alloy {
@@ -16,7 +17,7 @@ export class Alloy {
                     let options = {
                         url: url + '/alloy', 
                         headers: {'content-type': 'application/json'},
-                        body: JSON.stringify({ arg: model, solver: 'sat4j' })
+                        body: JSON.stringify({ arg: model, solver: DebuggerSettings.alloySATSolver })
                     };
                     request.post(options, (error, response, body) => {
                         if (error) {
