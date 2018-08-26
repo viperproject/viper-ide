@@ -349,8 +349,9 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
                 }
 
                 this.env.quantifierVariables = undefined;
-                const vars = quantification.vars.map(v => `${mult} ${sanitize(v.id)}: ${this.env.translate(v.sort)}`);
-                return translatedFrom(`(${vars.join(', ')} | ${tBody.res})`, [tBody]);
+                const vars = quantification.vars.map(v => `${sanitize(v.id)}: ${this.env.translate(v.sort)}`);
+                const body = tBody.additionalFacts.concat(tBody.res).join(' && ');
+                return translatedFrom(`(${mult} ${vars.join(', ')} | ${body})`, []);
             });
 
     }
@@ -430,7 +431,6 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         return translated; 
     }
 
-    // TODO: Implement this
     visitPredicateLookup(lookup: PredicateLookup): TranslationRes {
         const argSorts = lookup.args.map(a => getSort(a));
 
