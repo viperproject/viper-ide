@@ -49,6 +49,7 @@ export class TermSortVisitor implements TermVisitor<Sort> {
                 case BinaryOp.Minus: return Sort.Perm;
                 case BinaryOp.Times: return Sort.Perm;
                 case BinaryOp.Div: return Sort.Perm;
+                case BinaryOp.PermMin: return Sort.Perm;
 
                 case BinaryOp.Less: return Sort.Bool;
                 case BinaryOp.AtMost: return Sort.Bool;

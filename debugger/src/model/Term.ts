@@ -73,6 +73,8 @@ export namespace BinaryOp {
     export const AtLeast = '>=';
     export const Greater = '>';
 
+    export const PermMin = 'PermMin';
+
     export const SetAdd = '+';
     export const SetDifference = '\\';
     export const SetIntersection = '∩';
