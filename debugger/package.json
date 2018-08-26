@@ -108,7 +108,7 @@
                         "minisat(jni)",
                         "minisatprover(jni)"
                     ],
-                    "default": "minisat(jni)",
+                    "default": "minisatprover(jni)",
                     "description": "The SAT solver Alloy should use when looking for a counterexample."
                 }
             }
