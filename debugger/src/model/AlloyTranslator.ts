@@ -543,7 +543,7 @@ export class AlloyTranslator {
 
         this.env.sortWrappers.forEach((sorts, name) => {
             if (sorts.from.is(Sort.Ref)) {
-                reachable.push(`${name}.v`);
+                reachable.push(`${AlloyTranslator.SortWrappers}.${name}.univ`);
             }
         });
 
