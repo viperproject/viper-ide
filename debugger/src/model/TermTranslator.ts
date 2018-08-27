@@ -165,6 +165,20 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             }
         }
 
+        if (leftSort.is('Multiset') || rightSort.is('Multiset')) {
+            const sort = leftSort.is('Multiset') ? leftSort : rightSort;
+
+            switch (binary.op) {
+                case BinaryOp.MultisetAdd: return this.pred_call('multiset_add', sort, [binary.lhs, binary.rhs]);
+                case BinaryOp.MultisetDifference: return this.pred_call('multiset_difference', sort, [binary.lhs, binary.rhs]);
+                case BinaryOp.MultisetIntersection: return this.pred_call('multiset_intersection', sort, [binary.lhs, binary.rhs]);
+                case BinaryOp.MultisetUnion: return this.pred_call('multiset_union', sort, [binary.lhs, binary.rhs]);
+                case BinaryOp.MultisetCount: return this.pred_call('multiset_count', Sort.Int, [binary.lhs, binary.rhs]);
+
+                case BinaryOp.MultisetSubset: return this.call('multiset_subset', [binary.lhs, binary.rhs]);
+            }
+        }
+
         // Alloy operators only have one equal sign, but are otherwise the same as the Viper ones.
         let alloyOp = binary.op.replace('===', '=').replace("==", "=");
 
@@ -553,7 +567,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             return this.pred_call("empty_set", literal.sort, []);
         }
         if (literal.sort.is('Multiset') && literal.value === 'Ø') {
-            return leftover(literal, "Empty multiset not implemented", []);
+            return this.pred_call("empty_multiset", literal.sort, []);
         }
         if (literal.sort.is(Sort.Perm)) {
             if (literal.value === AlloyTranslator.WritePerm) {
@@ -589,9 +603,8 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         return this.pred_call("set_singleton", getSort(setSingleton), [setSingleton.value]);
     }
 
-    // TODO: Implement this
-    visitMultiSetSingleton(multiSetSeingleton: MultisetSingleton): TranslationRes {
-        return leftover(multiSetSeingleton, "MultisetSingleton translation not implemented", []);
+    visitMultiSetSingleton(multiSetSingleton: MultisetSingleton): TranslationRes {
+        return this.pred_call("multiset_singleton", getSort(multiSetSingleton), [multiSetSingleton.value]);
     }
 
     visitLogicalWrapper(wrapper: LogicalWrapper): TranslationRes {

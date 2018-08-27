@@ -234,8 +234,11 @@ export class TranslationEnv {
             return name;
         }
         if (sort.is('Multiset') && sort.elementsSort !== undefined) {
-            Logger.error("Multiset sort translation not implemented");
-            throw new DebuggerError("Multiset sort translation not implemented");
+            const elementSort = this.translate(sort.elementsSort);
+            const name = "Multiset_" + elementSort;
+            const constraint = 'elems.univ in ' + elementSort;
+            this.recordSort(name, sort, "Multiset", constraint);
+            return name;
         }
 
         if (sort.is(Sort.Int)) {

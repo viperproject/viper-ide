@@ -89,6 +89,13 @@ export namespace BinaryOp {
     export const SeqDrop = 'SeqDrop';
     export const SeqIn = 'SeqIn';
 
+    export const MultisetAdd = '+';
+    export const MultisetDifference = '\\';
+    export const MultisetIntersection = '∩';
+    export const MultisetUnion = '∪';
+    export const MultisetSubset = '⊂';
+    export const MultisetCount = 'MultisetCount';
+
     export const Combine = "Combine";
 }
 
@@ -96,7 +103,7 @@ export namespace UnaryOp {
     export const Not = '!';
     export const SeqLength = 'SeqLength:';
     export const SetCardinality = 'SetCardinality:';
-    export const MultiSetCardinality = 'MultiSetCardinality:';
+    export const MultiSetCardinality = 'MultisetCardinality:';
 }
 
 export class Unary implements Term {

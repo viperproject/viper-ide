@@ -93,7 +93,8 @@ export class AlloyTranslator {
             ["Preamble", 'resources/preamble.als'],
             ["Perms", 'resources/perms.als'],
             ["Sets", 'resources/set_fun.als'],
-            ["Seqs", 'resources/seq.als']
+            ["Seqs", 'resources/seq.als'],
+            ["Multiset", 'resources/multiset.als']
         ];
 
         files.forEach(p => {

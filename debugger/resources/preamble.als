@@ -1,5 +1,7 @@
 open util/boolean
 open util/ternary
+open util/integer
+open util/relation
 
 sig Snap {}
 one sig Unit extends Snap {}

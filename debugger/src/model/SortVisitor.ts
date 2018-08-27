@@ -72,6 +72,15 @@ export class TermSortVisitor implements TermVisitor<Sort> {
         }
 
         if (leftSort.is('Multiset')) {
+            const sort = leftSort.is('Multiset') ? leftSort : rightSort;
+            switch (term.op) {
+                case BinaryOp.MultisetAdd: return sort;
+                case BinaryOp.MultisetDifference: return sort;
+                case BinaryOp.MultisetIntersection: return sort;
+                case BinaryOp.MultisetUnion: return sort;
+                case BinaryOp.MultisetSubset: return Sort.Logical;
+                case BinaryOp.MultisetCount: return Sort.Int;
+            }
         }
         
         if (leftSort.is('Set') || rightSort.is('Set')) {
@@ -189,7 +198,7 @@ export class TermSortVisitor implements TermVisitor<Sort> {
     }
 
     public visitMultiSetSingleton(multiSetSingleton: MultisetSingleton): Sort {
-        return Sort.Seq(multiSetSingleton.value.accept(this));
+        return Sort.Multiset(multiSetSingleton.value.accept(this));
     }
 
     public visitLogicalWrapper(_: LogicalWrapper): Sort {
