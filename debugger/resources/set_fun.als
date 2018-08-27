@@ -28,8 +28,8 @@ pred set_union [ s1, s2, s': Set ] {
 }
 pred set_in [ e: univ, s1: Set ] {
 	e in s1.elems
-	&& one e
-	&& some s1.elems
+	one e
+	some s1.elems
 }
 pred set_subset [ s1, s2: Set ] {
 	s1.elems in s2.elems

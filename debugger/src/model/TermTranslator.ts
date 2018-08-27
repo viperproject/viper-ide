@@ -217,7 +217,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
                 // If one of the operands has logical type, then equality must be turned into a conjunction
                 if (binary.op === BinaryOp.Equals) {
-                    alloyOp = '&&';
+                    alloyOp = '<=>';
                 }
 
                 const left = leftSort.is(Sort.Bool) ? new LogicalWrapper(binary.lhs).accept(this)
