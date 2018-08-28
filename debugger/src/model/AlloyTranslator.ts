@@ -2,7 +2,7 @@ import { AlloyModelBuilder } from "./AlloyModel";
 import { State } from "./Record";
 import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, HeapChunk } from "./Heap";
 import { Logger } from "../logger";
-import { VariableTerm, Unary, Term, Literal, LogicalWrapper, BooleanWrapper } from "./Term";
+import { VariableTerm, Unary, Term, Literal, LogicalWrapper, BooleanWrapper, Quantification, Binary } from "./Term";
 import { getSort, Sort } from './Sort';
 import { Verifiable } from "./Verifiable";
 import { TranslationEnv } from "./TranslationEnv";
@@ -393,7 +393,7 @@ export class AlloyTranslator {
                 this.env.recordInstance(Sort.Perm, funName + mkString(typeSigs, '[', ', ', ']'));
 
                 // Record the member
-                typeSigs.push('set ' + this.env.translate(Sort.Perm));
+                typeSigs.push('lone ' + this.env.translate(Sort.Perm));
                 members.push(field + ': ' + mkString(typeSigs, '(', ' -> ', ')'));
                 const f = `all fvf: ${this.env.translate(snapSort)}, r: Ref | { some p: PermFun.${field}[r, fvf] | p.num > 0 } => (one r.${field})`;
                 fieldExistenceFacts.push(f);
@@ -435,9 +435,13 @@ export class AlloyTranslator {
                 sorts.push('lone ' + this.env.translate(fvfSort.elementsSort!));
                 members.add(`${field}: (${sorts.join(' -> ')})`);
                 const funName = AlloyTranslator.Lookup + '.' + field;
-                const f = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | { some p: PermFun.${field}[r, fvf] | p.num > 0 } => (one r.${field} && ${funName}[fvf, r] = r.${field})`;
-                if (!fvfFacts.has(f)) {
-                    fvfFacts.add(f);
+                const f1 = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | { some p: PermFun.${field}[r, fvf] | p.num > 0 } <=> (one r.${field})`;
+                const f2 = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | { some p: PermFun.${field}[r, fvf] | p.num > 0 } => (${funName}[fvf, r] = r.${field})`;
+                if (!fvfFacts.has(f1)) {
+                    fvfFacts.add(f1);
+                }
+                if (!fvfFacts.has(f2)) {
+                    fvfFacts.add(f2);
                 }
             });
 
@@ -500,6 +504,7 @@ export class AlloyTranslator {
 
     private encodeMacros() {
         if (this.program.macros.size > 0 && this.env.neededMacros.size > 0) {
+            const members: string[] = [];
             this.mb.comment("Macros");
             this.program.macros.forEach((body, app) => {
                 const sanitizedName = sanitize(app.applicable);
@@ -509,31 +514,42 @@ export class AlloyTranslator {
                     return;
                 }
 
-                const params = app.args.map(a => {
-                    const translated = a.accept(this.termTranslator);
-                    if (!translated.res) {
-                        Logger.error("Could not translate macro argument: " + a);
+                const args: VariableTerm[] = []
+                app.args.forEach(a => {
+                    if (a instanceof VariableTerm) {
+                        args.push(a);
+                    } else {
+                        Logger.error(`crap`);
                     }
-                    return `${a}: ${this.env.translate(getSort(a))}`;
-                });
+                })
 
-                this.env.evaluateWithAdditionalVariables(
-                    app.args.map(t => t.toString()),
-                    () => {
-                const tBody = body.accept(this.termTranslator);
-                if (!tBody.res) {
-                    Logger.error("Could not translate macro body: " + body);
-                }
+                const quant = new Quantification('QA', args, new Binary('==', app, body), null);
+                this.termToFact(quant);
+                const params = app.args.map(a => this.env.translate(getSort(a)));
+                params.push('lone ' + AlloyTranslator.Perm);
+                members.push(sanitizedName + ": " + params.join(' -> '));
 
-                this.encodeFreshVariables();
-                this.mb.fact(tBody.additionalFacts.join(" && \n       "));
-                const retSort = this.env.translate(app.sort);
-        this.mb.fun(`fun ${sanitizedName} [ ${params.join(', ')} ]: ${retSort} {
-    ${tBody.res}
-}`);
-                    });
+//                 this.env.evaluateWithAdditionalVariables(
+//                     app.args.map(t => t.toString()),
+//                     () => {
+//                 const tBody = body.accept(this.termTranslator);
+//                 if (!tBody.res) {
+//                     Logger.error("Could not translate macro body: " + body);
+//                 }
+
+//                 this.encodeFreshVariables();
+//                 this.mb.fact(tBody.additionalFacts.join(" && \n       "));
+//                 const retSort = this.env.translate(app.sort);
+//         this.mb.fun(`pred ${sanitizedName} [ ${params.join(', ')}, p': ${retSort} ] {
+//     ${tBody.additionalFacts.join("\n")}
+//     p' = ${tBody.res}
+// }`);
+//                     });
                 }
             );
+
+            this.mb.oneSignature('PTAKEN').withMembers(members);
+            this.mb.blank();
         }
     }
 
