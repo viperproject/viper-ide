@@ -2,11 +2,10 @@ import { DebuggerSettings } from "../DebuggerSettings";
 import { LogLevel } from "../logger";
 import { mkString, indent } from "../util";
 
-// TODO: Fix this
 type Multiplicity = 'lone' | 'some' | 'one';
 
 interface ModelPart {
-    build(outputReadableModel: boolean): string;
+    build(): string;
 }
 
 export class Signature implements ModelPart {
@@ -66,10 +65,10 @@ export class Signature implements ModelPart {
         return this;
     }
 
-    public build(outputReadableModel: boolean) {
+    public build() {
         let sig: string[] = [];
-        const spacer = outputReadableModel ? "\n" : "";
-        const indentLevel = outputReadableModel ? 2 : 0;
+        const spacer = "\n";
+        const indentLevel = 2;
 
         if (this.isAbstract) {
             sig.push("abstract ");
@@ -168,7 +167,6 @@ export class AlloyModelBuilder {
         this.parts.push({ build: () => f});
     }
 
-    // TODO: Remove this.
     public text(t: string) {
         this.parts.push({ build: () => t});
     }
@@ -177,12 +175,9 @@ export class AlloyModelBuilder {
         this.parts.push({ build: () => p});
     }
 
+    // TODO: Consider outputting a reduced, non-human-readable model when not in debug mode 
     public build(baseCount: number, countPerInstance: Map<string, number>): string {
-        // TODO: Fix this
-        const outputReadableModel = DebuggerSettings.logLevel === LogLevel.DEBUG;
-        const model = this.parts
-            .map(p => p.build(outputReadableModel))
-            .join("\n");
+        const model = this.parts.map(p => p.build()).join("\n");
 
         const counts: string[] = [];
         countPerInstance.forEach((count, instance) => {

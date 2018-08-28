@@ -435,8 +435,6 @@ export class AlloyTranslator {
                 sorts.push('lone ' + this.env.translate(fvfSort.elementsSort!));
                 members.add(`${field}: (${sorts.join(' -> ')})`);
                 const funName = AlloyTranslator.Lookup + '.' + field;
-                // const f = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | r in mid[${funName}] && PermFun.${field}[r].num > 0 => ${funName}[fvf, r] = r.${field}`;
-                // TODO: Should this be a double implication?
                 const f = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | { some p: PermFun.${field}[r, fvf] | p.num > 0 } => (one r.${field} && ${funName}[fvf, r] = r.${field})`;
                 if (!fvfFacts.has(f)) {
                     fvfFacts.add(f);

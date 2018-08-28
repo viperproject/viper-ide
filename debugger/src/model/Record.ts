@@ -15,7 +15,6 @@ export class State {
     ) {}
 
     public static from(symbExLogState: SymbExLogState): State {
-        // TODO: we probably want to parse the store into a separate obejct
         const store = symbExLogState.store.map(StoreVariable.from);
         const heap = symbExLogState.heap.map(HeapChunk.from);
         const oldHeap = symbExLogState.oldHeap.map(HeapChunk.from);

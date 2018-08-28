@@ -113,7 +113,7 @@ export class TranslationEnv {
                     this.predicates.set(hc.id, [hc]);
                 }
             } else if (hc instanceof QuantifiedPredicateChunk) {
-
+                Logger.error("Something?");
             }
         });
     }
@@ -160,7 +160,6 @@ export class TranslationEnv {
         return name;
     }
 
-    // TODO: We probably need to know the sort of the object we are quantifying over
     private getQuantifiedFreshVariable(base: string, sort: Sort) {
         const quantifierNumber = this.quantifiedSignatureCount;
         const sigName = 'fresh_quantifier_vars_' + quantifierNumber;
@@ -254,7 +253,7 @@ export class TranslationEnv {
             return AlloyTranslator.Perm;
         }
 
-        // TODO: sanititze names + it should be someone else's business to record the user sort
+        // TODO: Should it be someone else's business to record user sorts?
         if (sort.id === "UserSort" && sort.elementsSort) {
             const userSort = sort.elementsSort.id;
             this.recordUserSort(userSort);

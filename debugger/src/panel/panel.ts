@@ -38,7 +38,6 @@ function activate() {
 
 /** Sets up the splits in the debug pane.  */
 function setupPanelSplits() {
-    // let panels: HTMLElement[] = $('.panel').toArray();
     let panels: HTMLElement[] = [...document.querySelectorAll<HTMLElement>('.panel')!];
 
     // Determine how many panels are opened by default, so we can compute the size of each open panel
@@ -83,21 +82,10 @@ function setupMessageHandlers() {
     Logger.debug("Done setting up message handlers.");
 }
 
+// TODO: keyboard events from panel?
 /** Sets up handlers for button events in the debugger pane. */
 function setupInputHandlers() {
     Logger.debug("Setting up input handlers.");
-
-    // TODO: Proper key handling
-    // $(document).keydown(function(e) {
-    //     switch (e.key) {
-    //         case 'F10': // F10        
-    //             outpudDiv.innerHTML += "<p>F10 from panel</p>";
-    //             break;
-    //         default: // F10        
-    //             outpudDiv.innerHTML += "<p>" + e.key + " from panel</p>";
-    //             break;
-    //     }
-    // });
 
     // Send navigation actions
     // The message is delivered to the DebuggerSession via the DebuggerPanel, on "the extension side"
@@ -147,7 +135,6 @@ function setupInputHandlers() {
 
 /** Handles the change of current state being debugged. */
 function handleStateUpdate(message: any) {
-    // TODO: Clean this up.
     const state = message.data.current;
 
     if (!state) {

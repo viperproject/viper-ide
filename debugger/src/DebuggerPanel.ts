@@ -67,12 +67,10 @@ export class DebuggerPanel implements SessionObserver {
         this.postMessage(PanelMessage.Verifiables(verifiables));
     }
 
-    // TODO: Not soure about this
     public clearSession() {
         this.session = undefined;
     }
 
-    // TODO: Remove this later on
     private logModel(message: string) {
         this.panel.webview.postMessage({
             type: 'logModel',
@@ -176,7 +174,7 @@ export class DebuggerPanel implements SessionObserver {
             this.postMessage({ type: "graphMessage", text: "Generating..." });
             Alloy.generate(model).then(
                 (instance) => {
-                    // TODO: log this to the diagnostics panel
+                    // TODO: Log this to the diagnostics panel
                     // Logger.info(JSON.stringify(instance, undefined, 2));
                     const graph = DotGraph.from(record.current, instance, env);
                     this.postMessage({

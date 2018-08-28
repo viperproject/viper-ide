@@ -271,10 +271,10 @@ export class DecorationsManager implements SessionObserver {
                     message = `(${state.index}) ${state.type}`;
                 }
 
+                // TODO: This can be cleaned up, and is probably not even fast
                 // If there are other states in the same or overlapping locations, collapse the decorations
                 let opts = siblingsDecorationOptions.find(e => e.range.intersection(range) !== undefined);
                 if (opts) {
-                    // TODO: This can be cleaned up, and is probably not even fast
                     if (!opts.hoverMessage!.toString().startsWith("Multiple states")) {
                         if (opts.hoverMessage!.toString().split(",").length > 4) {
                             opts.hoverMessage = "Multiple states...";

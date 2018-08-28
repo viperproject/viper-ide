@@ -27,7 +27,6 @@ export namespace HeapChunk {
         if (obj.type === 'basic_predicate_chunk') {
             mustHave(obj, ['predicate', 'args', 'snap', 'perm']);
 
-            // TODO: might need proper retrieval of sorts
             const snap = Term.from(obj.snap);
             return new PredicateChunk(obj.predicate, obj.args.map(Term.from), snap, Term.from(obj.perm));
         }
@@ -35,7 +34,6 @@ export namespace HeapChunk {
         if (obj.type === 'basic_field_chunk') {
             mustHave(obj, ['field', 'receiver', 'snap', 'perm']);
 
-            // TODO: might need proper retrieval of sorts
             const snap = Term.from(obj.snap);
             const sort = getSort(snap);
             return new FieldChunk(obj.field, sort, Term.from(obj.receiver), snap, Term.from(obj.perm));

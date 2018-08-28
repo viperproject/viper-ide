@@ -21,10 +21,8 @@ export class Verifiable {
             throw new DebuggerError(`SymbExLogEntry has no kind: ${entry.value} @ ${entry.pos}`);
         }
 
-        // TODO: Some proper checks here for which verifiables are allowed not to have children
+        // TODO: Add some checks here for verifiables that are allowed not to have children
         if (!entry.children) {
-            // Logger.error(`SymbExLogEntry has no children: ${entry.value} @ ${entry.pos}`);
-            // entry.children = [];
             throw new DebuggerError(`SymbExLogEntry has no children: ${entry.value} @ ${entry.pos}`);
         }
 

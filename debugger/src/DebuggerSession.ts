@@ -20,8 +20,8 @@ export type StateUpdate = {
     hasParent: boolean,
     hasChild: boolean
 };
-// TODO: Make sure the API makes sense and the Debugger session has the right
-//       capabilities / responsibilities
+
+
 export class DebuggerSession {
 
     private observers: ((states: StateUpdate) => void)[];
@@ -30,7 +30,6 @@ export class DebuggerSession {
 
     constructor(readonly debuggedFile: vscode.Uri, readonly program: Program) {
         this.observers = [];
-        // TODO: Put a check for not verifiables?
         this.currentVerifiable = this.program.verifiables[0];
         this.currentRecord = this.currentVerifiable.records[0];
     }
@@ -41,7 +40,7 @@ export class DebuggerSession {
 
     public notifyStateChange() {
         if (this.currentRecord) {
-            // TODO: Fix with proper logic for next and prev
+            
             const states: StateUpdate = {
                 verifiable: this.currentVerifiable,
                 current: this.currentRecord,
@@ -125,11 +124,6 @@ export class DebuggerSession {
             this.currentRecord = this.currentRecord.parent;
             this.notifyStateChange();
         }
-    }
-
-    // TODO: Implement this? Is it needed?
-    public nextErrorState() {
-        this.notifyStateChange();
     }
 
     public topLevelStates(): Record[] {

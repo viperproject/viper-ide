@@ -8,8 +8,6 @@ export enum LogLevel {
     ERROR
 }
 
-
-// TODO: Logging to a file?
 export class Logger {
 
     private static outputChannel = vscode.window.createOutputChannel("Viper Debugger");
