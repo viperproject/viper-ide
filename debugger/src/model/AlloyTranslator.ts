@@ -614,8 +614,7 @@ export class AlloyTranslator {
             });
 
             // TODO: Should account for empty sets.
-            // TODO: Multiset
-            const sort_sigs = [AlloyTranslator.SigSeq, AlloyTranslator.SigSet, AlloyTranslator.Perm, AlloyTranslator.Snap];
+            const sort_sigs = [AlloyTranslator.SigSeq, AlloyTranslator.SigSet, AlloyTranslator.Multiset, AlloyTranslator.Perm, AlloyTranslator.Snap];
             sort_sigs.forEach(sigName => {
                 if (!this.env.recordedInstances.has(sigName)) {
                     this.mb.fact(`${sigName} = none`);

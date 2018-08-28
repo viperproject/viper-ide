@@ -117,14 +117,22 @@ export class TranslationEnv {
             }
         });
     }
-    
+
     public recordInstance(sort: Sort, name: string) {
         // Sets, Seqs and Multisets count towards the totoal of the generic signature
         // User sorts count towards their specific signature
         // Everything else counts towards the built-in signature
         let sigName: string;
-        if (sort.is('Set') || sort.is('Seq') || sort.is('Multiset')) {
+        if (sort.is('Set') || sort.is('Multiset')) {
             sigName = sort.id;
+            if (sort.elementsSort) {
+                this.recordInstance(sort.elementsSort, name + '.elems');
+            }
+        } else if (sort.is('Seq')) {
+            sigName = sort.id;
+            if (sort.elementsSort) {
+                this.recordInstance(sort.elementsSort, name + '.rel[Int]');
+            }
         } else if (sort.is('UserSort')) {
             sigName = sort.elementsSort!.id;
         } else {
