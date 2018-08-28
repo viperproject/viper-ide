@@ -43,6 +43,8 @@ export class TranslationEnv {
     public userSorts: Set<string>;
     public sorts: Map<string, [Sort, string | undefined, string | undefined]>;
 
+    public refReachingSignatures: Set<string>;
+
     // HACK: Kinda dirty, there surely is a better way
     public quantifierVariables: VariableTerm[] | undefined;
 
@@ -74,6 +76,8 @@ export class TranslationEnv {
 
         this.userSorts = new Set();
         this.sorts = new Map();
+
+        this.refReachingSignatures = new Set();
 
         state.store.forEach(v => {
             // We save the names of symbolic value for store variables
@@ -123,15 +127,32 @@ export class TranslationEnv {
         // User sorts count towards their specific signature
         // Everything else counts towards the built-in signature
         let sigName: string;
-        if (sort.is('Set') || sort.is('Multiset')) {
+        if (sort.is('Set')) {
             sigName = sort.id;
             if (sort.elementsSort) {
-                this.recordInstance(sort.elementsSort, name + '.elems');
+                this.recordInstance(sort.elementsSort, name + '.set_elems');
+
+                if (sort.elementsSort.is(Sort.Ref)) {
+                    this.refReachingSignatures.add(name + '.set_elems');
+                }
+            }
+        } else if (sort.is('Multiset')) {
+            sigName = sort.id;
+            if (sort.elementsSort) {
+                this.recordInstance(sort.elementsSort, name + '.ms_elems[Int]');
+
+                if (sort.elementsSort.is(Sort.Ref)) {
+                    this.refReachingSignatures.add(name + '.ms_elems[Int]');
+                }
             }
         } else if (sort.is('Seq')) {
             sigName = sort.id;
             if (sort.elementsSort) {
-                this.recordInstance(sort.elementsSort, name + '.rel[Int]');
+                this.recordInstance(sort.elementsSort, name + '.seq_rel[Int]');
+
+                if (sort.elementsSort.is(Sort.Ref)) {
+                    this.refReachingSignatures.add(name + '.seq_rel[Int]');
+                }
             }
         } else if (sort.is('UserSort')) {
             sigName = sort.elementsSort!.id;

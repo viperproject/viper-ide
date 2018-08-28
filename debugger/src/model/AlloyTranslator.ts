@@ -546,12 +546,7 @@ export class AlloyTranslator {
             }
         });
 
-        // TODO: Account for other containers and nested containers
-        this.env.sorts.forEach(([sort, base, constraint], name) => {
-            if (sort.is('Set') && sort.elementsSort && sort.elementsSort.is(Sort.Ref)) {
-                reachable.push(`${name}.elems`);
-            }
-        });
+        this.env.refReachingSignatures.forEach((name) => reachable.push(name));
 
         // If there are functions that return reference-like object, they have to be accounted in the constraint as
         // well, otherwise we may prevent Alloy from generating any Object.
