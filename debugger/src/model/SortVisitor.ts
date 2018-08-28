@@ -14,7 +14,7 @@ export class TermSortVisitor implements TermVisitor<Sort> {
         // Perm equality is implemented via a function, because we need to check
         // if fractions are multiples of each other, so it returns a Bool
         if (leftSort.is(Sort.Perm) && rightSort.is(Sort.Perm) && term.op === BinaryOp.Equals) {
-            return Sort.Bool;
+            return Sort.Logical;
         }
 
         // We don't need to know the sorts of the operands to distinguish these
