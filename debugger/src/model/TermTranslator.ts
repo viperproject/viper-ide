@@ -183,7 +183,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         let alloyOp = binary.op.replace('===', '=').replace("==", "=");
 
         if (leftSort.is(Sort.Logical) && rightSort.is(Sort.Logical) && binary.op === BinaryOp.Equals) {
-            alloyOp = '&&';
+            alloyOp = '<=>';
             const left = binary.lhs.accept(this);
             if (left.res === undefined) {
                 return leftover(binary, "Left-hand side operand not translated", left.leftovers);
@@ -267,18 +267,18 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         if (leftSort.is(Sort.Perm) || rightSort.is(Sort.Perm)) {
             switch (binary.op) {
                 // Perm comparison
-                case '<': return this.coll_call('perm_less', Sort.Bool, [binary.lhs, binary.rhs]);
-                case '<=': return this.coll_call('perm_at_most', Sort.Bool, [binary.lhs, binary.rhs]);
-                case '>=': return this.coll_call('perm_at_least', Sort.Bool, [binary.lhs, binary.rhs]);
-                case '>': return this.coll_call('perm_greater', Sort.Bool, [binary.lhs, binary.rhs]);
+                case '<': return this.call('perm_less', [binary.lhs, binary.rhs]);
+                case '<=': return this.call('perm_at_most', [binary.lhs, binary.rhs]);
+                case '>=': return this.call('perm_at_least', [binary.lhs, binary.rhs]);
+                case '>': return this.call('perm_greater', [binary.lhs, binary.rhs]);
                 // Perm arithmetic
-                case '+': return this.coll_call('perm_plus', leftSort, [binary.lhs, binary.rhs]);
-                case '-': return this.coll_call('perm_minus', leftSort, [binary.lhs, binary.rhs]);
+                case '+': return this.pred_call('perm_plus', leftSort, [binary.lhs, binary.rhs]);
+                case '-': return this.pred_call('perm_minus', leftSort, [binary.lhs, binary.rhs]);
                 // Int-Perm multiplication always has the integer on the left in Silicon
-                case '*': return leftSort.is(Sort.Int) ? this.coll_call('int_perm_mul', rightSort, [binary.lhs, binary.rhs])
-                                                       : this.coll_call('perm_mul', leftSort, [binary.lhs, binary.rhs]);
+                case '*': return leftSort.is(Sort.Int) ? this.pred_call('int_perm_mul', rightSort, [binary.lhs, binary.rhs])
+                                                       : this.pred_call('perm_mul', leftSort, [binary.lhs, binary.rhs]);
                 // Int-Perm division always has the integer on the left in Silicon
-                case '/': return this.coll_call('int_perm_div', rightSort, [binary.lhs, binary.rhs]);
+                case '/': return this.pred_call('int_perm_div', rightSort, [binary.lhs, binary.rhs]);
                 case 'PermMin': return this.call('perm_min', [binary.lhs, binary.rhs]);
                 case '==': return this.call('perm_equals', [binary.lhs, binary.rhs]);
                 // case '==': return translatedFrom(`(${left.res} = ${right.res})`, [left, right]);
@@ -578,7 +578,9 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
             const freshName = this.env.getFreshVariable('perm', Sort.Perm);
             const parts = literal.value.split('/');
-            const call = freshName + " = perm_new" + mkString(parts, '[', ", ", ']');
+            parts.push(freshName);
+
+            const call = "perm_new" + mkString(parts, '[', ", ", ']');
             return translatedFrom(freshName, [])
                     .withAdditionalFacts([call]);
         }
