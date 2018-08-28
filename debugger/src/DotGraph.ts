@@ -362,7 +362,7 @@ export class DotGraph {
 
 
             } else if (sig.label === 'this/Set') {
-                const elems = sig.fields.find(f => f.name === 'elems')!;
+                const elems = sig.fields.find(f => f.name === 'set_elems')!;
                 elems.atoms.forEach(a => {
                     const id = sanitize(a[0]);
                     const to = sanitize(a[1]);
