@@ -541,7 +541,10 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
                 if (!translatedBody.res) {
                     return leftover(term, `Could not translate let body '${term.body}'`, translatedBody.leftovers);
                 }
-                return translatedFrom('let ' + bindings.join(', ') + ' | ' + translatedBody.res, [translatedBody]);
+
+                // We declare the additional facts here, since they might refer to variables in the bindings
+                const body = translatedBody.additionalFacts.concat(translatedBody.res).join(' && ');
+                return translatedFrom('let ' + bindings.join(', ') + ' | ' + body, []);
             }
         );
     }

@@ -173,8 +173,7 @@ export class TermSortVisitor implements TermVisitor<Sort> {
     }
 
     public visitLet(term: Let): Sort {
-        Logger.error("Unexpected sort retrieval on let: " + term);
-        throw new DebuggerError("Unexpected sort retrieval on let: " + term);
+        return term.body.accept(this);
     }
 
     public visitLiteral(literal: Literal): Sort {
