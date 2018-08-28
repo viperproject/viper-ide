@@ -78,5 +78,4 @@ function setupCommandHandlers(context: vscode.ExtensionContext) {
     on(DebuggerCommand.PrevState, (s) => Debugger.goToState(s));
     on(DebuggerCommand.ChildState, (s) => Debugger.goToState(s));
     on(DebuggerCommand.ParentState, (s) => Debugger.goToState(s));
-    on(DebuggerCommand.NextErrorState, (s) => Debugger.goToState(s));
 }

@@ -9,5 +9,4 @@ export namespace DebuggerCommand {
     export const PrevState = 'viper-debugger.prevState';
     export const ChildState = 'viper-debugger.childState';
     export const ParentState = 'viper-debugger.parentState';
-    export const NextErrorState = 'viper-debugger.nextErrorState';
 }

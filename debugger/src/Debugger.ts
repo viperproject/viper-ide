@@ -106,8 +106,6 @@ export namespace Debugger {
             session.goToChildState();
         } else if (command === DebuggerCommand.ParentState) {
             session.goToParentState();
-        } else if (command === DebuggerCommand.NextErrorState) {
-            session.nextErrorState();
         } else {
             throw new DebuggerError(`Unexpected command '${command}'`);
         }
