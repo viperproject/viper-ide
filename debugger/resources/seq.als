@@ -19,12 +19,15 @@ pred seq_singleton [ e: univ, s': Seq ] {
 pred seq_append [ s1, s2, s': Seq ] {
 	s'.rel = append[s1.rel, s2.rel]
 }
-pred seq_length [ s: Seq, l: Int ] {
-	#(s.rel) = l
+
+fun seq_length [ s: Seq ]: one Int {
+	#(s.rel)
 }
-pred seq_at [ s: Seq, i: Int, e: one univ ] {
-	s.rel[i] = e
+
+fun seq_at [ s: Seq, i: Int ]: one univ {
+	s.rel[i]
 }
+
 pred seq_take [ s: Seq, i: Int, s': Seq ] {
 	let to = sub[i, 1] |
 	s'.rel = subseq[ s.rel, 0, to]

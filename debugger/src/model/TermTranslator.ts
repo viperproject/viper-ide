@@ -156,7 +156,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             const sort = leftSort.is('Seq') ? leftSort : rightSort;
             switch (binary.op) {
                 case BinaryOp.SeqAppend: return this.pred_call('seq_append', sort, [binary.lhs, binary.rhs]);
-                case BinaryOp.SeqAt: return this.pred_call('seq_at', sort.elementsSort!, [binary.lhs, binary.rhs]);
+                case BinaryOp.SeqAt: return this.call('seq_at', [binary.lhs, binary.rhs]);
                 case BinaryOp.SeqTake: return this.pred_call('seq_take', sort, [binary.lhs, binary.rhs]);
                 case BinaryOp.SeqDrop: return this.pred_call('seq_drop', sort, [binary.lhs, binary.rhs]);
 
@@ -294,11 +294,11 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         const termSort = getSort(unary.p);
 
         if (unary.op === UnaryOp.SetCardinality && termSort.is('Set')) {
-            return this.pred_call('set_cardinality', Sort.Int, [unary.p]);
+            return this.call('set_cardinality', [unary.p]);
         }
 
         if (unary.op === UnaryOp.SeqLength && termSort.is('Seq')) {
-            return this.pred_call('seq_length', Sort.Int, [unary.p]);
+            return this.call('seq_length', [unary.p]);
         }
 
         if (unary.op === UnaryOp.MultiSetCardinality && termSort.is('Multiset')) {
