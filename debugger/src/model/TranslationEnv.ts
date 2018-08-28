@@ -229,21 +229,21 @@ export class TranslationEnv {
         if (sort.is('Set') && sort.elementsSort !== undefined) {
             const elementSort = this.translate(sort.elementsSort);
             const name = "Set_" + elementSort;
-            const constraint = 'elems in ' + elementSort;
+            const constraint = 'set_elems in ' + elementSort;
             this.recordSort(name, sort, "Set", constraint);
             return name;
         }
         if (sort.is('Seq') && sort.elementsSort !== undefined) {
             const elementSort = this.translate(sort.elementsSort);
             const name = "Seq_" + elementSort;
-            const constraint = 'univ.rel in ' + elementSort;
+            const constraint = 'univ.seq_rel in ' + elementSort;
             this.recordSort(name, sort, "Seq", constraint);
             return name;
         }
         if (sort.is('Multiset') && sort.elementsSort !== undefined) {
             const elementSort = this.translate(sort.elementsSort);
             const name = "Multiset_" + elementSort;
-            const constraint = 'elems.univ in ' + elementSort;
+            const constraint = 'ms_elems.univ in ' + elementSort;
             this.recordSort(name, sort, "Multiset", constraint);
             return name;
         }
