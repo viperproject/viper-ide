@@ -139,10 +139,10 @@ export class TranslationEnv {
         } else if (sort.is('Multiset')) {
             sigName = sort.id;
             if (sort.elementsSort) {
-                this.recordInstance(sort.elementsSort, name + '.ms_elems[Int]');
+                this.recordInstance(sort.elementsSort, name + '.(ms_elems.Int)');
 
                 if (sort.elementsSort.is(Sort.Ref)) {
-                    this.refReachingSignatures.add(name + '.ms_elems[Int]');
+                    this.refReachingSignatures.add(name + '.(ms_elems.Int)');
                 }
             }
         } else if (sort.is('Seq')) {
