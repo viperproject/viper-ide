@@ -5,12 +5,13 @@ import { TranslationEnv } from './model/TranslationEnv';
 import { VariableTerm, Literal, Lookup } from './model/Term';
 import { Logger } from './logger';
 import { sanitize } from './model/TermTranslator';
-import { Sort } from './model/Sort';
+import { Sort, getSort } from './model/Sort';
 import { mkString } from './util';
 import { DebuggerError } from './Errors';
 
 
 export interface DotElem {
+    readonly id: string;
     toDotString(): string;
 }
 
@@ -39,7 +40,7 @@ class Label {
 
 class Node implements DotElem {
     private attributes: string[];
-    constructor(readonly name: string, readonly label: Label) {
+    constructor(readonly id: string, readonly label: Label) {
         this.attributes = [];
     }
 
@@ -53,7 +54,7 @@ class Node implements DotElem {
 
     public toDotString() {
         const attrs = this.attributes.concat([`label="${this.label.toString()}"`]);
-        return `${this.name} [${attrs.join(', ')}]`;
+        return `${this.id} [${attrs.join(', ')}]`;
     }
 }
 
@@ -100,7 +101,7 @@ class FunCall implements DotElem {
     }
 }
 
-class Rel implements DotElem {
+class Rel {
 
     constructor(readonly from: string, readonly to: string, readonly attributes?: string[]) {}
 
@@ -129,6 +130,20 @@ class SetViz {
     public elems: string[];
     constructor(readonly id: string) {
         this.elems = [];
+    }
+}
+
+class SeqViz {
+    public elems: Map<string, string>;
+    constructor(readonly id: string) {
+        this.elems = new Map();
+    }
+}
+
+class MultisetViz {
+    public elems: Map<string, string>;
+    constructor(readonly id: string) {
+        this.elems = new Map();
     }
 }
 
@@ -201,12 +216,14 @@ export class DotGraph {
     private nodeAttributes: string[];
     private edgeAttributes: string[];
     private elems: DotElem[];
+    private relations: Rel[];
 
-    constructor(readonly name: string, readonly subgraph: boolean = false) {
+    constructor(readonly id: string, readonly subgraph: boolean = false) {
         this.graphAttributes = [];
         this.nodeAttributes = [];
         this.edgeAttributes = [];
         this.elems = [];
+        this.relations = [];
     }
 
     attr(key: string, value: string) {
@@ -221,8 +238,16 @@ export class DotGraph {
         this.edgeAttributes.push(`${key}=${value}`);
     }
 
+    hasNode(id: string) {
+        return this.elems.some(e => e.id === id);
+    }
+
     add(elem: DotElem) {
         this.elems.push(elem);
+    }
+
+    addRelation(rel: Rel) {
+        this.relations.push(rel);
     }
 
     toString(): string {
@@ -230,12 +255,13 @@ export class DotGraph {
     }
 
     toDotString(): string {
-        return `${this.subgraph ? 'subgraph' : 'digraph'} ${this.name} {\n` +
+        return `${this.subgraph ? 'subgraph' : 'digraph'} ${this.id} {\n` +
             'compound = true;\n' +
             `graph [${this.graphAttributes.join(', ')}];\n` +
             `node [${this.nodeAttributes.join(', ')}];\n` +
             `edge [${this.edgeAttributes.join(', ')}];\n` +
             this.elems.map(e => e.toDotString()).join(';\n') +
+            this.relations.map(e => e.toDotString()).join(';\n') +
             '}';
     }
 
@@ -277,6 +303,8 @@ export class DotGraph {
         let nullInHeap = false;
 
         const sets: Map<string, SetViz> = new Map();
+        const seqs: Map<string, SeqViz> = new Map();
+        const multisets: Map<string, SeqViz> = new Map();
 
         alloyInstance.signatures.forEach(sig => {
             sig.atoms.forEach(a => signatureToAtom.set(sanitize(sig.label).replace(/this\//, ''), sanitize(a)));
@@ -362,20 +390,56 @@ export class DotGraph {
 
 
             } else if (sig.label === 'this/Set') {
+                sig.atoms.forEach(a => {
+                    const id = sanitize(a);
+                    sets.set(id, new SetViz(id));
+                });
                 const elems = sig.fields.find(f => f.name === 'set_elems')!;
                 elems.atoms.forEach(a => {
                     const id = sanitize(a[0]);
                     const to = sanitize(a[1]);
-                    let set = sets.get(id);
-                    if (set === undefined) {
-                        set = new SetViz(id);
-                        sets.set(id, set);
-                    }
+                    let set = sets.get(id)!;
 
                     if (to === 'NULL_0') {
                         nullInHeap = true;
                     }
                     set.elems.push(to);
+                });
+
+            } else if (sig.label === 'this/Seq') {
+                const elems = sig.fields.find(f => f.name === 'seq_rel')!;
+                sig.atoms.forEach(a => {
+                    const id = sanitize(a);
+                    seqs.set(id, new SeqViz(id));
+                });
+                elems.atoms.forEach(a => {
+                    const id = sanitize(a[0]);
+                    const index = sanitize(a[1]);
+                    const to = sanitize(a[2]);
+                    let seq = seqs.get(id)!;
+
+                    if (to === 'NULL_0') {
+                        nullInHeap = true;
+                    }
+                    seq.elems.set(index, to);
+                });
+
+            } else if (sig.label === 'this/Multiset') {
+                const elems = sig.fields.find(f => f.name === 'ms_elems')!;
+                sig.atoms.forEach(a => {
+                    const id = sanitize(a)
+                    multisets.set(id, new MultisetViz(id));
+                });
+                elems.atoms.forEach(a => {
+                    const id = sanitize(a[0]);
+                    const elem = sanitize(a[1]);
+                    const count = sanitize(a[2]);
+                    let ms = multisets.get(id)!;
+
+                    if (elem === 'NULL_0') {
+                        nullInHeap = true;
+                    }
+                    ms.elems.set(count, elem);
                 });
             }
         });
@@ -421,7 +485,6 @@ export class DotGraph {
                             return;
                         }
 
-                        setViz.elems.forEach(e => relations.push(Rel.in(nodeId, e, '∈')));
                         storeGraph.add(new Node(nodeId, new Label(`${v.name}: ${v.sort}`)));
                     } else {
                         storeGraph.add(new Node(nodeId, new Label(`${v.name}: ${v.sort} == ${value}`)));
@@ -468,9 +531,8 @@ export class DotGraph {
                         storeGraph.add(new Node(nodeId, new Label(`${v.name}: (lookup) == ${rel}\\l`)));
                     }
 
-
                 } else {
-                    Logger.error(`Unexpected value type in store: ${v.value}`);
+                    storeGraph.add(new Node(nodeId, new Label(`${v.name}: ${v.sort}\\l`)));
                 }
             });
         }
@@ -551,16 +613,87 @@ export class DotGraph {
             //     // heapGraph.add(`${key} [label="${node.label.toString()}"]`);
             // });
         }
-
-        predicates.forEach((predNode, _) => heapGraph.add(predNode));
         if (nullInHeap) {
             heapGraph.add(new Node('NULL_0', new Label('NULL')));
         }
 
+        sets.forEach((setViz) => {
+            // Find variables in the store the set elements belong to
+            let targets: string[] = [];
+            storeRelations.forEach((value, key) => {
+                if (value === setViz.id) {
+                    targets.push("store_" + key);
+                }
+            });
+            // There are no varibles in the store that hold this set, it must be "stand-alone"
+            if (targets.length === 0) {
+                targets.push(setViz.id);
+            }
+
+            setViz.elems.forEach(e => {
+                targets.forEach(t => relations.push(Rel.in(t, e, '∈')));
+                if (!storeGraph.hasNode(e) && !heapGraph.hasNode(e)) {
+                    storeGraph.add(new Node(e, new Label(e)));
+                }
+            });
+            if (targets[0] === setViz.id) {
+                const node = new Node(setViz.id, new Label(`${setViz.id}`));
+                node.attr('style', 'bold');
+                storeGraph.add(node);
+            }
+        });
+
+        seqs.forEach((seqViz) => {
+            let targets: string[] = [];
+            storeRelations.forEach((value, key) => {
+                if (value === seqViz.id) {
+                    targets.push("store_" + key);
+                }
+            });
+            if (targets.length === 0) {
+                targets.push(seqViz.id);
+            }
+
+            seqViz.elems.forEach((e, index) => {
+                targets.forEach(t => relations.push(Rel.in(t, e, `[${index}]`)));
+                if (!storeGraph.hasNode(e) && !heapGraph.hasNode(e)) {
+                    storeGraph.add(new Node(e, new Label(e)));
+                }
+            });
+            if (targets[0] === seqViz.id) {
+                const node = new Node(seqViz.id, new Label(`${seqViz.id}`));
+                node.attr('style', 'bold');
+                storeGraph.add(node);
+            }
+        });
+
+        multisets.forEach((multisetViz) => {
+            let targets: string[] = [];
+            storeRelations.forEach((value, key) => {
+                if (value === multisetViz.id) {
+                    targets.push("store_" + key);
+                }
+            });
+
+            multisetViz.elems.forEach((e, count) => {
+                targets.forEach(t => relations.push(Rel.in(t, e, `#${count}`)));
+                if (!storeGraph.hasNode(e) && !heapGraph.hasNode(e)) {
+                    storeGraph.add(new Node(e, new Label(e)));
+                }
+            });
+            if (targets[0] === multisetViz.id) {
+                const node = new Node(multisetViz.id, new Label(`${multisetViz.id}`));
+                node.attr('style', 'bold');
+                storeGraph.add(node);
+            }
+        });
+
+        predicates.forEach((predNode, _) => heapGraph.add(predNode));
+
         graph.add(storeGraph);
         graph.add(heapGraph);
 
-        relations.forEach(rel => graph.add(rel));
+        relations.forEach(rel => graph.addRelation(rel));
 
         return graph;
     }
