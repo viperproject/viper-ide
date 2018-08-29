@@ -595,7 +595,7 @@ export class AlloyTranslator {
             if (constraint instanceof Unary && constraint.op === '!') {
                 constraint = new LogicalWrapper(constraint.p);
             } else {
-                constraint = new Unary('!', new LogicalWrapper(constraint));
+                constraint = new LogicalWrapper(new Unary('!', constraint));
             }
             const failedQuery = constraint.accept(this.termTranslator);
             if (failedQuery.res) {

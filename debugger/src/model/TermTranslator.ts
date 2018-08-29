@@ -317,6 +317,12 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             }
         }
 
+        if (unary.p instanceof Quantification && unary.p.quantifier === 'QE') {
+            const eq = unary.p;
+            const uq = new Quantification('QA', eq.vars, new Unary('!', eq.body), null);
+            return uq.accept(this);
+        }
+
         return translatedFrom(`${unary.op}(${operand.res})`, [operand]);
     }
 
