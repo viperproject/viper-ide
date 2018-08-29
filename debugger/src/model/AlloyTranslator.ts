@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import { getAbsolutePath } from "../extension";
 import { mkString } from "../util";
 import { Program } from "./Program";
+import { DebuggerSettings } from "../DebuggerSettings";
 
 
 export class AlloyTranslator {
@@ -77,11 +78,13 @@ export class AlloyTranslator {
         this.encodeFailedSMTFact();
         this.encodeSignatureRestrictions();
 
-        // TODO: Devise a formula for this
-        const baseCount = 5 + this.env.storeVariables.size + this.env.functions.size + this.env.predicates.size + 3;
+        // TODO: Devise a better formula for this
+        const baseCount = DebuggerSettings.instancesBaseCount() +
+                          this.env.storeVariables.size +
+                          this.env.functions.size +
+                          this.env.predicates.size;
         const countPerInstance = new Map([
-            // [AlloyTranslator.Combine, env.totalCombines],
-            ['int', 4]
+            ['int', DebuggerSettings.integerBitWidth()]
         ]);
             
         return this.mb.build(baseCount, countPerInstance);
@@ -514,14 +517,14 @@ export class AlloyTranslator {
                     return;
                 }
 
-                const args: VariableTerm[] = []
+                const args: VariableTerm[] = [];
                 app.args.forEach(a => {
                     if (a instanceof VariableTerm) {
                         args.push(a);
                     } else {
                         Logger.error(`crap`);
                     }
-                })
+                });
 
                 const quant = new Quantification('QA', args, new Binary('==', app, body), null);
                 this.termToFact(quant);

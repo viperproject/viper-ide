@@ -41,7 +41,7 @@ export function activate(context: vscode.ExtensionContext) {
     setupCommandHandlers(context);
 
     // While deveoping start the debugger immediately
-    if (DebuggerSettings.debugImmediately) {
+    if (DebuggerSettings.debugImmediately()) {
         vscode.commands.executeCommand(DebuggerCommand.StartDebugger);
     }
     Logger.debug('Viper Debugger extension started');

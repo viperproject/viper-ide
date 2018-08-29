@@ -2,13 +2,28 @@ import * as vscode from 'vscode';
 import { LogLevel, Logger } from './logger';
 
 export namespace DebuggerSettings {
-    const settings = vscode.workspace.getConfiguration("viperDebuggerSettings");
+    function settings(): vscode.WorkspaceConfiguration {
+         return vscode.workspace.getConfiguration("viperDebuggerSettings");
+    }
+
+    export function debugImmediately(): boolean {
+         return settings().get<boolean>("debugImmediately")!;
+    }
+
+    export function alloySATSolver(): string {
+        return settings().get<string>("alloySATSolver")!;
+    }
+
+    export function integerBitWidth(): number {
+        return settings().get<number>('integerBitWidth')!;
+    }
+
+    export function instancesBaseCount(): number {
+        return settings().get<number>('instancesBaseCount')!;
+    }
 
     export var logLevel: LogLevel = LogLevel.INFO;
-    export const debugImmediately = settings.get<boolean>("debugImmediately") ? true : false;
-    export const alloySATSolver: string = settings.get<string>("alloySATSolver") || 'minisat(jni)';
-
-    let logLevelSetting = <keyof typeof LogLevel> settings.get("logLevel");
+    let logLevelSetting = <keyof typeof LogLevel> settings().get("logLevel");
     if (logLevelSetting !== undefined) { 
         logLevel = LogLevel[logLevelSetting];
     } else {

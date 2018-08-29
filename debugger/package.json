@@ -110,6 +110,16 @@
                     ],
                     "default": "minisatprover(jni)",
                     "description": "The SAT solver Alloy should use when looking for a counterexample."
+                },
+                "viperDebuggerSettings.integerBitWidth": {
+                    "type": "number",
+                    "default": 4,
+                    "description": "The bitwidth Alloy should use when generating instances."
+                },
+                "viperDebuggerSettings.instancesBaseCount": {
+                    "type": "number",
+                    "default": 6,
+                    "description": "The base number of instances per signature Alloy should use."
                 }
             }
         }
