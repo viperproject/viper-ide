@@ -425,7 +425,23 @@ export class AlloyTranslator {
             // if the name is missing, the axioms they appear in belong to other
             // functions in the file that we do not need now.
             this.env.failOnMissingFunctions = true;
-            this.program.functionPostAxioms.forEach(f => this.termToFact(f));
+            this.program.functionPostAxioms.forEach(f => {
+                if (f instanceof Quantification && f.body instanceof Let) {
+
+                    const call = f.body.bindings[0][1];
+                    this.env.evaluateWithAdditionalVariables(
+                        f.vars.map(v => v.id),
+                        () => {
+                            const app = call.accept(this.termTranslator);
+                            if (!app.res) {
+
+                            }
+                            this.env.addToQuantifier = `(one ${app.res}) => `;
+                        });
+
+                    this.termToFact(f);
+                }
+            });
             this.env.failOnMissingFunctions = false;
         }
 

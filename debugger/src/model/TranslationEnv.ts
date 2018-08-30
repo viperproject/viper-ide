@@ -47,6 +47,7 @@ export class TranslationEnv {
 
     // HACK: Kinda dirty, there surely is a better way
     public quantifierVariables: VariableTerm[] | undefined;
+    public addToQuantifier: string | undefined;
 
     constructor(readonly state: State) {
         

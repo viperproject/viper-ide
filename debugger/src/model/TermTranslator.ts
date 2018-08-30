@@ -371,7 +371,13 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
                 this.env.quantifierVariables = undefined;
                 const vars = quantification.vars.map(v => `${sanitize(v.id)}: ${this.env.translate(v.sort)}`);
                 const body = tBody.additionalFacts.concat(tBody.res).join(' && ');
-                return translatedFrom(`(${mult} ${vars.join(', ')} | ${body})`, []);
+                if (this.env.addToQuantifier) {
+                    const toAdd = this.env.addToQuantifier;
+                    this.env.addToQuantifier = undefined;
+                    return translatedFrom(`(${mult} ${vars.join(', ')} | ${toAdd} ${body})`, []);
+                } else {
+                    return translatedFrom(`(${mult} ${vars.join(', ')} | ${body})`, []);
+                }
             });
 
     }
