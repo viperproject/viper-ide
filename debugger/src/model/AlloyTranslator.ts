@@ -2,7 +2,7 @@ import { AlloyModelBuilder } from "./AlloyModel";
 import { State } from "./Record";
 import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, HeapChunk } from "./Heap";
 import { Logger } from "../logger";
-import { VariableTerm, Unary, Term, Literal, LogicalWrapper, BooleanWrapper, Quantification, Binary } from "./Term";
+import { VariableTerm, Unary, Term, Literal, LogicalWrapper, BooleanWrapper, Quantification, Binary, Let } from "./Term";
 import { getSort, Sort } from './Sort';
 import { Verifiable } from "./Verifiable";
 import { TranslationEnv } from "./TranslationEnv";
@@ -629,28 +629,26 @@ export class AlloyTranslator {
     }
 
     private encodeSignatureRestrictions() {
-        if (this.env.recordedInstances.size > 0) {
-            this.mb.comment("Signarure Restrictions");
+        this.mb.comment("Signarure Restrictions");
 
-            this.env.recordInstance(Sort.Ref, AlloyTranslator.Null);
-            this.env.recordInstance(Sort.Snap, AlloyTranslator.Unit);
-            this.env.recordInstance(Sort.Perm, AlloyTranslator.WritePerm);
-            this.env.recordInstance(Sort.Perm, AlloyTranslator.NoPerm);
+        this.env.recordInstance(Sort.Ref, AlloyTranslator.Null);
+        this.env.recordInstance(Sort.Snap, AlloyTranslator.Unit);
+        this.env.recordInstance(Sort.Perm, AlloyTranslator.WritePerm);
+        this.env.recordInstance(Sort.Perm, AlloyTranslator.NoPerm);
 
-            this.env.recordedInstances.forEach((names, sigName) => {
-                if (sigName !== AlloyTranslator.Int && sigName !== AlloyTranslator.Bool && sigName !== AlloyTranslator.Ref) {
-                    this.mb.fact(`${sigName} = ${names.join(" + ")}`);
-                }
-            });
+        this.env.recordedInstances.forEach((names, sigName) => {
+            if (sigName !== AlloyTranslator.Int && sigName !== AlloyTranslator.Bool && sigName !== AlloyTranslator.Ref) {
+                this.mb.fact(`${sigName} = ${names.join(" + ")}`);
+            }
+        });
 
-            // TODO: Should account for empty sets.
-            const sort_sigs = [AlloyTranslator.SigSeq, AlloyTranslator.SigSet, AlloyTranslator.Multiset, AlloyTranslator.Perm, AlloyTranslator.Snap];
-            sort_sigs.forEach(sigName => {
-                if (!this.env.recordedInstances.has(sigName)) {
-                    this.mb.fact(`${sigName} = none`);
-                }
-            });
-            this.mb.blank();
-        }
+        // TODO: Should account for empty sets.
+        const sort_sigs = [AlloyTranslator.SigSeq, AlloyTranslator.SigSet, AlloyTranslator.Multiset, AlloyTranslator.Perm, AlloyTranslator.Snap];
+        sort_sigs.forEach(sigName => {
+            if (!this.env.recordedInstances.has(sigName)) {
+                this.mb.fact(`${sigName} = none`);
+            }
+        });
+        this.mb.blank();
     }
 }
