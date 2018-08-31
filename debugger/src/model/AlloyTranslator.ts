@@ -38,7 +38,7 @@ export class AlloyTranslator {
     public static PermFun = 'PermFun';
     public static Lookup = 'Lookup';
     public static PredLookup = 'PredLookup';
-    public static SortWrappers = 'SortWrappers';
+    public static SortWrappers = 'SortWrapper';
 
     private mb: AlloyModelBuilder;
     private termTranslator: TermTranslatorVisitor;
@@ -94,7 +94,7 @@ export class AlloyTranslator {
     private emitPrelude() {
         const files = [
             ["Preamble", 'resources/preamble.als'],
-            ["Perms", 'resources/perms_pred.als'],
+            ["Perms", 'resources/perms_exp.als'],
             ["Sets", 'resources/set_fun.als'],
             ["Seqs", 'resources/seq.als'],
             ["Multiset", 'resources/multiset.als']
@@ -457,11 +457,7 @@ export class AlloyTranslator {
                 sorts.push('lone ' + this.env.translate(fvfSort.elementsSort!));
                 members.add(`${field}: (${sorts.join(' -> ')})`);
                 const funName = AlloyTranslator.Lookup + '.' + field;
-                const f1 = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | { some p: PermFun.${field}[r, fvf] | perm_less[Z, p] } <=> (one r.${field})`;
-                const f2 = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | { some p: PermFun.${field}[r, fvf] | perm_less[Z, p] } => (${funName}[fvf, r] = r.${field})`;
-                if (!fvfFacts.has(f1)) {
-                    fvfFacts.add(f1);
-                }
+                const f2 = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | (one PermFun.${field}[r, fvf] and perm_less[Z, PermFun.${field}[r, fvf]]) => (${funName}[fvf, r] = r.${field})`;
                 if (!fvfFacts.has(f2)) {
                     fvfFacts.add(f2);
                 }
@@ -488,21 +484,21 @@ export class AlloyTranslator {
                 .withMembers(Array.from(members));
         }
 
-        if (this.env.sortWrappers.size > 0) {
-            const members: string[] = [];
-            this.env.sortWrappers.forEach((sorts, name) => {
-                const from = this.env.translate(sorts.from);
-                const to = this.env.translate(sorts.to);
-                members.push(`${name}: (${from} -> lone ${to})`);
-                this.mb.fun(`pred wrap_${name} [ from: ${from}, to: ${to} ] {
-    (from -> to) in ${AlloyTranslator.SortWrappers}.${name}
-}`);
-            });
-            this.mb.oneSignature(AlloyTranslator.SortWrappers)
-                    .withMembers(members);
+//         if (this.env.sortWrappers.size > 0) {
+//             const members: string[] = [];
+//             this.env.sortWrappers.forEach((sorts, name) => {
+//                 const from = this.env.translate(sorts.from);
+//                 const to = this.env.translate(sorts.to);
+//                 members.push(`${name}: (${from} -> lone ${to})`);
+//                 this.mb.fun(`pred wrap_${name} [ from: ${from}, to: ${to} ] {
+//     (from -> to) in ${AlloyTranslator.SortWrappers}.${name}
+// }`);
+//             });
+//             this.mb.oneSignature(AlloyTranslator.SortWrappers)
+//                     .withMembers(members);
 
-            this.mb.blank();
-        }
+//             this.mb.blank();
+//         }
 
         if (this.env.userSorts.size > 0) {
             this.mb.comment("User sorts");
@@ -578,11 +574,12 @@ export class AlloyTranslator {
     private encodeReachabilityConstraints() {
         const reachable = [ AlloyTranslator.Store + ".refTypedVars'.*refTypedFields'", AlloyTranslator.Null ]; 
 
-        this.env.sortWrappers.forEach((sorts, name) => {
-            if (sorts.from.is(Sort.Ref)) {
-                reachable.push(`${AlloyTranslator.SortWrappers}.${name}.univ`);
-            }
-        });
+        // this.env.sortWrappers.forEach((sorts, name) => {
+        //     if (sorts.from.is(Sort.Ref)) {
+        //         reachable.push(`${AlloyTranslator.SortWrappers}.${name}.univ`);
+        //     }
+        // });
+        reachable.push(`(${AlloyTranslator.SortWrappers}.wrapped <: ${AlloyTranslator.Ref})`);
 
         this.env.refReachingSignatures.forEach((name) => reachable.push(name));
 
