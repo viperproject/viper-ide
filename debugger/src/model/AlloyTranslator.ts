@@ -398,8 +398,11 @@ export class AlloyTranslator {
                 // Record the member
                 typeSigs.push('lone ' + this.env.translate(Sort.Perm));
                 members.push(field + ': ' + mkString(typeSigs, '(', ' -> ', ')'));
-                const f = `all fvf: ${this.env.translate(snapSort)}, r: Ref | { some p: PermFun.${field}[r, fvf] | p.num > 0 } => (one r.${field})`;
+                const f = `all fvf: ${this.env.translate(snapSort)}, r: Ref | (one PermFun.${field}[r, fvf] and perm_less[Z, PermFun.${field}[r, fvf]]) => (one r.${field})`;
                 fieldExistenceFacts.push(f);
+                fieldExistenceFacts.push(
+                    `all fvf: ${this.env.translate(snapSort)}, r: Ref | one PermFun.${field}[r, fvf] => perm_at_most[PermFun.${field}[r, fvf], W]`
+                );
             });
 
             this.mb.comment("Permission functions");
@@ -454,8 +457,8 @@ export class AlloyTranslator {
                 sorts.push('lone ' + this.env.translate(fvfSort.elementsSort!));
                 members.add(`${field}: (${sorts.join(' -> ')})`);
                 const funName = AlloyTranslator.Lookup + '.' + field;
-                const f1 = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | { some p: PermFun.${field}[r, fvf] | p.num > 0 } <=> (one r.${field})`;
-                const f2 = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | { some p: PermFun.${field}[r, fvf] | p.num > 0 } => (${funName}[fvf, r] = r.${field})`;
+                const f1 = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | { some p: PermFun.${field}[r, fvf] | perm_less[Z, p] } <=> (one r.${field})`;
+                const f2 = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | { some p: PermFun.${field}[r, fvf] | perm_less[Z, p] } => (${funName}[fvf, r] = r.${field})`;
                 if (!fvfFacts.has(f1)) {
                     fvfFacts.add(f1);
                 }

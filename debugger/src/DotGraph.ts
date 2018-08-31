@@ -376,6 +376,10 @@ export class DotGraph {
             
             } else if (sig.label === 'this/Fun') {
                 sig.fields.forEach((fun) => {
+                    if (fun.name.startsWith('inv_')) {
+                        return;
+                    }
+
                     const funObj = env.functions.get(fun.name);
 
                     fun.atoms.forEach((tuple, index) => {

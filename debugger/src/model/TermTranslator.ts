@@ -148,6 +148,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
                 // case BinaryOp.CustomEquals: return this.call('set_equals', [binary.lhs, binary.rhs]);
                 case BinaryOp.SetIn: return this.call('set_in', [binary.lhs, binary.rhs]);
                 case BinaryOp.SetSubset: return this.call('set_subset', [binary.lhs, binary.rhs]);
+                // TODO: This either is not in the grammar os never used
                 case BinaryOp.SetDisjoint: return this.call('set_disjoint', [binary.lhs, binary.rhs]);
             }
         }
@@ -279,7 +280,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
                                                        : this.pred_call('perm_mul', leftSort, [binary.lhs, binary.rhs]);
                 // Int-Perm division always has the integer on the left in Silicon
                 case '/': return this.pred_call('int_perm_div', rightSort, [binary.lhs, binary.rhs]);
-                case 'PermMin': return this.call('perm_min', [binary.lhs, binary.rhs]);
+                case 'PermMin': return this.pred_call('perm_min', leftSort, [binary.lhs, binary.rhs]);
                 case '==': return this.call('perm_equals', [binary.lhs, binary.rhs]);
                 // case '==': return translatedFrom(`(${left.res} = ${right.res})`, [left, right]);
                 default: Logger.error(`Unexpected perm operator: ${binary.op}`);

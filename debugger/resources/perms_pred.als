@@ -71,20 +71,15 @@ pred int_perm_mul[ i: Int, p, p': Perm ] {
   p'.denom = p.denom
 }
 
-fun perm_min[ p1, p2: Perm ]: one Perm {
-  mul[p1.num, p2.denom] < mul[p2.num, p1.num] => p1 else p2
+pred perm_min[ p1, p2, p': Perm ] {
+  mul[p1.num, p2.denom] < mul[p2.num, p1.denom]
+    => (p' = p1)
+    else (p' = p2)
 }
 
-
---fun perm_equals [ p1, p2: Perm ]: one Bool {
---  p1 = p2 => True
---  else (p1.num = p2.num && p1.denom = p2.denom) => True
---  else (mul[p1.num, p2.denom] = mul[p1.denom, p2.num]) => True
---  else False
---}
 pred perm_equals [ p1, p2: Perm ] {
-	p1 = p2
+	// p1 = p2
   // The additional two clauses create problems with quantified permissions
-  // || (p1.num = p2.num && p1.denom = p2.denom)
-  // || (mul[p1.num, p2.denom] = mul[p1.denom, p2.num])
+  (p1.num = p2.num && p1.denom = p2.denom)
+  || (mul[p1.num, p2.denom] = mul[p1.denom, p2.num])
 }
