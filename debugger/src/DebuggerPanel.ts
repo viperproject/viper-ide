@@ -176,6 +176,7 @@ export class DebuggerPanel implements SessionObserver {
                 (instance) => {
                     // TODO: Log this to the diagnostics panel
                     // Logger.info(JSON.stringify(instance, undefined, 2));
+                    this.postMessage({ type: "alloyInstanceMessage", text: instance });
                     const graph = DotGraph.from(record.current, instance, env);
                     this.postMessage({
                         type: "displayGraph",

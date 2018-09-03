@@ -79,6 +79,7 @@ function setupMessageHandlers() {
     on('stateUpdate', message => handleStateUpdate(message));
     on('verifiables', message => handleVerifiableUpdate(message.data));
     on('symbExLogMessage', message => handleSymbExLogMessage(message));
+    on('alloyInstanceMessage', message => handleAlloyInstanceMessage(message));
     Logger.debug("Done setting up message handlers.");
 }
 
@@ -107,6 +108,8 @@ function setupInputHandlers() {
     domElem('span#toggleExecutionRecords').onclick = () => toggleSection('span#toggleExecutionRecords', '#navigation');
     domElem('button#toggleAlloyModel').onclick = () => toggleSection('button#toggleAlloyModel', '#alloyModel');
     domElem('button#toggleSymbExLog').onclick = () => toggleSection('button#toggleSymbExLog', '#symbExLog');
+    domElem('button#toggleAlloyInstance').onclick = () => toggleSection('button#toggleAlloyInstance', '#alloyInstance');
+    domElem('button#toggleDotGraphSource').onclick = () => toggleSection('button#toggleDotGraphSource', '#dotGraphSource');
     domElem('button#copyAlloyModel').onclick = () => {
         const temp = document.createElement('textarea');
         domElem('body').appendChild(temp);
@@ -314,8 +317,13 @@ function updateNavigationTree(state: any, topLevel: any[]) {
 
 
 function displayGraph(message: any) {
-    // TODO: Reemove this and log it to the diagnostics panel
-    console.log(message.text);
+    const pre = document.createElement('pre');
+    pre.classList.add('json');
+    pre.innerText = message.text;
+
+    const dotGraphSource = domElem('#dotGraphSource');
+    removeAllChildren(dotGraphSource);
+    dotGraphSource.appendChild(pre);
 
     clearGraph();
     const graphElem = document.createElement('div');
@@ -406,6 +414,23 @@ function handleSymbExLogMessage(message: any) {
     symbExLog.appendChild(pre);
 }
 
+function handleAlloyInstanceMessage(message: any) {
+    const options: JSONFormatterConfiguration = {
+        animateOpen: false,
+        animateClose: false,
+        theme: 'dark'
+    };
+
+    // Update the JSON view of the state tree
+    const current = new JSONFormatter(message.text, 1, options);
+    const pre = document.createElement('pre');
+    pre.classList.add('json');
+    pre.appendChild(current.render());
+
+    const alloyInstance = domElem('#alloyInstance');
+    removeAllChildren(alloyInstance);
+    alloyInstance.appendChild(pre);
+}
 
 function handleModelMessage(message: any) {
     // const lines = message.text.split("\n");
