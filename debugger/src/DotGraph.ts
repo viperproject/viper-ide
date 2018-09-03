@@ -623,7 +623,9 @@ export class DotGraph {
             });
         }
         if (nullInHeap) {
-            heapGraph.add(new Node('NULL', new Label('NULL')));
+            const nullNode = new Node('NULL', new Label('NULL'));
+            nullNode.attr('style', 'dashed');
+            heapGraph.add(nullNode);
         }
 
         sets.forEach((setViz) => {

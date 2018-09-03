@@ -93,24 +93,6 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
                 .withAdditionalFacts([call]);
     }
 
-    private coll_call(name: string, sort: Sort, args: Term[]): TranslationRes {
-        const freshName = this.env.getFreshVariable('temp', sort);
-
-        const tArgs: TranslationRes[] = [];
-        args.forEach(a => {
-            const res = a.accept(this);
-            if (res.res === undefined) {
-                Logger.error("Could not translate argument: " + res);
-                return leftover(a, "Could not translate argument", []);
-            }
-            tArgs.push(res);
-        });
-        
-        const call = freshName + " = " + name + mkString(tArgs.map(a => a.res), '[', ", ", ']');
-        return translatedFrom(freshName, tArgs)
-                .withAdditionalFacts([call]);
-    }
-
     private call(name: string, args: Term[]): TranslationRes {
         const tArgs: TranslationRes[] = [];
         args.forEach(a => {
@@ -251,11 +233,11 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
         if (leftSort.is(Sort.Int) || rightSort.is(Sort.Int)) {
             switch (binary.op) {
-                case '-': return this.coll_call('minus', leftSort, [binary.lhs, binary.rhs]);
-                case '+': return this.coll_call('plus', leftSort, [binary.lhs, binary.rhs]);
-                case '*': return this.coll_call('mul', leftSort, [binary.lhs, binary.rhs]);
-                case '/': return this.coll_call('div', leftSort, [binary.lhs, binary.rhs]);
-                case '%': return this.coll_call('rem', leftSort, [binary.lhs, binary.rhs]);
+                case '-': return this.call('minus', [binary.lhs, binary.rhs]);
+                case '+': return this.call('plus', [binary.lhs, binary.rhs]);
+                case '*': return this.call('mul', [binary.lhs, binary.rhs]);
+                case '/': return this.call('div', [binary.lhs, binary.rhs]);
+                case '%': return this.call('rem', [binary.lhs, binary.rhs]);
                 case '<': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
                 case '<=': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
                 case '>': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
