@@ -94,7 +94,7 @@ export class AlloyTranslator {
     private emitPrelude() {
         const files = [
             ["Preamble", 'resources/preamble.als'],
-            ["Perms", 'resources/perms_exp.als'],
+            ["Perms", 'resources/perms.als'],
             ["Sets", 'resources/set_fun.als'],
             ["Seqs", 'resources/seq.als'],
             ["Multiset", 'resources/multiset.als']
