@@ -1,5 +1,5 @@
 import { State } from "./Record";
-import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, MagicWandChunk, QuantifiedPredicateChunk } from "./Heap";
+import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, QuantifiedPredicateChunk } from "./Heap";
 import { AlloyTranslator } from './AlloyTranslator';
 import { VariableTerm } from "./Term";
 import { Sort } from './Sort';
@@ -19,7 +19,6 @@ export class TranslationEnv {
     public fields: Map<string, Sort>;
     public predicates: Map<string, PredicateChunk[]>;
     public storeVariables: Map<string, StoreVariable>;
-    public heapSnapshots: Set<string>;
 
     private freshVariables: Map<string, number>;
     public variablesToDeclare: Map<string, Sort>;
@@ -34,6 +33,7 @@ export class TranslationEnv {
     public sortWrappers: Map<string, { from: Sort, to: Sort }>;
     public functions: Map<string, [Sort[], Sort]>;
     public permFunctions: Map<string, Sort>;
+    public predPermFunctions: Map<string, Sort[]>;
     public lookupFunctions: [Sort, string][];
     public predLookupFunctions: [string, Sort[]][];
 
@@ -54,7 +54,6 @@ export class TranslationEnv {
         this.fields = new Map();
         this.predicates = new Map();
         this.storeVariables = new Map();
-        this.heapSnapshots = new Set();
 
         this.freshVariables = new Map();
         this.variablesToDeclare = new Map();
@@ -69,6 +68,7 @@ export class TranslationEnv {
         this.sortWrappers = new Map();
         this.functions = new Map();
         this.permFunctions = new Map();
+        this.predPermFunctions = new Map();
         this.lookupFunctions = [];
         this.predLookupFunctions = [];
 
@@ -104,11 +104,6 @@ export class TranslationEnv {
                 }
             }
 
-            if (hc instanceof FieldChunk || hc instanceof PredicateChunk || hc instanceof MagicWandChunk) {
-                if (hc.snap instanceof VariableTerm) {
-                    this.heapSnapshots.add(hc.snap.id);
-                }
-            } 
             if (hc instanceof PredicateChunk) {
                 // We store all predicates chunk in a map, based on their id
                 const ps = this.predicates.get(hc.id);
@@ -155,8 +150,6 @@ export class TranslationEnv {
                     this.refReachingSignatures.add(name + '.seq_rel[Int]');
                 }
             }
-        } else if (sort.is('UserSort')) {
-            sigName = sort.elementsSort!.id;
         } else {
             sigName = this.translate(sort);
         }
@@ -229,9 +222,9 @@ export class TranslationEnv {
             return variable.id;
         }
 
-        if (this.heapSnapshots.has(variable.id)) {
-            return AlloyTranslator.Heap + '.' + sanitize(variable.id);
-        }
+        // if (this.heapSnapshots.has(variable.id)) {
+        //     return AlloyTranslator.Heap + '.' + sanitize(variable.id);
+        // }
 
         if (this.tempVariables.has(sanitize(variable.id))) {
             return variable.id;
@@ -283,9 +276,8 @@ export class TranslationEnv {
             return AlloyTranslator.Perm;
         }
 
-        // TODO: Should it be someone else's business to record user sorts?
         if (sort.id === "UserSort" && sort.elementsSort) {
-            const userSort = sort.elementsSort.id;
+            const userSort = `User_${sort.elementsSort.id}'`;
             this.recordUserSort(userSort);
             return userSort;
         }
@@ -325,6 +317,12 @@ export class TranslationEnv {
     public recordPermFunction(name: string, snapSort: Sort) {
         if (!this.permFunctions.has(name)) {
             this.permFunctions.set(name, snapSort);
+        }
+    }
+
+    public recordPredPermFunction(name: string, sorts: Sort[]) {
+        if (!this.predPermFunctions.has(name)) {
+            this.predPermFunctions.set(name, sorts);
         }
     }
 

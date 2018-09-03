@@ -10,7 +10,7 @@ sig SortWrapper extends Snap {
     wrapped: one univ
 }
 
-pred wrap [ e: univ, sw: Snap] {
+pred sortwrapper_new [ e: univ, sw: Snap] {
     sw in SortWrapper
     sw.wrapped = e
 }

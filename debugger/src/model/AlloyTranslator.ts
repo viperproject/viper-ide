@@ -2,7 +2,7 @@ import { AlloyModelBuilder } from "./AlloyModel";
 import { State } from "./Record";
 import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, HeapChunk } from "./Heap";
 import { Logger } from "../logger";
-import { VariableTerm, Unary, Term, Literal, LogicalWrapper, BooleanWrapper, Quantification, Binary, Let } from "./Term";
+import { VariableTerm, Unary, Term, LogicalWrapper, BooleanWrapper, Quantification, Binary, Let } from "./Term";
 import { getSort, Sort } from './Sort';
 import { Verifiable } from "./Verifiable";
 import { TranslationEnv } from "./TranslationEnv";
@@ -30,12 +30,13 @@ export class AlloyTranslator {
     public static SigSet = 'Set';
     public static Multiset = 'Multiset';
 
-    public static Heap = 'Heap';
+    // public static Heap = 'Heap';
     public static Store = 'Store';
 
     public static Combine = 'Combine';
     public static Function = 'Fun';
     public static PermFun = 'PermFun';
+    public static Preds = 'Preds';
     public static Lookup = 'Lookup';
     public static PredLookup = 'PredLookup';
     public static SortWrappers = 'SortWrapper';
@@ -57,7 +58,6 @@ export class AlloyTranslator {
         this.env.recordInterestingFunctions = true;
         this.encodeRefSignature();
         this.translateStore();
-        this.translateHeap(this.state.heap);
         this.encodePermissions(this.state.heap);
 
         this.env.recordInterestingFunctions = false;
@@ -74,15 +74,19 @@ export class AlloyTranslator {
         // Translate values and types that have been gathered during translation
         this.encodeGatheredFacts();
         this.encodeMacros();
-        this.encodeReachabilityConstraints();
         this.encodeFailedSMTFact();
+        this.encodeReachabilityConstraints();
         this.encodeSignatureRestrictions();
 
-        // TODO: Devise a better formula for this
-        const baseCount = DebuggerSettings.instancesBaseCount() +
-                          this.env.storeVariables.size +
-                          this.env.functions.size +
-                          this.env.predicates.size;
+        const counts = [
+            this.env.storeVariables.size,
+            this.env.functions.size,
+            this.env.predicates.size
+        ];
+        this.env.recordedInstances.forEach((instances) => counts.push(instances.length));
+
+        // TODO: Should be updated to account for the largest collection as well
+        const baseCount = DebuggerSettings.instancesBaseCount() + Math.max(...counts);
         const countPerInstance = new Map([
             ['int', DebuggerSettings.integerBitWidth()]
         ]);
@@ -186,102 +190,9 @@ export class AlloyTranslator {
         this.mb.blank();
     }
 
-    private translateHeap(chunks: HeapChunk[]) {
-        const heapChunks: Set<string> = new Set();
-        const constraints: string[] = [];
-
-        chunks.forEach(hc => {
-            if (hc instanceof FieldChunk) {
-                if (hc.snap instanceof VariableTerm) {
-                    heapChunks.add(`${sanitize(hc.snap.id)}: lone ${this.env.translate(hc.snap.sort)}`);
-                    const rec = hc.receiver.accept(this.termTranslator);
-                    if (rec.res) {
-                        constraints.push(rec.res + '.' + hc.field + ' = ' + this.env.resolve(hc.snap));
-                    } else {
-                        Logger.warn("Could not translate field receiver: " + rec.leftovers.join("\n"));
-                    }
-                } else if (hc.snap instanceof Literal) {
-                    
-                    const rec = hc.receiver.accept(this.termTranslator);
-                    const lit = hc.snap.accept(this.termTranslator);
-
-                    if (!rec.res) {
-                        Logger.error("Could not translate field receiver: " + rec.leftovers.join("\n"));
-                        return;
-                    }
-                    if (!lit.res) {
-                        Logger.error("Could not translate field literal: " + lit.leftovers.join("\n"));
-                        return;
-                    }
-                    constraints.push(rec.res + "." + hc.field + " = " + lit.res);
-                }
-            } else if (hc instanceof PredicateChunk) {
-                if (hc.snap instanceof VariableTerm) {
-                    heapChunks.add(`${sanitize(hc.snap.id)}: lone ${this.env.translate(hc.snap.sort)}`);
-                }
-            } else if (hc instanceof QuantifiedFieldChunk) {
-                hc.invAxioms.forEach(axiom => this.termToFact(axiom));
-            } else {
-                Logger.error(`Heap chunk translation not implemented yet: '${hc}'`);
-            }
-        });
-
-        this.mb.oneSignature(AlloyTranslator.Heap).withMembers([...heapChunks.keys()]);
-        constraints.forEach(c => this.mb.fact(c));
-        this.mb.blank();
-
-        Array.from(this.env.predicates.keys()).forEach(id => {
-            const name = "pred_" + id;
-            let preds = <PredicateChunk[]> this.env.predicates.get(id);
-            let first = preds[0];
-            const vars = first.args.map((value, index) => `arg${index}: one ${this.env.translate(getSort(value))}`);
-
-            this.mb.signature(name).withMembers(vars);
-            preds.forEach(p => {
-                const args: string[] = [];
-                p.args.forEach(a => {
-                    const translated = a.accept(this.termTranslator);
-                    if (translated.res) {
-                        args.push(translated.res);
-                    } else {
-                        Logger.warn(translated.leftovers.join(',\n'));
-                    }
-                });
-                this.mb.fact(`one p': ${name} | ` + args.map((v, idx) => `${v} = p'.arg${idx}`).join(' && '));
-                // this.mb.fact(`one p': ${name} | ` + args.join(' -> ') + " in p'.args");
-            });
-            this.mb.fact(`#${name} = ${preds.length}`);
-            this.mb.blank();
-        });
-    }
-
     private encodePermissions(chunks: HeapChunk[]) {
-        // const chunksPerField: Map<string, HeapChunk[]> = new Map();
-        // chunks.forEach(c => {
-        //     if (c instanceof FieldChunk || c instanceof QuantifiedFieldChunk) {
-        //         const chunks = chunksPerField.get(c.field);
-        //         if (chunks !== undefined) {
-        //             chunks.push(c);
-        //         } else {
-        //             chunksPerField.set(c.field, [c]);
-        //         }
-        //     }
-        // });
 
-        // chunksPerField.forEach((chunks, name) => {
-        //     if ((chunks[0] instanceof FieldChunk && chunks.some(c => !(c instanceof FieldChunk))) ||
-        //         (chunks[0] instanceof QuantifiedFieldChunk && chunks.some(c => !(c instanceof QuantifiedFieldChunk))) )
-        //     {
-        //         Logger.error(`Expected all chunks to be of the same type for field '${name}`);
-        //     }
-
-        //     if (chunks[0] instanceof FieldChunk) {
-                
-        //     } else if (chunks[0] instanceof QuantifiedFieldChunk) {
-
-
-        //     }
-        // });
+        this.mb.comment("Heap Chunks");
 
         chunks.forEach(chunk => {
             // TODO: this should probably be unified per field
@@ -292,17 +203,29 @@ export class AlloyTranslator {
                 const perm = chunk.perm.accept(this.termTranslator);
                 const snap = chunk.snap.accept(this.termTranslator);
 
-                if (rec.res && perm.res && snap.res) {
-                    this.encodeFreshVariables();
-
-                    const facts = rec.additionalFacts
-                                     .concat(perm.additionalFacts)
-                                     .concat(`${functionName}[${rec.res}, ${snap.res}] = ${perm.res}`)
-                                     .join(" && \n       ");
-                    this.mb.fact(facts);
+                if (!rec.res) {
+                    Logger.error(`Could not translate field receiver: ${rec.leftovers}`);
+                    return;
+                }
+                if (!perm.res) {
+                    Logger.error(`Could not translate field permission: ${perm.leftovers}`);
+                    return;
+                }
+                if (!snap.res) {
+                    Logger.error(`Could not translate field snapshot: ${snap.leftovers}`);
+                    return;
                 }
 
+                this.encodeFreshVariables();
+                const facts = rec.additionalFacts
+                                    .concat(perm.additionalFacts)
+                                    .concat(rec.res + "." + chunk.field + " = " + snap.res)
+                                    .concat(`${functionName}[${rec.res}, ${snap.res}] = ${perm.res}`)
+                                    .join(" && \n       ");
+                this.mb.fact(facts);
+
             } else if (chunk instanceof QuantifiedFieldChunk) {
+                chunk.invAxioms.forEach(axiom => this.termToFact(axiom));
                 this.env.recordPermFunction(chunk.field, getSort(chunk.fieldValueFunction));
                 const r = new VariableTerm('r', new Sort('Ref'));
 
@@ -327,13 +250,75 @@ export class AlloyTranslator {
                     const functionName = AlloyTranslator.PermFun + "." + chunk.field ;
                     const facts = perm.additionalFacts
                                      .concat(fvf.additionalFacts)
-                                     .concat(`${perm.res} in ${functionName}` + mkString(args, '[', ', ', ']'))
+                                     .concat(`${perm.res} = ${functionName}` + mkString(args, '[', ', ', ']'))
                                      .join(" && \n       ");
                     this.mb.fact(`all r: ${this.env.translate(Sort.Ref)} | ${facts}`);
                 }
                 // this.termToFact(quant);
             }
         });
+
+        const predMembers: string[] = [];
+
+        Array.from(this.env.predicates.keys()).forEach(id => {
+            const name = "pred_" + id;
+            let preds = <PredicateChunk[]> this.env.predicates.get(id);
+            let first = preds[0];
+
+            const vars = first.args.map((value, index) => `arg${index}: one ${this.env.translate(getSort(value))}`);
+
+            this.mb.abstractSignature(name).withMembers(vars);
+            const sorts = [first.snap].concat(first.args).map(t => getSort(t));
+            const sortNames = sorts.map(s => this.env.translate(s));
+            this.mb.fact(name + ' = ' + AlloyTranslator.Preds + '.' + first.id + mkString(sortNames, '[', ', ', ']'));
+
+            this.env.recordPredPermFunction(id, sorts);
+
+            const funSorts = sortNames.concat('lone ' + name);
+            predMembers.push(first.id + ': ' + funSorts.join(' -> '));
+
+            const permFun = AlloyTranslator.PermFun + '.' + first.id;
+
+            preds.forEach(p => {
+                const argFacts: string[] = [];
+                const args: string[] = [];
+                p.args.forEach(a => {
+                    const translated = a.accept(this.termTranslator);
+                    if (translated.res) {
+                        translated.additionalFacts.forEach(f => argFacts.push(f));
+                        args.push(translated.res);
+                    } else {
+                        Logger.error(translated.leftovers.join(',\n'));
+                    }
+                });
+                const snap = p.snap.accept(this.termTranslator);
+                if (!snap.res) {
+                    Logger.error(`Could not translate predicate snap: ${snap.leftovers}`);
+                    return;
+                }
+                const perm = p.perm.accept(this.termTranslator);
+                if (!perm.res) {
+                    Logger.error(`Could not translate predicate perm: ${perm.leftovers}`);
+                    return;
+                }
+
+
+                const predCall = AlloyTranslator.Preds + '.' + p.id + mkString([snap.res].concat(args), '[', ', ', ']');
+                this.encodeFreshVariables();
+                // The translation of a fact might have introduces some variables and facts to constrain them.
+                let facts = snap.additionalFacts
+                                .concat(perm.additionalFacts)
+                                .concat(`(one ${predCall} => ` + args.map((v, idx) => `${predCall}.arg${idx} = ${v}`).join(' && ') + ')')
+                                .join(" && \n       ");
+
+                this.mb.fact(facts);
+                this.mb.fact(permFun + mkString([snap.res].concat(args), '[', ', ', ']') + ' = ' + perm.res);
+            });
+            this.mb.blank();
+        });
+
+        this.mb.oneSignature(AlloyTranslator.Preds).withMembers(predMembers);
+
         this.mb.blank();
     }
 
@@ -381,10 +366,10 @@ export class AlloyTranslator {
     // declared as long as they are.
     private encodeGatheredFacts() {
 
-        if (this.env.permFunctions.size > 0) {
+        if (this.env.permFunctions.size > 0 || this.env.predPermFunctions.size > 0) {
 
             const members: string[] = [];
-            const fieldExistenceFacts: string[] = [];
+            const existenceFacts: string[] = [];
             this.env.permFunctions.forEach((snapSort, field) => {
                 const typeSigs = [
                     this.env.translate(Sort.Ref),
@@ -399,15 +384,35 @@ export class AlloyTranslator {
                 typeSigs.push('lone ' + this.env.translate(Sort.Perm));
                 members.push(field + ': ' + mkString(typeSigs, '(', ' -> ', ')'));
                 const f = `all fvf: ${this.env.translate(snapSort)}, r: Ref | (one PermFun.${field}[r, fvf] and perm_less[Z, PermFun.${field}[r, fvf]]) => (one r.${field})`;
-                fieldExistenceFacts.push(f);
-                fieldExistenceFacts.push(
+                existenceFacts.push(f);
+                existenceFacts.push(
                     `all fvf: ${this.env.translate(snapSort)}, r: Ref | one PermFun.${field}[r, fvf] => perm_at_most[PermFun.${field}[r, fvf], W]`
                 );
             });
 
+            this.env.predPermFunctions.forEach((sorts, name) => {
+                const funName = `${AlloyTranslator.PermFun}.${name}`;
+                const typeSigs = sorts.map(s => this.env.translate(s));
+                this.env.recordInstance(Sort.Perm, funName + mkString(typeSigs, '[', ', ', ']'));
+
+                typeSigs.push('lone ' + this.env.translate(Sort.Perm));
+                members.push(name + ': ' + mkString(typeSigs, '(', ' -> ', ')'));
+
+                // Quantified names and variables for the constraint
+                const qNames = sorts.map((s, index) => 'a' + index);
+                const qVars = sorts.map((s, index) => 'a' + index + ': ' + this.env.translate(s)).join(', ');
+
+                // Function calls
+                const permFunCall = funName + mkString(qNames, '[', ', ', ']');
+                const predCall = AlloyTranslator.Preds + '.' + name + mkString(qNames, '[', ', ', ']');
+
+                existenceFacts.push(`all ${qVars} | (one ${permFunCall} and perm_less[Z, ${permFunCall}]) <=> (one ${predCall})`);
+                existenceFacts.push(`all ${qVars} | one ${permFunCall} => perm_at_most[${permFunCall}, W]`);
+            });
+
             this.mb.comment("Permission functions");
             this.mb.oneSignature(AlloyTranslator.PermFun).withMembers(members);
-            fieldExistenceFacts.forEach(f => this.mb.fact(f));
+            existenceFacts.forEach(f => this.mb.fact(f));
             this.mb.blank();
         }
 
@@ -484,22 +489,6 @@ export class AlloyTranslator {
                 .withMembers(Array.from(members));
         }
 
-//         if (this.env.sortWrappers.size > 0) {
-//             const members: string[] = [];
-//             this.env.sortWrappers.forEach((sorts, name) => {
-//                 const from = this.env.translate(sorts.from);
-//                 const to = this.env.translate(sorts.to);
-//                 members.push(`${name}: (${from} -> lone ${to})`);
-//                 this.mb.fun(`pred wrap_${name} [ from: ${from}, to: ${to} ] {
-//     (from -> to) in ${AlloyTranslator.SortWrappers}.${name}
-// }`);
-//             });
-//             this.mb.oneSignature(AlloyTranslator.SortWrappers)
-//                     .withMembers(members);
-
-//             this.mb.blank();
-//         }
-
         if (this.env.userSorts.size > 0) {
             this.mb.comment("User sorts");
             this.env.userSorts.forEach(s => this.mb.signature(s));  
@@ -537,7 +526,7 @@ export class AlloyTranslator {
                     if (a instanceof VariableTerm) {
                         args.push(a);
                     } else {
-                        Logger.error(`crap`);
+                        Logger.error(`Unexpected macro argument '${a}'`);
                     }
                 });
 
@@ -546,23 +535,6 @@ export class AlloyTranslator {
                 const params = app.args.map(a => this.env.translate(getSort(a)));
                 params.push('lone ' + AlloyTranslator.Perm);
                 members.push(sanitizedName + ": " + params.join(' -> '));
-
-//                 this.env.evaluateWithAdditionalVariables(
-//                     app.args.map(t => t.toString()),
-//                     () => {
-//                 const tBody = body.accept(this.termTranslator);
-//                 if (!tBody.res) {
-//                     Logger.error("Could not translate macro body: " + body);
-//                 }
-
-//                 this.encodeFreshVariables();
-//                 this.mb.fact(tBody.additionalFacts.join(" && \n       "));
-//                 const retSort = this.env.translate(app.sort);
-//         this.mb.fun(`pred ${sanitizedName} [ ${params.join(', ')}, p': ${retSort} ] {
-//     ${tBody.additionalFacts.join("\n")}
-//     p' = ${tBody.res}
-// }`);
-//                     });
                 }
             );
 
@@ -574,11 +546,6 @@ export class AlloyTranslator {
     private encodeReachabilityConstraints() {
         const reachable = [ AlloyTranslator.Store + ".refTypedVars'.*refTypedFields'", AlloyTranslator.Null ]; 
 
-        // this.env.sortWrappers.forEach((sorts, name) => {
-        //     if (sorts.from.is(Sort.Ref)) {
-        //         reachable.push(`${AlloyTranslator.SortWrappers}.${name}.univ`);
-        //     }
-        // });
         reachable.push(`(${AlloyTranslator.SortWrappers}.wrapped <: ${AlloyTranslator.Ref})`);
 
         this.env.refReachingSignatures.forEach((name) => reachable.push(name));
