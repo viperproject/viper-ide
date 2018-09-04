@@ -194,7 +194,7 @@ export class TranslationEnv {
 
         const count = sig.numberOfMembers();
         let varName: string;
-        if (count !== undefined) {
+        if (count > 0) {
             varName = `${base}_${count + 1}'`;
         } else {
             varName = `${base}_0'`;

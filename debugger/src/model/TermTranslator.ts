@@ -196,7 +196,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
         // If any of the operands are Bools and this is a "logical" operatino, we need to wrap them
         if (leftSort.is(Sort.Bool) || rightSort.is(Sort.Bool)) {
-            if (binary.op === '==>' || binary.op === 'implies' || binary.op === '==') {
+            if (binary.op === '==>' || binary.op === 'implies' || binary.op === '==' || binary.op === '<==>') {
 
                 // If one of the operands has logical type, then equality must be turned into a iff
                 if (binary.op === BinaryOp.Equals) {
@@ -221,16 +221,6 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             }
         }
 
-        const left = leftSort.is(Sort.Bool) ? new LogicalWrapper(binary.lhs).accept(this) : binary.lhs.accept(this);
-        if (left.res === undefined) {
-            return leftover(binary, "Left-hand side operand not translated", left.leftovers);
-        }
-
-        const right = rightSort.is(Sort.Bool) ? new LogicalWrapper(binary.rhs).accept(this) : binary.rhs.accept(this);
-        if (right.res === undefined) {
-            return leftover(binary, "Right-hand side operand not translated", right.leftovers);
-        }
-
         if (leftSort.is(Sort.Int) || rightSort.is(Sort.Int)) {
             switch (binary.op) {
                 case '-': return this.call('minus', [binary.lhs, binary.rhs]);
@@ -238,6 +228,19 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
                 case '*': return this.call('mul', [binary.lhs, binary.rhs]);
                 case '/': return this.call('div', [binary.lhs, binary.rhs]);
                 case '%': return this.call('rem', [binary.lhs, binary.rhs]);
+            }
+
+            const left = leftSort.is(Sort.Bool) ? new LogicalWrapper(binary.lhs).accept(this) : binary.lhs.accept(this);
+            if (left.res === undefined) {
+                return leftover(binary, "Left-hand side operand not translated", left.leftovers);
+            }
+
+            const right = rightSort.is(Sort.Bool) ? new LogicalWrapper(binary.rhs).accept(this) : binary.rhs.accept(this);
+            if (right.res === undefined) {
+                return leftover(binary, "Right-hand side operand not translated", right.leftovers);
+            }
+
+            switch (binary.op) {
                 case '<': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
                 case '<=': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
                 case '>': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
@@ -267,6 +270,16 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
                 // case '==': return translatedFrom(`(${left.res} = ${right.res})`, [left, right]);
                 default: Logger.error(`Unexpected perm operator: ${binary.op}`);
             }
+        }
+
+        const left = leftSort.is(Sort.Bool) ? new LogicalWrapper(binary.lhs).accept(this) : binary.lhs.accept(this);
+        if (left.res === undefined) {
+            return leftover(binary, "Left-hand side operand not translated", left.leftovers);
+        }
+
+        const right = rightSort.is(Sort.Bool) ? new LogicalWrapper(binary.rhs).accept(this) : binary.rhs.accept(this);
+        if (right.res === undefined) {
+            return leftover(binary, "Right-hand side operand not translated", right.leftovers);
         }
 
         // If we are not dealing with a combine, then return a "regular" binary expression
