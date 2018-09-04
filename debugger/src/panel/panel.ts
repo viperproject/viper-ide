@@ -118,6 +118,13 @@ function setupInputHandlers() {
         document.execCommand('copy');
         temp.remove();
     };
+    domElem('button#writeAlloyModel').onclick = () => {
+        const value = {
+            name: (domElem('#verifiables') as HTMLInputElement).value,
+            model: domElem('#alloyModel').innerText
+        };
+        vscode.postMessage({ command: 'writeAlloyModel', value: value });
+    };
 
     // Enable/disable state navigation via mouse
     // The message is delivered to the DecorationsManager via the DebuggerPanel, on "the extension side"

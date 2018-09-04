@@ -11,6 +11,9 @@ import { AlloyTranslator } from './model/AlloyTranslator';
 import { TranslationEnv } from './model/TranslationEnv';
 import { Alloy } from './model/Alloy';
 import { DotGraph } from './DotGraph';
+import { viperApi } from './extension';
+import { Uri } from 'vscode';
+import { DebuggerSettings } from './DebuggerSettings';
 
 
 class PanelMessage {
@@ -130,10 +133,24 @@ export class DebuggerPanel implements SessionObserver {
                 let enabled = message.value;
                 this.decorationsManager.setMouseNavigation(enabled);
                 break;
+            
+            case 'writeAlloyModel':
+                const value = message.value;
+                this.writeAlloyModel(value.name, value.model);
+                break;
 
             default:
                 Logger.error(`Unknown command from debug pane: '${message}'`);
         }
+    }
+
+    private writeAlloyModel(verifiableName: string, model: string) {
+        const basePath = DebuggerSettings.modelDestinationPath();
+        const fileUri: Uri = viperApi.getLastActiveFile().uri;
+        const name = path.parse(fileUri.fsPath).name;
+        const fileName = name + '_' + verifiableName + '.als';
+        const filePath = path.join(basePath, fileName);
+        fs.writeFileSync(filePath, model);
     }
 
     private setupSessionCallbacks() {
@@ -164,18 +181,25 @@ export class DebuggerPanel implements SessionObserver {
             const state = record.current.prestate;
             const env = new TranslationEnv(state);
             const program = this.session!.program;
+
+            let startTime = Date.now();
             const alloyTranslator = new AlloyTranslator(record.verifiable,
                                                     program,
                                                     state,
                                                     env);
             const model = alloyTranslator.translate();
-            this.logModel(model);
 
+            const translationTime = Date.now() - startTime;
+            Logger.debug(`Model translated in ${translationTime}ms`);
+
+            this.logModel(model);
             this.postMessage({ type: "graphMessage", text: "Generating..." });
+
+            startTime = Date.now();
             Alloy.generate(model).then(
                 (instance) => {
-                    // TODO: Log this to the diagnostics panel
-                    // Logger.info(JSON.stringify(instance, undefined, 2));
+                    Logger.debug(`Alloy generation terminated in ${Date.now() - startTime}ms`);
+
                     this.postMessage({ type: "alloyInstanceMessage", text: instance });
                     const graph = DotGraph.from(record.current, instance, env);
                     this.postMessage({

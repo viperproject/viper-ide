@@ -126,13 +126,13 @@ export class AlloyModelBuilder {
     }
 
     public comment(text: string) {
-        if (DebuggerSettings.logLevel === LogLevel.DEBUG) {
+        if (DebuggerSettings.logLevel() === LogLevel.DEBUG) {
             this.parts.push(new Comment(text));
         }
     }
 
     public blank() {
-        if (DebuggerSettings.logLevel === LogLevel.DEBUG) {
+        if (DebuggerSettings.logLevel() === LogLevel.DEBUG) {
             this.parts.push(Blank);
         }
     }

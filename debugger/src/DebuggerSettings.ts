@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { LogLevel, Logger } from './logger';
+import { LogLevel } from './logger';
 
 export namespace DebuggerSettings {
     function settings(): vscode.WorkspaceConfiguration {
@@ -22,14 +22,18 @@ export namespace DebuggerSettings {
         return settings().get<number>('instancesBaseCount')!;
     }
 
-    export var logLevel: LogLevel = LogLevel.INFO;
-    let logLevelSetting = <keyof typeof LogLevel> settings().get("logLevel");
-    if (logLevelSetting !== undefined) { 
-        logLevel = LogLevel[logLevelSetting];
-    } else {
-        Logger.warn("Could not read logLevel from settings");
+    export function modelDestinationPath(): string {
+        return settings().get<string>('modelDestinationPath')!;
     }
-    
+
+    export function logLevel(): LogLevel {
+        let logLevelSetting = <keyof typeof LogLevel> settings().get("logLevel");
+        if (logLevelSetting !== undefined) { 
+            return LogLevel[logLevelSetting];
+        } 
+        return LogLevel.INFO;
+    }
+
     export function getValidColor(key: string) {
         let highlightingSettings = vscode.workspace.getConfiguration("viperDebuggerSettings.highlighting");
         let colorString = (<string> highlightingSettings.get(key)).trim();

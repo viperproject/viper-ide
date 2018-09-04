@@ -20,9 +20,7 @@ export function getAbsolutePath(relativePath: string) {
 
 /** Called by VS Code when loading the extension. */
 export function activate(context: vscode.ExtensionContext) {
-    if (DebuggerSettings.logLevel) {
-        Logger.setLogLevel(DebuggerSettings.logLevel);
-    }
+    Logger.setLogLevel(DebuggerSettings.logLevel());
 
     Logger.debug('Viper Debugger extension starting');
     extensionContext = context;

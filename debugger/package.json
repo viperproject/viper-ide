@@ -120,6 +120,11 @@
                     "type": "number",
                     "default": 6,
                     "description": "The base number of instances per signature Alloy should use."
+                },
+                "viperDebuggerSettings.modelDestinationPath": {
+                    "type": "string",
+                    "default": "/tmp",
+                    "description": "The location where to write Alloy models from the diagnostics panel."
                 }
             }
         }
