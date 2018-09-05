@@ -86,18 +86,27 @@ export class AlloyTranslator {
         this.env.recordedInstances.forEach((instances) => counts.push(instances.length));
 
         // TODO: Should be updated to account for the largest collection as well
-        const baseCount = DebuggerSettings.instancesBaseCount() + Math.max(...counts);
+        // const baseCount = DebuggerSettings.instancesBaseCount() + Math.max(...counts);
+        const baseCount = Math.max(...counts);
+
         const countPerInstance = new Map([
             ['int', DebuggerSettings.integerBitWidth()]
         ]);
+
+        this.env.recordedInstances.forEach((values, sig) => {
+            if (sig !== 'Int' && sig !== 'Ref') {
+                countPerInstance.set(sig, Math.min(DebuggerSettings.instancesBaseCount(), values.length));
+            }
+        });
             
-        return this.mb.build(baseCount, countPerInstance);
+        return this.mb.build(10, countPerInstance);
     }
 
     /** Emits the definitions that never change in the model. */
     private emitPrelude() {
         const files = [
             ["Preamble", 'resources/preamble.als'],
+            // ["Perms", 'resources/perms_new.als'],
             ["Perms", 'resources/perms.als'],
             ["Sets", 'resources/set_fun.als'],
             ["Seqs", 'resources/seq.als'],
@@ -192,8 +201,8 @@ export class AlloyTranslator {
 
     private encodePermissions(chunks: HeapChunk[]) {
 
+        const quantifiedSnapsPerField: Map<string, string[]> = new Map();
         this.mb.comment("Heap Chunks");
-
         chunks.forEach(chunk => {
             // TODO: this should probably be unified per field
             if (chunk instanceof FieldChunk) {
@@ -253,9 +262,23 @@ export class AlloyTranslator {
                                      .concat(`${perm.res} = ${functionName}` + mkString(args, '[', ', ', ']'))
                                      .join(" && \n       ");
                     this.mb.fact(`all r: ${this.env.translate(Sort.Ref)} | ${facts}`);
+
+
+                    // this.env.recordInstance(Sort.Perm, functionName + mkString(typeSigs, '[', ', ', ']'));
+
+                    if (quantifiedSnapsPerField.has(chunk.field)) {
+                        quantifiedSnapsPerField.get(chunk.field)!.push(fvf.res);
+                    } else {
+                        quantifiedSnapsPerField.set(chunk.field, [fvf.res]);
+                    }
                 }
-                // this.termToFact(quant);
             }
+        });
+
+        quantifiedSnapsPerField.forEach((snaps, field) => {
+            const fvfs = snaps.join(' + ') ;
+            this.mb.fact(`all r: Ref | (some fvf: (${fvfs}) | one PermFun.${field}[r, fvf] and perm_less[Z, PermFun.${field}[r, fvf]]) <=> (one r.${field})`);
+            this.mb.fact(`all r: Ref, fvf: (${fvfs}) | one PermFun.${field}[r, fvf] => (perm_at_most[PermFun.${field}[r, fvf], W])`);
         });
 
         const predMembers: string[] = [];
@@ -381,13 +404,13 @@ export class AlloyTranslator {
                 this.env.recordInstance(Sort.Perm, funName + mkString(typeSigs, '[', ', ', ']'));
 
                 // Record the member
-                typeSigs.push('lone ' + this.env.translate(Sort.Perm));
+                typeSigs.push('one ' + this.env.translate(Sort.Perm));
                 members.push(field + ': ' + mkString(typeSigs, '(', ' -> ', ')'));
-                const f = `all fvf: ${this.env.translate(snapSort)}, r: Ref | (one PermFun.${field}[r, fvf] and perm_less[Z, PermFun.${field}[r, fvf]]) => (one r.${field})`;
-                existenceFacts.push(f);
-                existenceFacts.push(
-                    `all fvf: ${this.env.translate(snapSort)}, r: Ref | one PermFun.${field}[r, fvf] => perm_at_most[PermFun.${field}[r, fvf], W]`
-                );
+                // const f = `all fvf: ${this.env.translate(snapSort)}, r: Ref | (one PermFun.${field}[r, fvf] and perm_less[Z, PermFun.${field}[r, fvf]]) => (one r.${field})`;
+                // existenceFacts.push(f);
+                // existenceFacts.push(
+                //     `all fvf: ${this.env.translate(snapSort)}, r: Ref | one PermFun.${field}[r, fvf] => perm_at_most[PermFun.${field}[r, fvf], W]`
+                // );
             });
 
             this.env.predPermFunctions.forEach((sorts, name) => {
@@ -533,7 +556,7 @@ export class AlloyTranslator {
                 const quant = new Quantification('QA', args, new Binary('==', app, body), null);
                 this.termToFact(quant);
                 const params = app.args.map(a => this.env.translate(getSort(a)));
-                params.push('lone ' + AlloyTranslator.Perm);
+                params.push('one ' + AlloyTranslator.Perm);
                 members.push(sanitizedName + ": " + params.join(' -> '));
                 }
             );
