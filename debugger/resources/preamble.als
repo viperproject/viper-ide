@@ -22,4 +22,7 @@ abstract sig Combine extends Snap {
 
 pred combine [ l, r: Snap, c: Combine ] {
     c.left = l && c.right = r
+    c.left != c && c.right != c
+    c not in c.^left
+	c not in c.^right
 }

@@ -52,8 +52,12 @@ pred perm_plus[ p1, p2, p': Perm ] {
 
 
 pred perm_minus[ p1, p2, p': Perm ] {
-  p'.num = minus[mul[p1.num, p2.denom], mul[p2.num, p1.denom]]
-  p'.denom = mul[p1.denom, p2.denom]
+	perm_equals[ p1, p2 ]
+		=> p' = Z
+		else (
+		  p'.num = minus[mul[p1.num, p2.denom], mul[p2.num, p1.denom]] and
+		  p'.denom = mul[p1.denom, p2.denom]
+		)
 }
 
 pred int_perm_div[ p: Perm, d: Int, p': Perm ] {

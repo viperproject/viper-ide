@@ -7,6 +7,7 @@ import { Logger } from './logger';
 import { Sort } from './model/Sort';
 import { mkString } from './util';
 import { DebuggerError } from './Errors';
+import { readlink } from 'fs';
 
 
 export function clean(name: string) {
@@ -560,6 +561,10 @@ export class DotGraph {
                     // storeGraph.add(new Node(v.name +"_lookup_" + clean(v.value.field), new Label(`${v.name}: ${v.sort} (lookup)\\l`)));
                     const rel = storeRelations.get(v.name)!;
                     const nodeId = v.name +"_lookup_" + clean(v.value.field);
+
+                    if (v.sort.is(Sort.Ref)) {
+                        relations.push(new Rel(nodeId, rel));
+                    }
 
                     if (v.value.receiver instanceof VariableTerm) {
                         const ref = signatureToAtom.get(clean(v.value.receiver.id));
