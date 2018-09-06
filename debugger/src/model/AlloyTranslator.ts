@@ -87,7 +87,7 @@ export class AlloyTranslator {
 
         // TODO: Should be updated to account for the largest collection as well
         // const baseCount = DebuggerSettings.instancesBaseCount() + Math.max(...counts);
-        const baseCount = Math.max(...counts);
+        // const baseCount = Math.max(...counts);
 
         const countPerInstance = new Map([
             ['int', DebuggerSettings.integerBitWidth()]
@@ -106,8 +106,8 @@ export class AlloyTranslator {
     private emitPrelude() {
         const files = [
             ["Preamble", 'resources/preamble.als'],
-            // ["Perms", 'resources/perms_new.als'],
-            ["Perms", 'resources/perms.als'],
+            ["Perms", 'resources/perms_new.als'],
+            // ["Perms", 'resources/perms.als'],
             ["Sets", 'resources/set_fun.als'],
             ["Seqs", 'resources/seq.als'],
             ["Multiset", 'resources/multiset.als']
