@@ -32,7 +32,7 @@ export class TranslationEnv {
 
     public sortWrappers: Map<string, { from: Sort, to: Sort }>;
     public functions: Map<string, [Sort[], Sort]>;
-    public permFunctions: Map<string, Sort>;
+    public permFunctions: Map<string, Sort[]>;
     public predPermFunctions: Map<string, Sort[]>;
     public lookupFunctions: [Sort, string][];
     public predLookupFunctions: [string, Sort[]][];
@@ -314,9 +314,9 @@ export class TranslationEnv {
         }
     }
 
-    public recordPermFunction(name: string, snapSort: Sort) {
+    public recordPermFunction(name: string, sorts: Sort[]) {
         if (!this.permFunctions.has(name)) {
-            this.permFunctions.set(name, snapSort);
+            this.permFunctions.set(name, sorts);
         }
     }
 

@@ -7,7 +7,6 @@ import { Logger } from './logger';
 import { Sort } from './model/Sort';
 import { mkString } from './util';
 import { DebuggerError } from './Errors';
-import { readlink } from 'fs';
 
 
 export function clean(name: string) {
