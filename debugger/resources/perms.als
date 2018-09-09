@@ -55,8 +55,14 @@ pred perm_minus[ p1, p2, p': Perm ] {
 	perm_equals[ p1, p2 ]
 		=> p' = Z
 		else (
-		  p'.num = minus[mul[p1.num, p2.denom], mul[p2.num, p1.denom]] and
-		  p'.denom = mul[p1.denom, p2.denom]
+      p1.denom = p2.denom
+        => (
+          p'.num = minus[p1.num, p2.num] and
+          p'.denom = p1.denom
+        ) else (
+          p'.num = minus[mul[p1.num, p2.denom], mul[p2.num, p1.denom]] and
+          p'.denom = mul[p1.denom, p2.denom]
+        )
 		)
 }
 

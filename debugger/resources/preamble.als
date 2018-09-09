@@ -3,10 +3,10 @@ open util/ternary
 open util/integer
 open util/relation
 
-sig Snap {}
+abstract sig Snap {}
 one sig Unit extends Snap {}
 
-sig SortWrapper extends Snap {
+abstract sig SortWrapper extends Snap {
     wrapped: one univ
 }
 
