@@ -36,6 +36,7 @@ export namespace Debugger {
     let session: DebuggerSession | undefined = undefined;
     /** Observers are notified whenever the debugger session is changed. */
     let sessionObservers: SessionObserver[];
+    let startTime: number = 0;
 
     export function start(context: vscode.ExtensionContext, activeEditor: vscode.TextEditor) {
         if (panel) {
@@ -76,6 +77,8 @@ export namespace Debugger {
                     }
                 } else {
                     debuggedFile = m.filename;
+                    startTime = Date.now();
+                    Logger.debug(`Verification terminated`);
                 }
             }
         );
@@ -83,9 +86,20 @@ export namespace Debugger {
         // Setup a handler for the symbolic execution logs sent by ViperServer
         viperApi.registerServerMessageCallback('symbolic_execution_logger_report', (messageType: string, message: any) => {
             if (panel) {
+                let newTime = Date.now();
+                Logger.debug(`SymbExLog received: ` + ((newTime - startTime) / 1000));
+                startTime = newTime;
+
                 let log = <SymbExLog>message.msg_body;
 
+                newTime = Date.now();
+                Logger.debug(`SymbExLog parsed: ` + ((newTime - startTime) / 1000));
+                startTime = newTime;
+
                 panel.postOriginalSymbExLog(log);
+                newTime = Date.now();
+                Logger.debug(`SymbExLog sent to panel: ` + ((newTime - startTime) / 1000));
+                startTime = newTime;
                 update(log);
             }
         });
@@ -121,6 +135,7 @@ export namespace Debugger {
     /** Update the state of the debugger (both panel and view). */
     function update(log: SymbExLog) {
         const program = Program.from(log);
+        Logger.debug(`Program built from log: ` + ((Date.now() - startTime) / 1000));
 
         if (session) {
             session.removeListeners();
