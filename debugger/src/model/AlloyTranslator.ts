@@ -86,6 +86,7 @@ export class AlloyTranslator {
         this.env.recordedInstances.forEach((instances) => counts.push(instances.length));
 
         // TODO: Should be updated to account for the largest collection as well
+        const baseCount = DebuggerSettings.instancesBaseCount();
         // const baseCount = DebuggerSettings.instancesBaseCount() + Math.max(...counts);
         // const baseCount = Math.max(...counts);
 
@@ -94,20 +95,20 @@ export class AlloyTranslator {
         ]);
 
         this.env.recordedInstances.forEach((values, sig) => {
-            if (sig !== 'Int' && sig !== 'Ref') {
+            if (sig !== 'Int' && sig !== 'Ref' && sig !== 'Snap') {
                 countPerInstance.set(sig, Math.min(DebuggerSettings.instancesBaseCount(), values.length));
             }
         });
             
-        return this.mb.build(10, countPerInstance);
+        return this.mb.build(baseCount, countPerInstance);
     }
 
     /** Emits the definitions that never change in the model. */
     private emitPrelude() {
         const files = [
             ["Preamble", 'resources/preamble.als'],
-            ["Perms", 'resources/perms_new.als'],
-            // ["Perms", 'resources/perms.als'],
+            // ["Perms", 'resources/perms_new.als'],
+            ["Perms", 'resources/perms.als'],
             ["Sets", 'resources/set_fun.als'],
             ["Seqs", 'resources/seq.als'],
             ["Multiset", 'resources/multiset.als']
