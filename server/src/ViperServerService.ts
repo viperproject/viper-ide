@@ -11,10 +11,12 @@ import { Log } from './Log'
 import { Settings } from './Settings'
 import { BackendOutputType, Common, Stage, Backend, VerificationState, LogLevel, Commands } from './ViperProtocol'
 import { Server } from './ServerClass';
+import { VerificationTask } from './VerificationTask'
 import { BackendService } from './BackendService';
 
 import tree_kill = require('tree-kill');
 import { error } from 'util';
+import { resolve } from '../node_modules/vscode-languageserver/lib/files';
 
 export class ViperServerService extends BackendService {
 
@@ -135,13 +137,26 @@ export class ViperServerService extends BackendService {
     private removeAllListeners() {
         this.backendProcess.removeAllListeners();
         this.backendProcess.stdout.removeAllListeners();
-        this.backendProcess.stderr.removeAllListeners();
+        this.backendProcess.stderr.removeAllListeners()
+     }
+
+    private logLevelToStr(l: number): string {
+        switch (l) {
+            case 0: return `OFF`
+            case 1: return `ERROR`
+            case 2: return `WARN`
+            case 3: return `INFO`
+            case 4: return `TRACE`
+            case 5: return `ALL`
+            default: return `ALL`
+        }
     }
 
     private getViperServerStartCommand(): string {
         let command = "java " + Settings.settings.javaSettings.customArguments +  
                       " " + Settings.settings.viperServerSettings.customArguments + 
-                      " " + "--logFile " + Server.tempDirectory;
+                      " --logLevel " + this.logLevelToStr(Settings.settings.preferences.logLevel) +
+                      " --logFile " + Server.tempDirectory
 
         command = command.replace(/\$backendPaths\$/g, Settings.viperServerJars());
         command = command.replace(/\$backendSpecificCache\$/g, (Settings.settings.viperServerSettings.backendSpecificCache === true ? "--backendSpecificCache" : ""));
@@ -217,7 +232,8 @@ export class ViperServerService extends BackendService {
                 if ( message.hasOwnProperty('msg_body') && 
                         message.msg_body.hasOwnProperty('status') ) {
 
-                        if ( message.msg_body.status === 'failure') {
+                        if ( message.msg_body.status === 'failure' &&
+                             message.msg_body.details.result.errors.length > 0) {  // we get zero errors in the overall results if the errors have been cached. 
 
                             let first_error_tag = message.msg_body.details.result.errors[0].tag
                             let global_failure = 
@@ -268,7 +284,11 @@ export class ViperServerService extends BackendService {
                                 type: "End", 
                                 time: (message.msg_body.details.time * 0.001) + 's'
                             }))
-                            return onData(JSON.stringify({ type: "Success" }))
+                            //if ( message.msg_body.status === 'success' ){
+                                return onData(JSON.stringify({ type: "Success" }))
+                            //} else {
+                            //return onData(JSON.stringify({ type: "Failure" }))
+                            //}
                         }
 
                 } else {
@@ -280,7 +300,7 @@ export class ViperServerService extends BackendService {
             // the ViperApi
             Server.connection.sendNotification(Commands.UnhandledViperServerMessageType, message.msg_type, message);
 
-            return true; 
+            return true;
         })
         this._stream.output.on("end", () => {
             //Log.log("ViperServer stream ended.", LogLevel.LowLevelDebug)
@@ -316,17 +336,60 @@ export class ViperServerService extends BackendService {
         })
     }
 
-    //@deprecated
-    private emit(msg: string) {
-        this.backendProcess.stdin.write(msg + '\n');
-    }
+    public flushCache(filePath?: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            let url = this._url + ':' + this._port + '/cache/flush'
+            if (filePath) {
+                Log.log(`Requesting ViperServer to flush the cache for (` + filePath + `)...`, LogLevel.Info)
 
-    //@deprecated
-    public flushCache(filePath?: string) {
-        Log.log("Request flushing cache from ViperServer", LogLevel.Debug);
-        let command = 'flushCache ' + (filePath ? '"' + filePath + '"' : "")
-        Log.log("Emit to ViperServer: " + command, LogLevel.LowLevelDebug)
-        this.emit(command)
+                let options = {
+                    url: url, 
+                    headers: {'content-type': 'application/json'},
+                    body: JSON.stringify({ backend: Server.backend.name, file: filePath })
+                }
+
+                request.post(options).on('error', (error) => {
+                    Log.log(`error while requesting ViperServer to flush the cache for (` + filePath + `).` +
+                            ` Request URL: ${url}\n` +
+                            ` Error message: ${error}`, LogLevel.Default)
+                    reject(error)
+
+                }).on('data', (data) => {
+                    let response = JSON.parse(data.toString())
+                    if ( !response.msg ) {
+                        Log.log(`ViperServer did not complain about the way we requested it to flush the cache for (` + filePath + `).` + 
+                                ` However, it also did not provide the expected bye-bye message.` + 
+                                ` It said: ${data.toString}`, LogLevel.Debug)
+                        resolve(response)
+                    } else {
+                        Log.log(`ViperServer has confirmed that the cache for (` + filePath + `) has been flushed.`, LogLevel.Debug)
+                        resolve(response.msg)
+                    }
+                })
+
+            } else {
+                Log.log(`Requesting ViperServer to flush the entire cache...`, LogLevel.Info)
+
+                request.get(url).on('error', (error) => {
+                    Log.log(`error while requesting ViperServer to flush the entire cache.` +
+                            ` Request URL: ${url}\n` +
+                            ` Error message: ${error}`, LogLevel.Default)
+                    reject(error)
+
+                }).on('data', (data) => {
+                    let response = JSON.parse(data.toString())
+                    if ( !response.msg ) {
+                        Log.log(`ViperServer did not complain about the way we requested it to flush the entire cache.` + 
+                                ` However, it also did not provide the expected bye-bye message.` + 
+                                ` It said: ${data.toString}`, LogLevel.Debug)
+                        resolve(response)
+                    } else {
+                        Log.log(`ViperServer has confirmed that the entire cache has been flushed.`, LogLevel.Debug)
+                        resolve(response.msg)
+                    }
+                })
+            }
+        })
     }
 
     private postStartRequest(request_body): Promise<number> {

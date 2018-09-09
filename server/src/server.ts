@@ -73,48 +73,52 @@ function registerHandlers() {
         }
     });
 
+    /**
+     * Relevant bit of documentation: 
+     * https://github.com/Microsoft/language-server-protocol/blob/master/versions/protocol-2-x.md#document-symbols-request
+     */
     Server.connection.onRequest('textDocument/documentSymbol', (args) => {
         return new Promise<SymbolInformation[]>((resolve, reject) => {
-            let task = Server.verificationTasks.get(args.textDocument.uri.toString());
+            let task = Server.verificationTasks.get(args.textDocument.uri.toString())
             if (task) {
-                resolve(task.symbolInformation);
+                resolve(task.symbolInformation)
             } else {
-                reject();
+                // No task found - maybe the task has not been created yet. 
+                resolve([])
             }
         })
     });
 
+    /**
+     * Relevant bit of documentation: 
+     * https://github.com/Microsoft/language-server-protocol/blob/master/versions/protocol-2-x.md#goto-definition-request
+     */
     Server.connection.onRequest('textDocument/definition', (args) => {
-        //Log.log("Handling definitions request", LogLevel.Debug);
-        //Log.log("Args: "+ JSON.stringify(args), LogLevel.Debug);
+        Log.log(`Handling definitions request for args: ` + JSON.stringify(args), LogLevel.Debug)
         return new Promise<any>((resolve, reject) => {
-            try {
-                let document = args.textDocument;
-                let pos = args.position;
-                let task = Server.verificationTasks.get(document.uri.toString());
-                if (task) {
-                    //Log.log("Get Identifier", LogLevel.LowLevelDebug)
-                    Server.connection.sendRequest(Commands.GetIdentifier, pos).then((indentifier: string) => {
-                        //Log.log("Got Identifier", LogLevel.LowLevelDebug)
-                        task.definitions.forEach(def => {
-                            if (def.scope == null //global scope
-                                || (Common.comparePosition(def.scope.start, pos) <= 0 && Common.comparePosition(def.scope.end, pos) >= 0)) // in scope
-                            {
-                                if (indentifier == def.name) {
-                                    resolve({ uri: document.uri.toString(), range: def.location })
-                                    return;
-                                }
+            let document = args.textDocument
+            let pos = args.position
+            let task = Server.verificationTasks.get(document.uri.toString());
+            if (task) {
+                Log.log(`Found verification task for URI ` + document.uri, LogLevel.LowLevelDebug)
+                Server.connection.sendRequest(Commands.GetIdentifier, pos).then((word: string) => {
+                    Log.log(`Got word: ` + word, LogLevel.LowLevelDebug)
+                    task.definitions.forEach(def => {
+                        if (def.scope == null //global scope
+                            || (Common.comparePosition(def.scope.start, pos) <= 0 && Common.comparePosition(def.scope.end, pos) >= 0)) // in scope
+                        {
+                            if (word == def.name) {
+                                resolve({ uri: document.uri.toString(), range: def.location })
                             }
-                        })
-                        reject("No definition found");
+                        }
                     })
-
-                } else {
-                    reject("file not found found");
-                }
-            } catch (e) {
-                Log.error("Error handling definitions request: " + e);
-                reject();
+                    // No definition found - maybe it's a keyword.
+                    resolve([])
+                })
+            } else {
+                let e = `Verification task not found for URI (` + document.uri + `)`
+                Log.error(e)
+                reject(e)
             }
         })
     });
@@ -238,13 +242,11 @@ function registerHandlers() {
         Server.updateViperTools(false);
     });
 
-    Server.connection.onNotification(Commands.FlushCache, file => {
-        try {
-            if (Server.backendService.isViperServerService) {
-                (<ViperServerService>Server.backendService).flushCache(file);
-            }
-        } catch (e) {
-            Log.error("Error flushing cache: " + e);
+    Server.connection.onNotification(Commands.FlushCache, (file) => {
+        if (Server.backendService.isViperServerService) {
+            (<ViperServerService>Server.backendService).flushCache(file).catch((e) => {
+                Log.error("Error flushing cache: " + e);
+            })
         }
     });
 
