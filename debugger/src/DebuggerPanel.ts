@@ -182,11 +182,6 @@ export class DebuggerPanel implements SessionObserver {
             const env = new TranslationEnv(state);
             const program = this.session!.program;
 
-            if (state.oldHeap.length > 0) {
-                const msg = "The old heap contains chunks, but this feature is not supported by the debugger";
-                vscode.window.showWarningMessage(msg);
-            }
-
             let startTime = Date.now();
             const alloyTranslator = new AlloyTranslator(record.verifiable,
                                                     program,

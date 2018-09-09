@@ -24,7 +24,7 @@ export class State {
     }
 }
 
-type RecordType = 'Execute' | 'Evaluate' | 'Consume' | 'Produce' | 'Other';
+type RecordType = 'Execute' | 'Evaluate' | 'Consume' | 'Produce' | string;
 let index = 0;
 
 export class Record {
@@ -91,7 +91,13 @@ export class Record {
             }
         } else if (entry.kind) {
             // TODO: this
-            recordType = 'Other';
+            if (entry.kind === "Branch 1") {
+                recordType = "Then";
+            } else if (entry.kind === "Branch 2") {
+                recordType = "Else";
+            } else {
+                recordType = entry.kind;
+            }
         }
 
         let position: Position = new Position(0, 0);

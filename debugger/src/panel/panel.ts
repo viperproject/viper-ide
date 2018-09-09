@@ -256,7 +256,7 @@ function updateNavigationTree(state: any, topLevel: any[]) {
         const span = document.createElement('span');
         span.innerText = record.type + ":";
         const pre = document.createElement('pre');
-        pre.innerText = record.formula;
+        pre.innerText = record.formula || '';
         span.appendChild(pre);
         li.appendChild(span);
 
@@ -274,7 +274,7 @@ function updateNavigationTree(state: any, topLevel: any[]) {
                     span.onclick = () => vscode.postMessage({ command: 'goToStateByIndex', data: e.index });
                     span.innerText = e.type + ":";
                     const pre = document.createElement('pre');
-                    pre.innerText = e.formula;
+                    pre.innerText = e.formula || '';
                     span.appendChild(pre);
                     li.appendChild(span);
                     childrenList.appendChild(li);
