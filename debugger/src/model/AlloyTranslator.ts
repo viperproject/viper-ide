@@ -1,6 +1,7 @@
+import * as vscode from 'vscode';
 import { AlloyModelBuilder } from "./AlloyModel";
 import { State } from "./Record";
-import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, HeapChunk } from "./Heap";
+import { FieldChunk, QuantifiedFieldChunk, PredicateChunk, HeapChunk, QuantifiedPredicateChunk, MagicWandChunk, QuantifiedMagicWandChunk } from "./Heap";
 import { Logger } from "../logger";
 import { VariableTerm, Unary, Term, LogicalWrapper, BooleanWrapper, Quantification, Binary, Let } from "./Term";
 import { getSort, Sort } from './Sort';
@@ -286,6 +287,12 @@ export class AlloyTranslator {
                         quantifiedSnapsPerField.set(chunk.field, [fvf.res]);
                     }
                 }
+            } else if (chunk instanceof QuantifiedPredicateChunk) {
+                vscode.window.showWarningMessage("Quantified predicates are not suported by the debugger.");
+            } else if (chunk instanceof MagicWandChunk) {
+                vscode.window.showWarningMessage("Magic wands are not suported by the debugger.");
+            } else if (chunk instanceof QuantifiedMagicWandChunk) {
+                vscode.window.showWarningMessage("Quantified magic wands are not suported by the debugger.");
             }
         });
 
