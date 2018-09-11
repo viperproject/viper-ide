@@ -166,6 +166,9 @@ export class TermSortVisitor implements TermVisitor<Sort> {
         const elseSort = ite.elseBranch.accept(this);
         if (thenSort.id === elseSort.id) {
             return thenSort;
+        } else if (thenSort.is(Sort.Logical) && elseSort.is(Sort.Bool) ||
+                thenSort.is(Sort.Bool) && elseSort.is(Sort.Logical)) {
+            return Sort.Logical;
         } else {
             Logger.error("Mismatching sorts in ternary conditional :" + thenSort + ", " + elseSort);
             throw new DebuggerError("Mismatching sorts in ternary conditional :" + thenSort + ", " + elseSort);

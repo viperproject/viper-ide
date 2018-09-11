@@ -508,8 +508,11 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         const conditionSort = getSort(ite.condition);
         const cond = conditionSort.is(Sort.Bool) ? new LogicalWrapper(ite.condition).accept(this)
                                                  : ite.condition.accept(this);
-        const thenBranch = ite.thenBranch.accept(this);
-        const elseBranch = ite.elseBranch.accept(this);
+        const iteSort = getSort(ite);
+        const thenBranch = iteSort.is(Sort.Logical) ? new LogicalWrapper(ite.thenBranch).accept(this)
+                                                    : ite.thenBranch.accept(this);
+        const elseBranch = iteSort.is(Sort.Logical) ? new LogicalWrapper(ite.elseBranch).accept(this)
+                                                    : ite.elseBranch.accept(this);
 
         const leftovers = cond.leftovers.concat(thenBranch.leftovers).concat(elseBranch.leftovers);
         if (!cond.res || !thenBranch.res || !elseBranch.res) {
