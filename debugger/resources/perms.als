@@ -6,9 +6,6 @@ abstract sig Perm {
 } {
     num >= 0
     denom > 0
-    // Silicon does not define this in SMT and defining it here would prevent us
-    // from having sums of permissions that exceed W
-    // num <= denom
 }
 one sig W in Perm {} {
     num = 1
