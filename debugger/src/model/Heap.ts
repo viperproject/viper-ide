@@ -49,17 +49,18 @@ export namespace HeapChunk {
             mustHave(obj, ['field', 'field_value_function', 'perm', 'invs', 'cond', 'receiver', 'hints']);
 
             const fvf = Term.from(obj.field_value_function);
-            if (!(fvf instanceof Application || fvf instanceof VariableTerm)) {
-                throw new DebuggerError(`Expected field value function to have a sort, but it was '${fvf}'`);
-            }
+            // if (!(fvf instanceof Application || fvf instanceof VariableTerm)) {
+            //     throw new DebuggerError(`Expected field value function to have a sort, but it was '${fvf}'`);
+            // }
             
-            if (fvf.sort.id !== 'FVF') {
-                throw new DebuggerError(`Expected sort to be of the form 'FVF[...]', but it was '${fvf.sort}'`);
+            const sort = getSort(fvf);
+            if (!sort.is('FVF')) {
+                throw new DebuggerError(`Expected sort to be of the form 'FVF[...]', but it was '${sort}'`);
             }
 
             return new QuantifiedFieldChunk(
                 obj.field,
-                fvf.sort,
+                sort,
                 fvf,
                 Term.from(obj.perm),
                 obj.invs !== null ? obj.invs.map(Term.from) : [],
