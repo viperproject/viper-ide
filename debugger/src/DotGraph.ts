@@ -175,7 +175,7 @@ class MultisetViz {
 }
 
 class RefNode {
-    private fields: Map<string, [string, Sort]>;
+    public fields: Map<string, [string, Sort]>;
     constructor(readonly id: string) {
         this.fields = new Map();
     }
@@ -331,6 +331,19 @@ export class DotGraph {
         const sets: Map<string, SetViz> = new Map();
         const seqs: Map<string, SeqViz> = new Map();
         const multisets: Map<string, SeqViz> = new Map();
+        const integers: Map<string, string> = new Map();
+
+        alloyInstance.signatures.forEach(sig => {
+            if (sig.label === 'this/' + AlloyTranslator.Int) {
+                sig.fields.forEach(f => {
+                    if (f.name === 'value') {
+                        f.atoms.forEach(a => {
+                            integers.set(clean(a[0]), a[1]);
+                        });
+                    }
+                });
+            }
+        });
 
         alloyInstance.signatures.forEach(sig => {
             sig.atoms.forEach(a => signatureToAtom.set(clean(sig.label).replace(/this\//, ''), clean(a)));
@@ -357,11 +370,16 @@ export class DotGraph {
 
                     field.atoms.forEach((rel) => {
                         const from = clean(rel[0]);
-                        const to = clean(rel[1]);
+
                         let ref = references.get(from);
                         if (ref === undefined) {
                             ref = new RefNode(from);
                             references.set(from, ref);
+                        }
+
+                        let to = clean(rel[1]);
+                        if (integers.has(to)) {
+                            to = integers.get(to)!;
                         }
                         ref.setField(field.name, to, fieldSort);
                     });
@@ -383,8 +401,6 @@ export class DotGraph {
                     const funObj = env.functions.get(fun.name);
 
                     fun.atoms.forEach((tuple, index) => {
-                        const args = tuple.slice(1, -1);
-                        const result = clean(tuple.slice(-1)[0]);
                         const nodeId = fun.name + '_' + index;
                         const displayName = fun.name;
 
@@ -393,7 +409,21 @@ export class DotGraph {
                             call = new FunCall(nodeId, displayName);
                             funCalls.set(nodeId, call);
                         }
-                        args.forEach(a => call!.arg(clean(a)));
+
+                        const args = tuple.slice(1, -1);
+                        args.forEach(a => {
+                            const cleaned = clean(a);
+                            if (integers.has(cleaned)) {
+                                call!.arg(integers.get(cleaned)!);
+                            } else {
+                                call!.arg(cleaned);
+                            }
+                        });
+
+                        let result = clean(tuple.slice(-1)[0]);
+                        if (integers.has(result)) {
+                            result = integers.get(result)!;
+                        }
                         call.result(result);
 
                         if (funObj && funObj[1].is(Sort.Ref) && result !== 'NULL') {
@@ -401,8 +431,6 @@ export class DotGraph {
                         }
                     });
                 });
-
-
 
             } else if (sig.label.startsWith('this/pred_')) {
                 sig.fields.forEach((field) => {
@@ -420,7 +448,6 @@ export class DotGraph {
                         pred.setArg(argName, clean(atom[1]));
                     });
                 });
-
 
             } else if (sig.label === 'this/Set') {
                 sig.atoms.forEach(a => {
@@ -474,17 +501,25 @@ export class DotGraph {
                     }
                     ms.elems.set(count, elem);
                 });
+
+            } else if (sig.label === 'this/' + AlloyTranslator.Int) {
+                sig.fields.forEach(f => {
+                    if (f.name === 'value') {
+                        f.atoms.forEach(a => {
+                            integers.set(clean(a[0]), a[1]);
+                        });
+                    }
+                });
             }
         });
 
-        // const funResult = (callName: string) => {
-        //     const funSigName = 'this/' + callName.replace(/call/, 'fun').replace(/_\d$/, '');
-        //     const funSig = alloyInstance.signatures.find(s => s.label === funSigName);
-        //     if (funSig) {
-        //         const atom = funSig.fields.find(f => f.name === 'ret')!.atoms.find(a => clean(a[0].replace(/\$\d$/, '')) === callName);
-        //         return atom![1];
-        //     }
-        // };
+        const formatValue = (value: string) => {
+            if (integers.has(value)) {
+                return integers.get(value)!;
+            } 
+
+            return value;
+        };
 
         const neededHeapNodes: Set<string> = new Set();
 
@@ -520,7 +555,7 @@ export class DotGraph {
 
                         storeGraph.add(new Node(nodeId, new Label(`${v.name}: ${v.sort}`)));
                     } else {
-                        storeGraph.add(new Node(nodeId, new Label(`${v.name}: ${v.sort} == ${value}`)));
+                        storeGraph.add(new Node(nodeId, new Label(`${v.name}: ${v.sort} == ${formatValue(value)}`)));
                     }
 
                 } else if (v.value instanceof Literal) {
@@ -535,26 +570,6 @@ export class DotGraph {
                         relations.push(new Rel(nodeId, to));
                         storeGraph.add(new Node(nodeId, new Label(`${v.name}`)));
                     }
-
-                
-                // } else if (v.value instanceof Application && v.sort.is(Sort.Ref)) {
-                //     // const callName = env.applicableToName.get(v.value);
-                //     const res = funResult(callName!)!;
-                //     const nodeId = clean(v.name);
-                //     if (clean(res) !== 'NULL') {
-                //         storeGraph.add(new Node(nodeId, new Label(v.name)));
-                //         relations.push(new Rel(nodeId, clean(res)));
-                //     } else {
-                //         storeGraph.add(new Node(nodeId, new Label(`${v.name}: Ref == null`)));
-                //     }
-                //     relations.push(new Rel(nodeId, callName + "_res", ['style=dashed']));
-
-                // } else if (v.value instanceof Application) {
-                //     // const callName = env.applicableToName.get(v.value);
-                //     const nodeId = clean(v.name);
-                //     const label = new Label(`${v.name}: ${v.sort} == ${funResult(callName!)}`);
-                //     storeGraph.add(new Node(nodeId, label));
-                //     relations.push(new Rel(nodeId, callName + "_res", ['style=dashed']));
 
                 } else if (v.value instanceof Lookup) {
                     // storeGraph.add(new Node(v.name +"_lookup_" + clean(v.value.field), new Label(`${v.name}: ${v.sort} (lookup)\\l`)));

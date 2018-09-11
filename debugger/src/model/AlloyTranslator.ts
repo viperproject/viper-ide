@@ -20,7 +20,7 @@ export class AlloyTranslator {
     // Signature name definitions, it makes it easier to change them all at once later.
     public static Ref = 'Ref';
     public static Null = 'NULL';
-    public static Int = 'Int';
+    public static Int = 'CustomInt';
     public static Bool = 'Bool';
     public static Snap = 'Snap';
     public static Unit = 'Unit';
@@ -86,10 +86,7 @@ export class AlloyTranslator {
         ];
         this.env.recordedInstances.forEach((instances) => counts.push(instances.length));
 
-        // TODO: Should be updated to account for the largest collection as well
         const baseCount = DebuggerSettings.instancesBaseCount();
-        // const baseCount = DebuggerSettings.instancesBaseCount() + Math.max(...counts);
-        // const baseCount = Math.max(...counts);
 
         const countPerInstance = new Map([
             ['int', DebuggerSettings.integerBitWidth()]
@@ -476,7 +473,7 @@ export class AlloyTranslator {
             for (let [name, [argSorts, retSort]] of this.env.functions) {
                 // Add multiplicity of 'lone' to return type of function
                 const tSorts = argSorts.map(s => this.env.translate(s));
-                tSorts.push('lone ' + this.env.translate(retSort));
+                tSorts.push('one ' + this.env.translate(retSort));
 
                 members.push(name + ': (' + tSorts.join(' -> ') + ')');
             }

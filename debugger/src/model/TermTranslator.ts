@@ -93,6 +93,42 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
                 .withAdditionalFacts([call]);
     }
 
+    private int_call(name: string, args: Term[]): TranslationRes {
+        const tArgs: TranslationRes[] = [];
+        args.forEach(a => {
+            const translated = a.accept(this);
+            if (translated.res === undefined) {
+                return leftover(a, "Could not translate one of the arguments", translated.leftovers);
+            }
+            tArgs.push(translated);
+        });
+
+        return translatedFrom(name + mkString(tArgs.map(a => a.res + '.value'), '[', ", ", ']'), tArgs);
+    }
+
+    private int_op(op: string, binary: Binary): TranslationRes {
+        const left = binary.lhs.accept(this);
+        if (left.res === undefined) {
+            return leftover(binary, "Left-hand side operand not translated", left.leftovers);
+        }
+
+        const right = binary.rhs.accept(this);
+        if (right.res === undefined) {
+            return leftover(binary, "Right-hand side operand not translated", right.leftovers);
+        }
+        
+        if (!(op === '>' || op === '>=' || op === '<' || op === '<=' || op === '=')) {
+            const msg = `Unexpected operaton in int_op: '${op}'`;
+            Logger.error(msg);
+            throw new DebuggerError(msg);
+        }
+
+        const leftString = binary.lhs instanceof Literal ? left.res : left.res + '.value';
+        const rightString = binary.rhs instanceof Literal ? right.res : right.res + '.value';
+
+        return translatedFrom(`(${leftString} ${op} ${rightString})`, [left, right]);
+    }
+
     private call(name: string, args: Term[]): TranslationRes {
         const tArgs: TranslationRes[] = [];
         args.forEach(a => {
@@ -223,29 +259,14 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
         if (leftSort.is(Sort.Int) || rightSort.is(Sort.Int)) {
             switch (binary.op) {
-                case '-': return this.call('minus', [binary.lhs, binary.rhs]);
-                case '+': return this.call('plus', [binary.lhs, binary.rhs]);
-                case '*': return this.call('mul', [binary.lhs, binary.rhs]);
-                case '/': return this.call('div', [binary.lhs, binary.rhs]);
-                case '%': return this.call('rem', [binary.lhs, binary.rhs]);
+                case '-': return this.int_call('minus', [binary.lhs, binary.rhs]);
+                case '+': return this.int_call('plus', [binary.lhs, binary.rhs]);
+                case '*': return this.int_call('mul', [binary.lhs, binary.rhs]);
+                case '/': return this.int_call('div', [binary.lhs, binary.rhs]);
+                case '%': return this.int_call('rem', [binary.lhs, binary.rhs]);
             }
 
-            const left = leftSort.is(Sort.Bool) ? new LogicalWrapper(binary.lhs).accept(this) : binary.lhs.accept(this);
-            if (left.res === undefined) {
-                return leftover(binary, "Left-hand side operand not translated", left.leftovers);
-            }
-
-            const right = rightSort.is(Sort.Bool) ? new LogicalWrapper(binary.rhs).accept(this) : binary.rhs.accept(this);
-            if (right.res === undefined) {
-                return leftover(binary, "Right-hand side operand not translated", right.leftovers);
-            }
-
-            switch (binary.op) {
-                case '<': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
-                case '<=': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
-                case '>': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
-                case '>=': return translatedFrom(`(${left.res} ${alloyOp} ${right.res})`, [left, right]);
-            }
+            return this.int_op(alloyOp, binary);
         }
 
         // TODO: IntPermTimes, IntPermDIv, PermMin, 
