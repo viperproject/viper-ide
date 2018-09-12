@@ -397,6 +397,10 @@ export class DotGraph {
                     if (fun.name.startsWith('inv_')) {
                         return;
                     }
+                     
+                    if (!env.interestingFunctions.has(fun.name)) {
+                        return;
+                    }
 
                     const funObj = env.functions.get(fun.name);
 
