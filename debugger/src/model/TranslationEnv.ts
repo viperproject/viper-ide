@@ -195,9 +195,9 @@ export class TranslationEnv {
         const count = sig.numberOfMembers();
         let varName: string;
         if (count > 0) {
-            varName = `${base}_${count + 1}'`;
+            varName = `q_${base}_${count + 1}'`;
         } else {
-            varName = `${base}_0'`;
+            varName = `q_${base}_0'`;
         }
 
         const parts = this.quantifierVariables!.map(v => this.translate(v.sort));
