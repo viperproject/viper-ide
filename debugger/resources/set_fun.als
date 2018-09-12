@@ -14,9 +14,12 @@ pred set_add [ s1: Set, e: univ, s': Set ] {
 	s'.set_elems = s1.set_elems + e
 	one e
 }
-fun set_cardinality [ s1: Set ]: one Int {
-	#(s1.set_elems)
+pred set_cardinality [ s1: Set, i: CustomInt ] {
+	#(s1.set_elems) = i.value
 }
+-- fun set_cardinality [ s1: Set ]: one Int {
+-- 	#(s1.set_elems)
+-- }
 pred set_difference [ s1, s2, s': Set ] {
 	s'.set_elems = s1.set_elems - s2.set_elems
 }

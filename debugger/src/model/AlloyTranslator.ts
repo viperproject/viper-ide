@@ -93,7 +93,7 @@ export class AlloyTranslator {
         ]);
 
         this.env.recordedInstances.forEach((values, sig) => {
-            if (sig !== 'Int' && sig !== 'Ref' && sig !== 'Snap') {
+            if (sig !== AlloyTranslator.Ref && sig !== AlloyTranslator.Snap && sig !== AlloyTranslator.Int) {
                 countPerInstance.set(sig, Math.min(DebuggerSettings.instancesBaseCount(), values.length));
             }
         });
@@ -510,7 +510,7 @@ export class AlloyTranslator {
             const members = new Set<string>();
             this.env.lookupFunctions.forEach(([fvfSort, field]) => {
                 const sorts = [fvfSort, Sort.Ref].map(s => this.env.translate(s));
-                sorts.push('lone ' + this.env.translate(fvfSort.elementsSort!));
+                sorts.push('one ' + this.env.translate(fvfSort.elementsSort!));
                 members.add(`${field}: (${sorts.join(' -> ')})`);
                 const funName = AlloyTranslator.Lookup + '.' + field;
                 const f2 = `all fvf: ${this.env.translate(fvfSort)}, r: Ref | (one PermFun.${field}[r, fvf] and perm_less[Z, PermFun.${field}[r, fvf]]) => (${funName}[fvf, r] = r.${field})`;

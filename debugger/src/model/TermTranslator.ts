@@ -123,8 +123,8 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             throw new DebuggerError(msg);
         }
 
-        const leftString = binary.lhs instanceof Literal ? left.res : left.res + '.value';
-        const rightString = binary.rhs instanceof Literal ? right.res : right.res + '.value';
+        const leftString = left.res + '.value';
+        const rightString = right.res + '.value';
 
         return translatedFrom(`(${leftString} ${op} ${rightString})`, [left, right]);
     }
@@ -311,11 +311,13 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
         const termSort = getSort(unary.p);
 
         if (unary.op === UnaryOp.SetCardinality && termSort.is('Set')) {
-            return this.call('set_cardinality', [unary.p]);
+            // return this.call('set_cardinality', [unary.p]);
+            return this.pred_call('set_cardinality', Sort.Int, [unary.p]);
         }
 
         if (unary.op === UnaryOp.SeqLength && termSort.is('Seq')) {
-            return this.call('seq_length', [unary.p]);
+            // return this.call('seq_length', [unary.p]);
+            return this.pred_call('seq_length', Sort.Int, [unary.p]);
         }
 
         if (unary.op === UnaryOp.MultiSetCardinality && termSort.is('Multiset')) {
@@ -574,9 +576,11 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
     }
 
     visitLiteral(literal: Literal): TranslationRes {
-        // TODO: Check bounds with env
+        // TODO: Check that all literals are within the bitwidth
         if (literal.sort.is(Sort.Int)) {
-            return translatedFrom(literal.value, []);
+            const freshName = this.env.getFreshVariable('temp', Sort.Int);
+            return translatedFrom(freshName, [])
+                    .withAdditionalFacts([`${freshName}.value = ${literal.value}`]);
         }
         if (literal.sort.is(Sort.Snap) && literal.value === '_') {
             return translatedFrom(AlloyTranslator.Unit, []);
