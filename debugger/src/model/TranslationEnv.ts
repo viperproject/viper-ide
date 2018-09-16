@@ -47,7 +47,6 @@ export class TranslationEnv {
 
     // HACK: Kinda dirty, there surely is a better way
     public quantifierVariables: VariableTerm[] | undefined;
-    public addToQuantifier: string | undefined;
 
     constructor(readonly state: State) {
         
@@ -278,7 +277,8 @@ export class TranslationEnv {
         }
 
         if (sort.id === "UserSort" && sort.elementsSort) {
-            const userSort = `User_${sort.elementsSort.id}'`;
+            const cleanId = sort.elementsSort.id.replace(/\[/g, '_').replace(/]/g, '');
+            const userSort = `User_${cleanId}'`;
             this.recordUserSort(userSort);
             return userSort;
         }
