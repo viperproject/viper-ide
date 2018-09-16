@@ -1,0 +1,30 @@
+
+method test1(r: Ref)
+{
+    if (r != null) {
+        assert true;
+    } else {
+        assert true;
+    }
+    assert true;
+}
+
+method test2(r1: Ref, r2: Ref) 
+{
+    if (r1 != null) {
+        assert true;
+    } else {
+        assert true;
+    }
+    if (r2 != null) {
+        assert true;
+    } else {
+        assert true;
+    }
+    if (r1 != r2) {
+        assert true
+    } else {
+        assert true
+    }
+    assert true;
+}

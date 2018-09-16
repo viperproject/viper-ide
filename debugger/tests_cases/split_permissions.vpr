@@ -1,0 +1,21 @@
+
+
+field val: Int
+
+
+method dummy(r: Ref)
+    requires acc(r.val)
+    ensures acc(r.val)
+    ensures r.val == old(r.val)
+
+method test1(r: Ref)
+    requires acc(r.val, 1/2)
+    requires acc(r.val, 1/4)
+    requires acc(r.val, 1/4)
+{
+    r.val := 3
+    assert true;
+    dummy(r)
+    assert true;
+    assert r.val == 3;
+}

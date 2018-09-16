@@ -1,0 +1,193 @@
+
+
+field val: Int
+method test01(r: Ref)
+    requires acc(r.val)
+{
+    var p: Perm
+    p := perm(r.val)
+    exhale(acc(r.val, p))
+    assert true
+}
+
+method test02(r: Ref)
+    requires acc(r.val, 1/3)
+    requires acc(r.val, 2/3)
+{
+    assert true
+    var some: Int := r.val 
+    assert true
+}
+
+method test03(r: Ref, l: Ref)
+    requires acc(r.val, 1/2)
+    requires acc(l.val, 1/2)
+{
+    var some: Int;
+    some := 2
+    assert true
+    if (r == l) {
+        r.val := some;
+        assert true
+    } else {
+        some := r.val + l.val
+        assert true
+    }
+    assert true
+}
+
+method test04(x: Ref, y: Ref, p1: Perm, p2: Perm)
+    requires acc(x.val, p1)
+    requires acc(y.val, p2)
+{
+    assume p1 + p2 > write
+    assert true
+    assert x != y
+    assert true
+}
+
+// What should we do in this situation?
+method test04a(x: Ref, y: Ref, p1: Perm, p2: Perm)
+    requires acc(x.val, p1)
+    requires acc(y.val, p2)
+{
+    assume p1 + p2 > write
+    if (x == y) {
+        assert true
+        // assert false
+    } else {
+        assert true
+    }
+    assert true
+}
+
+method test05(r: Ref)
+    requires acc(r.val)
+    requires r.val == 3
+{
+    assert true
+}
+
+
+method test06()
+{
+    var s1: Set[Int] := Set(1)
+    var s2: Set[Int] := Set(1)
+    assert s1 == s2
+}
+
+
+method test07(r: Ref)
+    requires acc(r.val, 1/3)
+    requires r.val == 3
+{
+    assert true
+}
+
+
+// Our model is incorrect, we don't have a last failed query
+// and we produce models which would actually work
+// Snapshots may not be there!
+// => Field in heap needed to be made lone
+// => Collected snapshot (combine result)  needed to be made lone
+method test8(r: Ref, p: Perm)
+    requires acc(r.val, p)
+    requires r.val == 3
+{
+    assert true
+}
+
+predicate wrap(r: Ref) {
+    acc(r.val)
+}
+// Same probleam as before, but with predicates
+method test9(r: Ref, p: Perm)
+    requires acc(wrap(r), p)
+    requires unfolding wrap(r) in r.val == 0
+{
+    assert true;
+}
+
+// Sortwrappers need to allow fields not to be there. In this case there is a
+// sortwrapper that wraps the value for x.val on the heap, which cannot actually
+// be there, so the field has to be allowed not to be present
+method test10(x: Ref, y: Ref, p1: Perm, p2: Perm)
+    requires acc(x.val, p1)
+    requires acc(y.val, p2)
+    requires p1 == none
+{
+    if (x == null) {
+        assert true
+    }
+    assert true
+}
+
+method test10a(x: Ref)
+    requires acc(x.val, none)
+{
+    if (x == null) {
+        assert true
+    } else {
+        assert true
+    }
+    assert true
+}
+
+method test10b(x: Ref, p1: Perm)
+    requires acc(x.val, p1)
+    requires p1 == none
+{
+    if (x == null) {
+        assert true
+    } else {
+        assert true
+    }
+    assert true
+}
+
+method test11(r: Ref, l: Ref)
+    requires acc(r.val, 1/2)
+    requires acc(l.val, 1/2)
+{
+    var p: Perm;
+    p := perm(r.val)
+    assert true
+    if (p == write) {
+        assert true
+    } else {
+        assert true
+    }
+    assert true
+}
+
+method test12(r: Ref, l: Ref)
+    requires acc(r.val, 1/2)
+    requires acc(l.val, 1/2)
+{
+    var p: Perm;
+    p := perm(r.val)
+    assert p < write
+    assert true
+}
+
+method test13(r: Ref, l: Ref, p1: Perm)
+    requires p1 < write
+    requires acc(r.val, p1)
+    requires acc(l.val, p1)
+{
+    var p: Perm;
+    p := perm(r.val)
+    assert p < write
+    assert true
+}
+
+method foo(r: Ref)
+    requires acc(r.val, 1/2)
+
+method test14(r: Ref)
+    requires acc(r.val)
+{
+    assert true
+    foo(r)
+    assert true
+}
