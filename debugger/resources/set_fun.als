@@ -14,7 +14,7 @@ pred set_add [ s1: Set, e: univ, s': Set ] {
 	s'.set_elems = s1.set_elems + e
 	one e
 }
-pred set_cardinality [ s1: Set, i: CustomInt ] {
+pred set_cardinality [ s1: Set, i: Integer ] {
 	#(s1.set_elems) = i.value
 }
 -- fun set_cardinality [ s1: Set ]: one Int {

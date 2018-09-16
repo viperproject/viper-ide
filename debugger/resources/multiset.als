@@ -28,7 +28,7 @@ pred multiset_add [ ms1: Multiset, elem: univ, ms': Multiset ] {
 --     card >= 0
 -- }
 
-pred multiset_cardinality [ ms: Multiset, card: CustomInt ] {
+pred multiset_cardinality [ ms: Multiset, card: Integer ] {
     card.value = (let s = { c: Int, e: univ | (e -> c) in ms.ms_elems } |
                     (sum i: (s).univ | mul[#(s[i]), i]) )
     card.value >= 0
@@ -56,7 +56,7 @@ pred multiset_subset [ ms1, ms2: Multiset ] {
     { all e: dom[ms1.ms_elems] | ms1.ms_elems[e] <= ms2.ms_elems[e] }
 }
 
-pred multiset_count [ ms1: Multiset, e: univ, c: CustomInt ] {
+pred multiset_count [ ms1: Multiset, e: univ, c: Integer ] {
     c.value = ms1.ms_elems[e]
 } 
 

@@ -22,6 +22,7 @@ export function clean(name: string) {
     }
 
     return name.replace(/^\$/g, "")
+               .replace(/'/g, "")
                .replace(/[@[\]$]/g, "_");
 }
 
@@ -461,11 +462,14 @@ export class DotGraph {
                 const elems = sig.fields.find(f => f.name === 'set_elems')!;
                 elems.atoms.forEach(a => {
                     const id = clean(a[0]);
-                    const to = clean(a[1]);
+                    let to = clean(a[1]);
                     let set = sets.get(id)!;
 
                     if (to === 'NULL') {
                         nullInHeap = true;
+                    }
+                    if (integers.has(to)) {
+                        to = integers.get(to)!;
                     }
                     set.elems.push(to);
                 });

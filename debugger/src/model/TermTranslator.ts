@@ -94,6 +94,8 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
     }
 
     private int_call(name: string, args: Term[]): TranslationRes {
+        const freshName = this.env.getFreshVariable('arith_res', Sort.Int);
+
         const tArgs: TranslationRes[] = [];
         args.forEach(a => {
             const translated = a.accept(this);
@@ -103,7 +105,11 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             tArgs.push(translated);
         });
 
-        return translatedFrom(name + mkString(tArgs.map(a => a.res + '.value'), '[', ", ", ']'), tArgs);
+        const call = name + mkString(tArgs.map(a => a.res + '.value'), '[', ", ", ']');
+
+        return translatedFrom(freshName, tArgs)
+                    .withAdditionalFacts([freshName + '.value = ' + call]);
+        // return translatedFrom(freshName + '.value = ' + name + mkString(tArgs.map(a => a.res + '.value'), '[', ", ", ']'), tArgs);
     }
 
     private int_op(op: string, binary: Binary): TranslationRes {
@@ -329,11 +335,12 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             return leftover(unary, "Operand not translated", operand.leftovers);
         }
 
-        if ((unary.p instanceof VariableTerm || unary.p instanceof Application || unary.p instanceof Lookup)
-                && termSort.is(Sort.Bool)) {
-            if (unary.op === "!") {
-                return translatedFrom(`isFalse[${operand.res}]`, [operand]);
-            }
+        if (unary.op === UnaryOp.First && termSort.is(Sort.Snap)) {
+            return translatedFrom(`(${operand.res}).left`, [operand]);
+        }
+
+        if (unary.op === UnaryOp.Second && termSort.is(Sort.Snap)) {
+            return translatedFrom(`(${operand.res}).right`, [operand]);
         }
 
         if (unary.p instanceof Quantification && unary.p.quantifier === 'QE') {
@@ -342,11 +349,27 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             return uq.accept(this);
         }
 
+        if (termSort.is(Sort.Bool)) {
+            if (unary.op === "!") {
+                return translatedFrom(`isFalse[${operand.res}]`, [operand]);
+            }
+        }
+
         return translatedFrom(`${unary.op}(${operand.res})`, [operand]);
     }
 
     visitSortWrapper(sortWrapper: SortWrapper): TranslationRes {
-        return this.pred_call('sortwrapper_new', Sort.Snap, [sortWrapper.term]);
+        if (sortWrapper.sort.is(Sort.Snap)) {
+            return this.pred_call('sortwrapper_new', Sort.Snap, [sortWrapper.term]);
+        } 
+
+        const term = sortWrapper.term.accept(this);
+        if (!term.res) {
+            const msg = `Could not translate sortwrapper term '${term.leftovers}'`
+            Logger.debug(msg);
+            return leftover(sortWrapper, msg, term.leftovers);
+        }
+        return translatedFrom(`(${term.res}).wrapped`, [term]);
     }
 
     visitVariableTerm(variable: VariableTerm): TranslationRes {
@@ -381,14 +404,9 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
 
                 this.env.quantifierVariables = undefined;
                 const vars = quantification.vars.map(v => `${sanitize(v.id)}: ${this.env.translate(v.sort)}`);
-                const body = tBody.additionalFacts.concat(tBody.res).join(' && ');
-                if (this.env.addToQuantifier) {
-                    const toAdd = this.env.addToQuantifier;
-                    this.env.addToQuantifier = undefined;
-                    return translatedFrom(`(${mult} ${vars.join(', ')} | ${toAdd} ${body})`, []);
-                } else {
-                    return translatedFrom(`(${mult} ${vars.join(', ')} | ${body})`, []);
-                }
+                const addFacts = tBody.additionalFacts.map(f => `(${mult} ${vars.join(', ')} | ${f})`);
+                return translatedFrom(`(${mult} ${vars.join(', ')} | ${tBody.res})`, [])
+                        .withAdditionalFacts(addFacts);
             });
 
     }
@@ -519,7 +537,7 @@ export class TermTranslatorVisitor implements TermVisitor<TranslationRes> {
             return leftover(or, "Could not translate some of the terms", leftovers);
         }
 
-        return translatedFrom("(" + terms.map(t => t.res).join(" && ") + ")", terms);
+        return translatedFrom("(" + terms.map(t => t.res).join(" || ") + ")", terms);
     }
 
     // TODO: Implement this

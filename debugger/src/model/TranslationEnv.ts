@@ -230,7 +230,8 @@ export class TranslationEnv {
             return variable.id;
         }
 
-        if (variable.id.startsWith("$t") && this.introduceMissingTempVars) {
+        // if (variable.id.startsWith("$t") && this.introduceMissingTempVars) {
+        if (this.introduceMissingTempVars) {
             return this.recordTempVariable(variable);
         }
 

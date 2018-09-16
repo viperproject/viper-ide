@@ -104,6 +104,8 @@ export namespace UnaryOp {
     export const SeqLength = 'SeqLength:';
     export const SetCardinality = 'SetCardinality:';
     export const MultiSetCardinality = 'MultisetCardinality:';
+    export const First = 'First:';
+    export const Second = 'Second:';
 }
 
 export class Unary implements Term {

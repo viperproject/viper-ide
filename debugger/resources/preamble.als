@@ -27,8 +27,8 @@ pred combine [ l, r: Snap, c: Combine ] {
 	c not in c.^right
 }
 
-abstract sig CustomInt {
+abstract sig Integer {
     value: one Int
 }
 
-fact { all i1, i2: CustomInt | i1 = i2 <=> i1.value = i2.value }
+fact { all i1, i2: Integer | i1 = i2 <=> i1.value = i2.value }

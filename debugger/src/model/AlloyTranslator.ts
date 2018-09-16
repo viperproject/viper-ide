@@ -20,7 +20,7 @@ export class AlloyTranslator {
     // Signature name definitions, it makes it easier to change them all at once later.
     public static Ref = 'Ref';
     public static Null = 'NULL';
-    public static Int = 'CustomInt';
+    public static Int = 'Integer';
     public static Bool = 'Bool';
     public static Snap = 'Snap';
     public static Unit = 'Unit';
@@ -397,11 +397,8 @@ export class AlloyTranslator {
         this.mb.comment(t.toString());
         this.encodeFreshVariables();
         // The translation of a fact might have introduces some variables and facts to constrain them.
-        let facts = body.additionalFacts
-                        .concat(body.res)
-                        .join(" && \n       ");
-        // let facts = [body.res].concat(body.additionalFacts).join(" && ");
-        this.mb.fact(facts);
+        body.additionalFacts.forEach(f => this.mb.fact(f));
+        this.mb.fact(body.res);
     }
 
     private encodeFreshVariables() {
@@ -495,7 +492,6 @@ export class AlloyTranslator {
                             if (!app.res) {
 
                             }
-                            this.env.addToQuantifier = `(one ${app.res}) => `;
                         });
 
                     this.termToFact(f);
