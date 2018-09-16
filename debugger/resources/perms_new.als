@@ -5,7 +5,7 @@ one sig PermRelations {
 	eq: Perm -> Perm, 
 	lessthan: Perm -> Perm,
 	add: Perm -> Perm -> lone Perm,
-	new: Int -> Int -> lone Perm
+	new: Integer -> Integer -> lone Perm
 } {
 	all a:Perm | perm_equals[a, a]
 }
@@ -27,7 +27,7 @@ fact { all a1, b1, a2, b2: Perm |
 fact { perm_less[Z, W] }
 fact { all p, p': Perm | perm_plus[ p, Z, p' ] => perm_equals[ p', p ] }
 fact { all p, p': Perm | perm_plus[ Z, p, p' ] => perm_equals[ p', p ] }
-pred perm_new[ n, d: Int, p': Perm ] {
+pred perm_new[ n, d: Integer, p': Perm ] {
 	one PermRelations.new[n, d]
 	p' = PermRelations.new[n, d]
 	(n > d) => (perm_less[W, p'] and perm_less[Z, p'])
@@ -75,11 +75,14 @@ pred perm_minus[ p1, p2, p': Perm ] {
 	perm_plus[ p', p2, p1 ]
 	perm_plus[ p2, p', p1 ]
 }
-pred int_perm_div[ p: Perm, d: Int, p': Perm ] {
+pred int_perm_div[ p: Perm, d: Integer, p': Perm ] {
+	// TODO: To be implemented
 }
 pred perm_mul[ p1, p2, p': Perm ] {
+	// TODO: To be implemented
 }
-pred int_perm_mul[ i: Int, p, p': Perm ] {
+pred int_perm_mul[ i: Integer, p, p': Perm ] {
+	// TODO: To be implemented
 }
 pred perm_min[ p1, p2, p': Perm ] {
   one p1 and one p2 and one p'
