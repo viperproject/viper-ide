@@ -1,5 +1,5 @@
 'use strict';
-import { SymbolInformation, SymbolKind } from 'vscode-languageserver-types/lib/main';
+import { SymbolInformation, SymbolKind } from 'vscode-languageserver'
 
 import child_process = require('child_process');
 import * as language_server from 'vscode-languageserver';

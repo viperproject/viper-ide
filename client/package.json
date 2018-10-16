@@ -1,7 +1,7 @@
 {
-    "name": "viper-experimental",
-    "displayName": "Viper experimental",
-    "version": "2.1.1",
+    "name": "viper",
+    "displayName": "Viper",
+    "version": "2.2.1",
     "publisher": "viper-admin",
     "description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
     "license": "MIT",
@@ -14,7 +14,7 @@
     },
     "main": "./out/extension",
     "engines": {
-        "vscode": "^1.16.0",
+        "vscode": "^1.28.1",
         "node": "*"
     },
     "icon": "images/icon_bright_orange_avatar.png",
@@ -24,34 +24,35 @@
         "Snippets"
     ],
     "dependencies": {
-        "vscode-languageclient": "^3.4.5",
-        "vscode-languageserver": "^3.4.3",
-        "vscode-debugprotocol": "^1.24.0",
-        "vscode-debugadapter": "^1.24.0",
-        "vscode-uri": "^1.0.1",
-        "node-ipc": "^9.1.1",
-        "command-exists": "^1.2.2",
-        "viz.js": "^1.7.0",
-        "tree-kill": "^1.2.0",
-        "portfinder": "^1.0.13",
-        "unused-filename": "^1.0.0",
+        "command-exists": "^1.2.8",
+        "decompress-zip": "^0.3.1",
+        "glob-to-regexp": "^0.4.0",
         "mkdirp": "^0.5.1",
-        "glob-to-regexp": "^0.3.0",
-        "decompress-zip": "^0.3.0",
-        "sudo-prompt": "6.2.1",
-        "stream-json": "^0.5.2",
+        "node-ipc": "^9.1.1",
+        "packagejson": "^1.0.1",
+        "portfinder": "^1.0.17",
+        "request": "^2.88.0",
+        "request-promise-native": "^1.0.5",
+        "stream-json": "^0.6.1",
         "strip-json-comments": "2.0.1",
-        "request": "^2.83.0",
-        "request-promise-native": "^1.0.5"
+        "sudo-prompt": "8.2.3",
+        "tree-kill": "^1.2.0",
+        "unused-filename": "^1.0.0",
+        "viz.js": "^2.0.0",
+        "vscode-debugadapter": "^1.32.1",
+        "vscode-debugprotocol": "^1.32.0",
+        "vscode-languageclient": "^5.1.0",
+        "vscode-languageserver": "^5.1.0",
+        "vscode-uri": "^1.0.6"
     },
     "devDependencies": {
-        "@types/mocha": "^2.2.43",
-        "@types/node": "^8.0.31",
-        "mocha": "^3.2.0",
+        "@types/mocha": "^5.2.5",
+        "@types/node": "^10.11.7",
+        "mocha": "^5.2.0",
         "typescript": "^2.5.3",
-        "typescript.events": "^6.0.0",
-        "vscode": "^1.1.5",
-        "vscode-debugadapter-testsupport": "^1.24.0"
+        "typescript.events": "^7.9.0",
+        "vscode": "^1.1.21",
+        "vscode-debugadapter-testsupport": "^1.32.0"
     },
     "scripts": {
         "compile": "npm run compileServer && tsc -p ./",
@@ -286,8 +287,8 @@
                             ]
                         },
                         "customArguments": " $backendSpecificCache$",
-                        "backendSpecificCache": false,
-                        "disableCaching": true,
+                        "backendSpecificCache": true,
+                        "disableCaching": false,
                         "timeout": 5000,
                         "viperServerPolicy": "create",
                         "viperServerAddress": "http://127.0.0.1",
@@ -366,9 +367,9 @@
                         "autoVerifyAfterBackendChange": true,
                         "showProgress": true,
                         "viperToolsProvider": {
-                            "windows": "http://viper.ethz.ch/downloads/ViperToolsWin-experimental.zip",
-                            "linux": "http://viper.ethz.ch/downloads/ViperToolsLinux-experimental.zip",
-                            "mac": "http://viper.ethz.ch/downloads/ViperToolsMac-experimental.zip"
+                            "windows": "http://viper.ethz.ch/downloads/ViperToolsWin.zip",
+                            "linux": "http://viper.ethz.ch/downloads/ViperToolsLinux.zip",
+                            "mac": "http://viper.ethz.ch/downloads/ViperToolsMac.zip"
                         }
                     },
                     "description": "General user preferences. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Preferences"

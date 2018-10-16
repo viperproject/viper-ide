@@ -11,7 +11,7 @@
         //"address": "localhost",
         "sourceMaps": true,
         "outFiles": ["${workspaceRoot}/../client/server/**/*.js"],
-        "preLaunchTask": "npm", 
+        "preLaunchTask": "npm: watch", 
         "protocol": "inspector"
     }]
 }

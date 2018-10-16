@@ -9,25 +9,26 @@
     "version": "0.0.1",
     "publisher": "viper-admin",
     "engines": {
+        "vscode": "^1.28.1",
         "node": "*"
     },
     "dependencies": {
-        "vscode-languageserver": "^3.4.3",
-        "vscode-uri": "^1.0.0",
-        "tree-kill": "^1.1.0",
-        "portfinder": "^1.0.13",
+        "vscode-languageserver": "^5.1.0",
+        "vscode-uri": "^1.0.6",
+        "tree-kill": "^1.2.0",
+        "portfinder": "^1.0.17",
         "mkdirp": "^0.5.1",
-        "glob-to-regexp": "^0.3.0",
-        "decompress-zip": "^0.3.0",
-        "sudo-prompt": "6.2.1",
-        "stream-json": "^0.5.2",
-        "request": "^2.83.0",
+        "glob-to-regexp": "^0.4.0",
+        "decompress-zip": "^0.3.1",
+        "sudo-prompt": "8.2.3",
+        "stream-json": "^0.6.1",
+        "request": "^2.88.0",
         "request-promise-native": "^1.0.5"
     },
     "devDependencies": {
-        "@types/node": "^8.0.31",
+        "@types/node": "^10.11.7",
         "typescript": "^2.5.3",
-        "vscode": "^1.1.5"
+        "vscode": "^1.1.21"
     },
     "scripts": {
         "compile": "tsc -p .",

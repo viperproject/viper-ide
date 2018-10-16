@@ -1,6 +1,6 @@
 'use strict';
-import { SymbolKind } from 'vscode-languageserver-types/lib/main';
-import { settings } from 'cluster';
+import { SymbolKind } from 'vscode-languageserver'
+import { settings } from 'cluster'
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 

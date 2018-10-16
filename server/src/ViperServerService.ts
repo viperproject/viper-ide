@@ -665,3 +665,4 @@ export class ViperServerService extends BackendService {
 
     public static supportedTypes = '"carbon", "silicon", "other"'
 }
+
