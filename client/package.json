@@ -4,7 +4,7 @@
     "version": "2.2.1",
     "publisher": "viper-admin",
     "description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
-    "license": "MIT",
+    "license": "SEE LICENSE IN LICENSE.txt",
     "repository": "bitbucket:viperproject/viper-ide",
     "bugs": "https://bitbucket.org/viperproject/viper-ide/issues",
     "author": {

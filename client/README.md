@@ -4,7 +4,6 @@
 ### v.2.2.2
 * Small fixes after migrating the extension to the new name.
 
-
 ### v.2.2.1
 * **Please check the new [online Viper tutorial](http://viper.ethz.ch/tutorial/).**
 * Caching is now enabled by default. The cache is stored separately for different verification backends.
