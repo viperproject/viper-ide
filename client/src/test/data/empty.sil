@@ -1,16 +1,2 @@
-field foo:Ref
-method AVLNode_find_min()
-{
-  while (true)
-    invariant
-    
-    
-     false//[true, true ==> (forperm [foo] r :: false) ] 
-  {
-
-  }
-}
-
-
-
-
+// Any copyright is dedicated to the Public Domain.
+// http://creativecommons.org/publicdomain/zero/1.0/

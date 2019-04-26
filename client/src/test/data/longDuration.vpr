@@ -1,3 +1,6 @@
+// Any copyright is dedicated to the Public Domain.
+// http://creativecommons.org/publicdomain/zero/1.0/
+
 domain Comp {
 
 	function comp(type: Int, a: Seq[Int], lo: Int, hi: Int): Int

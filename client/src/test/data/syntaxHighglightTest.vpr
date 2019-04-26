@@ -1,8 +1,9 @@
+// Any copyright is dedicated to the Public Domain.
+// http://creativecommons.org/publicdomain/zero/1.0/
+
 import "empty.sil"
 
-//Problems:
 method test1(xs: Seq[Ref]) {
-    //Int should be colored
   inhale forall i: Int :: 0 <= i && i < |xs| ==> xs[i].f != 0
 }
 
@@ -99,7 +100,7 @@ method testHighlights() returns ( res: Set[Seq[Multiset[Foo[Int]]]] )
     //exists 
     //forall 
     assert ! false
-    assert +0  +321 - 0 -321 == 0
+    assert 0  +321 - 0 -321 == 0
 }
 
 field f:Int    
