@@ -1,0 +1,73 @@
+
+field first: Ref
+predicate wrap1(r: Ref) {
+    acc(r.first)
+}
+
+method test01(r: Ref)
+    requires acc(wrap1(r))
+    requires unfolding wrap1(r) in r.first != r
+    // requires unfolding wrap1(r) in r.first == null
+    // requires unfolding wrap1(r) in r.first != null ==> r.first != r
+{
+    unfold acc(wrap1(r))
+    assert true;
+}
+
+
+field second: Ref
+predicate wrap2(r: Ref) {
+    acc(r.first) && acc(r.second)
+}
+
+method test02(r: Ref)
+    requires acc(wrap2(r))
+    requires unfolding wrap2(r) in r.first != r && r.second != r && r.first != r.second
+{
+    unfold acc(wrap2(r))
+    assert true
+}
+
+field third: Ref
+predicate wrap3(r: Ref) {
+    acc(r.first) && acc(r.second) && acc(r.third)
+}
+
+method test03(r: Ref)
+    requires acc(wrap3(r))
+    requires unfolding wrap3(r) in r.first != r && r.second != r && r.third != r.first && r.third != r.second
+    requires unfolding wrap3(r) in r.first != r.second
+{
+    unfold wrap3(r)
+    assert true
+}
+
+
+predicate tuple2(r1: Ref, r2: Ref) {
+    acc(r1.first) && acc(r2.second) && r1.first != null && r2.second != null
+}
+
+
+method test4(r1: Ref, r2: Ref)
+    requires r1 != null && r2 != null
+    requires acc(tuple2(r1, r2))
+{
+    unfold tuple2(r1, r2)
+    assert true
+}
+
+
+predicate tuple3(r1: Ref, r2: Ref, r3: Ref) {
+    acc(r1.first) && r1.first != null &&
+    acc(r2.second) && r2.second != null &&
+    acc(r3.third)
+}
+
+method test5(r1: Ref, r2: Ref, r3: Ref)
+    requires r1 != null && r2 != null
+    requires r1 != r2 && r2 == r3
+    requires acc(tuple3(r1, r2, r3))
+{
+    unfold tuple3(r1, r2, r3)
+    assert true
+}

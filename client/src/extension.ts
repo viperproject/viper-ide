@@ -24,6 +24,7 @@ import { ViperFormatter } from './ViperFormatter';
 import { ViperFileState } from './ViperFileState';
 import { StatusBar, Color } from './StatusBar';
 import { VerificationController, TaskType, Task, CheckResult } from './VerificationController';
+import { ViperApi } from './ViperApi';
 let stripJSONComments = require('strip-json-comments');
 const os = require('os');
 
@@ -63,6 +64,7 @@ export function activate(context: vscode.ExtensionContext) {
     State.verificationController = new VerificationController();
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/{' + Helper.viperFileEndings.join(",") + "}");
     State.startLanguageServer(context, fileSystemWatcher, false); //break?
+    State.viperApi = new ViperApi(State.client);
     registerHandlers();
     startAutoSaver();
     State.initializeStatusBar(context);
@@ -73,6 +75,8 @@ export function activate(context: vscode.ExtensionContext) {
     } else {
         Log.log("No active text editor found", LogLevel.Info);
     }
+
+    return State.viperApi;
 }
 
 function getRequiredVersion(): Versions {
@@ -248,6 +252,14 @@ function registerHandlers() {
                 Log.error("Error handling file closed notification: " + e);
             }
         });
+
+        // When we don't know how to handle a message, we send it to whoever may be using the ViperApi, because this
+        // unexpected message may have been destined for them.
+        State.client.onNotification(
+            Commands.UnhandledViperServerMessageType,
+            (messageType: string, message: any) => { State.viperApi.notifyServerMessage(messageType, message); }
+        );
+
         State.client.onRequest(Commands.RequestRequiredVersion, () => {
             return getRequiredVersion();
         });
@@ -493,9 +505,6 @@ function registerHandlers() {
             }
         }));
 
-        //start Debugging
-        State.context.subscriptions.push(vscode.commands.registerCommand('viper.startDebugging', () => startDebugging()));
-
         //stopVerification
         State.context.subscriptions.push(vscode.commands.registerCommand('viper.stopVerification', () => {
             State.addToWorklist(new Task({ type: TaskType.StopVerification, uri: null, manuallyTriggered: true }));
@@ -565,52 +574,6 @@ function openLogFile() {
     }
 }
 
-function canStartDebugging(): CheckResult {
-    try {
-        let result = false;
-        let reason: string;
-        let fileState = State.getLastActiveFile();
-        if (!Helper.areAdvancedFeaturesEnabled()) {
-            reason = "Don't debug, You must first Enable the advanced features in the settings.";
-        } else if (!fileState) {
-            reason = "Don't debug, no viper file open.";
-        } else {
-            let uri = fileState.uri;
-            let filename = path.basename(uri.toString());
-            let dontDebugString = `Don't debug ${filename}, `;
-            if (!State.isBackendReady) {
-                reason = dontDebugString + "the backend is not ready";
-            } else if (State.isVerifying) {
-                reason = dontDebugString + "a verification is running", LogLevel.Debug;
-            } else if (!fileState.verified) {
-                reason = dontDebugString + "the file is not verified, the verificaion will be started.", LogLevel.Debug;
-                State.addToWorklist(new Task({ type: TaskType.Verify, uri: uri, manuallyTriggered: false }));
-            } else if (!fileState.stateVisualizer.readyToDebug) {
-                reason = dontDebugString + "the verification provided no states";
-            } else if (Helper.getConfiguration("advancedFeatures").simpleMode === true && !fileState.stateVisualizer.decorationOptions.some(option => option.isErrorState)) {
-                reason = `Don't debug ${filename}. In simple mode debugging can only be started when there is an error state.`;
-            } else {
-                result = true;
-            }
-        }
-        return {
-            result: result,
-            reason: reason,
-            removeRequest: false,//TODO:change when adding debugging to the verification controller
-            error: null
-        };
-    } catch (e) {
-        let error = "Error checking if Debugging can be started " + e;
-        Log.error(error);
-        return {
-            result: false,
-            reason: null,
-            removeRequest: false,//TODO:change when adding debugging to the verification controller
-            error: error
-        };
-    }
-}
-
 function considerStartingBackend(backendName: string) {
     if (backendName && (!State.isBackendReady || State.activeBackend != backendName)) {
         State.addToWorklist(new Task({
@@ -626,51 +589,6 @@ function considerStartingBackend(backendName: string) {
     }
 }
 
-function startDebugging() {
-    try {
-        //check if all the requirements are met to start debugging
-        let canDebug = canStartDebugging();
-        if (canDebug.result) {
-            let lastActiveFile = State.getLastActiveFile();
-            if (!lastActiveFile) {
-                Log.hint("Don't debug there is no file to debug.");
-                return;
-            }
-            let uri = lastActiveFile.uri;
-            let filename = path.basename(uri.toString());
-            let openDoc = uri.path;
-            if (State.isWin) {
-                openDoc = openDoc.substring(1, openDoc.length);
-            }
-            let launchConfig = {
-                name: "Viper Debug",
-                type: "viper",
-                request: "launch",
-                program: openDoc,
-                startInState: 0,
-                //console:"externalConsole"
-                internalConsoleOptions: "neverOpen"
-            }
-            if (State.isDebugging) {
-                Log.hint("Don't debug " + filename + ", the file is already being debugged");
-                return;
-            }
-            showStates(() => {
-                vscode.commands.executeCommand('vscode.startDebug', launchConfig).then(() => {
-                    Log.log('Debug session started successfully', LogLevel.Info);
-                    State.isDebugging = true;
-                    vscode.commands.executeCommand("workbench.view.debug");
-                }, err => {
-                    Log.error("Error starting debugger: " + err.message);
-                });
-            });
-        } else if (canDebug.reason) {
-            Log.hint(canDebug.reason);
-        }
-    } catch (e) {
-        Log.error("Error starting debug session: " + e);
-    }
-}
 
 function showStates(callback) {
     try {

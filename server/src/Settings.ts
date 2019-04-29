@@ -579,14 +579,6 @@ export class Settings {
                         this.addError(backendAndStage + " Missing customArguments");
                         continue;
                     }
-                    //check customArguments for compliance with advancedFeatures
-                    let hasIdeModeAdvanced = stage.customArguments.indexOf("--ideModeAdvanced") >= 0;
-                    if (Settings.settings.advancedFeatures.enabled && !hasIdeModeAdvanced) {
-                        this.addWarning(backendAndStage + " the advanced features only work when --ideModeAdvanced is specified.");
-                    }
-                    if (!Settings.settings.advancedFeatures.enabled && hasIdeModeAdvanced) {
-                        this.addWarning(backendAndStage + " when the advanced features are disabled, you can speed up the verification by removing the --ideModeAdvanced flag from the customArguments.");
-                    }
                 }
             }
             for (let i = 0; i < backend.stages.length; i++) {

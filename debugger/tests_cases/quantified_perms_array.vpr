@@ -1,0 +1,72 @@
+
+
+domain Array {
+  function len(a: Array): Int
+  function loc(a: Array, i: Int): Ref // map to a ghost object with a "val" field
+
+  function loc_to_array(r: Ref): Array
+  function loc_to_index(r: Ref): Int
+
+  axiom injectivity {
+    forall a: Array, i:Int ::
+        loc_to_array(loc(a,i)) == a && loc_to_index(loc(a,i)) == i
+  }
+
+  axiom lenPositive {
+    forall a: Array :: len(a) >= 0
+  }
+}
+
+field val: Int
+
+method test1(a: Array)
+    requires forall i: Int :: 0 <= i && i < len(a) ==> acc(loc(a, i).val)
+{
+    var index: Int;
+    assume index >= 0 && index < len(a)
+    var v: Int := loc(a, index).val
+    assert true;
+}
+
+method test1a(a: Array)
+    requires forall i: Int :: 0 <= i && i < len(a) ==> acc(loc(a, i).val)
+{
+    var index: Int := len(a)
+    var r: Ref := loc(a, index)
+    assert true;
+}
+
+method test2(a: Array)
+    requires len(a) == 3
+    requires forall i: Int :: 0 <= i && i < len(a) ==> acc(loc(a, i).val)
+    requires forall i: Int :: i == 0 ==> loc(a, i).val == 0
+{
+    assert true
+}
+
+method test3(a: Array)
+    requires len(a) == 3
+    requires forall i: Int :: 0 <= i && i < len(a) ==> acc(loc(a, i).val)
+    requires forall i: Int :: i == 0 ==> loc(a, i).val == 0
+    requires loc(a, 1).val == 1
+    requires loc(a, 2).val == 2
+{
+    assert true
+}
+
+method test4(a: Array)
+    requires len(a) == 3
+    requires forall i: Int :: 0 <= i && i < len(a) ==> acc(loc(a, i).val)
+    requires forall i: Int :: 0 <= i && i < len(a) ==> (loc(a, i).val > i && loc(a, i).val <= len(a))
+{
+    assert loc(a, 1).val > 4
+}
+
+method test7(a: Array, b: Array)
+    requires forall i: Int :: 0 <= i && i < len(a) ==> acc(loc(a, i).val)
+{
+    if (a != b) {
+        assert true
+    }
+    assert true
+}

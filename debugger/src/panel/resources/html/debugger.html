@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- SHA256 to allow jsonformatter to add style inline -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src vscode-resource:; style-src vscode-resource: 'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=' 'sha256-ako0E2m96nqXdH4e6+lUSRY6DnbQVv2dtm1LM4OfAME=';">
+    <title>Viper Debugger</title>
+</head>
+<body>
+    <header>
+        <nav>
+            <select id="verifiables" disabled></select>
+            <button id="parent" name="parent" type="button">Parent</button>
+            <button id="child" name="child" type="button">Child</button>
+            <button id="previous" name="previous" type="button">Previous</button>
+            <button id="next" name="next" type="button">Next</button>
+            <div id="navRight">
+                <input type="checkbox" id="mouseNavigation" name="mouseNavigation" checked="true">
+                <label for="mouseNavigation">Mouse Navigation</label>
+            </div>
+        </nav>
+    </header>
+    <div id="graphPanel" class="panel noScroll"></div>
+    <div id="mainPanel" class="panel">
+        <h3>Symbolic Execution Records <span id="toggleExecutionRecords">Hide</span></h3>
+        <div id="navigation"></div>
+        <div id="currentState"></div>
+    </div>
+    <div id="diagnostics" class="panel">
+        <h3>Diagnostics</h3>
+        <section>
+            <h4>Alloy Model</h4>
+            <div>
+                <button id="toggleAlloyModel">Show</button>
+                <button id="copyAlloyModel">Copy to Clipboard</button>
+                <button id="writeAlloyModel">Write to File</button>
+            </div>
+            <div id="alloyModel" class="hide"></div>
+        </section>
+        <section>
+            <h4>SymbExLog</h4><button id="toggleSymbExLog">Show</button>
+            <div id="symbExLog" class="hide"></div>
+        </section>
+        <section>
+            <h4>Alloy Instance</h4><button id="toggleAlloyInstance">Show</button>
+            <div id="alloyInstance" class="hide"></div>
+        </section>
+        <section>
+            <h4>DOT Graph Source</h4><button id="toggleDotGraphSource">Show</button>
+            <div id="dotGraphSource" class="hide"></div>
+        </section>
+    </div>
+</body>
+</html>

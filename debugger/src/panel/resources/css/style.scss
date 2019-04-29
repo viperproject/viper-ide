@@ -1,0 +1,215 @@
+
+body {
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: #222;
+}
+
+header {
+    padding: 1em;
+    overflow: hidden;
+    background-color: #1e1e1e;
+    border-bottom: 1px solid #444444;
+}
+
+// VS Code likes putting outlines on buttons, we don't want them
+select:focus,
+button:focus,
+input:focus {
+    outline: none;
+}
+select,
+button {
+    padding: 4px 10px;
+    box-sizing: border-box;
+    height: 24px;
+    vertical-align: top;
+    border: 0;
+    border-radius: 2px;
+    background: #aaaaaa;
+}
+
+select:hover:not(:disabled),
+button:hover:not(:disabled) {
+    background: #dddddd;
+    cursor: pointer;
+}
+
+nav {
+    div#navRight {
+        float: right;
+    }
+}
+
+#constraintsBlock input {
+    width: 90%;
+    background-color: #aaaaaa;
+    border: none;
+    border-radius: 2px;
+    height: 24px;
+    padding: 0 4px;
+    font-family: monospace;
+}
+
+#toggleExecutionRecords {
+    margin-left: 0.5em;
+    color: #444444;
+    font-weight: normal;
+}
+
+#toggleExecutionRecords:before {
+    content: " ["
+}
+
+#toggleExecutionRecords::after {
+    content: "]"
+}
+
+#toggleExecutionRecords:hover {
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+#navigation {
+    ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    span {
+        display: inline-block;
+        padding: 1px 2px;
+        border-radius: 2px;
+    }
+    span.stateLink:hover {
+        cursor: pointer;
+        background-color: #A66321;
+    }
+    pre {
+        margin: 0;
+        margin-left: 1em;
+        display: inline-block;
+        white-space: pre-wrap;
+    }
+    #current > span {
+        background-color: #114215;
+    }
+    .nested {
+        padding-left: 1.5em;
+        li:before {
+            content: '▸ '
+        }
+        // li:not(last-child):before {
+        //     content: '┣━  ';
+        // }
+        // li:last-child:before {
+        //     content: '┗━  ';
+        // }
+    }
+    .childrenNumber {
+        color: #444444;
+        margin-left: 1em;
+    }
+}
+
+#currentState {
+    h3 {
+        margin-top: 0;
+
+        pre {
+            display: inline;
+            background: #2A3239;
+            margin-left: 1em;
+            padding: 1px 4px;
+        }
+    }
+
+    > h4 {
+        margin-bottom: 0.8em;
+    }
+
+    > pre {
+        margin: 0em 0.5em;
+        padding: 0.4em;
+        background: #2A3239;
+        white-space: pre-wrap;
+        > span {
+            padding: 1px 2px;
+        }
+
+        > span.highlighted {
+            background-color: #A66321;
+            border-radius: 2px;
+        }
+    }
+}
+
+pre.json {
+    padding: 1em;
+    border-radius: 2px;
+}
+
+#graphPanel {
+    background: #111111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#graph {
+    width: 100%;
+    height: 100%;
+
+    svg {
+        width: 100%;
+        height: 100%;
+    }
+}
+
+
+div.graphMessage {
+    margin: auto;
+    font-size: 5vh;
+    color: #444444;
+}
+
+.panel {
+    overflow: auto;
+}
+
+.panel.noScroll {
+    overflow: hidden;
+}
+
+.panel > * {
+    margin: 14px;
+}
+
+h3 {
+    background: #222222;
+}
+
+.gutter.gutter-vertical {
+    background: #303030;
+    cursor: row-resize;
+}
+
+.gutter:hover,
+.gutter.dragged
+ {
+    background: #4aa2e0;
+ }
+
+ #diagnostics > section {
+   background: #1e1e1e; 
+   padding: 1em;
+
+   > *:first-child { margin-top: 0; }
+   > *:last-child { margin-bottom: 0; }
+ }
+ .hide {
+     display: none;
+ }

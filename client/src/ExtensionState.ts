@@ -20,6 +20,7 @@ import { StateVisualizer } from './StateVisualizer';
 import { Color, StatusBar } from './StatusBar';
 import { VerificationController, Task } from './VerificationController';
 import { UnitTestCallback } from './test/extension.test';
+import { ViperApi } from './ViperApi';
 
 export class State {
     public static client: LanguageClient;
@@ -53,6 +54,8 @@ export class State {
     public static diagnosticCollection: vscode.DiagnosticCollection;
 
     public static checkedSettings:ViperSettings;
+
+    public static viperApi: ViperApi;
 
     // public static createState(): State {
     //     if (State.instance) {

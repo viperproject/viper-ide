@@ -6,23 +6,24 @@
   * Copyright (c) 2011-2019 ETH Zurich.
   */
  
-'use strict';
+'use strict'
 import { SymbolKind } from 'vscode-languageserver'
 import { settings } from 'cluster'
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 
-import { IPCMessageReader, IPCMessageWriter, Location, Position, Range, createConnection, InitializeResult, SymbolInformation } from 'vscode-languageserver';
-import { Log } from './Log';
+import { IPCMessageReader, IPCMessageWriter, Location, Position, Range, createConnection, InitializeResult, SymbolInformation } from 'vscode-languageserver'
+import { Log } from './Log'
 import { Settings } from './Settings'
 import { Backend, Common, StateColors, ExecutionTrace, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams } from './ViperProtocol'
-import { VerificationTask } from './VerificationTask';
-import { Statement } from './Statement';
-import { DebugServer } from './DebugServer';
-import { Server } from './ServerClass';
-import { ViperServerService } from './ViperServerService';
-import * as fs from 'fs';
-import * as pathHelper from 'path';
+import { VerificationTask } from './VerificationTask'
+import { Statement } from './Statement'
+import { DebugServer } from './DebugServer'
+import { Server } from './ServerClass'
+import { ViperServerService } from './ViperServerService'
+import * as fs from 'fs'
+import * as pathHelper from 'path'
+import { resolve } from 'url'
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 Server.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
@@ -388,6 +389,16 @@ function registerHandlers() {
                 resolve(true);
             } else {
                 resolve(false);
+            }
+        });
+    });
+
+    Server.connection.onRequest("GetViperServerUrl", () => {
+        return new Promise<any>((resolve, reject) => {
+            if (Server.backendService instanceof ViperServerService) {
+                resolve(Server.backendService.getAddress())
+            } else {
+                reject("Not running with ViperServer backend");
             }
         });
     });

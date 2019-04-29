@@ -1,0 +1,93 @@
+
+field next: Ref
+field val: Int
+
+method test_forperm_field_trivial(n: Ref)
+    requires acc(n.next)
+{
+    var b: Bool := forperm r: Ref [r.next] :: false
+    exhale b
+}
+
+method test_forperm_field_fail(n: Ref)
+    requires acc(n.val)
+{
+    var b: Bool := forperm r: Ref [r.val] :: r.val > 0
+    exhale b
+}
+
+method test_forperm_field_pass(n: Ref)
+    requires acc(n.val) && n.val > 0
+{
+    var b: Bool := forperm r: Ref [r.val] :: r.val > 0
+    exhale b
+}
+
+
+method test_forperm_qp_trivial_fail(nodes: Set[Ref], n: Ref)
+	requires forall r: Ref :: r in nodes ==> acc(r.next)
+	requires forall r: Ref :: r in nodes && r.next != null ==> r.next in nodes
+{
+    var b: Bool := forperm r: Ref [r.next] :: false
+    exhale b
+}
+
+method test_forperm_qp_fail(nodes: Set[Ref], n: Ref)
+	requires forall r: Ref :: r in nodes ==> acc(r.next) && acc(r.val)
+	requires forall r: Ref :: r in nodes && r.next != null ==> r.next in nodes
+	requires forall r: Ref :: r in nodes ==> r.val != 0
+{
+    var b: Bool := forperm r: Ref [r.val] :: r.val > 0
+    exhale b
+}
+
+field f1: Int
+field f2: Int
+field f3: Int
+
+method permOnlyOneField1()
+{
+  var r1: Ref
+  var r2: Ref
+  inhale acc(r1.f1) && r1.f1 > 0
+
+  assert forperm r: Ref [r.f1] :: r.f2 >= r.f2
+}
+
+method permOnlyOneField2()
+{
+  var r1: Ref
+  var r2: Ref
+  inhale acc(r1.f1) && r1.f1 > 0
+
+  assert forperm r: Ref [r.f1] :: r.f1 > 0 && r.f2 >= r.f2
+}
+
+field f: Int
+
+method m1(x: Ref, y: Ref, z: Ref) {
+    inhale acc(x.f)
+    inhale acc(y.f) && acc(z.f)
+    inhale y != x
+    inhale z != x
+
+    var g: Ref
+
+    inhale acc(g.f)
+    inhale forall a: Ref :: a == g ==> acc(a.f) && a.f < 3
+
+    assert !forperm a: Ref [a.f] :: a.f > 3
+
+    inhale forall a: Ref :: a == x || a == y ==> a.f == 4
+    inhale forall a: Ref :: a == z ==> a.f == 10
+
+    assert forperm a: Ref [a.f] :: a == g || a.f > 3
+}
+
+
+method test01(x: Ref, p: Perm) {
+  inhale acc(x.val, p)
+  inhale forperm r: Ref [r.val] :: false
+  //:: ExpectedOutput(assert.failed:assertion.false)
+  assert false
+}

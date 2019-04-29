@@ -21,6 +21,8 @@ import { Helper } from './Helper';
 import { ViperFormatter } from './ViperFormatter';
 import { ViperFileState } from './ViperFileState';
 import { StatusBar, Color } from './StatusBar';
+import { VerificationTerminatedEvent } from './ViperApi';
+import { ENOTSOCK } from 'constants';
 
 export interface ITask {
     type: TaskType;
@@ -303,6 +305,9 @@ export class VerificationController {
                                     }
                                     task.type = NoOp;
                                     Log.logWithOrigin("workList", "VerificationFinished", LogLevel.LowLevelDebug);
+
+                                    let succ = verificationComplete && !verificationFailed ? "succeded" : "failed"
+                                    // TODO: Should we somehow notify something via the ViperApi here?
                                     State.hideProgress();
                                 }
                             }
@@ -823,6 +828,14 @@ export class VerificationController {
                                 Log.log(`Verifying ${params.filename} timed out`, LogLevel.Info);
                                 break;
                         }
+
+                        // Notify whoever might be listening
+                        State.viperApi.notifyVerificationTerminated({
+                            status: params.success,
+                            filename: uri,
+                            message: msg
+                        });
+
                         if (State.unitTest && this.verificationCompleted(params.success)) {
                             State.unitTest.verificationComplete(State.activeBackend, params.filename);
                         }

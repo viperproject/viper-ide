@@ -1,0 +1,93 @@
+
+
+field next: Ref
+
+method test1(nodes: Set[Ref], node: Ref)
+    requires forall r: Ref :: r in nodes ==> acc(r.next)
+    requires node in nodes
+{
+    assert true
+}
+
+method test2(nodes: Set[Ref], node: Ref)
+    requires forall r: Ref :: r in nodes ==> acc(r.next)
+    requires node in nodes
+    requires node.next != null && node.next != node
+{
+    if (node.next in nodes) {
+        assert true;
+    }
+    assert true
+}
+
+method test3(nodes: Set[Ref], node: Ref)
+    requires forall r: Ref :: r in nodes ==> acc(r.next)
+    requires forall r: Ref :: r in nodes && r.next != null ==> r.next in nodes
+    requires node in nodes
+{
+    assert true
+}
+
+method test4(nodes: Set[Ref], some: Ref)
+    requires forall r: Ref :: r in nodes ==> acc(r.next)
+    requires forall r: Ref :: r in nodes && r.next != null ==> r.next in nodes
+    requires some in nodes
+    requires some.next != null && some.next != some
+{
+    assert true;
+}
+
+method test5(nodes: Set[Ref], node: Ref)
+    requires forall r: Ref :: r in nodes ==> acc(r.next)
+    requires forall r: Ref :: r in nodes && r.next != null ==> r.next in nodes
+    requires node in nodes
+{
+    if (node.next != null && node.next != node) {
+        assert true;
+    }
+    assert true;
+}
+
+method test6(nodes: Set[Ref], n: Ref)
+    requires forall r: Ref :: r in nodes ==> acc(r.next)
+    requires forall r: Ref :: r in nodes && r.next != null ==> r.next in nodes
+    requires n in nodes
+    requires |nodes| == 3
+{
+    if (n.next != null && n.next != n) {
+        assert true;
+    }
+    assert true;
+}
+
+
+method test7(ns1: Set[Ref], ns2: Set[Ref], n1: Ref, n2: Ref)
+    requires forall r: Ref :: r in ns1 ==> acc(r.next)
+    // requires forall r: Ref :: r in ns1 ==> !(r in ns2) && acc(r.next)
+    requires forall r: Ref :: r in ns1 ==> r.next != null ==> r.next in ns1
+    requires n1 in ns1
+    requires |ns1| >= 3
+
+    requires forall r: Ref :: r in ns2 ==> acc(r.next)
+    // requires forall r: Ref :: r in ns2 ==> !(r in ns1) && acc(r.next)
+    // requires forall r: Ref :: r in ns2 ==> r.next != null ==> r.next in ns2
+    requires n2 in ns2
+    requires |ns2| >= 3
+{
+    assert true
+}
+
+
+// Problem with combines which must be "in snap" to wor, though it does not make sense
+method test8(ns1: Set[Ref], ns2: Set[Ref], n1: Ref, n2: Ref)
+    requires forall r: Ref :: r in ns1 ==> !(r in ns2) && acc(r.next)
+    requires forall r: Ref :: r in ns1 && r.next != null ==> r.next in ns2
+    requires n1 in ns1
+    requires |ns1| >= 3
+
+    requires forall r: Ref :: r in ns2 ==> !(r in ns1) && acc(r.next)
+    requires n2 in ns2
+    requires |ns2| >= 3
+{
+    assert true
+}

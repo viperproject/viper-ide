@@ -1,0 +1,17 @@
+
+field next: Ref 
+
+method unlink_tail(nodes: Set [Ref], n: Ref) 
+	requires forall r: Ref:: r in nodes ==> acc(r.next) 
+	requires forall r: Ref:: r in nodes && r.next != null ==> r.next in nodes 
+	requires forall r: Ref:: r in nodes && r.next != null ==> r.next != r 
+	requires n in nodes 
+	requires n.next != null 
+	// requires forall r1: Ref, r2: Ref :: r1 in nodes && r2 in nodes && r1 != r2 ==> r1.next != r2.next
+{	
+	var oldNext: Ref := n.next 
+	n.next := null 
+
+	var fact: Bool := forall r: Ref :: r in nodes ==> !(r.next == oldNext)
+	assert fact
+} 

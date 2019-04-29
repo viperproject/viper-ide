@@ -1,0 +1,29 @@
+method test0a(s: Set[Ref])
+{
+    assert true;
+}
+
+method test0b(s: Seq[Ref])
+{
+    assert true
+}
+
+method test0c(s: Multiset[Ref])
+{
+    assert true
+}
+
+method test1a(s: Set[Set[Ref]])
+{
+    assert true
+}
+
+method test1b(s: Set[Seq[Ref]])
+{
+    assert true
+}
+
+method test1c(s: Set[Multiset[Ref]])
+{
+    assert true
+}

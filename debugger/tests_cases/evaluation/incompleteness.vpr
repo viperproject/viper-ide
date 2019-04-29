@@ -1,0 +1,34 @@
+
+// function f(): Bool
+//     ensures (exists n: Int :: n > 0) ==> result == true
+
+// method example1()
+// {
+//     var b: Bool := f()
+//     assert b // Verification failure
+// }
+
+
+// method example2(ms1: Multiset[Ref], n: Int) {
+//     inhale |ms1| == n
+//     var ms2: Multiset[Ref] := ms1 intersection ms1
+//     // assert ms2 == ms1
+//     assert |ms2| == n // Fails without the preceding assertion
+// }
+
+
+
+domain Example {
+
+    function non_trigger(i: Int): Int
+    function hard_to_prove(i: Int): Bool
+
+    axiom always_true {
+        forall j: Int :: { non_trigger(j) } hard_to_prove(j)
+    }
+}
+
+method example3(i: Int)
+{
+    assert hard_to_prove(i)
+}

@@ -1,0 +1,30 @@
+
+
+field val: Int;
+
+method test01(nodes: Set[Ref])
+    requires forall n: Ref :: n in nodes ==> acc(n.val)
+    requires forall n1: Ref, n2: Ref :: (n1 != n2 && n1 in nodes && n2 in nodes) ==> n1.val != n2.val
+    requires |nodes| == 5
+{
+    var n1: Ref;
+    var n2: Ref;
+    assume n1 in nodes
+    assume n2 in nodes && n2 != n1
+    // n1.val := 3;
+    assert n1.val == n2.val
+
+    assert true;
+}
+
+
+method test2(ns1: Set[Ref], ns2: Set[Ref], n: Ref)
+    requires |ns1| == 3
+    requires |ns2| == 3
+    requires (ns1 intersection ns2) == Set(n)
+    requires forall r: Ref :: r in ns2 ==> acc(r.val)
+{
+    assert true
+}
+
+

@@ -1,0 +1,38 @@
+
+domain Array {
+  function len(a: Array): Int
+  function loc(a: Array, i: Int): Ref 
+
+  function loc_to_array(r: Ref): Array
+  function loc_to_index(r: Ref): Int
+
+  axiom injectivity {
+    forall a: Array, i:Int ::
+        loc_to_array(loc(a,i)) == a && loc_to_index(loc(a,i)) == i
+  }
+
+  axiom lenPositive {
+    forall a: Array :: len(a) >= 0
+  }
+}
+
+field val: Int
+
+method swap(a: Array, i: Int, j: Int)
+    requires forall k: Int :: 0 <= k && k < len(a) ==> acc(loc(a, k).val)
+    requires 0 <= i && i < len(a)
+    requires 0 <= j && j < len(a)
+{
+    var old_i: Int := loc(a, i).val
+    var old_j: Int := loc(a, j).val
+    
+    var tmp: Int := loc(a, i).val
+    loc(a, i).val := loc(a, i).val  // Bug here
+    loc(a, j).val := tmp
+
+    var b1: Bool := loc(a, i).val == old_j
+    assert b1
+
+    var b2: Bool := loc(a, j).val == old_i
+    assert b2
+}

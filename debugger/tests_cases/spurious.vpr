@@ -1,0 +1,30 @@
+
+// incompleteness due to set axioms
+// method spurious_sets(g:Set[Ref], m:Set[Ref])
+//     requires m subset g
+//     requires forall n:Ref :: { n in g }{ n in m } n in g <==> n in m
+// {
+//     assert |g| == |m|
+// }
+
+
+// function f2(): Bool
+//     ensures (forall n:Int :: (n / (n*n+1) <= 1/2)) ==> result == true
+
+
+function f1(): Bool
+    ensures (exists n: Int :: n > 0) ==> result == true
+
+method spurious()
+{
+    var b: Bool := f1()
+    assert b
+}
+
+
+method test(ms1: Multiset[Ref], n: Int) {
+    inhale |ms1| == n
+    var ms2: Multiset[Ref] := ms1 intersection ms1
+    // assert ms2 == ms1
+    assert |ms2| == n /* Fails without the preceding assertion */
+}
