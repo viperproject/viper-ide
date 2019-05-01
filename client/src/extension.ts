@@ -257,7 +257,10 @@ function registerHandlers() {
         // unexpected message may have been destined for them.
         State.client.onNotification(
             Commands.UnhandledViperServerMessageType,
-            (messageType: string, message: any) => { State.viperApi.notifyServerMessage(messageType, message); }
+            (message: any) => { 
+                Log.log(`Recieved non-standard ViperServer message of type ${message.msg_type}.`, LogLevel.Default);
+                State.viperApi.notifyServerMessage(message.msg_type, message); 
+            }
         );
 
         State.client.onRequest(Commands.RequestRequiredVersion, () => {
