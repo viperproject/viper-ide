@@ -1,10 +1,18 @@
 // import * as $ from 'jquery';
 import { Logger } from './logger';
-import JSONFormatter, { JSONFormatterConfiguration } from 'json-formatter-js';
-import * as Split from 'split.js';
-import * as d3 from 'd3';
+// import JSONFormatter, { JSONFormatterConfiguration } from 'json-formatter-js';
+const jsonFormatterJs = require('json-formatter-js')
+const JSONFormatter = jsonFormatterJs
+
+// import * as Split from 'split.js';
+const Split = require('split-js')
+
+// import * as d3 from 'd3'
+const d3 = require('d3');
+const { HTMLSelectElement } = d3
+
 import { GraphViz } from './d3-graphviz';
-var d3graphviz = require('d3-graphviz');
+const d3graphviz = require('d3-graphviz');
 
 declare var acquireVsCodeApi: any;
 export const vscode = acquireVsCodeApi();
@@ -17,7 +25,7 @@ function removeAllChildren(elem: HTMLElement) {
 }
 
 let outpudDiv: HTMLElement;
-const JsonFormatConfiguration: JSONFormatterConfiguration = {
+const JsonFormatConfiguration /*: JSONFormatterConfiguration*/ = {
     animateOpen: false,
     animateClose: false,
     theme: 'dark'
@@ -136,7 +144,7 @@ function setupInputHandlers() {
     };
     // Setup handler for the selection change
     domElem('#verifiables').onchange = (event) => { 
-        const name = (domElem('#verifiables') as HTMLSelectElement).selectedOptions.item(0).value;
+        const name = (domElem('#verifiables') as HTMLSelectElement).selectedOptions.item(0)!.value ;
         vscode.postMessage({ command: 'selectVerifiable', data: name });
     };
 
@@ -404,7 +412,7 @@ function handleVerifiableUpdate(verifiables: any[]) {
 }
 
 function handleSymbExLogMessage(message: any) {
-    const options: JSONFormatterConfiguration = {
+    const options/*: JSONFormatterConfiguration*/ = {
         animateOpen: false,
         animateClose: false,
         theme: 'dark'
@@ -422,7 +430,7 @@ function handleSymbExLogMessage(message: any) {
 }
 
 function handleAlloyInstanceMessage(message: any) {
-    const options: JSONFormatterConfiguration = {
+    const options/*: JSONFormatterConfiguration*/ = {
         animateOpen: false,
         animateClose: false,
         theme: 'dark'

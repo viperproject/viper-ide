@@ -73,9 +73,13 @@ export class AlloyTranslator {
         this.env.recordInterestingFunctions = false;
 
         // Translate values and types that have been gathered during translation
-        this.encodeGatheredFacts();
+        
         this.encodeMacros();
         this.encodeFailedSMTFact();
+        this.encodeGatheredFacts();
+
+        // ATG-2019: sometimes, these phases do are incoherent. 
+
         this.encodeReachabilityConstraints();
         this.encodeSignatureRestrictions();
 

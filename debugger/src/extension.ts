@@ -26,7 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
     extensionContext = context;
 
     // Retrieve the Viper API so we can listen on verification eventes
-    let viper = vscode.extensions.getExtension('viper-admin.viper-experimental');
+    let viper = vscode.extensions.getExtension('viper-admin.viper');
     if (viper && viper.isActive) {
         viperApi = viper.exports;
     } else {

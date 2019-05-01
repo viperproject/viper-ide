@@ -145,12 +145,7 @@ module.exports = function(env, argv) {
                             loader: MiniCssExtractPlugin.loader
                         },
                         {
-                            loader: 'css-loader',
-                            options: {
-                                minimize: minify,
-                                sourceMap: sourceMaps,
-                                url: false
-                            }
+                            loader: 'css-loader'
                         },
                         {
                             loader: 'sass-loader',

@@ -1,5 +1,3 @@
-
-
 abstract sig Perm {
     num: one Int,
     denom: one Int

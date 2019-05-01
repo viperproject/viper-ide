@@ -1,0 +1,48 @@
+{
+    
+    "workbench.colorTheme": "Viper-Dark",
+    "editor.minimap.enabled": false,
+    "window.zoomLevel": 0,
+    "printcode.disableTelemetry": true,
+    "telemetry.enableTelemetry": false,
+    "telemetry.enableCrashReporter": false,
+    "viperSettings.paths": {
+        "v": "674a514867b1",
+        "viperToolsPath": "/Users/wi/Documents/ETH/supervision/ViperStudio/0.1.0/tools"
+    },
+    "viperSettings.verificationBackends": [
+        {
+            "v": "674a514867b1",
+            "name": "silicon-with-logging",
+            "type": "silicon",
+            "paths": [],
+            "engine": "ViperServer",
+            "timeout": 100000,
+            "stages": [
+                {
+                    "name": "verify",
+                    "isVerification": true,
+                    "mainMethod": "viper.silicon.SiliconRunner",
+                    "customArguments": "--z3Exe $z3Exe$ $disableCaching$ --numberOfParallelVerifiers 1 --ideModeAdvanced $fileToVerify$"
+                }
+            ],
+            "stoppingTimeout": 5000
+        }
+    ],
+    "viperSettings.advancedFeatures": {
+        "v": "674a514867b1",
+        "enabled": true,
+        "showSymbolicState": true,
+        "simpleMode": false,
+        "darkGraphs": true,
+        "showOldState": true,
+        "showPartialExecutionTree": true,
+        "compareStates": true,
+        "verificationBufferSize": 102400
+    },
+    "viperDebuggerSettings.logLevel": "DEBUG",
+    "viperDebuggerSettings.debugImmediately": true,
+    // "viperDebuggerSettings.modelDestinationPath": "/Users/wi/Documents/ETH/supervision/ViperStudio/0.1.0/tmp",
+    "viperDebuggerSettings.modelDestinationPath": "/Users/wi/eth/viper/viper_ide/viper-ide/debugger/src/test/workdir/tmp",
+    "viperDebuggerSettings.alloySATSolver": "sat4j"
+}
