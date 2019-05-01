@@ -180,6 +180,10 @@ export class ViperServerService extends BackendService {
             if ( !message.hasOwnProperty('msg_type') ) {
                 throw `property 'msg_type' not found in message=${message}`
             }
+
+            if ( !message.hasOwnProperty('msg_body') ) {
+                throw `property 'msg_body' not found in message=${message}`
+            }
                 
             if ( message.msg_type === 'statistics' ) {
                 return onData(JSON.stringify({
@@ -299,14 +303,12 @@ export class ViperServerService extends BackendService {
                             //}
                         }
 
-                } else {
-                    throw `property 'msg_body' not found in message=${message}`
-                }
+                } 
+            } else {
+                // Unhandled messages might be destined to some other extension via
+                // the ViperApi
+                Server.connection.sendNotification(Commands.UnhandledViperServerMessageType, message)
             }
-
-            // Unhandled messages might be destined to some other extension via
-            // the ViperApi
-            Server.connection.sendNotification(Commands.UnhandledViperServerMessageType, message.msg_type, message)
 
             return true
         })
