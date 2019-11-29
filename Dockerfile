@@ -8,4 +8,10 @@ RUN apt-get -y update && \
     unzip /tmp/viper.zip -d /usr/local/Viper && \
     rm /tmp/viper.zip
 
+RUN rm -f /etc/sudoers.d/nopasswd
+
 USER coder
+
+RUN wget -c https://polybox.ethz.ch/index.php/s/qpy8CMsztfL3xuY/download -O /tmp/server.vsix && \
+    /usr/local/bin/code-server --install-extension /tmp/server.vsix && \
+    rm -f /tmp/server.vsix
