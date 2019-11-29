@@ -1,5 +1,9 @@
 FROM codercom/code-server:v2
 
+RUN wget -c https://marketplace.visualstudio.com/_apis/public/gallery/publishers/viper-admin/vsextensions/viper/latest/vspackage -O /tmp/server.vsix && \
+    /usr/local/bin/code-server --install-extension /tmp/server.vsix && \
+    rm -f /tmp/server.vsix
+
 USER root
 
 RUN apt-get -y update && \
@@ -8,10 +12,10 @@ RUN apt-get -y update && \
     unzip /tmp/viper.zip -d /usr/local/Viper && \
     rm /tmp/viper.zip
 
-RUN rm -f /etc/sudoers.d/nopasswd
+RUN rm -f /etc/sudoers.d/nopasswd && \
+    wget -c https://bitbucket.org/viperproject/examples/get/default.zip -O /home/coder/project/default.zip && \
+    unzip /home/coder/project/default.zip -d /home/coder/project/ && \
+    rm -f /home/coder/project/default.zip && \
+    chown -R root:root /home /tmp
 
 USER coder
-
-RUN wget -c https://marketplace.visualstudio.com/_apis/public/gallery/publishers/viper-admin/vsextensions/viper/latest/vspackage -O /tmp/server.vsix && \
-    /usr/local/bin/code-server --install-extension /tmp/server.vsix && \
-    rm -f /tmp/server.vsix
