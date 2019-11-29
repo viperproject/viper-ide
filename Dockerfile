@@ -12,6 +12,6 @@ RUN rm -f /etc/sudoers.d/nopasswd
 
 USER coder
 
-RUN wget -c https://polybox.ethz.ch/index.php/s/qpy8CMsztfL3xuY/download -O /tmp/server.vsix && \
+RUN wget -c https://marketplace.visualstudio.com/_apis/public/gallery/publishers/viper-admin/vsextensions/viper/latest/vspackage -O /tmp/server.vsix && \
     /usr/local/bin/code-server --install-extension /tmp/server.vsix && \
     rm -f /tmp/server.vsix
