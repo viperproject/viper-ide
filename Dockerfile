@@ -1,6 +1,6 @@
 FROM codercom/code-server:v2
 
-RUN wget -c https://marketplace.visualstudio.com/_apis/public/gallery/publishers/viper-admin/vsextensions/viper/latest/vspackage -O /tmp/server.vsix && \
+RUN curl 'https://marketplace.visualstudio.com/_apis/public/gallery/publishers/viper-admin/vsextensions/viper/latest/vspackage'  --compressed   -o /tmp/viper.vsix && \
     /usr/local/bin/code-server --install-extension /tmp/server.vsix && \
     rm -f /tmp/server.vsix
 
