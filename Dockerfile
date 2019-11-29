@@ -1,7 +1,7 @@
 FROM codercom/code-server:v2
 
 RUN curl 'https://marketplace.visualstudio.com/_apis/public/gallery/publishers/viper-admin/vsextensions/viper/latest/vspackage'  --compressed   -o /tmp/viper.vsix && \
-    /usr/local/bin/code-server --install-extension /tmp/server.vsix && \
+    /usr/local/bin/code-server --install-extension /tmp/viper.vsix && \
     rm -f /tmp/server.vsix
 
 USER root
