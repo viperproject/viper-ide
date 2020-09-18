@@ -12,7 +12,8 @@
     },
 
     "typescript.implementationsCodeLens.enabled": true, 
-    "typescript.tsc.autoDetect": "off"
+    "typescript.tsc.autoDetect": "off",
+    "window.title": "${dirty}${activeEditorShort}${separator}$Viper IDE [Client]$"
     
     //"files.trimTrailingWhitespace": true,
     //"editor.rulers": [80, 100],
