@@ -1,0 +1,21 @@
+going to listen on port 63064
+Connecting plugin client.
+initialize
+Sep 19, 2020 12:47:31 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
+WARNUNG: Unsupported notification method: initialized
+Sep 19, 2020 12:47:31 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
+WARNUNG: Unsupported notification method: workspace/didChangeConfiguration
+didOpen
+Sep 19, 2020 12:47:37 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
+WARNUNG: Unsupported notification method: textDocument/didSave
+Sep 19, 2020 12:47:37 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
+WARNUNG: Unsupported notification method: workspace/didChangeWatchedFiles
+didChange
+didChange
+Sep 19, 2020 12:47:40 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
+WARNUNG: Unsupported notification method: textDocument/didSave
+Sep 19, 2020 12:47:40 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
+WARNUNG: Unsupported notification method: workspace/didChangeWatchedFiles
+didClose
+Sep 19, 2020 12:48:03 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint request
+WARNUNG: Unsupported request method: Dispose

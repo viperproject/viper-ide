@@ -7,10 +7,12 @@
   */
  
 'use strict';
-import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient';
+import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind, StreamInfo } from 'vscode-languageclient';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as net from 'net';
+import * as child_process from "child_process";
 import { Commands, LogLevel, ViperSettings } from './ViperProtocol';
 import { Log } from './Log';
 import { ViperFileState } from './ViperFileState';
@@ -172,22 +174,61 @@ export class State {
     }
 
     public static startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, brk: boolean) {
-        // The server is implemented in node
-        let serverModule = State.context.asAbsolutePath(path.join('server', 'server.js'));
-
-        if (!fs.existsSync(serverModule)) {
-            Log.log(serverModule + " does not exist. Reinstall the Extension", LogLevel.Debug);
-            return;
+        function startViperServer(): Promise<StreamInfo> {
+            return new Promise((resolve, reject) => {
+                let server = net.createServer((socket) => {
+                    console.log("Creating server");
+                    resolve({
+                        reader: socket,
+                        writer: socket
+                    });
+        
+                    socket.on('end', () => console.log("Disconnected"));
+                }).on('error', (err) => {
+                    // handle errors here
+                    throw err;
+                });
+                // grab a random port.
+                server.listen(() => {
+                    // Start the child java process
+                    let serverBin = "C:\\Users\\Valentin\\Desktop\\viperTools\\viperserver\\target\\scala-2.12\\viper.jar"
+        
+                    let args = [
+                        '-jar',
+                        serverBin,
+                        (server.address() as net.AddressInfo).port.toString()
+                    ]
+        
+                    let process = child_process.spawn("java", args);
+    
+                    // Send raw output to a file
+                    let logFile = context.asAbsolutePath('languageServerExample.log');
+                    let logStream = fs.createWriteStream(logFile, { flags: 'w' });
+        
+                    process.stdout.pipe(logStream);
+                    process.stderr.pipe(logStream);
+        
+                    console.log(`Storing log in '${logFile}'`);
+                });
+            });
         }
+        
+        // The server is implemented in node
+        // let serverModule = State.context.asAbsolutePath(path.join('server', 'server.js'));
+
+        // if (!fs.existsSync(serverModule)) {
+        //     Log.log(serverModule + " does not exist. Reinstall the Extension", LogLevel.Debug);
+        //     return;
+        // }
         // The debug options for the server
         let debugOptions = { execArgv: ["--nolazy", "--inspect=5443"] };
 
         // If the extension is launch in debug mode the debug server options are use
         // Otherwise the run options are used
-        let serverOptions: ServerOptions = {
-            run: { module: serverModule, transport: TransportKind.ipc },
-            debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions }
-        }
+        // let serverOptions: ServerOptions = {
+        //     run: { module: serverModule, transport: TransportKind.ipc },
+        //     debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions }
+        // }
 
         // Options to control the language client
         let clientOptions: LanguageClientOptions = {
@@ -201,7 +242,7 @@ export class State {
             }
         }
 
-        State.client = new LanguageClient('languageServer', 'Language Server', serverOptions, clientOptions, brk);
+        State.client = new LanguageClient('languageServer', 'Language Server', startViperServer, clientOptions, brk);
 
         Log.log("Start Language Server", LogLevel.Info);
         // Create the language client and start the client.
