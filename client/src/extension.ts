@@ -258,7 +258,7 @@ function registerHandlers() {
         State.client.onNotification(
             Commands.UnhandledViperServerMessageType,
             (message: any) => { 
-                Log.log(`Recieved non-standard ViperServer message of type ${message.msg_type}.`, LogLevel.Default);
+                Log.log(`Received non-standard ViperServer message of type ${message.msg_type}.`, LogLevel.Default);
                 State.viperApi.notifyServerMessage(message.msg_type, message); 
             }
         );
