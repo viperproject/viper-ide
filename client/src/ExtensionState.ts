@@ -71,9 +71,11 @@ export class State {
     // }
 
     public static getTimeoutOfActiveBackend():number{
-        if(!this.checkedSettings){
-            Log.error("Error getting timeout, there are no checked Settings available, default to no timeout.");
-            return 0;
+        if (!this.checkedSettings) {
+            // TODO Make this work with settings
+            // Log.error("Error getting timeout, there are no checked Settings available, default to no timeout.");
+            // return 0;
+            return 10000;
         }else{
             let backend = this.checkedSettings.verificationBackends.find(b => b.name == this.activeBackend);
             return backend.timeout;

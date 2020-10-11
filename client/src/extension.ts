@@ -195,18 +195,22 @@ function registerHandlers() {
         State.client.onNotification(Commands.Hint, (data: HintMessage) => {
             Log.hint(data.message, "Viper", data.showSettingsButton, data.showViperToolsUpdateButton);
         });
-        State.client.onNotification(Commands.Log, (msg: { data: string, logLevel: LogLevel }) => {
-            Log.log((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
+        State.client.onNotification(Commands.Log, (data, logLevel) => {
+            // OG
+            // Log.log((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
+            let lvl: LogLevel = logLevel
+            Log.log((Log.logLevel >= 0 ? "S: " : "") + data, lvl);
         });
-        State.client.onNotification(Commands.Progress, (msg: { data: Progress, logLevel: LogLevel }) => {
-            Log.progress(msg.data, msg.logLevel);
+        State.client.onNotification(Commands.Progress, (data: Progress, logLevel: LogLevel) => {
+            Log.progress(data, logLevel);
         });
-        State.client.onNotification(Commands.ToLogFile, (msg: { data: string, logLevel: LogLevel }) => {
-            Log.toLogFile((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
-        });
-        State.client.onNotification(Commands.Error, (msg: { data: string, logLevel: LogLevel }) => {
-            Log.error((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
-        });
+        // TODO Remove later  
+        // State.client.onNotification(Commands.ToLogFile, (msg: { data: string, logLevel: LogLevel }) => {
+        //     Log.toLogFile((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
+        // });
+        // State.client.onNotification(Commands.Error, (msg: { data: string, logLevel: LogLevel }) => {
+        //     Log.error((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
+        // });
 
         State.client.onNotification(Commands.ViperUpdateComplete, (success) => {
             if (success) {

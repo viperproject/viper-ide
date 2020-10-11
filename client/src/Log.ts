@@ -119,7 +119,9 @@ export class Log {
     private static doLog(message: string, logLevel: LogLevel) {
         let timing = this.logTiming ? this.prettyUptime() + ' ' : '';
         message = this.prefix(logLevel) + message;
-        if (!Log.logLevel || Log.logLevel >= logLevel) {
+        // OG
+        // if (!Log.logLevel || Log.logLevel >= logLevel) {
+        if (!Log.logLevel || Log.logLevel >= 0) {
             console.log(timing + message);
             Log.outputChannel.append(message + "\n");
         }

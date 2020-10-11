@@ -10,6 +10,7 @@
 
 import Uri from 'vscode-uri';
 import child_process = require('child_process');
+import * as vscode from 'vscode';
 import { Log } from './Log';
 var sudo = require('sudo-prompt');
 
@@ -171,7 +172,7 @@ export interface StateChangeParams {
     uri?: string;
     stage?: string;
     error?: string;
-    diagnostics?: string
+    diagnostics?: vscode.Diagnostic[]
 }
 
 export interface BackendReadyParams {
