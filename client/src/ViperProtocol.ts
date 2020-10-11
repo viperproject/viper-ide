@@ -8,8 +8,9 @@
  
 'use strict';
 
-import { URI } from 'vscode-uri';
 import * as child_process from 'child_process';
+import * as vscode from 'vscode';
+import { URI } from 'vscode-uri';
 import { Log } from './Log';
 
 //Global interfaces:
@@ -171,7 +172,7 @@ export interface StateChangeParams {
     uri?: string;
     stage?: string;
     error?: string;
-    diagnostics?: string;
+    diagnostics?: vscode.Diagnostic[]
 }
 
 export interface BackendReadyParams {

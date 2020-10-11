@@ -432,9 +432,11 @@ export class VerificationController {
     }
 
     private getStoppingTimeout():number{
-        let backendName = State.activeBackend;
-        let backendSettings = State.checkedSettings.verificationBackends.find(config => config.name == backendName)
-        return backendSettings.stoppingTimeout;
+        // TODO make this work with settings
+        // let backendName = State.activeBackend;
+        // let backendSettings = State.checkedSettings.verificationBackends.find(config => config.name == backendName)
+        // return backendSettings.stoppingTimeout;
+        return 10000;
     }
 
     private handleSaveTask(fileState: ViperFileState) {
@@ -723,9 +725,11 @@ export class VerificationController {
     }
 
     public handleStateChange(params: StateChangeParams) {
+        Log.log("Received state change.", LogLevel.Info)
         try {
+            Log.log('Changed FROM ' + VerificationState[this.lastState] + " TO: " +VerificationState[params.newState], LogLevel.Info);
             this.lastState = params.newState;
-            if (!params.progress)
+            if (params.progress <= 0)
                 Log.log("The new state is: " + VerificationState[params.newState], LogLevel.Debug);
             let window = vscode.window;
             switch (params.newState) {
@@ -736,17 +740,12 @@ export class VerificationController {
                 case VerificationState.VerificationRunning:
                     State.abortButton.show();
                     State.statusBarProgress.show();
-                    if (params.progress) {
+                    if (params.progress > 0) {
                         this.progressLabel = `Verification of ${params.filename}:`;
                         this.addTiming(params.filename, params.progress, Color.ACTIVE);
                     }
                     if (params.diagnostics) {
-                        let diagnostics: vscode.Diagnostic[] = [];                        
-                        JSON.parse(params.diagnostics).forEach( item => {
-                            let range = new vscode.Range(item.range.start.line, item.range.start.character, item.range.end.line, item.range.end.character);
-                            let diag = new vscode.Diagnostic(range, item.message, item.severity-1);
-                            diagnostics.push( diag );
-                        }) 
+                        let diagnostics: vscode.Diagnostic[] = params.diagnostics;                        
 
                         State.diagnosticCollection.set(vscode.Uri.parse(params.uri, false), diagnostics);
                     }
