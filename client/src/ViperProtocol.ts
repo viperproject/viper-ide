@@ -160,15 +160,15 @@ export enum Success {
 
 export interface StateChangeParams {
     newState: VerificationState;
-    progress?;
+    progress?: number;
     success?: Success;
-    verificationCompleted?: boolean;
-    manuallyTriggered?: boolean;
+    verificationCompleted?: number;
+    manuallyTriggered?: number;
     filename?: string;
     backendName?: string;
     time?: number;
     nofErrors?: number;
-    verificationNeeded?: boolean;
+    verificationNeeded?: number;
     uri?: string;
     stage?: string;
     error?: string;

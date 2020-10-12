@@ -99,7 +99,7 @@ export class Helper {
     }
 
     public static formatProgress(progress: number): string {
-        if (!progress) return "0%";
+        if (progress <= 0) return "0%";
         return progress.toFixed(0) + "%";
     }
 }

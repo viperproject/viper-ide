@@ -765,7 +765,7 @@ export class VerificationController {
                     });
                     State.isVerifying = false;
 
-                    if (!params.verificationCompleted) {
+                    if (params.verificationCompleted >= 0) {
                         State.statusBarItem.update("ready", Color.READY);
                     }
                     else {
@@ -792,7 +792,7 @@ export class VerificationController {
                                 msg = `Successfully verified ${params.filename} in ${Helper.formatSeconds(params.time)}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(check) " + msg, Color.SUCCESS);
-                                if (params.manuallyTriggered) Log.hint(msg);
+                                if (params.manuallyTriggered > 0) Log.hint(msg);
                                 break;
                             case Success.ParsingFailed:
                                 msg = `Parsing ${params.filename} failed after ${Helper.formatSeconds(params.time)}`;
