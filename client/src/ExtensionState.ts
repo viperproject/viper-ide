@@ -45,7 +45,9 @@ export class State {
 
     public static unitTest: UnitTestCallback;
 
-    public static autoVerify: boolean = true;
+    // OG
+    // public static autoVerify: boolean = true;
+    public static autoVerify: boolean = false;
 
     //status bar
     public static statusBarItem: StatusBar;
