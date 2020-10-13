@@ -1,21 +1,55 @@
-going to listen on port 63064
+going to listen on 127.0.0.1:55649
 Connecting plugin client.
 initialize
-Sep 19, 2020 12:47:31 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
+Okt 13, 2020 12:56:48 PM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
 WARNUNG: Unsupported notification method: initialized
-Sep 19, 2020 12:47:31 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
-WARNUNG: Unsupported notification method: workspace/didChangeConfiguration
-didOpen
-Sep 19, 2020 12:47:37 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
+On config change
+Writing [level:ERROR] logs into (default) journal: C:\Users\Valentin\AppData\Local\Temp\viperserver_journal_16025866099024982496330824303807.log
+ViperServer online in CoreServer mode
+On opening document
+Verifications stopped successfully
+state change params created
+state change params sent
+Successfully generated command: silicon c:\Users\Valentin\Desktop\viperTools\lsp_example\files\sumError.vpr
+Silicon 1.1-SNAPSHOT (433d8ef1)
+
+Successfully started verifying with id: 0
+Starting job #0...
+Job #0 has been completed successfully.
+Terminator deleted job #0
+On changing document
+Okt 13, 2020 12:57:18 PM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
 WARNUNG: Unsupported notification method: textDocument/didSave
-Sep 19, 2020 12:47:37 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
+Verifications stopped successfully
+state change params created
+state change params sent
+Successfully generated command: silicon c:\Users\Valentin\Desktop\viperTools\lsp_example\files\sumError.vpr
+Silicon 1.1-SNAPSHOT (433d8ef1)
+
+Successfully started verifying with id: 1
+Okt 13, 2020 12:57:19 PM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
 WARNUNG: Unsupported notification method: workspace/didChangeWatchedFiles
-didChange
-didChange
-Sep 19, 2020 12:47:40 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
+Starting job #1...
+Job #1 has been completed successfully.
+Terminator deleted job #1
+flushing cache...
+The cache has been flushed successfully.
+On changing document
+Okt 13, 2020 12:57:57 PM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
 WARNUNG: Unsupported notification method: textDocument/didSave
-Sep 19, 2020 12:47:40 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
+Verifications stopped successfully
+state change params created
+state change params sent
+Successfully generated command: silicon c:\Users\Valentin\Desktop\viperTools\lsp_example\files\sumError.vpr
+Silicon 1.1-SNAPSHOT (433d8ef1)
+
+Successfully started verifying with id: 2
+Okt 13, 2020 12:57:58 PM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
 WARNUNG: Unsupported notification method: workspace/didChangeWatchedFiles
-didClose
-Sep 19, 2020 12:48:03 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint request
-WARNUNG: Unsupported request method: Dispose
+Starting job #2...
+Job #2 has been completed successfully.
+Terminator deleted job #2
+shutdown
+exit
+Stopping ViperCoreServer
+shutting down...

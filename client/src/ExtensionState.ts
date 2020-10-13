@@ -258,12 +258,8 @@ export class State {
     public static dispose(): Promise<any> {
         try {
             return new Promise((resolve, reject) => {
-                Log.log("Ask language server to shut down.", LogLevel.Info);
-                State.client.sendRequest(Commands.Dispose, null).then(() => {
-                    Log.log("Language server has shut down, terminate the connection", LogLevel.Info);
-                    this.languageServerDisposable.dispose();
-                    resolve();
-                });
+                Log.log("Initiating language server shutdown.", LogLevel.Info);
+                State.client.stop()
             });
         } catch (e) {
             Log.error("Error disposing state: " + e);
