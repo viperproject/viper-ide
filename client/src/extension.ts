@@ -463,6 +463,7 @@ function registerHandlers() {
         });
 
         State.client.onNotification(Commands.StartBackend, data => {
+            Log.error(data)
             State.addToWorklist(new Task({
                 type: TaskType.StartBackend,
                 backend: data.backend,
@@ -616,7 +617,7 @@ function considerStartingBackend(backendName: string) {
             backend: backendName,
             manuallyTriggered: true,
             forceRestart: false,
-            isViperServerEngine: false //TODO: how to set that correctly
+            isViperServerEngine: true //TODO: how to set that correctly
 
         }));
     } else {

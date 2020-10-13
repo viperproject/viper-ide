@@ -367,14 +367,24 @@ export class VerificationController {
                             }
                             break;
                         case TaskType.StartBackend:
-                            let stoppingNeeded = State.isBackendReady && (!(Common.isViperServer(State.checkedSettings, task.backend) && State.isActiveViperEngine) || task.forceRestart);
+                            //TODO Check this via settings
+                            // let isViperServer = Common.isViperServer(State.checkedSettings, task.backend) && State.isActiveViperEngine
+                            let isViperServer = true;
+                            let stoppingNeeded = State.isBackendReady && (!isViperServer || task.forceRestart);
                             let startingNeeded = !State.isBackendReady || stoppingNeeded;
+                            
+
+                            Log.error("Backend is ready: " + State.isBackendReady);
+                            Log.error("Restart forced: " + task.forceRestart);
+                            Log.error("Active viper engine: " + State.isActiveViperEngine);
+                            Log.error("The flag for starting is : " + startingNeeded);
+                            Log.error("The flag for stopping is : " + stoppingNeeded);
                             //no need to restart when switching between 
                             if (stoppingNeeded) {
                                 this.workList.unshift(new Task({ type: TaskType.StopBackend, manuallyTriggered: task.manuallyTriggered }))
                             }
                             else if (startingNeeded) {
-                                Log.logWithOrigin("workList", "StartingBackend", LogLevel.LowLevelDebug);
+                                Log.logWithOrigin("workList", "Start Backend", LogLevel.LowLevelDebug);
                                 task.markStarted(TaskType.StartingBackend);
                                 State.client.sendNotification(Commands.StartBackend, task.backend);
                             } else {
@@ -399,7 +409,7 @@ export class VerificationController {
                             break;
                         case TaskType.StopBackend:
                             task.markStarted(TaskType.StoppingBackend);
-                            Log.logWithOrigin("workList", "StoppingBackend", LogLevel.LowLevelDebug);
+                            Log.logWithOrigin("workList", "Stop Backend", LogLevel.LowLevelDebug);
                             State.reset()
                             State.client.sendNotification(Commands.StopBackend);
                             break;
