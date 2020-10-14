@@ -15,7 +15,7 @@ import * as path from 'path';
 import { Timer } from './Timer';
 import * as vscode from 'vscode';
 import { State } from './ExtensionState';
-import { SettingsError, Common, Progress, HintMessage, Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success } from './ViperProtocol';
+import { SettingsError, Common, Progress, HintMessage, Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success, BackendStartedParams } from './ViperProtocol';
 import Uri from 'vscode-uri';
 import { Log } from './Log';
 import { StateVisualizer, MyDecorationOptions } from './StateVisualizer';
@@ -204,7 +204,8 @@ function registerHandlers() {
         State.client.onNotification(Commands.Progress, (data: Progress, logLevel: LogLevel) => {
             Log.progress(data, logLevel);
         });
-        // TODO Remove later  
+
+        // TODO Reork  
         // State.client.onNotification(Commands.ToLogFile, (msg: { data: string, logLevel: LogLevel }) => {
         //     Log.toLogFile((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
         // });
@@ -434,17 +435,16 @@ function registerHandlers() {
             State.verificationController.stopDebuggingLocally();
         });
 
-        State.client.onNotification(Commands.StartBackend, data => {
-            Log.error(data)
+        State.client.onNotification(Commands.BackendStarted, (data: BackendStartedParams )=> {
             State.addToWorklist(new Task({
                 type: TaskType.StartBackend,
-                backend: data.backend,
+                backend: data.name,
                 forceRestart: data.forceRestart,
                 manuallyTriggered: false,
                 isViperServerEngine: data.isViperServer
             }));
-            State.activeBackend = data.backend;
-            State.backendStatusBar.update(data.backend, Color.READY);
+            State.activeBackend = data.name;
+            State.backendStatusBar.update(data.name, Color.READY);
             State.hideProgress();
         });
 
