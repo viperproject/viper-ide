@@ -47,6 +47,7 @@ export class Commands {
     static BackendReady = "BackendReady";//BackendReadyParams
     static StepsAsDecorationOptions = "StepsAsDecorationOptions";//StepsAsDecorationOptionsResult
     static HeapGraph = "HeapGraph";//HeapGraph
+    static BackendStarted = "BackendStarted";//backendName:string
     /** The language server notifies an unhandled message type from ViperServer.
      *  
      *  Used to inform the client that there might be some additional messages
@@ -180,6 +181,14 @@ export interface BackendReadyParams {
     name: string;
     //should the open file be reverified
     restarted: boolean;
+    isViperServer: boolean;
+}
+
+export interface BackendStartedParams {
+    //name of the backend ready to use
+    name: string;
+    //should the open file be reverified
+    forceRestart: boolean;
     isViperServer: boolean;
 }
 
