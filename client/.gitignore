@@ -4,3 +4,4 @@ server/
 node_modules/
 out/
 npm-debug.log
+languageServerExample.log

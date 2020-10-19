@@ -227,7 +227,7 @@ function registerHandlers() {
             Log.progress(data, logLevel);
         });
 
-        // TODO Reork  
+        // TODO Rework  
         // State.client.onNotification(Commands.ToLogFile, (msg: { data: string, logLevel: LogLevel }) => {
         //     Log.toLogFile((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
         // });
