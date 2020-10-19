@@ -198,8 +198,9 @@ export class State {
                     let serverBin = "C:\\Users\\Valentin\\Desktop\\viperTools\\viperserver\\target\\scala-2.12\\viper.jar"
         
                     let args = [
-                        '-jar',
+                        '-cp',
                         serverBin,
+                        'viper.server.ViperServerRunner',
                         (server.address() as net.AddressInfo).port.toString()
                     ]
         
