@@ -16,7 +16,11 @@ var sudo = require('sudo-prompt');
 
 //Global interfaces:
 
-//These commands are used to distinguish the different message types
+// These commands are used to distinguish the different message types
+// A file containing the same set of commands also exists in the ViperServer
+// code base under viper/server/frontends/lsp/CommandProtocol.scala. The set of 
+// commands in both files should be kept in sync.
+
 export class Commands {
     //SERVER TO CLIENT
     //Server notifies client about the result of the settings check
