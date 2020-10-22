@@ -182,11 +182,11 @@ export class State {
                 server.listen(() => {
                     // Start the child java process
                     // TODO: Replace null with path to a viper.jar here:
-                    let serverBin = null
+                    let serverJar = null
         
                     let args = [
                         '-cp',
-                        serverBin,
+                        serverJar,
                         'LanguageServerRunner',
                         (server.address() as net.AddressInfo).port.toString()
                     ]
