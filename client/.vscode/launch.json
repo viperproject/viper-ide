@@ -29,7 +29,6 @@
             "env": {
                 "VIPER_IDE_TEST_SUITE": "${workspaceRoot}/dist/test/startup.test.js"
             },
-            "stopOnEntry": false,
             "sourceMaps": true,
             "outFiles": ["${workspaceRoot}/dist/test/**/*.js"],
             "preLaunchTask": {

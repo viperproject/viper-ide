@@ -11,11 +11,8 @@
         ".vscode-test": true
     },
 
+    //workplace settings
     "typescript.implementationsCodeLens.enabled": true, 
     "typescript.tsc.autoDetect": "off",
     "window.title": "${dirty}${activeEditorShort}${separator}$Viper IDE [Client]$"
-    
-    //"files.trimTrailingWhitespace": true,
-    //"editor.rulers": [80, 100],
-    //"typescript.tsdk": "./node_modules/typescript/lib" // we want to use the TS server from our node_modules folder to control its version
 }
