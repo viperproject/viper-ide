@@ -10,12 +10,22 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 
-import * as vscode from 'vscode';
+
+
+//============================================================================//
+// NOTE: Before this extension can be debugged, the path to a viper.jar
+// must be set in Server.startLanguageServer in the file ExtensionState.ts!
+// 
+// NOTE: This extension only works with a version of ViperServer that includes
+// an LSP frontend.
+//============================================================================//
+
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as stripJSONComments from 'strip-json-comments';
 import * as rimraf from 'rimraf';
+import * as vscode from 'vscode';
 import { URI } from 'vscode-uri';
 import { Timer } from './Timer';
 import { State } from './ExtensionState';
@@ -226,14 +236,6 @@ function registerHandlers() {
         State.client.onNotification(Commands.Progress, (data: Progress, logLevel: LogLevel) => {
             Log.progress(data, logLevel);
         });
-
-        // TODO Rework  
-        // State.client.onNotification(Commands.ToLogFile, (msg: { data: string, logLevel: LogLevel }) => {
-        //     Log.toLogFile((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
-        // });
-        // State.client.onNotification(Commands.Error, (msg: { data: string, logLevel: LogLevel }) => {
-        //     Log.error((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
-        // });
 
         State.client.onNotification(Commands.ViperUpdateComplete, (success) => {
             if (success) {
@@ -617,8 +619,7 @@ function considerStartingBackend(backendName: string) {
             backend: backendName,
             manuallyTriggered: true,
             forceRestart: false,
-            isViperServerEngine: true //TODO: how to set that correctly
-
+            isViperServerEngine: true
         }));
     } else {
         Log.log("No need to restart backend " + backendName, LogLevel.Info);

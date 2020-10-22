@@ -367,8 +367,6 @@ export class VerificationController {
                             }
                             break;
                         case TaskType.StartBackend:
-                            //TODO Check this via settings
-                            // let isViperServer = Common.isViperServer(State.checkedSettings, task.backend) && State.isActiveViperEngine
                             let isViperServer = true;
                             let stoppingNeeded = State.isBackendReady && (!isViperServer || task.forceRestart);
                             let startingNeeded = !State.isBackendReady || stoppingNeeded;
@@ -442,10 +440,6 @@ export class VerificationController {
     }
 
     private getStoppingTimeout():number{
-        // TODO make this work with settings
-        // let backendName = State.activeBackend;
-        // let backendSettings = State.checkedSettings.verificationBackends.find(config => config.name == backendName)
-        // return backendSettings.stoppingTimeout;
         return 10000;
     }
 

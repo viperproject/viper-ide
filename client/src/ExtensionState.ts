@@ -59,22 +59,8 @@ export class State {
 
     public static viperApi: ViperApi;
 
-    // public static createState(): State {
-    //     if (State.instance) {
-    //         return State.instance;
-    //     } else {
-    //         this.reset();
-    //         let newState = new State();
-    //         State.instance = newState;
-    //         return newState;
-    //     }
-    // }
-
     public static getTimeoutOfActiveBackend():number{
         if (!this.checkedSettings) {
-            // TODO Make this work with settings
-            // Log.error("Error getting timeout, there are no checked Settings available, default to no timeout.");
-            // return 0;
             return 10000;
         }else{
             let backend = this.checkedSettings.verificationBackends.find(b => b.name == this.activeBackend);
@@ -194,12 +180,13 @@ export class State {
                 // grab a random port.
                 server.listen(() => {
                     // Start the child java process
-                    let serverBin = "C:\\Users\\Valentin\\Desktop\\viperTools\\viperserver\\target\\scala-2.12\\viper.jar"
+                    // TODO: Replace null with path to a viper.jar here:
+                    let serverBin = null
         
                     let args = [
                         '-cp',
                         serverBin,
-                        'viper.server.ViperServerRunner',
+                        'LanguageServerRunner',
                         (server.address() as net.AddressInfo).port.toString()
                     ]
         
