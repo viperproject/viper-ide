@@ -43,8 +43,7 @@ export class State {
 
     public static unitTest: UnitTestCallback;
 
-    // OG
-    // public static autoVerify: boolean = true;
+    // Set to false for debuggin. Should eventually be changed back to true.
     public static autoVerify: boolean = false;
 
     //status bar
@@ -61,6 +60,7 @@ export class State {
 
     public static getTimeoutOfActiveBackend():number{
         if (!this.checkedSettings) {
+            //TODO Make this a settable parameter.
             return 10000;
         }else{
             let backend = this.checkedSettings.verificationBackends.find(b => b.name == this.activeBackend);
@@ -143,7 +143,7 @@ export class State {
         return fileState ? fileState.stateVisualizer : null;
     }
 
-    ///retrieves the requested file, creating it when needed
+    // retrieves the requested file, creating it when needed
     public static getFileState(uri: URI | string | vscode.Uri): ViperFileState {
         if (!uri) return null;
         let uriObject: vscode.Uri = Helper.uriToObject(uri);
@@ -181,7 +181,7 @@ export class State {
                 server.listen(() => {
                     // Start the child java process
                     // TODO: Replace null with path to a viper.jar here:
-                    let serverJar = null
+                    let serverJar = "C:\\Users\\Valentin\\Desktop\\viperTools\\viperserver\\target\\scala-2.12\\viper.jar"
         
                     let args = [
                         '-cp',
@@ -204,23 +204,6 @@ export class State {
             });
         }
         
-        // The server is implemented in node
-        // let serverModule = State.context.asAbsolutePath(path.join('server', 'server.js'));
-
-        // if (!fs.existsSync(serverModule)) {
-        //     Log.log(serverModule + " does not exist. Reinstall the Extension", LogLevel.Debug);
-        //     return;
-        // }
-        // The debug options for the server
-        const debugOptions = { execArgv: ["--nolazy", "--inspect=5443"] };
-
-        // If the extension is launch in debug mode the debug server options are use
-        // Otherwise the run options are used
-        // let serverOptions: ServerOptions = {
-        //     run: { module: serverModule, transport: TransportKind.ipc },
-        //     debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions }
-        // }
-
         // Options to control the language client
         let clientOptions: LanguageClientOptions = {
             // Register the server for plain text documents
@@ -252,7 +235,7 @@ export class State {
         }
         try {
             Log.log("Initiating language server shutdown.", LogLevel.Info);
-            await State.client.stop();
+            await State.client.stop(); // initiates LSP's termination sequence
             Log.log("Language server has stopped", LogLevel.Info);
         } catch (e) {
             Log.error("Error disposing state: " + e);

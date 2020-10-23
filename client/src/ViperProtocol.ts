@@ -3,7 +3,7 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at http://mozilla.org/MPL/2.0/.
   *
-  * Copyright (c) 2011-2019 ETH Zurich.
+  * Copyright (c) 2011-2020 ETH Zurich.
   */
  
 'use strict';
@@ -13,12 +13,13 @@ import * as vscode from 'vscode';
 import { URI } from 'vscode-uri';
 import { Log } from './Log';
 
-//Global interfaces:
-
-// These commands are used to distinguish the different message types
+//==============================================================================
+// These commands are used to distinguish the different message types.
+// 
 // A file containing the same set of commands also exists in the ViperServer
 // code base under viper/server/frontends/lsp/CommandProtocol.scala. The set of 
 // commands in both files should be kept in sync.
+//==============================================================================
 
 export class Commands {
     //SERVER TO CLIENT
@@ -94,6 +95,15 @@ export class Commands {
     //The server requests the identifier at some location in the current file to answer the gotoDefinition request
     static GetIdentifier = "GetIdentifier";
 }
+
+//==============================================================================
+// These data structures are used in communication betwee the client an the
+// server.
+
+// A file containing the same set of data structure also exists in the 
+// ViperServer code base under viper/server/frontends/lsp/DataProtocol.scala. 
+// The set of commands in both files should be kept in sync.
+//==============================================================================
 
 export interface GetExecutionTraceParams {
     uri: string;

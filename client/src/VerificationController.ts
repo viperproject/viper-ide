@@ -3,7 +3,7 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at http://mozilla.org/MPL/2.0/.
   *
-  * Copyright (c) 2011-2019 ETH Zurich.
+  * Copyright (c) 2011-2020 ETH Zurich.
   */
  
 'use strict';
@@ -52,7 +52,9 @@ export class Task implements ITask {
         this.backend = task.backend;
         this.manuallyTriggered = task.manuallyTriggered;
         this.success = task.success;
-        this.isViperServerEngine = task.isViperServerEngine;
+        // TODO Conceptually this parameter is no longer required, as the
+        // extension should only work with ViperServer as engine.
+        this.isViperServerEngine = true
         this.timeout = task.timeout;
         this.forceRestart = task.forceRestart;
     }
@@ -367,17 +369,10 @@ export class VerificationController {
                             }
                             break;
                         case TaskType.StartBackend:
-                            let isViperServer = true;
-                            let stoppingNeeded = State.isBackendReady && (!isViperServer || task.forceRestart);
+                            let stoppingNeeded = State.isBackendReady && task.forceRestart;
                             let startingNeeded = !State.isBackendReady || stoppingNeeded;
-                            
 
-                            Log.error("Backend is ready: " + State.isBackendReady);
-                            Log.error("Restart forced: " + task.forceRestart);
-                            Log.error("Active viper engine: " + State.isActiveViperEngine);
-                            Log.error("The flag for starting is : " + startingNeeded);
-                            Log.error("The flag for stopping is : " + stoppingNeeded);
-                            //no need to restart when switching between 
+                            //no need to restart when switching between backends
                             if (stoppingNeeded) {
                                 this.workList.unshift(new Task({ type: TaskType.StopBackend, manuallyTriggered: task.manuallyTriggered }))
                             }
@@ -395,7 +390,7 @@ export class VerificationController {
                             //block until backend change complete;
                             if (backendStarted) {
                                 task.type = NoOp;
-                                Log.logWithOrigin("workList", "BackendStarted", LogLevel.LowLevelDebug);
+                                Log.logWithOrigin("workList", "Backend started", LogLevel.LowLevelDebug);
                                 State.backendStatusBar.update(task.backend, Color.READY);
                                 State.activeBackend = task.backend;
                             }
@@ -414,7 +409,7 @@ export class VerificationController {
                         case TaskType.StoppingBackend:
                             //block until backend change complete;
                             if (backendStopped) {
-                                Log.logWithOrigin("workList", "BackendStopped", LogLevel.LowLevelDebug);
+                                Log.logWithOrigin("workList", "Backend stopped", LogLevel.LowLevelDebug);
                                 task.type = NoOp;
                             }
                             break;
@@ -439,7 +434,8 @@ export class VerificationController {
         State.context.subscriptions.push(this.controller);
     }
 
-    private getStoppingTimeout():number{
+    private getStoppingTimeout(): number{
+        //TODO Make this a settable parameter.
         return 10000;
     }
 
