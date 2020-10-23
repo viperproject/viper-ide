@@ -181,8 +181,7 @@ export class State {
                 server.listen(() => {
                     // Start the child java process
                     // TODO: Replace null with path to a viper.jar here:
-                    let serverJar = "C:\\Users\\Valentin\\Desktop\\viperTools\\viperserver\\target\\scala-2.12\\viper.jar"
-        
+                    let serverJar = null
                     let args = [
                         '-cp',
                         serverJar,
