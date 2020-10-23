@@ -13,7 +13,7 @@
 
 
 //============================================================================//
-// NOTE: Before this extension can be debugged, the path to a viper.jar
+// NOTE: Before this extension can be launched, the path to a viper.jar
 // must be set in Server.startLanguageServer in the file ExtensionState.ts!
 // 
 // NOTE: This extension only works with a version of ViperServer that includes
@@ -46,7 +46,6 @@ let formatter: ViperFormatter;
 let lastVersionWithSettingsChange: Versions;
 
 // this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
     if (State.unitTest) State.unitTest.activated();
     Helper.loadViperFileExtensions();
@@ -201,16 +200,19 @@ function registerHandlers() {
     State.client.onReady().then(ready => {
 
         State.client.onNotification(Commands.StateChange, (params: StateChangeParams) => State.verificationController.handleStateChange(params));
+        
         State.client.onNotification(Commands.SettingsChecked, (data: SettingsCheckedParams) => handleSettingsCheckResult(data));
+        
         State.client.onNotification(Commands.Hint, (data: HintMessage) => {
             Log.hint(data.message, "Viper", data.showSettingsButton, data.showViperToolsUpdateButton);
         });
+        
         State.client.onNotification(Commands.Log, (data, logLevel) => {
-            // OG
-            // Log.log((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
             let lvl: LogLevel = logLevel
-            Log.log((Log.logLevel >= 0 ? "S: " : "") + data, lvl);
+            let prefix = Log.logLevel >= LogLevel.Debug ? "S: " : ""
+            Log.log(prefix + data, lvl);
         });
+        
         State.client.onNotification(Commands.Progress, (data: Progress, logLevel: LogLevel) => {
             Log.progress(data, logLevel);
         });
@@ -230,6 +232,7 @@ function registerHandlers() {
             State.addToWorklist(new Task({ type: TaskType.ViperToolsUpdateComplete, uri: null, manuallyTriggered: false }));
             State.hideProgress();
         });
+        
         State.client.onNotification(Commands.FileOpened, (uri: string) => {
             try {
                 Log.log("File openend: " + path.basename(uri), LogLevel.Info);
@@ -244,6 +247,7 @@ function registerHandlers() {
                 Log.error("Error handling file opened notification: " + e);
             }
         });
+        
         State.client.onNotification(Commands.FileClosed, (uri: string) => {
             try {
                 let uriObject: Uri = Uri.parse(uri);
@@ -273,6 +277,7 @@ function registerHandlers() {
         State.client.onRequest(Commands.RequestRequiredVersion, () => {
             return getRequiredVersion();
         });
+
         State.client.onRequest(Commands.GetIdentifier, (position) => {
             try {
                 let range = vscode.window.activeTextEditor.document.getWordRangeAtPosition(new vscode.Position(position.line, position.character))
@@ -285,13 +290,16 @@ function registerHandlers() {
                 return null;
             }
         });
+
         State.client.onRequest(Commands.CheckIfSettingsVersionsSpecified, () => {
             return checkIfSettingsVersionsSpecified();
         });
+
         State.client.onRequest(Commands.GetViperFileEndings, () => {
             Helper.loadViperFileExtensions();
             return Helper.viperFileEndings;
         });
+
         State.context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
             try {
                 State.addToWorklist(new Task({ type: TaskType.Save, uri: params.uri }));
@@ -299,6 +307,7 @@ function registerHandlers() {
                 Log.error("Error handling saved document: " + e);
             }
         }));
+
         State.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
             try {
                 Log.updateSettings();
@@ -308,6 +317,7 @@ function registerHandlers() {
                 Log.error("Error handling configuration change: " + e);
             }
         }));
+
         //trigger verification texteditorChange
         State.context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(() => {
             try {
@@ -591,7 +601,6 @@ function considerStartingBackend(backendName: string) {
             backend: backendName,
             manuallyTriggered: true,
             forceRestart: false,
-            isViperServerEngine: true
         }));
     } else {
         Log.log("No need to restart backend " + backendName, LogLevel.Info);

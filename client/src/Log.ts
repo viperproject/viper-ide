@@ -3,7 +3,7 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at http://mozilla.org/MPL/2.0/.
   *
-  * Copyright (c) 2011-2019 ETH Zurich.
+  * Copyright (c) 2011-2020 ETH Zurich.
   */
  
 'use strict';
@@ -119,9 +119,7 @@ export class Log {
     private static doLog(message: string, logLevel: LogLevel) {
         let timing = this.logTiming ? this.prettyUptime() + ' ' : '';
         message = this.prefix(logLevel) + message;
-        // OG
-        // if (!Log.logLevel || Log.logLevel >= logLevel) {
-        if (!Log.logLevel || Log.logLevel >= 0) {
+        if (!Log.logLevel || Log.logLevel >= logLevel) {
             console.log(timing + message);
             Log.outputChannel.append(message + "\n");
         }
