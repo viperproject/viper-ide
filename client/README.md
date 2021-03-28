@@ -28,7 +28,7 @@
 
 
 ### v.2.0.10
-* Fixed a bug with internal errors not being reported properly (e.g., ```"tag": "internal:feature.unsupported"```). See [Silicon#326](https://bitbucket.org/viperproject/silicon/issues/326)
+* Fixed a bug with internal errors not being reported properly (e.g., ```"tag": "internal:feature.unsupported"```). See [Silicon#326](https://github.com/viperproject/silicon/issues/326)
 * Fixed a bug with error reporting in custom backends (```"type": "other"```).
 * Changed the extension category to an appropriate one (Programming Languages). Thanks to Greg Van Liew <gregvanl@microsoft.com> for pointing that out!
 
@@ -58,7 +58,7 @@
             "stoppingTimeout": 5000
         }
 
-    ```core.MyCustomVerificationBackend``` must be a class that extends [SilFrontend](https://bitbucket.org/viperproject/silver/src/3d835cb8e183249aefd761bccbc523e1adcfb8c3/src/main/scala/viper/silver/frontend/SilFrontend.scala?at=default&fileviewer=file-view-default)
+    ```core.MyCustomVerificationBackend``` must be a class that extends [SilFrontend](https://github.com/viperproject/silver/blob/master/src/main/scala/viper/silver/frontend/SilFrontend.scala)
     that exists in a reachable JAR file (you have to manually add it to
     ```$viperToolsPath/Viper/backends``` manually).
 
@@ -71,7 +71,7 @@
 
 # Documentation
 
-[Wiki](https://bitbucket.org/viperproject/viper-ide/wiki/browse/)
+[Wiki](https://github.com/viperproject/viper-ide/wiki)
 
 [Project page](http://viper.ethz.ch)
 

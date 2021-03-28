@@ -5,12 +5,15 @@
     "publisher": "viper-admin",
     "description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
     "license": "SEE LICENSE IN LICENSE.txt",
-    "repository": "bitbucket:viperproject/viper-ide",
-    "bugs": "https://bitbucket.org/viperproject/viper-ide/issues",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/viperproject/viper-ide"
+    },
+    "bugs": "https://github.com/viperproject/viper-ide/issues",
     "author": {
         "name": "Chair of Programming Methodology, ETH Zurich",
         "email": "viper@inf.ethz.ch",
-        "url": "viper.ethz.ch"
+        "url": "https://viper.ethz.ch"
     },
     "main": "./out/extension",
     "engines": {
@@ -296,7 +299,7 @@
                         "viperServerAddress": "http://127.0.0.1",
                         "viperServerPort": 12345
                     },
-                    "description": "ViperServer-related settings. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20ViperServer"
+                    "description": "ViperServer-related settings. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-ViperServer"
                 },
                 "viperSettings.verificationBackends": {
                     "type": "array",
@@ -336,7 +339,7 @@
                             "stoppingTimeout": 5000
                         }
                     ],
-                    "description": "The list of verification backends. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Verification%20Backends"
+                    "description": "The list of verification backends. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Verification-Backends"
                 },
                 "viperSettings.paths": {
                     "type": "object",
@@ -358,7 +361,7 @@
                             "mac": "$viperTools$/boogie/Binaries/Boogie"
                         }
                     },
-                    "description": "Paths to the dependencies. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Paths"
+                    "description": "Paths to the dependencies. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Paths"
                 },
                 "viperSettings.preferences": {
                     "type": "object",
@@ -374,7 +377,7 @@
                             "mac": "http://viper.ethz.ch/downloads/ViperToolsMac.zip"
                         }
                     },
-                    "description": "General user preferences. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Preferences"
+                    "description": "General user preferences. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Preferences"
                 },
                 "viperSettings.javaSettings": {
                     "type": "object",
@@ -382,7 +385,7 @@
                         "v": "674a514867b1",
                         "customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$ -server $mainMethod$"
                     },
-                    "description": "Settings used for running Java commands. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Java%20Settings"
+                    "description": "Settings used for running Java commands. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Java-Settings"
                 },
                 "viperSettings.advancedFeatures": {
                     "type": "object",
@@ -397,7 +400,7 @@
                         "compareStates": true,
                         "verificationBufferSize": 102400
                     },
-                    "description": "Settings concerning the advanced features. For more information, see https://bitbucket.org/viperproject/viper-ide/wiki/Settings:%20Advanced%20Features"
+                    "description": "Settings concerning the advanced features. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Advanced-Features"
                 }
             }
         }
