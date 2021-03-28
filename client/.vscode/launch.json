@@ -27,22 +27,6 @@
             "sourceMaps": true,
             "outFiles": ["${workspaceRoot}/out/test/**/*.js"],
             "preLaunchTask": "npm: watch"
-        }/*,
-        {
-            "name": "Run Server",
-            "type": "node",
-            "request": "launch",
-            "runtimeArgs": [
-                "--nolazy"
-            ],
-            "program": "${workspaceRoot}/src/debug.ts",
-            "stopOnEntry": false,
-            "args": [
-                "--server=4711"
-            ],
-            "sourceMaps": true,
-            "outFiles": ["${workspaceRoot}/out/** / * . j s "],
-            "cwd": "${workspaceRoot}"
-        }*/
+        }
     ]
 }
