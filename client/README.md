@@ -1,8 +1,11 @@
 
 #Changelog
 
+### v.2.2.3
+* Updated links after migrating from Bitbucket to Github. 
+
 ### v.2.2.2
-* Small fixes after migrating the extension to the new name.
+* Small fixes after migrating the extension to the new name. 
 
 ### v.2.2.1
 * **Please check the new [online Viper tutorial](http://viper.ethz.ch/tutorial/).**
