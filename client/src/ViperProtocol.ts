@@ -3,19 +3,25 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at http://mozilla.org/MPL/2.0/.
   *
-  * Copyright (c) 2011-2019 ETH Zurich.
+  * Copyright (c) 2011-2020 ETH Zurich.
   */
  
 'use strict';
 
 import Uri from 'vscode-uri';
 import child_process = require('child_process');
+import * as vscode from 'vscode';
 import { Log } from './Log';
 var sudo = require('sudo-prompt');
 
-//Global interfaces:
+//==============================================================================
+// These commands are used to distinguish the different message types.
+// 
+// A file containing the same set of commands also exists in the ViperServer
+// code base under viper/server/frontends/lsp/CommandProtocol.scala. The set of 
+// commands in both files should be kept in sync.
+//==============================================================================
 
-//These commands are used to distinguish the different message types
 export class Commands {
     //SERVER TO CLIENT
     //Server notifies client about the result of the settings check
@@ -47,6 +53,7 @@ export class Commands {
     static BackendReady = "BackendReady";//BackendReadyParams
     static StepsAsDecorationOptions = "StepsAsDecorationOptions";//StepsAsDecorationOptionsResult
     static HeapGraph = "HeapGraph";//HeapGraph
+    static BackendStarted = "BackendStarted";//backendName:string
     /** The language server notifies an unhandled message type from ViperServer.
      *  
      *  Used to inform the client that there might be some additional messages
@@ -89,6 +96,15 @@ export class Commands {
     //The server requests the identifier at some location in the current file to answer the gotoDefinition request
     static GetIdentifier = "GetIdentifier";
 }
+
+//==============================================================================
+// These data structures are used in communication betwee the client an the
+// server.
+
+// A file containing the same set of data structure also exists in the 
+// ViperServer code base under viper/server/frontends/lsp/DataProtocol.scala. 
+// The set of commands in both files should be kept in sync.
+//==============================================================================
 
 export interface GetExecutionTraceParams {
     uri: string;
@@ -159,19 +175,19 @@ export enum Success {
 
 export interface StateChangeParams {
     newState: VerificationState;
-    progress?;
+    progress?: number;
     success?: Success;
-    verificationCompleted?: boolean;
-    manuallyTriggered?: boolean;
+    verificationCompleted?: number;
+    manuallyTriggered?: number;
     filename?: string;
     backendName?: string;
     time?: number;
     nofErrors?: number;
-    verificationNeeded?: boolean;
+    verificationNeeded?: number;
     uri?: string;
     stage?: string;
     error?: string;
-    diagnostics?: string
+    diagnostics?: vscode.Diagnostic[]
 }
 
 export interface BackendReadyParams {
@@ -179,6 +195,14 @@ export interface BackendReadyParams {
     name: string;
     //should the open file be reverified
     restarted: boolean;
+    isViperServer: boolean;
+}
+
+export interface BackendStartedParams {
+    //name of the backend ready to use
+    name: string;
+    //should the open file be reverified
+    forceRestart: boolean;
     isViperServer: boolean;
 }
 

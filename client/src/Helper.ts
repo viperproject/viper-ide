@@ -3,7 +3,7 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at http://mozilla.org/MPL/2.0/.
   *
-  * Copyright (c) 2011-2019 ETH Zurich.
+  * Copyright (c) 2011-2020 ETH Zurich.
   */
  
 'use strict';
@@ -99,7 +99,7 @@ export class Helper {
     }
 
     public static formatProgress(progress: number): string {
-        if (!progress) return "0%";
+        if (progress <= 0) return "0%";
         return progress.toFixed(0) + "%";
     }
 }

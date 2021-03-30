@@ -3,7 +3,7 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at http://mozilla.org/MPL/2.0/.
   *
-  * Copyright (c) 2011-2019 ETH Zurich.
+  * Copyright (c) 2011-2020 ETH Zurich.
   */
  
 'use strict';
@@ -52,7 +52,9 @@ export class Task implements ITask {
         this.backend = task.backend;
         this.manuallyTriggered = task.manuallyTriggered;
         this.success = task.success;
-        this.isViperServerEngine = task.isViperServerEngine;
+        // TODO Conceptually this parameter is no longer required, as the
+        // extension should only work with ViperServer as engine.
+        this.isViperServerEngine = true
         this.timeout = task.timeout;
         this.forceRestart = task.forceRestart;
     }
@@ -367,14 +369,15 @@ export class VerificationController {
                             }
                             break;
                         case TaskType.StartBackend:
-                            let stoppingNeeded = State.isBackendReady && (!(Common.isViperServer(State.checkedSettings, task.backend) && State.isActiveViperEngine) || task.forceRestart);
+                            let stoppingNeeded = State.isBackendReady && task.forceRestart;
                             let startingNeeded = !State.isBackendReady || stoppingNeeded;
-                            //no need to restart when switching between 
+
+                            //no need to restart when switching between backends
                             if (stoppingNeeded) {
                                 this.workList.unshift(new Task({ type: TaskType.StopBackend, manuallyTriggered: task.manuallyTriggered }))
                             }
                             else if (startingNeeded) {
-                                Log.logWithOrigin("workList", "StartingBackend", LogLevel.LowLevelDebug);
+                                Log.logWithOrigin("workList", "Start Backend", LogLevel.LowLevelDebug);
                                 task.markStarted(TaskType.StartingBackend);
                                 State.client.sendNotification(Commands.StartBackend, task.backend);
                             } else {
@@ -387,7 +390,7 @@ export class VerificationController {
                             //block until backend change complete;
                             if (backendStarted) {
                                 task.type = NoOp;
-                                Log.logWithOrigin("workList", "BackendStarted", LogLevel.LowLevelDebug);
+                                Log.logWithOrigin("workList", "Backend started", LogLevel.LowLevelDebug);
                                 State.backendStatusBar.update(task.backend, Color.READY);
                                 State.activeBackend = task.backend;
                             }
@@ -399,14 +402,14 @@ export class VerificationController {
                             break;
                         case TaskType.StopBackend:
                             task.markStarted(TaskType.StoppingBackend);
-                            Log.logWithOrigin("workList", "StoppingBackend", LogLevel.LowLevelDebug);
+                            Log.logWithOrigin("workList", "Stop Backend", LogLevel.LowLevelDebug);
                             State.reset()
                             State.client.sendNotification(Commands.StopBackend);
                             break;
                         case TaskType.StoppingBackend:
                             //block until backend change complete;
                             if (backendStopped) {
-                                Log.logWithOrigin("workList", "BackendStopped", LogLevel.LowLevelDebug);
+                                Log.logWithOrigin("workList", "Backend stopped", LogLevel.LowLevelDebug);
                                 task.type = NoOp;
                             }
                             break;
@@ -431,10 +434,9 @@ export class VerificationController {
         State.context.subscriptions.push(this.controller);
     }
 
-    private getStoppingTimeout():number{
-        let backendName = State.activeBackend;
-        let backendSettings = State.checkedSettings.verificationBackends.find(config => config.name == backendName)
-        return backendSettings.stoppingTimeout;
+    private getStoppingTimeout(): number{
+        //TODO Make this a settable parameter.
+        return 10000;
     }
 
     private handleSaveTask(fileState: ViperFileState) {
@@ -721,9 +723,11 @@ export class VerificationController {
     }
 
     public handleStateChange(params: StateChangeParams) {
+        Log.log("Received state change.", LogLevel.Info)
         try {
+            Log.log('Changed FROM ' + VerificationState[this.lastState] + " TO: " +VerificationState[params.newState], LogLevel.Info);
             this.lastState = params.newState;
-            if (!params.progress)
+            if (params.progress <= 0)
                 Log.log("The new state is: " + VerificationState[params.newState], LogLevel.Debug);
             let window = vscode.window;
             switch (params.newState) {
@@ -734,17 +738,12 @@ export class VerificationController {
                 case VerificationState.VerificationRunning:
                     State.abortButton.show();
                     State.statusBarProgress.show();
-                    if (params.progress) {
+                    if (params.progress > 0) {
                         this.progressLabel = `Verification of ${params.filename}:`;
                         this.addTiming(params.filename, params.progress, Color.ACTIVE);
                     }
                     if (params.diagnostics) {
-                        let diagnostics: vscode.Diagnostic[] = [];                        
-                        JSON.parse(params.diagnostics).forEach( item => {
-                            let range = new vscode.Range(item.range.start.line, item.range.start.character, item.range.end.line, item.range.end.character);
-                            let diag = new vscode.Diagnostic(range, item.message, item.severity-1);
-                            diagnostics.push( diag );
-                        }) 
+                        let diagnostics: vscode.Diagnostic[] = params.diagnostics;                        
 
                         State.diagnosticCollection.set(vscode.Uri.parse(params.uri), diagnostics);
                     }
@@ -766,7 +765,7 @@ export class VerificationController {
                     });
                     State.isVerifying = false;
 
-                    if (!params.verificationCompleted) {
+                    if (params.verificationCompleted >= 0) {
                         State.statusBarItem.update("ready", Color.READY);
                     }
                     else {
@@ -793,7 +792,7 @@ export class VerificationController {
                                 msg = `Successfully verified ${params.filename} in ${Helper.formatSeconds(params.time)}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(check) " + msg, Color.SUCCESS);
-                                if (params.manuallyTriggered) Log.hint(msg);
+                                if (params.manuallyTriggered > 0) Log.hint(msg);
                                 break;
                             case Success.ParsingFailed:
                                 msg = `Parsing ${params.filename} failed after ${Helper.formatSeconds(params.time)}`;
