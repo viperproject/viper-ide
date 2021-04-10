@@ -1,22 +1,38 @@
+### Quick Links
+[Installation instructions](http://viper.ethz.ch/downloads) | [Viper IDE's wiki](https://github.com/viperproject/viper-ide/wiki) | [Viper project's webpage](http://viper.ethz.ch)
 
-#Changelog
 
-### v.2.2.3
+### Changelog
+
+#### v.2.2.4
+* Adapted the Http mechanism to the latest changes in the ViperServer Http API.
+* Dependencies are now downloaded by-default as ```ViperToolsRelease$PlatformName.zip``` where ```$PlatformName``` expands to either ```Linux```, ```Mac```, or ```Windows```.
+* Dependencies are now installed by-default into the following locations:
+
+    * ```$HOME/.config/Viper``` (on Linux)
+    * ```$HOME/Library/Application Support/Viper``` (on Mac)
+    * ```%APPDATA%\Viper``` (on Windows)
+
+    Hence, the installation no longer requires the admin password. 
+
+* Some bug fixes (environment variables in configuration paths are now expanded on all platforms)
+
+#### v.2.2.3
 * Updated links after migrating from Bitbucket to Github. 
 
-### v.2.2.2
+#### v.2.2.2
 * Small fixes after migrating the extension to the new name. 
 
-### v.2.2.1
+#### v.2.2.1
 * **Please check the new [online Viper tutorial](http://viper.ethz.ch/tutorial/).**
 * Caching is now enabled by default. The cache is stored separately for different verification backends.
 
-### v.2.1.1
+#### v.2.1.1
 * **Please update the IDE dependencies via Command Palette in order to use this version.**
 * Fixed the bug that caused some verification failures to appear twice when caching is enabled.
 * The new ViperServer supports caching of verification results for both verification backends. The caching mechanism is optimized.
 
-### v.2.1.0
+#### v.2.1.0
 * **Please update the IDE dependencies via Command Palette in order to use this version.**
 * Fixed the bug causing the bottom pane to pop-up at startup or while navigating the code, jumping to definition, etc.
 * The new ViperServer supports caching of verification results from Silicon.
@@ -30,12 +46,12 @@
     To invalidate the cache, use ```Viper: flush the cache``` from the command palette.
 
 
-### v.2.0.10
+#### v.2.0.10
 * Fixed a bug with internal errors not being reported properly (e.g., ```"tag": "internal:feature.unsupported"```). See [Silicon#326](https://github.com/viperproject/silicon/issues/326)
 * Fixed a bug with error reporting in custom backends (```"type": "other"```).
 * Changed the extension category to an appropriate one (Programming Languages). Thanks to Greg Van Liew <gregvanl@microsoft.com> for pointing that out!
 
-### v.2.0.9
+#### v.2.0.9
 * **Please update the IDE dependencies via Command Palette in order to use this version.**
 * The new ViperServer avoids race conditions in HTTP router.
 * ViperServer's log file location is now written to the output panel.
@@ -65,17 +81,8 @@
     that exists in a reachable JAR file (you have to manually add it to
     ```$viperToolsPath/Viper/backends``` manually).
 
-### v.2.0.7
+#### v.2.0.7
 * Arbitrary-large input programs are supported via JSON streaming.
 
-### v.2.0.6
+#### v.2.0.6
 * Dynamic verification backends can be specified for the ViperServer engine.
-
-
-# Documentation
-
-[Wiki](https://github.com/viperproject/viper-ide/wiki)
-
-[Project page](http://viper.ethz.ch)
-
-[Installing and uninstalling ViperIDE](http://viper.ethz.ch/downloads)
