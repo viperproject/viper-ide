@@ -382,13 +382,11 @@ export class Server {
             }
 
             Log.log("Updating Viper Tools ...", LogLevel.Default);
-            let filename: string;
-            if (Settings.isWin) {
-                filename = "ViperToolsWin.zip"
-            } else {
-                filename = Settings.isLinux ? "ViperToolsLinux.zip" : "ViperToolsMac.zip";
-            }
-            //check access to download location
+            let url = <string>Settings.settings.preferences.viperToolsProvider;
+            // Extract the expected file's name
+            let filename = url.split(/[\\\/]/).pop()
+
+            // Check access to download location
             let dir = <string>Settings.settings.paths.viperToolsPath;
             let viperToolsPath = pathHelper.join(dir, filename);
 
@@ -413,7 +411,6 @@ export class Server {
                     throw ("The Viper Tools Update failed, change the ViperTools directory to a folder in which you have permission to create files. " + error);
                 }
                 //download Viper Tools
-                let url = <string>Settings.settings.preferences.viperToolsProvider;
                 Log.log("Downloading ViperTools from " + url + " ...", LogLevel.Default)
                 return Server.download(url, viperToolsPath);
             }).then(success => {
