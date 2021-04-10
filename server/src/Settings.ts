@@ -318,7 +318,7 @@ export class Settings {
                     if (!resolvedPath.exists) {
                         if (!viperToolsUpdated) {
                             //Automatically install the Viper tools
-                            Server.updateViperTools(true);
+                            Server.updateViperTools(false);
                             reject(); // in this case we do not want to continue restarting the backend,
                             //the backend will be restarted after the update
                         } else {
@@ -683,7 +683,7 @@ export class Settings {
 
     private static extractEnvVars(path: string): ResolvedPath {
         if (path && path.length > 2) {
-            while (path.indexOf("%") >= 0) {
+            while (Settings.isWin && path.indexOf("%") >= 0) {
                 let start = path.indexOf("%")
                 let end = path.indexOf("%", start + 1);
                 if (end < 0) {
@@ -695,9 +695,25 @@ export class Settings {
                     return { path: path, exists: false, error: "environment variable " + envName + " used in path " + path + " is not set" };
                 }
                 if (envValue.indexOf("%") >= 0) {
-                    return { path: path, exists: false, error: "environment variable: " + envName + " must not contain %: " + envValue };
+                    return { path: path, exists: false, error: "environment variable: " + envName + " must not contain '%': " + envValue };
                 }
-                path = path.substring(0, start - 1) + envValue + path.substring(end + 1, path.length);
+                path = path.substring(0, start) + envValue + path.substring(end + 1, path.length);
+            }
+            while (!Settings.isWin && path.indexOf("$") >= 0) {
+                let index_of_dollar = path.indexOf("$")
+                let index_of_closing_slash = path.indexOf("/", index_of_dollar + 1)
+                if (index_of_closing_slash < 0) {
+                    index_of_closing_slash = path.length
+                }
+                let envName = path.substring(index_of_dollar + 1, index_of_closing_slash)
+                let envValue = process.env[envName]
+                if (!envValue) {
+                    return { path: path, exists: false, error: "environment variable " + envName + " used in path " + path + " is not set" }
+                }
+                if (envValue.indexOf("$") >= 0) {
+                    return { path: path, exists: false, error: "environment variable: " + envName + " must not contain '$': " + envValue };
+                }
+                path = path.substring(0, index_of_dollar) + envValue + path.substring(index_of_closing_slash, path.length)
             }
         }
         return { path: path, exists: true };
