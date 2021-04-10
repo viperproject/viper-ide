@@ -239,7 +239,8 @@ export class ViperServerService extends BackendService {
                 return onData(JSON.stringify({ type: "Stopped" }))
             }
 
-            if ( message.msg_type === 'verification_result' ) {
+            if ( (message.msg_type === 'verification_result') || 
+                 (message.msg_type === 'ast_construction_result') ) {
 
                 if ( message.hasOwnProperty('msg_body') && 
                         message.msg_body.hasOwnProperty('status') ) {
