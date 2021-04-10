@@ -372,9 +372,9 @@
                         "autoVerifyAfterBackendChange": true,
                         "showProgress": true,
                         "viperToolsProvider": {
-                            "windows": "http://viper.ethz.ch/downloads/ViperToolsWin.zip",
-                            "linux": "http://viper.ethz.ch/downloads/ViperToolsLinux.zip",
-                            "mac": "http://viper.ethz.ch/downloads/ViperToolsMac.zip"
+                            "windows": "http://viper.ethz.ch/downloads/ViperToolsReleaseWin.zip",
+                            "linux": "http://viper.ethz.ch/downloads/ViperToolsReleaseLinux.zip",
+                            "mac": "http://viper.ethz.ch/downloads/ViperToolsReleaseMac.zip"
                         }
                     },
                     "description": "General user preferences. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Preferences"
