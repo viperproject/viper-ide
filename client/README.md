@@ -6,6 +6,7 @@
 
 #### v.2.2.5
 * Introducing sound effects! 🔊 To disable or change the sounds, use ```viperSettings.paths.sfxPrefix```
+* Improved dependency management mechanism
 * Mono is no longer a Viper IDE dependency
 * Minor bug fixes and stability improvements
 

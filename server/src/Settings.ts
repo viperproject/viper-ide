@@ -318,7 +318,7 @@ export class Settings {
                     if (!resolvedPath.exists) {
                         if (!viperToolsUpdated) {
                             //Automatically install the Viper tools
-                            Server.updateViperTools(false);
+                            Server.updateViperTools(true);
                             reject(); // in this case we do not want to continue restarting the backend,
                             //the backend will be restarted after the update
                         } else {
@@ -511,7 +511,7 @@ export class Settings {
             } else if (Settings.isWin) {
                 stringPath = platformDependentPath.windows;
             } else {
-                Log.error("Operation System detection failed, Its not Mac, Windows or Linux");
+                Log.error("Operation System detection failed, it's not Mac, Windows, or Linux");
             }
         }
 
@@ -522,7 +522,7 @@ export class Settings {
             return { path: stringPath, exists: false };
         }
         let resolvedPath = Settings.resolvePath(stringPath, executable);
-        if (!resolvedPath.exists) {
+        if (!resolvedPath.exists && !allowMissingPath) {
             this.addError(prefix + ' path not found: "' + stringPath + '"' + (resolvedPath.path != stringPath ? ' which expands to "' + resolvedPath.path + '"' : "") + (" " + (resolvedPath.error || "")));
         }
         return resolvedPath;

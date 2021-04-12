@@ -638,17 +638,34 @@ export class Common {
         }
     }
 
+    public static executor(command: string, callback) {
+        Log.log("executer: " + command, LogLevel.Debug)
+        child_process.exec(command, (error, stdout, stderr) => {
+            Log.logWithOrigin('stdout', stdout, LogLevel.LowLevelDebug)
+            Log.logWithOrigin('stderr', stderr, LogLevel.LowLevelDebug)
+            if (error) {
+                Log.error('executer error: ' + error)
+            }
+            callback()
+        })
+    }
+
     public static sudoExecuter(command: string, name: string, callback) {
         Log.log("sudo-executer: " + command, LogLevel.Debug)
-        let options = { name: name }
-        let child = sudo.exec(command, options, function (error, stdout, stderr) {
-            Log.logWithOrigin('stdout', stdout, LogLevel.LowLevelDebug);
-            Log.logWithOrigin('stderr', stderr, LogLevel.LowLevelDebug);
+        let options = { 
+            name: name,
+            /* TODO: add Viper icon
+            icns: '/Applications/Electron.app/Contents/Resources/Viper.icns'
+            */
+        }
+        sudo.exec(command, options, (error, stdout, stderr) => {
+            Log.logWithOrigin('stdout', stdout, LogLevel.LowLevelDebug)
+            Log.logWithOrigin('stderr', stderr, LogLevel.LowLevelDebug)
             if (error) {
-                Log.error('sudo-executer error: ' + error);
+                Log.error('sudo-executer error: ' + error)
             }
-            callback();
-        });
+            callback()
+        })
     }
 
     public static spawner(command: string, args: string[]): child_process.ChildProcess {
