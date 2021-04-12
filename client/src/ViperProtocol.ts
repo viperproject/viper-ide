@@ -11,6 +11,7 @@
 import Uri from 'vscode-uri';
 import child_process = require('child_process');
 import { Log } from './Log';
+import { strict } from 'assert';
 var sudo = require('sudo-prompt');
 
 //Global interfaces:
@@ -600,7 +601,7 @@ export interface TimingInfo {
 export class Common {
     //URI helper Methods
     public static uriToPath(uri: string): string {
-        let uriObject: Uri = Uri.parse(uri);
+        let uriObject: Uri = Uri.parse(uri, false);
         let platformIndependentPath = uriObject.fsPath;
         return platformIndependentPath;
     }

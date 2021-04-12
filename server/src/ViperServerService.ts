@@ -265,7 +265,7 @@ export class ViperServerService extends BackendService {
                     errors: [{
                         tag: 'exceptional.error',
                         start: '0:0',
-                        end: '0:0',
+                        end: '0:12',
                         message: message.msg_body.message,
                         cached: false
                     }]
@@ -306,6 +306,8 @@ export class ViperServerService extends BackendService {
                                     type: "Error",
                                     file: file,
                                     errors: message.msg_body.details.result.errors.map((e) => {
+                                        if (e.position === '<no position>') 
+                                            e.position = {start: '0:0', end: '0:12'}
                                         return {
                                             tag: e.tag,
                                             start: e.position.start,
