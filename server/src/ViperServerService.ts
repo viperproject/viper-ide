@@ -26,6 +26,15 @@ import tree_kill = require('tree-kill')
 import { error } from 'util'
 import { resolve } from '../node_modules/vscode-languageserver/lib/files'
 
+import path = require('path')
+const SOUND = require('sound-play')
+enum Sounds {
+    MinorIssue = 1,
+    MinorSuccess,
+    MajorIssue,
+    MajorSuccess,
+}
+
 export class ViperServerService extends BackendService {
 
     private _server_logfile: string
@@ -40,12 +49,21 @@ export class ViperServerService extends BackendService {
     // FIXME:this is needed because Carbon does not stop the corresponding Boogie process. 
     // FIXME:see https://bitbucket.org/viperproject/carbon/issues/225
     // FIXME:search keyword [FIXME:KILL_BOOGIE] for other parts of this workaround. 
-    private _uncontrolled_pid_list: number[]
+    private _uncontrolled_pid_list: number[]    
 
     public constructor() {
         super()
         this.isViperServerService = true
         this.engine = "ViperServer"
+    }
+
+    private emitSound(sfx: Sounds) {
+        let sfx_prefix = <string>Settings.settings.paths.sfxPrefix
+        if (!sfx_prefix) return
+        if (sfx === Sounds.MinorIssue)   SOUND.play(path.join(sfx_prefix, 'falling-down.wav')) 
+        if (sfx === Sounds.MinorSuccess) SOUND.play(path.join(sfx_prefix, 'bonus-pickup.wav')) 
+        if (sfx === Sounds.MajorIssue)   SOUND.play(path.join(sfx_prefix, 'engine-dying.mp3')) 
+        if (sfx === Sounds.MajorSuccess) SOUND.play(path.join(sfx_prefix, 'magic.mp3')) 
     }
 
     public start(): Promise<boolean> {
@@ -177,12 +195,28 @@ export class ViperServerService extends BackendService {
         this._stream.output.on("data", (object) => { 
             let message = object.value
             //Log.log('recieved message: ' + JSON.stringify(message, null, 2), LogLevel.LowLevelDebug)
+
+            if ( message.msg ) {
+                onData(JSON.stringify({ 
+                    type: "Error",
+                    file: file,
+                    errors: [{
+                        tag: 'exception',
+                        start: '0:0',
+                        end: '0:12',
+                        message: message.msg,
+                        cached: 'unknown'
+                    }]
+                }))
+                return onData(JSON.stringify({ type: "Success" }))
+            }
+
             if ( !message.hasOwnProperty('msg_type') ) {
-                throw `property 'msg_type' not found in message=${message}`
+                throw new Error(`property 'msg_type' not found in message=${message}`)
             }
 
             if ( !message.hasOwnProperty('msg_body') ) {
-                throw `property 'msg_body' not found in message=${message}`
+                throw new Error(`property 'msg_body' not found in message=${message}`)
             }
                 
             if ( message.msg_type === 'statistics' ) {
@@ -250,6 +284,7 @@ export class ViperServerService extends BackendService {
 
                             let first_error_tag = message.msg_body.details.result.errors[0].tag
                             let global_failure = 
+                                message.msg_type === 'ast_construction_result' ||
                                 Server.backend.type === 'other' || 
                                 /* TODO: Implement flag DoesCustomBackendSupportFineGrainedReporting */
                                 message.msg_body.verifier === 'carbon' ||
@@ -264,6 +299,8 @@ export class ViperServerService extends BackendService {
                                 first_error_tag.includes('internal')
 
                             if ( message.msg_body.kind === 'for_entity' || global_failure ) {
+
+                                this.emitSound(Sounds.MinorIssue)
                                     
                                 onData(JSON.stringify({ 
                                     type: "Error",
@@ -281,7 +318,9 @@ export class ViperServerService extends BackendService {
                             }
 
                         } else if ( message.msg_body.status === 'success' && 
-                                    message.msg_body.kind === 'for_entity') {
+                                    message.msg_body.kind === 'for_entity' ) {
+
+                                        this.emitSound(Sounds.MinorSuccess)
                                 
                             return onData(JSON.stringify({
                                 type: (message.msg_body.details.entity.type === 'method' ? 'MethodVerified' 
@@ -290,20 +329,23 @@ export class ViperServerService extends BackendService {
                                 name: message.msg_body.details.entity.name
                             }))
 
-                        } 
-                        
-                        if ( message.msg_body.kind === 'overall') {
+                        }
+                        if ( message.msg_body.kind === 'overall' || 
+                             message.msg_type === 'ast_construction_result' && message.msg_body.status === 'failure' ) {
+
+                            if ( message.msg_body.status === 'success' ) {
+                                this.emitSound(Sounds.MajorSuccess)
+                            } else {
+                                this.emitSound(Sounds.MajorIssue)
+                            }
+                            
                             onData(JSON.stringify({
                                 type: "End", 
                                 time: (message.msg_body.details.time * 0.001) + 's'
                             }))
-                            //if ( message.msg_body.status === 'success' ){
-                                return onData(JSON.stringify({ type: "Success" }))
-                            //} else {
-                            //return onData(JSON.stringify({ type: "Failure" }))
-                            //}
+                            return onData(JSON.stringify({ type: "Success" }))  // Success means the end of the process in this case 
+                                                                                // (for some reason, we don't use Failure)
                         }
-
                 } 
             } else {
                 // Unhandled messages might be destined to some other extension via
@@ -632,44 +674,16 @@ export class ViperServerService extends BackendService {
     private getBoogiePids(): Promise<number[]> {
         if ( Settings.isWin ) {
             return  this.getChildrenPidsForProcess("Boogie.exe", this.backendServerPid)
-        } else if ( Settings.isLinux ) {
-            return this.getChildrenPidsForProcess("Boogie", this.backendServerPid)
         } else {
-            // Java(ViperServer) -> sh(Boogie) -> mono(Boogie.exe) -> {z3, z3, ...}
-            //return this.getChildrenPidsForProcess("sh", this.backendServerPid)
-            return new Promise((resolve, reject) => {
-                this.getChildrenPidsForProcess("sh", this.backendServerPid).then(sh_pid_list => {
-                    this.getChildrenPidsForProcess("mono", sh_pid_list[0]).then(mono_pid_list => {
-                        resolve(mono_pid_list)
-                    }).catch(err => {
-                        reject(`- mono process(es) not found -` + err)
-                    })
-                }).catch(error => {
-                    reject(`-- sh process(es) not found -- ` + error)
-                })
-            })
-        }
+            return this.getChildrenPidsForProcess("Boogie", this.backendServerPid)
+        } 
     }
 
     private getZ3Pids(parent_proc_pid: number): Promise<number[]> {
         if ( Settings.isWin ) {
             return this.getChildrenPidsForProcess("z3.exe", parent_proc_pid)
-
-        } else if ( Settings.isLinux ) {
+        } else {
             return this.getChildrenPidsForProcess("z3", parent_proc_pid)
-            
-        }  else { // Mac
-            return new Promise((resolve, reject) => {
-                this.getChildrenPidsForProcess("mono", parent_proc_pid).then(mono_pid_list => {
-                        this.getChildrenPidsForProcess("z3", mono_pid_list[0]).then(z3_pid_list => {
-                            resolve(z3_pid_list)
-                        }).catch(err => {
-                            reject(`- z3 process(es) not found -` + err)
-                        })
-                }).catch(error => {
-                    reject(`-- mono process(es) not found -- ` + error)
-                })
-            })
         }
     }
 

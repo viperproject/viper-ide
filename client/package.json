@@ -37,6 +37,7 @@
         "psl": "^1.1.31",
         "request": "^2.88.0",
         "request-promise-native": "^1.0.7",
+        "sound-play": "^1.1.0",
         "stream-json": "^0.6.1",
         "strip-json-comments": "3.0.1",
         "sudo-prompt": "8.2.5",
@@ -359,7 +360,8 @@
                             "windows": "$viperTools$/boogie/Binaries/Boogie.exe",
                             "linux": "$viperTools$/boogie/Binaries/Boogie.exe",
                             "mac": "$viperTools$/boogie/Binaries/Boogie"
-                        }
+                        },
+                        "sfxPrefix": "$viperTools$/resources/sfx"
                     },
                     "description": "Paths to the dependencies. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Paths"
                 },

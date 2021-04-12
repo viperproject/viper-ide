@@ -259,26 +259,23 @@ function registerHandlers() {
     });
 
     Server.connection.onRequest(Commands.Dispose, () => {
-        return new Promise((resolve, reject) => {
-            try {
-                //if there are running verifications, stop related processes
-                Server.verificationTasks.forEach(task => {
-                    if (task.running) {
-                        //Todo[ATG_6.10.2017]: use UIDs for logging verification tasks.
-                        Log.log("stop verification of " + task.filename, LogLevel.Default);
-                        Server.backendService.stopVerification();
-                    }
-                });
+        try {
+            //if there are running verifications, stop related processes
+            Server.verificationTasks.forEach(task => {
+                if (task.running) {
+                    //Todo[ATG_6.10.2017]: use UIDs for logging verification tasks.
+                    Log.log("stop verification of " + task.filename, LogLevel.Default);
+                    Server.backendService.stopVerification();
+                }
+            });
 
-                console.log("dispose language server");
-                Server.backendService.kill();
-                resolve();
-            } catch (e) {
-                Log.error("Error handling dispose request: " + e);
-                reject();
-            }
-        });
-    });
+            console.log("dispose language server");
+            return Server.backendService.kill()
+        } catch (e) {
+            Log.error("Error handling dispose request: " + e);
+            return Promise.reject()
+        }
+    })
 
     Server.connection.onRequest(Commands.GetExecutionTrace, (params: { uri: string, clientState: number }) => {
         Log.log("Generate execution trace for client state " + params.clientState, LogLevel.Debug);

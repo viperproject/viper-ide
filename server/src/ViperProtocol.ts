@@ -399,14 +399,17 @@ export interface Stage {
 }
 
 export interface PathSettings extends VersionedSettings {
-    //Path to the folder containing all the ViperTools
-    viperToolsPath: string | PlatformDependentPath;
-    //The path to the z3 executable
-    z3Executable: string | PlatformDependentPath;
-    //The path to the boogie executable
-    boogieExecutable: string | PlatformDependentPath;
-    //The path to the dot executable.
-    //dotExecutable: string;
+    // Path to the folder containing all the ViperTools
+    viperToolsPath: string | PlatformDependentPath
+
+    // The path to the z3 executable
+    z3Executable: string | PlatformDependentPath
+
+    // The path to the boogie executable
+    boogieExecutable: string | PlatformDependentPath
+
+    // The prefix of a directory containing sound effect resources
+    sfxPrefix: string | PlatformDependentPath
 }
 
 export interface UserPreferences extends VersionedSettings {

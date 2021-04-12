@@ -4,6 +4,11 @@
 
 ### Changelog
 
+#### v.2.2.5
+* Introducing sound effects! 🔊 To disable or change the sounds, use ```viperSettings.paths.sfxPrefix```
+* Mono is no longer a Viper IDE dependency
+* Minor bug fixes and stability improvements
+
 #### v.2.2.4
 * Adapted the Http mechanism to the latest changes in the ViperServer Http API.
 * Dependencies are now downloaded by-default as ```ViperToolsRelease$PlatformName.zip``` where ```$PlatformName``` expands to either ```Linux```, ```Mac```, or ```Windows```.
@@ -86,3 +91,12 @@
 
 #### v.2.0.6
 * Dynamic verification backends can be specified for the ViperServer engine.
+
+
+### External contributors
+
+We thank the following authors from [freesound.org](https://freesound.org): 
+* **suntemple** for [magic.mp3](https://freesound.org/people/suntemple/sounds/241809/), [bonus-pickup.wav](https://freesound.org/people/suntemple/sounds/253172/), [falling-down.wav](https://freesound.org/people/suntemple/sounds/253173/) 
+* **josepharaoh99** for [engine-dying.mp3](https://freesound.org/people/josepharaoh99/sounds/368512/). 
+
+The sound effects in Viper IDE are licensed under [CC0](https://creativecommons.org/publicdomain/zero/1.0/).

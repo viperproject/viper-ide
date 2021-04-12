@@ -48,7 +48,7 @@ export abstract class BackendService {
     }
 
     public kill() {
-        this.stop();
+        return this.stop();
     }
 
     public startStageProcess(fileToVerify: string, stage: Stage, onData, onError, onClose) {

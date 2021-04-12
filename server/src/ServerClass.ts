@@ -454,7 +454,7 @@ export class Server {
         }
     }
 
-    public static sudoMakeSureFileExistsAndSetOwner(filePath: string): Promise<string> {
+    public static sudoMakeSureFileExistsAndSetOwner(filePath: string): Promise<void> {
         return new Promise((resolve, reject) => {
             let command: string;
             if (Settings.isWin) {
@@ -472,34 +472,4 @@ export class Server {
         });
     }
 
-    //unused
-    public static checkForCreateAndWriteAccess(folderPath: string): Promise<string> {
-        return new Promise((resolve, reject) => {
-            if (!folderPath) {
-                resolve("No access");
-            }
-            fs.stat((folderPath), (err, stats) => {
-                if (err) {
-                    if (err.code == 'ENOENT') {
-                        //no such file or directory
-                        this.checkForCreateAndWriteAccess(this.getParentDir(folderPath)).then(err => {
-                            //pass along the error
-                            resolve(err);
-                        });
-                    }
-                    else if (err.code == 'EACCES') {
-                        resolve("No read permission");
-                    } else {
-                        resolve(err.message);
-                    }
-                }
-                let writePermissions = stats.mode & 0x92;
-                if (writePermissions) {
-                    resolve(null);
-                } else {
-                    resolve("No write permission");
-                }
-            });
-        });
-    }
 }

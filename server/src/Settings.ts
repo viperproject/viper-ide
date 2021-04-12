@@ -327,10 +327,12 @@ export class Settings {
                         return;
                     }
 
-                    //check z3 Executable
-                    settings.paths.z3Executable = this.checkPath(settings.paths.z3Executable, "z3 Executable:", true, true, true).path;
-                    //check boogie executable
-                    settings.paths.boogieExecutable = this.checkPath(settings.paths.boogieExecutable, `Boogie Executable: (If you don't need boogie, set it to "")`, true, true, true).path;
+                    // check z3 executable
+                    settings.paths.z3Executable = this.checkPath(settings.paths.z3Executable, `z3 Executable:`, true, true, true).path
+                    // check boogie executable
+                    settings.paths.boogieExecutable = this.checkPath(settings.paths.boogieExecutable, `Boogie Executable (if you don't need Boogie, set it to ""):`, true, true, true).path
+                    // check sfx prefix
+                    settings.paths.sfxPrefix = this.checkPath(settings.paths.sfxPrefix, `Prefix the sound effect resources (if you don't want sounds, set it to ""):`, false, true, true, true).path
 
                     //check backends
                     if (!settings.verificationBackends || settings.verificationBackends.length == 0) {
@@ -479,7 +481,12 @@ export class Settings {
         return stringPaths;
     }
 
-    private static checkPath(path: (string | PlatformDependentPath), prefix: string, executable: boolean, allowPlatformDependentPath: boolean, allowStringPath: boolean = true, allowMissingPath = false): ResolvedPath {
+    private static checkPath(path: (string | PlatformDependentPath), 
+                             prefix: string, 
+                             executable: boolean, 
+                             allowPlatformDependentPath: boolean, 
+                             allowStringPath: boolean = true, 
+                             allowMissingPath = false): ResolvedPath {
         if (!path) {
             if (!allowMissingPath) this.addError(prefix + " path is missing");
             return { path: null, exists: false };
@@ -768,7 +775,7 @@ export class Settings {
         if (executable && this.isWin && !path.toLowerCase().endsWith(".exe")) {
             path += ".exe";
             //only one recursion at most, because the ending is checked
-            return this.exists(path, executable);
+            return this.exists(path, false);
         }
         return { path: path, exists: false }
     }
