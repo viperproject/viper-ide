@@ -354,19 +354,19 @@ export class Server {
     }
 
     public static getParentDir(fileOrFolderPath: string): string {
-        if (!fileOrFolderPath) return null;
-        let obj = pathHelper.parse(fileOrFolderPath);
+        if (!fileOrFolderPath) return null
+        let obj = pathHelper.parse(fileOrFolderPath)
         if (obj.base) {
-            return obj.dir;
+            return obj.dir
         }
-        let folderPath = obj.dir;
+        let folderPath = obj.dir
         let match = folderPath.match(/(^.*)[\/\\].+$/); //the regex retrieves the parent directory
         if (match) {
             if (match[1] == fileOrFolderPath) {
-                Log.error("getParentDir has a fixpoint at " + fileOrFolderPath);
-                return null;
+                Log.error("getParentDir has a fixpoint at " + fileOrFolderPath)
+                return null
             }
-            return match[1];
+            return match[1]
         }
         else {
             return null
@@ -377,8 +377,8 @@ export class Server {
         try {
             if (!Settings.upToDate()) {
                 Log.hint("The settings are not up to date, refresh them before updating the Viper Tools. ", true)
-                Server.connection.sendNotification(Commands.ViperUpdateComplete, false);//update failed
-                return;
+                Server.connection.sendNotification(Commands.ViperUpdateComplete, false)  // update failed
+                return
             }
 
             Log.log("Updating Viper Tools ...", LogLevel.Default)
@@ -400,58 +400,58 @@ export class Server {
                     Server.makeSureFileExistsAndCheckForWritePermission(viperToolsPath).then(error => {
                         if (error && !Settings.isWin && error.startsWith("EACCES")) {
                             //change the owner of the location 
-                            Log.log("Try to change the ownership of " + dir, LogLevel.Debug);
+                            Log.log("Try to change the ownership of " + dir, LogLevel.Debug)
                             return Server.sudoRefreshDirAndSetOwner(dir)
                         } else {
-                            return error;
+                            return error
                         }
                     }))
             }
             prepareFolderPromise.then(error => {
                 if (error) {
-                    throw ("The Viper Tools Update failed, change the ViperTools directory to a folder in which you have permission to create files. " + error);
+                    throw new Error("The Viper Tools Update failed, change the ViperTools directory to a folder in which you have permission to create files. " + error)
                 }
                 //download Viper Tools
                 Log.log("Downloading ViperTools from " + url + " ...", LogLevel.Default)
-                return Server.download(url, viperToolsPath);
+                return Server.download(url, viperToolsPath)
             }).then(success => {
                 if (success) {
-                    return Server.extract(viperToolsPath);
+                    return Server.extract(viperToolsPath)
                 } else {
-                    throw ("Downloading viper tools unsuccessful.");
+                    throw new Error("Downloading viper tools unsuccessful.")
                 }
             }).then(success => {
                 if (success) {
-                    Log.log("Extracting ViperTools finished " + (success ? "" : "un") + "successfully", LogLevel.Info);
+                    Log.log("Extracting ViperTools finished " + (success ? "" : "un") + "successfully", LogLevel.Info)
                     if (success) {
-                        //chmod to allow the execution of boogie and z3 files
+                        // chmod to allow the execution of boogie and z3 files  
+                        // 755 is for (read, write, execute)
+                        // TODO: use async code and add error handlers
                         if (Settings.isLinux || Settings.isMac) {
-                            fs.chmodSync(pathHelper.join(dir, "z3", "bin", "z3"), '755') //755 is for (read, write, execute)
-                            fs.chmodSync(pathHelper.join(dir, "boogie", "Binaries", "Boogie.exe"), '755');
-                            fs.chmodSync(pathHelper.join(dir, "boogie", "Binaries", "Boogie"), '755');
+                            fs.chmodSync(pathHelper.join(dir, "z3", "bin", "z3"), '755')  
+                            fs.chmodSync(pathHelper.join(dir, "boogie", "Binaries", "Boogie"), '755')
                         }
-
-                        //delete archive
+                        // delete the archive
                         fs.unlink(viperToolsPath, (err) => {
                             if (err) {
-                                Log.error("Error deleting archive after ViperToolsUpdate: " + err);
+                                Log.error("Error deleting archive after ViperToolsUpdate: " + err)
                             }
-                            Log.log("ViperTools Update completed", LogLevel.Default);
-                            Server.connection.sendNotification(Commands.ViperUpdateComplete, true);//success
-                        });
-                        //trigger a restart of the backend
-                        Settings.initiateBackendRestartIfNeeded(null, null, true);
+                            Log.log("ViperTools Update completed", LogLevel.Default)
+                            Server.connection.sendNotification(Commands.ViperUpdateComplete, true)  //success
+                        })
+                        // trigger a restart of the backend
+                        Settings.initiateBackendRestartIfNeeded(null, null, true)
                     }
                 } else {
-                    throw ("Extracting viper tools unsuccessful.");
+                    throw new Error("Extracting viper tools unsuccessful.")
                 }
             }).catch(e => {
-                Log.error(e);
-                Server.connection.sendNotification(Commands.ViperUpdateComplete, false);//update failed
-            });
+                Log.error(e)
+                Server.connection.sendNotification(Commands.ViperUpdateComplete, false)  //update failed
+            })
         } catch (e) {
-            Log.error("Error updating viper tools: " + e);
-            Server.connection.sendNotification(Commands.ViperUpdateComplete, false);//update failed
+            Log.error("Error updating viper tools: " + e)
+            Server.connection.sendNotification(Commands.ViperUpdateComplete, false)  //update failed
         }
     }
 
@@ -480,7 +480,7 @@ export class Server {
         }
         return new Promise((resolve, reject) => {
             Common.sudoExecuter(command, "ViperTools Installer", resolve)
-        });
+        })
     }
 
 }
