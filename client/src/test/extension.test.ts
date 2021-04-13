@@ -626,8 +626,8 @@ function checkForRunningProcesses(checkJava: boolean, checkBoogie: boolean, chec
                 term += '))'
                 terms.push(term);
             }
-            if (checkBoogie) terms.push('name="Boogie.exe"');
-            if (checkZ3) terms.push('name="z3.exe"');
+            if (checkBoogie) terms.push('name="Boogie.exe"');  // TODO use platform-independent binary names
+            if (checkZ3) terms.push('name="z3.exe"');   // TODO use platform-independent binary names
             command = `wmic process where '` + terms.join(' or ') + `' get ParentProcessId,ProcessId,Name,CommandLine`
         } else if (State.isMac) {
             let terms = [];

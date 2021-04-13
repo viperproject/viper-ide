@@ -358,7 +358,7 @@
                         },
                         "boogieExecutable": {
                             "windows": "$viperTools$/boogie/Binaries/Boogie.exe",
-                            "linux": "$viperTools$/boogie/Binaries/Boogie.exe",
+                            "linux": "$viperTools$/boogie/Binaries/Boogie",
                             "mac": "$viperTools$/boogie/Binaries/Boogie"
                         },
                         "sfxPrefix": "$viperTools$/resources/sfx"
