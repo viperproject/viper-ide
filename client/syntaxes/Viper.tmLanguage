@@ -3,7 +3,7 @@
   License, v. 2.0. If a copy of the MPL was not distributed with this
   file, You can obtain one at http://mozilla.org/MPL/2.0/.
   
-  Copyright (c) 2011-2019 ETH Zurich.
+  Copyright (c) 2011-2021 ETH Zurich.
   -->
 
 <?xml version="1.0" encoding="UTF-8"?>
@@ -107,7 +107,7 @@
           </dict>
           <dict>
             <key>match</key>
-            <string>\b(Bool|Int|Ref|Perm|Rational|Set|Seq|Multiset)\b</string>
+            <string>\b(Bool|Int|Ref|Perm|Rational|Set|Seq|Multiset|Map)\b</string>
             <key>name</key>
             <string>storage.type.primitive.silver</string>
           </dict>
@@ -180,7 +180,7 @@
               </dict>
             </dict>
             <key>match</key>
-            <string>\b(import)\s+(".*?")</string>
+            <string>\b(import)\s+(".*?"|<.*?>)</string>
             <key>name</key>
             <string>meta.import.silver</string>
           </dict>
@@ -292,6 +292,18 @@
             <string>\b(acc|forperm|forall|exists|folding|unfolding|packaging|applying|old|perm|result|let)\b</string>
             <key>name</key>
             <string>keyword.other.verification.expression.silver</string>
+          </dict>
+          <dict>
+            <key>match</key>
+            <string>\b(domain|range)\b\s*\(</string>
+            <key>captures</key>
+            <dict>
+              <key>1</key>
+              <dict>
+                <key>name</key>
+                <string>keyword.other.verification.expression.silver</string>              
+              </dict>
+            </dict>
           </dict>
           <dict>
             <key>match</key>
