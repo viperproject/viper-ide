@@ -1,7 +1,7 @@
 {
     "name": "viper",
     "displayName": "Viper",
-    "version": "2.2.5",
+    "version": "2.2.6",
     "publisher": "viper-admin",
     "description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
     "license": "SEE LICENSE IN LICENSE.txt",
@@ -29,8 +29,10 @@
     "dependencies": {
         "command-exists": "^1.2.8",
         "decompress-zip": "^0.2.2",
+        "find-java-home": "github:aterga/node-find-java-home",
         "flatmap-stream": "0.0.1-security",
         "glob-to-regexp": "^0.4.1",
+        "master": "^0.0.14",
         "mkdirp": "^0.5.1",
         "node-ipc": "^9.1.1",
         "portfinder": "^1.0.20",
