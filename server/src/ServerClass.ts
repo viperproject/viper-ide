@@ -7,21 +7,22 @@
   */
  
 'use strict'
-import { ViperServerService } from './ViperServerService';
+import { ViperServerService } from './ViperServerService'
 
-import { IConnection, TextDocuments, PublishDiagnosticsParams } from 'vscode-languageserver';
+import { IConnection, TextDocuments, PublishDiagnosticsParams } from 'vscode-languageserver'
 import { Common, ProgressParams, Command, LogParams, SettingsCheckedParams, Position, Range, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel } from './ViperProtocol'
-import { BackendService } from './BackendService';
-import { VerificationTask } from './VerificationTask';
-import { Log } from './Log';
-import { Settings } from './Settings';
-import * as pathHelper from 'path';
-import * as fs from 'fs';
-import * as http from 'http';
-const os = require('os');
-const globToRexep = require('glob-to-regexp');
-let mkdirp = require('mkdirp');
-var DecompressZip = require('decompress-zip');
+import { BackendService } from './BackendService'
+import { VerificationTask } from './VerificationTask'
+import { Log } from './Log'
+import { Settings } from './Settings'
+import * as pathHelper from 'path'
+import * as fs from 'fs'
+import * as http from 'http'
+const os = require('os')
+const globToRexep = require('glob-to-regexp')
+let mkdirp = require('mkdirp')
+var DecompressZip = require('decompress-zip')
+import findJavaHome = require('find-java-home')
 
 export class Server {
     static backend: Backend;
@@ -375,6 +376,31 @@ export class Server {
 
     public static updateViperTools(askForPermission: boolean) {
         try {
+            // Check Java installation
+            this.backendService.isJreInstalled().then(is_jre_correct => {
+                if (!is_jre_correct) {
+                    // If the user doesn't have JRE x64 at all, notify them that Viper IDE won't work. 
+                    findJavaHome({'allowJre': true, 'registry': "x64"}, (err, home) => {
+                        if (err) {
+                            // JRE cannot be found
+                            Log.hint(`Error locating Java: ${err}. Viper IDE requires JRE 8-to-15 (x64).`)
+                        } else if (home) {
+                            // JRE is found but it is not on Path
+                            Log.hint(`Found a viable JRE installation at '${home}'. ` + 
+                                     `If this is the JRE you want to use with Viper IDE, ` + 
+                                     `please add its 'bin' subdirectory to your system's ` + 
+                                     `PATH variable and restart VS Code.`)
+                        }
+                    })
+                } else {
+                    Log.log(`JRE checks passed.`, LogLevel.Verbose)
+                }
+            }).catch(err => {
+                Log.hint(`Error while checking Java installation: ${err}. ` + 
+                         `Viper IDE requires JRE 8-to-15 (x64).`)
+            })
+            
+
             if (!Settings.upToDate()) {
                 Log.hint("The settings are not up to date, refresh them before updating the Viper Tools. ", true)
                 Server.connection.sendNotification(Commands.ViperUpdateComplete, false)  // update failed
@@ -450,7 +476,7 @@ export class Server {
                 Server.connection.sendNotification(Commands.ViperUpdateComplete, false)  //update failed
             })
         } catch (e) {
-            Log.error("Error updating viper tools: " + e)
+            Log.error("Error installing Viper tools: " + e)
             Server.connection.sendNotification(Commands.ViperUpdateComplete, false)  //update failed
         }
     }
@@ -458,7 +484,7 @@ export class Server {
     private static rmViperToolsDir(path: string): Promise<void> {
         let command: string
         if (Settings.isWin) {
-            command = `rmdir /s /q  + "${path}"`
+            command = `if exist "${path}"\ ( rmdir /s /q  + "${path}" )`
         } else {
             command = `rm -fr '${path}'`
         }
@@ -470,7 +496,7 @@ export class Server {
     private static sudoRefreshDirAndSetOwner(path: string): Promise<void> {
         let command: string
         if (Settings.isWin) {
-            command = 'rmdir /s /q "' + path + '" && mkdir "' + path + '" && takeown /f "' + path + '" /r /d y && icacls "' + path + '" /grant %USERNAME%:F /t /q'
+            command = '( if exist "' + path + '"\ ( rmdir /s /q "' + path + '" ) ) && mkdir "' + path + '" && takeown /f "' + path + '" /r /d y && icacls "' + path + '" /grant %USERNAME%:F /t /q'
         } else if (Settings.isLinux) {
             let user = Server.getUser()
             command = `rm -fr '` + path + `'; sh -c "mkdir -p '` + path + `'; chown -R ` + user + `:` + user + ` '` + path + `'"`
