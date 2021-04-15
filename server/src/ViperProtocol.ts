@@ -583,11 +583,13 @@ export interface HintMessage {
 }
 
 export interface Error {
-    start: string,
-    end: string,
-    tag: string,
+    start: string
+    end: string
+    tag: string
     message: string
-    cached?: boolean;
+    cached?: boolean
+    severity?: number
+    source?: string
 }
 
 export interface TimingInfo {
@@ -600,8 +602,8 @@ export interface TimingInfo {
 export class Common {
     //URI helper Methods
     public static uriToPath(uri: string): string {
-        let uriObject: Uri = Uri.parse(uri);
-        let platformIndependentPath = uriObject.fsPath;
+        let uriObject: Uri = Uri.parse(uri, false);
+        let platformIndependentPath = uriObject.path;
         return platformIndependentPath;
     }
 

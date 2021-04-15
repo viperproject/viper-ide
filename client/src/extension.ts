@@ -225,8 +225,8 @@ function registerHandlers() {
         });
         State.client.onNotification(Commands.FileOpened, (uri: string) => {
             try {
-                Log.log("File openend: " + path.basename(uri), LogLevel.Info);
-                let uriObject: Uri = Uri.parse(uri);
+                Log.log("File openend: " + uri, LogLevel.Info);
+                let uriObject: Uri = Uri.file(uri);
                 let fileState = State.getFileState(uri);
                 if (fileState) {
                     fileState.open = true;
@@ -239,7 +239,7 @@ function registerHandlers() {
         });
         State.client.onNotification(Commands.FileClosed, (uri: string) => {
             try {
-                let uriObject: Uri = Uri.parse(uri);
+                let uriObject: Uri = Uri.file(uri);
                 Log.log("File closed: " + path.basename(uriObject.path), LogLevel.Info);
                 let fileState = State.getFileState(uri);
                 if (fileState) {
@@ -420,7 +420,7 @@ function registerHandlers() {
                     file.verifying = false;
                 });
                 State.isVerifying = false;
-                State.addToWorklist(new Task({ type: TaskType.VerificationFailed, uri: Uri.parse(<string>uri), manuallyTriggered: true }));
+                State.addToWorklist(new Task({ type: TaskType.VerificationFailed, uri: Uri.file(<string>uri), manuallyTriggered: true }));
             } catch (e) {
                 Log.error("Error handling verification not started request: " + e);
             }
@@ -704,8 +704,8 @@ function getUserSettingsPath(): string {
     return userSettingsPath;
 }
 function getWorkspaceSettingsPath(): string {
-    if (vscode.workspace.rootPath) {
-        return path.join(vscode.workspace.rootPath, ".vscode", "settings.json");
+    if (vscode.workspace.workspaceFolders) {
+        return path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, ".vscode", "settings.json");
     }
     return;
 }

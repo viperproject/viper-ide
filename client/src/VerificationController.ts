@@ -560,7 +560,7 @@ export class VerificationController {
                         
                         Log.log("Request verification for " + path.basename(uri), LogLevel.Verbose);
 
-                        let workspace = vscode.workspace.rootPath ? vscode.workspace.rootPath : path.dirname(fileState.uri.fsPath);
+                        let workspace = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri.fsPath : path.dirname(fileState.uri.fsPath);
                         let params: VerifyParams = { uri: uri, manuallyTriggered: manuallyTriggered, workspace: workspace };
                         //request verification from Server
                         State.client.sendNotification(Commands.Verify, params);
@@ -746,7 +746,7 @@ export class VerificationController {
                             diagnostics.push( diag );
                         }) 
 
-                        State.diagnosticCollection.set(vscode.Uri.parse(params.uri), diagnostics);
+                        State.diagnosticCollection.set(vscode.Uri.parse(params.uri, false), diagnostics);
                     }
                     break;
                 case VerificationState.PostProcessing:
@@ -770,7 +770,7 @@ export class VerificationController {
                         State.statusBarItem.update("ready", Color.READY);
                     }
                     else {
-                        let uri = vscode.Uri.parse(params.uri);
+                        let uri = vscode.Uri.file(params.uri);
 
                         //since at most one file can be verified at a time, set all to non-verified before potentially setting one to verified 
                         State.viperFiles.forEach(file => file.verified = false);
@@ -842,7 +842,7 @@ export class VerificationController {
                         State.addToWorklist(new Task({ type: TaskType.VerificationComplete, uri: uri, manuallyTriggered: false }));
                     }
                     if (this.verifyingAllFiles) {
-                        this.autoVerificationResults.push(`${Success[params.success]}: ${Uri.parse(params.uri).fsPath}`);
+                        this.autoVerificationResults.push(`${Success[params.success]}: ${Uri.file(params.uri).fsPath}`);
                         this.autoVerifyFile();
                     }
                     break;

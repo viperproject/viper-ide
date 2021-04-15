@@ -17,7 +17,6 @@ import * as vscode from 'vscode';
 import { Helper } from './Helper';
 import { State } from './ExtensionState';
 import { ViperFileState } from './ViperFileState';
-import * as path from 'path';
 
 export interface MyDecorationOptions extends vscode.DecorationOptions {
     numberToDisplay: number;
@@ -39,7 +38,7 @@ export class StateVisualizer {
 
     graphvizProcess: child_process.ChildProcess;
     provider: HeapProvider;
-    previewUri = vscode.Uri.parse('viper-preview:State Visualization');
+    previewUri = vscode.Uri.parse('viper-preview:State Visualization', false);
 
     decoration: vscode.TextEditorDecorationType;
     decorationOptions: MyDecorationOptions[];
@@ -142,15 +141,6 @@ export class StateVisualizer {
         this.provider.setState(heapGraph, index);
 
         this.showHeapGraph();
-
-        //NO LONGER NEEDED: since we use viz.js now:
-        // this.generateSvg(heapGraph.heap, Log.dotFilePath(index, false), Log.svgFilePath(index, false), () => {
-        //     this.generateSvg(heapGraph.oldHeap, Log.dotFilePath(index, true), Log.svgFilePath(index, true), () => {
-        //         this.generateSvg(heapGraph.partialExecutionTree, Log.getPartialExecutionTreeDotPath(index), Log.getPartialExecutionTreeSvgPath(index), () => {
-        //             this.showHeapGraph();
-        //         });
-        //     });
-        // });
     }
 
     public pushState(heapGraph: HeapGraph) {
