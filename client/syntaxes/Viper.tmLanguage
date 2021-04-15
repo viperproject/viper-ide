@@ -131,8 +131,9 @@
                 <string>entity.name.function.silver</string>
               </dict>
             </dict>
+            
             <key>match</key>
-            <string>\b(function)\s+([$\w]+(\.\[$\w])?)</string>
+            <string>\b(function)\b(\s+([$\w]+(\.\[$\w])?))?</string>
             <key>name</key>
             <string>meta.function.silver</string>
             <key>patterns</key>
@@ -140,6 +141,8 @@
               <key>include</key>
               <string>#parameter-list</string>
             </dict>
+
+            
           </dict>
           <dict>
             <key>captures</key>
@@ -156,7 +159,7 @@
               </dict>
             </dict>
             <key>match</key>
-            <string>\b(axiom)\s+([$\w]+(\.[$\w]+)?)</string>
+            <string>\b(axiom)\b(\s+([$\w]+(\.[$\w]+)?))?</string>
             <key>name</key>
             <string>meta.axiom.silver</string>
             <key>patterns</key>
@@ -180,7 +183,7 @@
               </dict>
             </dict>
             <key>match</key>
-            <string>\b(import)\s+(".*?"|<.*?>)</string>
+            <string>\b(import)\b(\s+(".*?"|<.*?>))?</string>
             <key>name</key>
             <string>meta.import.silver</string>
           </dict>
@@ -199,7 +202,7 @@
               </dict>
             </dict>
             <key>match</key>
-            <string>\b(predicate)\s+([$\w]+(\.[$\w]+)?)</string>
+            <string>\b(predicate)\b(\s+([$\w]+(\.[$\w]+)?))?</string>
             <key>name</key>
             <string>meta.predicate.silver</string>
             <key>patterns</key>
@@ -223,7 +226,7 @@
               </dict>
             </dict>
             <key>match</key>
-            <string>\b(method)\s+([$\w]+(\.[$\w]+)?)</string>
+            <string>\b(method)\b(\s+([$\w]+(\.[$\w]+)?))?</string>
             <key>name</key>
             <string>meta.method.silver</string>
             <key>patterns</key>
@@ -247,7 +250,7 @@
               </dict>
             </dict>
             <key>match</key>
-            <string>\b(domain)\s+([$\w]+(\.[$\w]+)?)</string>
+            <string>\b(domain)\b</string>
             <key>name</key>
             <string>meta.domain.silver</string>
           </dict>
