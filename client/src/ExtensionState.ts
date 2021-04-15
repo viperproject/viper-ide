@@ -192,7 +192,7 @@ export class State {
         // Options to control the language client
         let clientOptions: LanguageClientOptions = {
             // Register the server for plain text documents
-            documentSelector: ['viper'],
+            documentSelector: [{ scheme: 'file', language: 'viper' }],
             synchronize: {
                 // Synchronize the setting section 'viperSettings' to the server
                 configurationSection: 'viperSettings',
