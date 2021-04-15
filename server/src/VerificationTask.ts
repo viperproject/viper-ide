@@ -681,11 +681,14 @@ export class VerificationTask {
                                     this.typeCheckingCompleted = false;
                                 }
                                 let range = Server.extractRange(err.start, err.end);
-                                Log.log(`Error: [${Server.backend.name}] ${err.tag ? "[" + err.tag + "] " : ""}${range.start.line + 1}:${range.start.character + 1} ${err.message}`, LogLevel.Default);
+                                let severity = (err.severity) 
+                                                ? (<language_server.DiagnosticSeverity> err.severity)
+                                                : language_server.DiagnosticSeverity.Error 
+                                Log.log(`Issue of severity ${severity}: [${Server.backend.name}] ${err.tag ? "[" + err.tag + "] " : ""}${range.start.line + 1}:${range.start.character + 1} ${err.message}`, LogLevel.Default);
                                 let diag = {
                                     range: range,
-                                    source: null, //Server.backend.name
-                                    severity: language_server.DiagnosticSeverity.Error,
+                                    source: err.source ? err.source : null,
+                                    severity: severity,
                                     message: err.message + (err.cached ? " (cached)" : "")
                                 }
                                 this.diagnostics.push(diag); 
