@@ -30,17 +30,15 @@
         "command-exists": "^1.2.8",
         "decompress-zip": "^0.2.2",
         "find-java-home": "github:aterga/node-find-java-home",
-        "flatmap-stream": "0.0.1-security",
         "glob-to-regexp": "^0.4.1",
         "master": "^0.0.14",
         "mkdirp": "^0.5.1",
         "node-ipc": "^9.1.1",
         "portfinder": "^1.0.20",
         "psl": "^1.1.31",
-        "request": "^2.88.0",
-        "request-promise-native": "^1.0.7",
+        "request": "^2.88.2",
         "sound-play": "^1.1.0",
-        "stream-json": "^0.6.1",
+        "stream-json": "^1.7.1",
         "strip-json-comments": "3.0.1",
         "sudo-prompt": "8.2.5",
         "tree-kill": "^1.2.1",
@@ -51,7 +49,7 @@
         "vscode-debugprotocol": "^1.34.0",
         "vscode-languageclient": "^5.2.1",
         "vscode-languageserver": "^5.2.1",
-        "vscode-uri": "^1.0.6"
+        "vscode-uri": "^1.0.8"
     },
     "devDependencies": {
         "@types/mocha": "^5.2.6",

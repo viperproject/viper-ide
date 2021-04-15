@@ -8,25 +8,20 @@
  
 'use strict'
 
-import { clearTimeout } from 'timers'
-import * as fs from 'fs'
-import rp = require('request-promise-native')
-import request = require('request')
-import StreamJsonObjects = require("stream-json/utils/StreamJsonObjects")
+const request = require('request')
+const StreamValues = require('stream-json/streamers/StreamValues')
 
 import child_process = require('child_process')
 import { Log } from './Log'
 import { Settings } from './Settings'
-import { BackendOutputType, Common, Stage, Backend, VerificationState, LogLevel, Commands } from './ViperProtocol'
+import { Common, Backend, LogLevel, Commands } from './ViperProtocol'
 import { Server } from './ServerClass'
-import { VerificationTask } from './VerificationTask'
 import { BackendService } from './BackendService'
-
 import tree_kill = require('tree-kill')
-import { error } from 'util'
-import { resolve } from '../node_modules/vscode-languageserver/lib/files'
 
 import path = require('path')
+import { DiagnosticSeverity } from 'vscode-languageserver-types'
+
 const SOUND = require('sound-play')
 enum Sounds {
     MinorIssue = 1,
@@ -40,7 +35,7 @@ export class ViperServerService extends BackendService {
     private _server_logfile: string
     private _port: number
     private _url: string
-    private _stream = StreamJsonObjects.make()
+    private _pipeline = StreamValues.withParser()
 
     // the JID that ViperServer assigned to the current verification job.
     private _job_id: number
@@ -192,7 +187,7 @@ export class ViperServerService extends BackendService {
 
     protected startVerifyProcess(command: string, file: string, onData, onError, onClose) {
 
-        this._stream.output.on("data", (object) => { 
+        this._pipeline.on("data", (object) => { 
             let message = object.value
             //Log.log('recieved message: ' + JSON.stringify(message, null, 2), LogLevel.LowLevelDebug)
 
@@ -256,9 +251,39 @@ export class ViperServerService extends BackendService {
                 }))
             }
 
+            /*
+            if ( message.msg_type.includes('warning') ) {
+                Log.error(`ViperServer reports the following warning: ${message.msg_body.message}`, LogLevel.Default)
+                let label = message.msg_type.includes('internal') 
+                    ? 'internal' 
+                    : message.msg_type.includes('parser') 
+                        ? 'parser'
+                        : 'geniric'
+                return onData(JSON.stringify({
+                    type: "Error",
+                    file: file,
+                    errors: [{
+                        tag: `${label}.warning`,
+                        start: '0:0',
+                        end: '0:12',
+                        message: message.msg_body.text,
+                        cached: false,
+                        severity: DiagnosticSeverity.Warning
+                    }]
+                }))
+            }*/
+
             if ( message.msg_type === 'exception_report' ) {
-                Log.error("The following exception occured in ViperServer: " + message.msg_body.message + "\n trace:\n  " +
+
+                if ( message.msg_body.message === 'java.lang.InterruptedException' ) {
+                    Log.log("ViperServer reports java.lang.InterruptedException", LogLevel.Info)
+                    return 
+                }
+
+                // Ignore interruprion exceptions as they can occur during a normal interactive session                
+                Log.error("ViperServer reports the following exception: " + message.msg_body.message + "\n trace:\n  " +
                     message.msg_body.stacktrace.join("\n  "), LogLevel.Default)
+
                 onData(JSON.stringify({
                     type: "Error",
                     file: file,
@@ -281,8 +306,16 @@ export class ViperServerService extends BackendService {
 
                         if ( message.msg_body.status === 'failure' &&
                              message.msg_body.details.result.errors.length > 0) {  // we get zero errors in the overall results if the errors have been cached. 
+                                
+                            let errors = message.msg_body.details.result.errors
+                            let first_error = errors[0]
+                            let first_error_tag = first_error.tag
 
-                            let first_error_tag = message.msg_body.details.result.errors[0].tag
+                            if ( errors.length === 1 && first_error_tag === 'exceptional.error' && first_error.text === 'Verification aborted exceptionally' ) {
+                                // Ignore the exception as it's a normal interrupt. 
+                                return onData(JSON.stringify({ type: "Success" }))
+                            }
+
                             let global_failure = 
                                 message.msg_type === 'ast_construction_result' ||
                                 Server.backend.type === 'other' || 
@@ -322,7 +355,7 @@ export class ViperServerService extends BackendService {
                         } else if ( message.msg_body.status === 'success' && 
                                     message.msg_body.kind === 'for_entity' ) {
 
-                                        this.emitSound(Sounds.MinorSuccess)
+                            this.emitSound(Sounds.MinorSuccess)
                                 
                             return onData(JSON.stringify({
                                 type: (message.msg_body.details.entity.type === 'method' ? 'MethodVerified' 
@@ -357,9 +390,9 @@ export class ViperServerService extends BackendService {
 
             return true
         })
-        this._stream.output.on("end", () => {
+        this._pipeline.on("end", () => {
             //Log.log("ViperServer stream ended.", LogLevel.LowLevelDebug)
-            this._stream = StreamJsonObjects.make()
+            this._pipeline = StreamValues.withParser()
         })
 
         this.startVerifyStream(command, onData, onError, onClose)
@@ -381,13 +414,13 @@ export class ViperServerService extends BackendService {
             Log.log(`Requesting ViperServer to stream results of verification job #${jid}...`, LogLevel.LowLevelDebug)
             let url = this._url + ':' + this._port + '/verify/' + jid
             request.get(url).on('error', (err) => {
-                Log.log(`error while requesting results from ViperServer.` +
-                        ` Request URL: ${url}\n` +
-                        ` Error message: ${err}`, LogLevel.Default)
-            }).pipe(this._stream.input)
+                Log.error(`error while requesting results from ViperServer.` +
+                          ` Request URL: ${url}\n` +
+                          ` Error message: ${err}`, LogLevel.Default)
+            }).pipe(this._pipeline)
 
         }).catch((err) => {
-            Log.log('unfortunately, we did not get a job ID from ViperServer: ' + err, LogLevel.LowLevelDebug)
+            Log.error('unfortunately, we did not get a job ID from ViperServer: ' + err, LogLevel.LowLevelDebug)
         })
     }
 
