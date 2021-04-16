@@ -11,7 +11,7 @@
     },
     "bugs": "https://github.com/viperproject/viper-ide/issues",
     "author": {
-        "name": "Chair of Programming Methodology, ETH Zurich",
+        "name": "Programming Methodology Group, ETH Zürich",
         "email": "viper@inf.ethz.ch",
         "url": "https://viper.ethz.ch"
     },
@@ -22,9 +22,17 @@
     },
     "icon": "images/icon_bright_orange_avatar.png",
     "categories": [
-        "Programming Languages",
-        "Themes",
+        "Programming Languages", 
+        "Education", 
+        "Themes", 
         "Snippets"
+    ],
+    "keywords": [
+        "verification",
+        "specification",
+        "formal methods",
+        "separation logic",
+        "automatic deduction"
     ],
     "dependencies": {
         "command-exists": "^1.2.8",
