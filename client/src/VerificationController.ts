@@ -528,7 +528,7 @@ export class VerificationController {
                 this.oldTimings = expectedTimings;
             }
 
-            let uri = fileState.uri.toString();
+            let uri = fileState.uri.toString();  // toString keeps the file scheme
             if (Helper.isViperSourceFile(uri)) {
                 if (!State.client) {
                     Log.hint("Extension not ready yet.");

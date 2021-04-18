@@ -226,7 +226,7 @@ function registerHandlers() {
         State.client.onNotification(Commands.FileOpened, (uri: string) => {
             try {
                 Log.log("File openend: " + uri, LogLevel.Info);
-                let uriObject: Uri = Uri.file(uri);
+                let uriObject: Uri = Uri.parse(uri);
                 let fileState = State.getFileState(uri);
                 if (fileState) {
                     fileState.open = true;
