@@ -20,6 +20,7 @@ import { BackendService } from './BackendService'
 import tree_kill = require('tree-kill')
 
 import path = require('path')
+import { DiagnosticSeverity } from 'vscode-languageserver'
 
 const SOUND = require('sound-play')
 enum Sounds {
@@ -333,27 +334,31 @@ export class ViperServerService extends BackendService {
                 }))
             }
 
-            /*
-            if ( message.msg_type.includes('warning') ) {
+            if ( message.msg_type.includes('warning') && message.msg_body.length > 0 ) {
                 Log.error(`ViperServer reports the following warning: ${message.msg_body.message}`, LogLevel.Default)
                 let label = message.msg_type.includes('internal') 
                     ? 'internal' 
                     : message.msg_type.includes('parser') 
                         ? 'parser'
                         : 'geniric'
+                
                 return onData(JSON.stringify({
                     type: "Error",
                     file: file,
-                    errors: [{
-                        tag: `${label}.warning`,
-                        start: '0:0',
-                        end: '0:12',
-                        message: message.msg_body.text,
-                        cached: false,
-                        severity: DiagnosticSeverity.Warning
-                    }]
+                    errors: message.msg_body.map((e) => {
+                        if (e.position === '<no position>') 
+                            e.position = {start: '0:0', end: '0:12'}
+                        return {
+                            tag: `${label}.warning`,
+                            start: e.position.start,
+                            end: e.position.end,
+                            message: e.text,
+                            cached: e.cached,
+                            severity: DiagnosticSeverity.Warning
+                        }
+                    })
                 }))
-            }*/
+            }
 
             if ( message.msg_type === 'exception_report' ) {
 
@@ -515,21 +520,7 @@ export class ViperServerService extends BackendService {
             }).pipe(this._pipeline)
 
         }).catch((err) => {
-            Log.error(`ViperServer is overwhelmed (${err}). Try again in a few seconds.`, LogLevel.LowLevelDebug)
-            
-            // Server.sendBackendReadyNotification({'name': })
-            
-            // let uri = this.getUriOfCurrentFile()
-            // Server.sendVerificationNotStartedNotification(uri)
-            // Server.backendService.setReady(Server.backend)
-            // let task = Server.verificationTasks.get(uri)
-            // Server.sendStateChangeNotification({
-            //     newState: VerificationState.Ready,
-            //     verificationCompleted: false,
-            //     verificationNeeded: false,
-            //     uri: this._url
-            // }, task)
-            
+            Log.error(`ViperServer is overwhelmed (${err}). Try again in a few seconds.`, LogLevel.Default)            
             let uri = this.getUriOfCurrentFile()
             let task = Server.verificationTasks.get(uri)
             Server.sendStateChangeNotification({
