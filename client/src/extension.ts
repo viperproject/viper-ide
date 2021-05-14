@@ -239,7 +239,7 @@ function registerHandlers() {
         });
         State.client.onNotification(Commands.FileClosed, (uri: string) => {
             try {
-                let uriObject: Uri = Uri.file(uri);
+                let uriObject: Uri = Uri.parse(uri);
                 Log.log("File closed: " + path.basename(uriObject.path), LogLevel.Info);
                 let fileState = State.getFileState(uri);
                 if (fileState) {
@@ -420,7 +420,7 @@ function registerHandlers() {
                     file.verifying = false;
                 });
                 State.isVerifying = false;
-                State.addToWorklist(new Task({ type: TaskType.VerificationFailed, uri: Uri.file(<string>uri), manuallyTriggered: true }));
+                State.addToWorklist(new Task({ type: TaskType.VerificationFailed, uri: Uri.parse(<string>uri), manuallyTriggered: true }));
             } catch (e) {
                 Log.error("Error handling verification not started request: " + e);
             }

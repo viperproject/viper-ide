@@ -111,7 +111,7 @@ function registerHandlers() {
                 Log.log(`Found verification task for URI ` + document.uri, LogLevel.LowLevelDebug)
                 Server.connection.sendRequest(Commands.GetIdentifier, pos).then((word: string) => {
                     Log.log(`Got word: ` + word, LogLevel.LowLevelDebug)
-                    task.definitions.forEach(def => {
+                    if (task.definitions) task.definitions.forEach(def => {
                         if (def.scope == null //global scope
                             || (Common.comparePosition(def.scope.start, pos) <= 0 && Common.comparePosition(def.scope.end, pos) >= 0)) // in scope
                         {

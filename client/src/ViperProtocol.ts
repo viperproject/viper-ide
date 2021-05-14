@@ -414,15 +414,22 @@ export interface PathSettings extends VersionedSettings {
 }
 
 export interface UserPreferences extends VersionedSettings {
-    //Enable automatically saving modified viper files
+    // Enable automatically saving modified viper files
     autoSave: boolean;
-    //Verbosity of the output, all output is written to the logFile, regardless of the logLevel
+    
+    // Verbosity of the output, all output is written to the logFile, regardless of the logLevel
     logLevel: number;
-    //Reverify the open viper file upon backend change.
+    
+    // Reverify the open viper file upon backend change.
     autoVerifyAfterBackendChange: boolean;
-    //Display the verification progress in the status bar. Only useful if the backend supports progress reporting.
+    
+    // Display the verification progress in the status bar. Only useful if the backend supports progress reporting.
     showProgress: boolean;
-    //The URL for downloading the ViperTools from
+    
+    // Emit sound effects, indicating reached milestones in a verification process
+    enableSoundEffects: boolean; 
+
+    // The URL for downloading the ViperTools from
     viperToolsProvider: string | PlatformDependentURL;
 }
 
@@ -603,8 +610,8 @@ export interface TimingInfo {
 export class Common {
     //URI helper Methods
     public static uriToPath(uri: string): string {
-        let uriObject: Uri = Uri.file(uri);
-        let platformIndependentPath = uriObject.path;
+        let uriObject: Uri = Uri.parse(uri);
+        let platformIndependentPath = uriObject.fsPath;
         return platformIndependentPath;
     }
 

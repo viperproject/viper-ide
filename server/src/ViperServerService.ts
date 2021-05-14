@@ -9,18 +9,17 @@
 'use strict'
 
 const request = require('request')
-const StreamValues = require('stream-json/streamers/StreamValues')
+import StreamValues = require('stream-json/streamers/StreamValues')
 
 import child_process = require('child_process')
 import { Log } from './Log'
 import { Settings } from './Settings'
-import { Common, Backend, LogLevel, Commands } from './ViperProtocol'
+import { Common, Backend, LogLevel, Commands, VerificationState } from './ViperProtocol'
 import { Server } from './ServerClass'
 import { BackendService } from './BackendService'
 import tree_kill = require('tree-kill')
 
 import path = require('path')
-import { DiagnosticSeverity } from 'vscode-languageserver-types'
 
 const SOUND = require('sound-play')
 enum Sounds {
@@ -35,7 +34,7 @@ export class ViperServerService extends BackendService {
     private _server_logfile: string
     private _port: number
     private _url: string
-    private _pipeline = StreamValues.withParser()
+    private _pipeline = null
 
     // the JID that ViperServer assigned to the current verification job.
     private _job_id: number
@@ -44,7 +43,13 @@ export class ViperServerService extends BackendService {
     // FIXME:this is needed because Carbon does not stop the corresponding Boogie process. 
     // FIXME:see https://bitbucket.org/viperproject/carbon/issues/225
     // FIXME:search keyword [FIXME:KILL_BOOGIE] for other parts of this workaround. 
-    private _uncontrolled_pid_list: number[]    
+    private _z3_pids_promise: Promise<number[]> | null
+    private _boogie_pids: number[] | undefined = null
+    
+    private _current_file: string
+    public getUriOfCurrentFile(): string {
+        return Common.pathToUri(this._current_file)
+    }
 
     public constructor() {
         super()
@@ -53,6 +58,7 @@ export class ViperServerService extends BackendService {
     }
 
     private emitSound(sfx: Sounds) {
+        if (!<Boolean>Settings.settings.preferences.enableSoundEffects) return 
         let sfx_prefix = <string>Settings.settings.paths.sfxPrefix
         if (!sfx_prefix) return
         if (sfx === Sounds.MinorIssue)   SOUND.play(path.join(sfx_prefix, 'falling-down.wav')) 
@@ -185,9 +191,85 @@ export class ViperServerService extends BackendService {
         return command
     }
 
-    protected startVerifyProcess(command: string, file: string, onData, onError, onClose) {
+    private updatePids() {
+        if ( Server.backend.type === 'carbon' && !this._boogie_pids ) {
+            // 1. Find the current Boogie processes (there's typically only one)
+            this._z3_pids_promise = this.getBoogiePids().then(boogie_pid_list => {
+                Log.log(`Current Boogie processes: ${boogie_pid_list.join(', ')}`, LogLevel.LowLevelDebug)
+                this._boogie_pids = boogie_pid_list
+                Promise.all(boogie_pid_list.map(bpid => this.getZ3Pids(bpid))).then((z3_pids_list: number[][]) => {
+                    return [].concat.apply([], z3_pids_list)  // efficient flattening
+                }).then(z3_pids => {
+                    Log.log(`Current Z3 processes have the following PIDs: ${z3_pids}`, LogLevel.Info)
+                    return z3_pids
+                }).catch(err => {
+                    Log.error(`Collecting PIDs for Z3 processes failed.`)
+                    return err
+                })
+            }).catch(err => {
+                Log.error(`Could not get PIDs of current Boogie processes:\n ${err.join('\n ')}`)
+                return err
+            })
+        }
+    }
 
+    private cleanupProcessImpl(ps: number[]): Promise<number[]> {
+        return Promise.all(ps.map(pid => {
+            return new Promise<number>((res, rej) => {
+                tree_kill(pid, "SIGTERM", err1 => {
+                    Log.log(`Terminating process with PID ${pid} did not success: ${err1}.` +
+                            ` Try sending SIGKILL...`, LogLevel.LowLevelDebug)
+                    tree_kill(pid, "SIGKILL", err2 => {
+                        rej(err2)
+                    })
+                    res(pid)
+                })
+                res(pid)
+            })
+        }))
+    }
+
+    private cleanupProcesses(): Promise<void> {
+        return new Promise((res, rej) => {
+            if ( Server.backend.type === 'carbon' && this._boogie_pids ) {
+                /*return this.cleanupProcessImpl(this._boogie_pids).then(pids => {
+                    Log.log(`Successfully terminated the following Boogie processes: ${pids}`, LogLevel.Info)
+                }).catch(err => {
+                    Log.log(`Could not terminate some Boogie process: ${err}`, LogLevel.LowLevelDebug)
+                }).finally(() => {*/
+
+                let first_attempt_z3_pids_promise: Promise<number[]> = this._z3_pids_promise
+                this.updatePids()  // second attempt
+                this._boogie_pids = null
+                let z3_pids_promise = [first_attempt_z3_pids_promise]
+                if (this._z3_pids_promise) z3_pids_promise.push(this._z3_pids_promise)
+
+                // If Boogie has terminated but its Z3 instances are zombies... Kill the zombies! 
+                Promise.all(z3_pids_promise).then((z3_pids_list: number[][]) => {
+                    return [].concat.apply([], z3_pids_list)  // efficient flattening
+                }).then(z3_pids => {
+                    this.cleanupProcessImpl(z3_pids).then(pids => {
+                        Log.log(`Successfully terminated the following zombie Z3 processes: ${pids}`, LogLevel.Info)
+                    }).catch(err => {
+                        Log.log(`No zombie instances of Z3 found (that's a good thing!)`, LogLevel.LowLevelDebug)
+                    }).finally(() => {
+                        this._z3_pids_promise = null
+                        res()
+                    })
+                })
+
+                // })
+            } else {
+                res()
+            }
+        })
+    }
+
+    protected startVerifyProcess(command: string, file: string, onData, onError, onClose) {
+        this._current_file = file 
+        this._pipeline = StreamValues.withParser()
         this._pipeline.on("data", (object) => { 
+
             let message = object.value
             //Log.log('recieved message: ' + JSON.stringify(message, null, 2), LogLevel.LowLevelDebug)
 
@@ -298,6 +380,21 @@ export class ViperServerService extends BackendService {
                 return onData(JSON.stringify({ type: "Stopped" }))
             }
 
+            if ( message.msg_type === 'backend_sub_process_report' ) {
+                if ( message.msg_body.phase === 'after_input_sent' ) {
+                    // If in use is Carbon, get and store the PIDs of dependent Z3 and Boogie processes
+                    let bpid = message.msg_body.pid
+                    if (bpid) {
+                        Log.log(`Current Boogie PID: ${bpid}`, LogLevel.LowLevelDebug)
+                        this._boogie_pids = [bpid]
+                        this._z3_pids_promise = this.getZ3Pids(bpid)
+                    } else {
+                        this.updatePids()
+                    } 
+                }
+                return
+            }
+
             if ( (message.msg_type === 'verification_result') || 
                  (message.msg_type === 'ast_construction_result') ) {
 
@@ -390,23 +487,21 @@ export class ViperServerService extends BackendService {
 
             return true
         })
-        this._pipeline.on("end", () => {
-            //Log.log("ViperServer stream ended.", LogLevel.LowLevelDebug)
-            this._pipeline = StreamValues.withParser()
-        })
+        // this._pipeline.on("end", () => {
+        //     //Log.log("ViperServer stream ended.", LogLevel.LowLevelDebug)
+        //     this._pipeline = StreamValues.withParser()
+        // })
 
         this.startVerifyStream(command, onData, onError, onClose)
-        this.isSessionRunning = true
     }
 
     private startVerifyStream(command: string, onData, onError, onClose) {
         Log.log('Sending verification request to ViperServer...', LogLevel.Debug)
 
-        let jid_promise = this.postStartRequest({
+        this.postStartRequest({
             arg: command
-        })
-
-        jid_promise.then((jid) => {
+        }).then((jid) => {            
+            this.isSessionRunning = true
             this._job_id = jid
             
             onData(JSON.stringify({type: "Start", backendType: command.startsWith('silicon') ? "Silicon" : "Carbon"}))
@@ -420,7 +515,30 @@ export class ViperServerService extends BackendService {
             }).pipe(this._pipeline)
 
         }).catch((err) => {
-            Log.error('unfortunately, we did not get a job ID from ViperServer: ' + err, LogLevel.LowLevelDebug)
+            Log.error(`ViperServer is overwhelmed (${err}). Try again in a few seconds.`, LogLevel.LowLevelDebug)
+            
+            // Server.sendBackendReadyNotification({'name': })
+            
+            // let uri = this.getUriOfCurrentFile()
+            // Server.sendVerificationNotStartedNotification(uri)
+            // Server.backendService.setReady(Server.backend)
+            // let task = Server.verificationTasks.get(uri)
+            // Server.sendStateChangeNotification({
+            //     newState: VerificationState.Ready,
+            //     verificationCompleted: false,
+            //     verificationNeeded: false,
+            //     uri: this._url
+            // }, task)
+            
+            let uri = this.getUriOfCurrentFile()
+            let task = Server.verificationTasks.get(uri)
+            Server.sendStateChangeNotification({
+                newState: VerificationState.Ready,
+                filename: this._current_file,
+                verificationCompleted:  false,
+                uri: uri,
+                error: "System overwhelmed. Please slow down your interaction."
+            }, task);
         })
     }
 
@@ -515,6 +633,11 @@ export class ViperServerService extends BackendService {
                             LogLevel.Debug)
                     reject(`ViperServer did not provide a job ID: ${json_body}`)
                 } 
+                if (json_body.id === -1) {
+                    Log.log(`ViperServer was unable to book verification job (jid -1)`,
+                            LogLevel.Debug)
+                    reject(`ViperServer returned job ID -1`)
+                }
                 Log.log(`ViperServer started new job with ID ${json_body.id}`,
                         LogLevel.Debug)
                 resolve(json_body.id)
@@ -560,114 +683,41 @@ export class ViperServerService extends BackendService {
     }
 
     private sendJobDiscardRequest(jid: number): Promise<boolean> {
-        
-        return new Promise((resolve, reject) => {
-            
-            new Promise((resolve_0, reject_0) => {
-                //FIXME:KILL_BOOGIE
-                if ( Server.backend.type === 'carbon' ) {
-                    this.getBoogiePids().then(boogie_pid_list => {
-                        this._uncontrolled_pid_list = boogie_pid_list
-                        Log.log(`[KILL_BOOGIE] found uncontrolled Boogie processes: ${boogie_pid_list.join(', ')}`, LogLevel.LowLevelDebug)
-                        resolve_0(true)
-                    }).catch((errors) => {
-                        Log.log(`[KILL_BOOGIE] errors found while scanning for uncontrolled Boogie processes:\n ${errors.join('\n ')}`, LogLevel.LowLevelDebug)
-                        reject_0(errors)
-                    })
-                } else {
-                    resolve_0(true)
+
+        return new Promise<boolean>((resolve, reject) => {
+            Log.log(`Requesting ViperServer to discard verification job #${jid}...`, LogLevel.Debug)
+            let url = this._url + ':' + this._port + '/discard/' + jid
+            request.get(url).on('error', (err: any) => {
+                Log.log(`error while requesting ViperServer to discard a job.` +
+                        ` Request URL: ${url}\n` +
+                        ` Error message: ${err}`, LogLevel.Default)
+                reject(err)
+            }).on('data', (data) => {
+                let data_str = data.toString()
+                if ( this.isInternalServerError(data_str) ) {
+                    Log.log(`ViperServer encountered an internal server error.` + 
+                            ` The exact message is: ${data_str}`, LogLevel.Debug)
+                    resolve(false)
                 }
-
-            }).then(() => {
-                Log.log(`Requesting ViperServer to discard verification job #${jid}...`, LogLevel.Debug)
-                let url = this._url + ':' + this._port + '/discard/' + jid
-                request.get(url).on('error', (err) => {
-                    Log.log(`error while requesting ViperServer to discard a job.` +
-                            ` Request URL: ${url}\n` +
-                            ` Error message: ${err}`, LogLevel.Default)
-                    reject(err)
-                }).on('data', (data) => {
-                    let data_str = data.toString()
-                    if ( this.isInternalServerError(data_str) ) {
-                        Log.log(`ViperServer encountered an internal server error.` + 
-                                ` The exact message is: ${data_str}`, LogLevel.Debug)
-                        resolve(false)
+                try {
+                    let response = JSON.parse(data_str)
+                    if ( !response.msg ) {
+                        Log.log(`ViperServer did not complain about the way we requested it to discard a job.` + 
+                                ` However, it also did not provide the expected confirmation message.` + 
+                                ` It said: ${data_str}`, LogLevel.Debug)
+                        resolve(true)
+                    } else { 
+                        Log.log(`ViperServer: ${response.msg}`, LogLevel.Debug)
+                        resolve(true)
                     }
-                    try {
-                        let response = JSON.parse(data_str)
-                        if ( !response.msg ) {
-                            Log.log(`ViperServer did not complain about the way we requested it to discard a job.` + 
-                                    ` However, it also did not provide the expected confirmation message.` + 
-                                    ` It said: ${data_str}`, LogLevel.Debug)
-                            resolve(true)
-                        } else { 
-                            Log.log(`ViperServer: ${response.msg}`, LogLevel.Debug)
-                            resolve(true)
-                        }
-                    } catch (e) {
-                        Log.log(`ViperServer responded with something that is not a valid JSON object.` + 
-                                ` The exact message is: ${data_str}`, LogLevel.Debug)
-                        resolve(false)
-                    }
-                })
-
-
-
-            }).then(() => {
-                if ( Server.backend.type === 'carbon' ) {
-                    this.killUncontrolledProcesses().catch((error) => {
-                        Log.error(`Could not stop uncontrolled processes after Carbon:\n ${error}`)
-                    })
+                } catch (e) {
+                    Log.log(`ViperServer responded with something that is not a valid JSON object.` + 
+                            ` The exact message is: ${data_str}`, LogLevel.Debug)
+                    resolve(false)
                 }
             })
-        })
-    }
-
-    private killUncontrolledProcesses(): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            if ( this._uncontrolled_pid_list.length == 0 ) {
-                resolve(true)
-            } else {
-                if ( Settings.isWin ) {
-                    Promise.all(this._uncontrolled_pid_list.map(pid => {
-                        return new Promise((res, rej) => {
-                            this.getZ3Pids(pid).then(z3_pid_list => {
-                                if ( z3_pid_list.length == 0 ) {
-                                    res(true)
-                                } else {
-                                    let taskkill = Common.executer(`Taskkill /PID ${z3_pid_list.join(' /PID ')} /F /T`)
-                                    taskkill.stderr.on('data', error => {
-                                        rej(error)
-                                    })
-                                    taskkill.on('exit', () => {
-                                        res(true)
-                                    })
-                                }
-                            }).catch((error) => {
-                                rej(error)
-                            })
-                        })
-                    })).then(() => {
-                        resolve(true)
-                    }).catch(error => {
-                        reject(error)
-                    })
-
-                } else { // Linux, Mac
-                    Promise.all(this._uncontrolled_pid_list.map(pid => {
-                        return new Promise((res, rej) => {
-                            tree_kill(pid, "SIGTERM", error => {
-                                //res(true)
-                            })
-                            res(true)
-                        })
-                    })).then(() => {
-                        resolve(true)
-                    }).catch(error => {
-                        reject(error)
-                    })
-                }
-            }
+        }).then(shutdown_success => {
+            return this.cleanupProcesses().then(() => shutdown_success)
         })
     }
 
@@ -679,47 +729,45 @@ export class ViperServerService extends BackendService {
             } else {
                 command = `pgrep -l -P ${pid} ${pname}`
             }
-            let wmic = Common.executer(command)
             let child_pids: number[] = []
             let errors: string[] = []
-            wmic.stdout.on('data', stdout => {
-                let array_of_lines = (<string>stdout).match(/[^\r\n]+/g)
-                if (array_of_lines) {
-                    array_of_lines.forEach(line => {
-                        let regex = /.*?(\d+).*/.exec(line)
-                        if (regex != null && regex[1]) {
-                            child_pids.push( parseInt(regex[1]) )
-                        }
-                    })
-                }
-            })
-            wmic.stderr.on('data', data => {
-                errors.concat( data + "" )
-            })
-            wmic.on('exit', () => {
-                if ( errors.length == 0 ) {
-                    resolve( child_pids )
-                } else {
-                    reject( errors )
-                }
-            })
+            let wmic = Common.executer(command, 
+                stdout => {
+                    let array_of_lines = (<string>stdout).match(/[^\r\n]+/g)
+                    if (array_of_lines) {
+                        array_of_lines.forEach(line => {
+                            let regex = /.*?(\d+).*/.exec(line)
+                            if (regex != null && regex[1]) 
+                                child_pids.push( parseInt(regex[1]) )
+                        })
+                    }
+                }, stderr => {
+                    if (stderr) errors.concat(`${stderr}`)
+                }, () => {
+                    if (errors.length > 0) {
+                        reject(errors)
+                    } else {
+                        resolve(child_pids)
+                    }
+                })
         })
     }
 
     private getBoogiePids(): Promise<number[]> {
         if ( Settings.isWin ) {
-            return  this.getChildrenPidsForProcess("Boogie.exe", this.backendServerPid)
+            return this.getChildrenPidsForProcess("Boogie.exe", this.backendServerPid)
         } else {
             return this.getChildrenPidsForProcess("Boogie", this.backendServerPid)
         } 
     }
 
     private getZ3Pids(parent_proc_pid: number): Promise<number[]> {
-        if ( Settings.isWin ) {
-            return this.getChildrenPidsForProcess("z3.exe", parent_proc_pid)
-        } else {
-            return this.getChildrenPidsForProcess("z3", parent_proc_pid)
-        }
+        let z3_exe_name = Settings.isWin ? "z3.exe" : "z3"
+        return this.getChildrenPidsForProcess(z3_exe_name, parent_proc_pid).catch(reason => {
+            // The parent process (e.g. Boogie) might not have created its Z3 instances at this time. 
+            // This is normal behavior. 
+            return []
+        })
     }
 
     public static isSupportedType(type: string) {

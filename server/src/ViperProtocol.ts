@@ -413,15 +413,22 @@ export interface PathSettings extends VersionedSettings {
 }
 
 export interface UserPreferences extends VersionedSettings {
-    //Enable automatically saving modified viper files
+    // Enable automatically saving modified viper files
     autoSave: boolean;
-    //Verbosity of the output, all output is written to the logFile, regardless of the logLevel
+    
+    // Verbosity of the output, all output is written to the logFile, regardless of the logLevel
     logLevel: number;
-    //Reverify the open viper file upon backend change.
+    
+    // Reverify the open viper file upon backend change.
     autoVerifyAfterBackendChange: boolean;
-    //Display the verification progress in the status bar. Only useful if the backend supports progress reporting.
+    
+    // Display the verification progress in the status bar. Only useful if the backend supports progress reporting.
     showProgress: boolean;
-    //The URL for downloading the ViperTools from
+    
+    // Emit sound effects, indicating reached milestones in a verification process
+    enableSoundEffects: boolean; 
+
+    // The URL for downloading the ViperTools from
     viperToolsProvider: string | PlatformDependentURL;
 }
 
@@ -614,33 +621,28 @@ export class Common {
     }
 
     //Helper methods for child processes
-    public static executer(command: string, dataHandler?: (string) => void, errorHandler?: (string) => void, exitHandler?: () => void): child_process.ChildProcess {
+    public static executer(command: string, onData?: (string) => void, 
+                           onError?: (string) => void, onExit?: () => void): child_process.ChildProcess {
         try {
             Log.logWithOrigin("executer", command, LogLevel.Debug)
             let child: child_process.ChildProcess = child_process.exec(command, function (error, stdout, stderr) {
-                Log.logWithOrigin('executer:stdout', stdout, LogLevel.LowLevelDebug);
-                if (dataHandler) {
-                    dataHandler(stdout);
+                Log.logWithOrigin('executer:stdout', stdout, LogLevel.LowLevelDebug)
+                Log.logWithOrigin('executer:stderr', stderr, LogLevel.LowLevelDebug)
+                if (error) Log.logWithOrigin('executer:error', `${error}`, LogLevel.LowLevelDebug)
+                if (onData) onData(stdout)
+                if (onError) onError(stderr)
+                if (onExit) {
+                    Log.logWithOrigin('executer', 'done', LogLevel.LowLevelDebug)
+                    onExit()
                 }
-                Log.logWithOrigin('executer:stderr', stderr, LogLevel.LowLevelDebug);
-                if (errorHandler) {
-                    errorHandler(stderr);
-                }
-                if (error !== null) {
-                    Log.logWithOrigin('executer', ''+error, LogLevel.LowLevelDebug);
-                }
-                if (exitHandler) {
-                    Log.logWithOrigin('executer', 'done', LogLevel.LowLevelDebug);
-                    exitHandler();
-                }
-            });
-            return child;
+            })
+            return child
         } catch (e) {
-            Log.error("Error executing " + command + ": " + e);
+            Log.error("Error executing " + command + ": " + e)
         }
     }
 
-    public static executor(command: string, callback) {
+    public static executor(command: string, callback: () => void): void {
         Log.log("executer: " + command, LogLevel.Debug)
         child_process.exec(command, (error, stdout, stderr) => {
             Log.logWithOrigin('stdout', stdout, LogLevel.LowLevelDebug)

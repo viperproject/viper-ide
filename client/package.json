@@ -22,9 +22,9 @@
     },
     "icon": "images/icon_bright_orange_avatar.png",
     "categories": [
-        "Programming Languages", 
-        "Education", 
-        "Themes", 
+        "Programming Languages",
+        "Education",
+        "Themes",
         "Snippets"
     ],
     "keywords": [
@@ -381,6 +381,7 @@
                         "logLevel": 3,
                         "autoVerifyAfterBackendChange": true,
                         "showProgress": true,
+                        "enableSoundEffects": false,
                         "viperToolsProvider": {
                             "windows": "http://viper.ethz.ch/downloads/ViperToolsReleaseWin.zip",
                             "linux": "http://viper.ethz.ch/downloads/ViperToolsReleaseLinux.zip",
