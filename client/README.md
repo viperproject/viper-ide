@@ -4,6 +4,12 @@
 
 ### Changelog
 
+#### v.2.3.0
+* Major internal refactoring and stability improvements.  
+* Sound effects can now be enabled via ```viperSettings.preferences.enableSoundEffects``` (disabled by default).
+* The IDE now shows non-critical warning messages. 
+* The syntax grammar has been updated to support the latest Viper features, e.g. ```Map``` types and anonymous axioms. 
+
 #### v.2.2.5
 * Introducing sound effects! 🔊 To disable or change the sounds, use ```viperSettings.paths.sfxPrefix```
 * Improved dependency management mechanism
