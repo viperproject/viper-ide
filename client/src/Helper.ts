@@ -78,7 +78,7 @@ export class Helper {
     public static uriToObject(uri: string | vscode.Uri): vscode.Uri {
         if (!uri) return null;
         if (typeof uri === "string") {
-            return vscode.Uri.file(uri);
+            return vscode.Uri.parse(uri);
         } else {
             return uri;
         }

@@ -294,7 +294,7 @@ export class VerificationController {
                                     }
                                     Log.logWithOrigin("workList", "StopVerifying", LogLevel.LowLevelDebug);
                                     task.markStarted(TaskType.StopVerifying, this.getStoppingTimeout());
-                                    Log.log("Stop the running verification of " + path.basename(Common.uriToPath(task.uri.fsPath)), LogLevel.Debug);
+                                    Log.log("Stop the running verification of " + path.basename(task.uri.fsPath), LogLevel.Debug);
                                     this.stopVerification(task.uri.toString(), isStopManuallyTriggered);
                                     State.hideProgress();
                                 }
@@ -770,7 +770,7 @@ export class VerificationController {
                         State.statusBarItem.update("ready", Color.READY);
                     }
                     else {
-                        let uri = vscode.Uri.file(params.uri);
+                        let uri = vscode.Uri.parse(params.uri);
 
                         //since at most one file can be verified at a time, set all to non-verified before potentially setting one to verified 
                         State.viperFiles.forEach(file => file.verified = false);
@@ -842,7 +842,7 @@ export class VerificationController {
                         State.addToWorklist(new Task({ type: TaskType.VerificationComplete, uri: uri, manuallyTriggered: false }));
                     }
                     if (this.verifyingAllFiles) {
-                        this.autoVerificationResults.push(`${Success[params.success]}: ${Uri.file(params.uri).fsPath}`);
+                        this.autoVerificationResults.push(`${Success[params.success]}: ${Uri.parse(params.uri).fsPath}`);
                         this.autoVerifyFile();
                     }
                     break;
