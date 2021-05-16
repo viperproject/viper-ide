@@ -9,7 +9,7 @@
 'use strict';
 
 import { Progress, Commands, LogLevel } from './ViperProtocol';
-import child_process = require('child_process');
+import * as child_process from 'child_process';
 import { Server } from './ServerClass';
 
 export class Log {

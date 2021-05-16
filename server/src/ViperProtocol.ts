@@ -8,10 +8,10 @@
  
 'use strict';
 
-import Uri from 'vscode-uri';
-import child_process = require('child_process');
+import { URI } from 'vscode-uri';
+import * as child_process from 'child_process';
 import { Log } from './Log';
-var sudo = require('sudo-prompt');
+import * as sudo from 'sudo-prompt';
 
 //Global interfaces:
 
@@ -433,6 +433,8 @@ export interface UserPreferences extends VersionedSettings {
 }
 
 export interface JavaSettings extends VersionedSettings {
+    // optional path to a Java binary
+    javaBinary: string
     //The arguments used for all java invocations
     customArguments: string;
 }
@@ -609,13 +611,13 @@ export interface TimingInfo {
 export class Common {
     //URI helper Methods
     public static uriToPath(uri: string): string {
-        let uriObject: Uri = Uri.parse(uri, false);
+        let uriObject: URI = URI.parse(uri, false);
         let platformIndependentPath = uriObject.path;
         return platformIndependentPath;
     }
 
     public static pathToUri(path: string): string {
-        let uriObject: Uri = Uri.file(path);
+        let uriObject: URI = URI.file(path);
         let platformIndependentUri = uriObject.toString();
         return platformIndependentUri;
     }
@@ -691,6 +693,42 @@ export class Common {
         }
     }
 
+    public static spawn(
+        cmd: string, 
+        args?: string[] | undefined, 
+        options?: child_process.SpawnOptionsWithoutStdio | undefined
+      ): Promise<Output> {
+        Log.log(`Viper-IDE/server: Running '${cmd} ${args ? args.join(' ') : ''}'`, LogLevel.Debug);
+        return new Promise((resolve, reject) => {
+          let stdout = '';
+          let stderr = '';
+    
+          const proc = child_process.spawn(cmd, args, options);
+    
+          proc.stdout.on('data', (data) => stdout += data);
+          proc.stderr.on('data', (data) => stderr += data);
+          proc.on('close', (code) => {
+            Log.log("┌──── Begin stdout ────┐", LogLevel.Debug);
+            Log.log(stdout, LogLevel.Debug);
+            Log.log("└──── End stdout ──────┘", LogLevel.Debug);
+            Log.log("┌──── Begin stderr ────┐", LogLevel.Debug);
+            Log.log(stderr, LogLevel.Debug);
+            Log.log("└──── End stderr ──────┘", LogLevel.Debug);
+            resolve({ stdout, stderr, code });
+          });
+          proc.on('error', (err) => {
+            Log.log("┌──── Begin stdout ────┐", LogLevel.Debug);
+            Log.log(stdout, LogLevel.Debug);
+            Log.log("└──── End stdout ──────┘", LogLevel.Debug);
+            Log.log("┌──── Begin stderr ────┐", LogLevel.Debug);
+            Log.log(stderr, LogLevel.Debug);
+            Log.log("└──── End stderr ──────┘", LogLevel.Debug);
+            Log.log(`Error: ${err}`, LogLevel.Debug);
+            reject(err);
+          });
+        });
+      }
+
     public static backendRestartNeeded(settings: ViperSettings, oldBackendName: string, newBackendName: string) {
         if (!settings)
             return true;
@@ -728,4 +766,10 @@ export class Common {
             return 1;
         }
     }
+}
+
+export interface Output {
+    stdout: string;
+    stderr: string;
+    code: number;
 }

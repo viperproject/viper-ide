@@ -8,15 +8,16 @@
  
 'use strict';
 
-import fs = require('fs');
+import * as fs from 'fs';
 import * as pathHelper from 'path';
 import { Log } from './Log';
-import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, SettingsErrorType, SettingsError, Commands, Success, ViperSettings, Stage, Backend, LogLevel } from './ViperProtocol';
+import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, SettingsErrorType, SettingsError, Commands, Success, ViperSettings, Stage, Backend, LogLevel, Common } from './ViperProtocol';
 import { Server } from './ServerClass';
-import { BackendService } from './BackendService';
 import { ViperServerService } from './ViperServerService';
-const os = require('os');
-var portfinder = require('portfinder');
+import * as locate_java_home from 'locate-java-home';
+import { IJavaHomeInfo } from 'locate-java-home/js/es5/lib/interfaces';
+import * as os from 'os';
+
 
 export interface ResolvedPath {
     path: string,
@@ -629,6 +630,73 @@ export class Settings {
             return null;
         }
         return timeout;
+    }
+
+    /**
+     * Searches for a Java home and tries to use it.
+     * Promis is resolved with the path to the Java executable that should be used.
+     * Otherwise, promise is rejected with an error message (as string) in case something went wrong
+     */
+    public static async getJavaPath(): Promise<string> {
+        const configuredJavaBinary = Settings.settings.javaSettings.javaBinary;
+        const searchForJavaHome = configuredJavaBinary == null || configuredJavaBinary == "";
+        let javaPath: string
+        if (searchForJavaHome) {
+            // no java binary configured, search for it:
+            const javaHome = await Settings.getJavaHome();
+            Log.log(`Java was successfully located at ${javaHome.executables.java}`, LogLevel.Debug);
+            javaPath = javaHome.executables.java;
+        } else {
+            Log.log(`Uses Java home found in settings: ${configuredJavaBinary}`, LogLevel.Debug);
+            javaPath = configuredJavaBinary;
+        }
+
+        // try to execute `java -version`:
+        try {
+            const javaVersionOutput = await Common.spawn(javaPath, ["-version"]);
+            const javaVersion = javaVersionOutput.stdout.concat(javaVersionOutput.stderr);
+            Log.log(`Java home found: ${javaPath}. It's version is: ${javaVersion}`, LogLevel.Verbose);
+            return javaPath;
+        } catch (err) {
+            let errorMsg: string
+            if (searchForJavaHome) {
+                errorMsg = `A Java home was found at '${javaPath}' but executing it with '-version' has failed: ${err}.`;
+            } else {
+                errorMsg = `The Java home is in the settings configured to be '${javaPath}' but executing it with '-version' has failed: ${err}.`;
+            }
+            // rethrow error
+            throw errorMsg;
+        }
+    }
+
+    /**
+     * Searches for a Java home. Promise is rejected with an error message (as string) in case something went wrong
+     */
+    private static getJavaHome(): Promise<IJavaHomeInfo> {
+        return new Promise((resolve, reject) => {
+          try {
+            const options = {
+              version: ">=1.8",
+              mustBe64Bit: true
+            };
+            locate_java_home.default(options, (err, javaHomes) => {
+              if (err) {
+                reject(err.message);
+              } else {
+                if (!Array.isArray(javaHomes) || javaHomes.length === 0) {
+                  const msg = "Could not find a 64-bit Java installation with at least version 1.8. "
+                    + "Please install one and/or manually specify it in the Gobra settings.";
+                  reject(msg);
+                } else {
+                  const javaHome = javaHomes[0];
+                  resolve(javaHome);
+                }
+              }
+            });
+          } catch (err) {
+            reject(err.message);
+          }
+        });
     }
 
     public static backendJars(backend: Backend): string {

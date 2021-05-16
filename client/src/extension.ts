@@ -16,7 +16,7 @@ import { Timer } from './Timer';
 import * as vscode from 'vscode';
 import { State } from './ExtensionState';
 import { SettingsError, Common, Progress, HintMessage, Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success } from './ViperProtocol';
-import Uri from 'vscode-uri';
+import { URI } from 'vscode-uri';
 import { Log } from './Log';
 import { StateVisualizer, MyDecorationOptions } from './StateVisualizer';
 import { Helper } from './Helper';
@@ -88,7 +88,7 @@ function getRequiredVersion(): Versions {
     }
 }
 
-export function deactivate(): Promise<any> {
+export function deactivate(): Promise<void> {
     return new Promise((resolve, reject) => {
         Log.log("deactivate", LogLevel.Info);
         State.dispose().then(() => {
@@ -226,7 +226,7 @@ function registerHandlers() {
         State.client.onNotification(Commands.FileOpened, (uri: string) => {
             try {
                 Log.log("File openend: " + uri, LogLevel.Info);
-                let uriObject: Uri = Uri.parse(uri);
+                let uriObject: URI = URI.parse(uri);
                 let fileState = State.getFileState(uri);
                 if (fileState) {
                     fileState.open = true;
@@ -239,7 +239,7 @@ function registerHandlers() {
         });
         State.client.onNotification(Commands.FileClosed, (uri: string) => {
             try {
-                let uriObject: Uri = Uri.parse(uri);
+                let uriObject: URI = URI.parse(uri);
                 Log.log("File closed: " + path.basename(uriObject.path), LogLevel.Info);
                 let fileState = State.getFileState(uri);
                 if (fileState) {
@@ -420,7 +420,7 @@ function registerHandlers() {
                     file.verifying = false;
                 });
                 State.isVerifying = false;
-                State.addToWorklist(new Task({ type: TaskType.VerificationFailed, uri: Uri.parse(<string>uri), manuallyTriggered: true }));
+                State.addToWorklist(new Task({ type: TaskType.VerificationFailed, uri: URI.parse(<string>uri), manuallyTriggered: true }));
             } catch (e) {
                 Log.error("Error handling verification not started request: " + e);
             }

@@ -8,8 +8,7 @@
  
 'use strict';
 
-import {Log} from './Log';
-import {SymbExLogEntry, LogLevel} from './ViperProtocol';
+import { SymbExLogEntry } from './ViperProtocol';
 import {Statement} from './Statement';
 import {VerificationTask} from './VerificationTask';
 

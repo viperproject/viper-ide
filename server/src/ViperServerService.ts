@@ -8,21 +8,19 @@
  
 'use strict'
 
-const request = require('request')
-import StreamValues = require('stream-json/streamers/StreamValues')
-
-import child_process = require('child_process')
+import * as request from 'request'
+import * as StreamValues from 'stream-json/streamers/StreamValues'
+import * as child_process from 'child_process'
 import { Log } from './Log'
 import { Settings } from './Settings'
 import { Common, Backend, LogLevel, Commands, VerificationState } from './ViperProtocol'
 import { Server } from './ServerClass'
 import { BackendService } from './BackendService'
-import tree_kill = require('tree-kill')
-
-import path = require('path')
+import * as tree_kill from 'tree-kill'
+import * as path from 'path'
 import { DiagnosticSeverity } from 'vscode-languageserver'
+import * as SOUND from 'sound-play'
 
-const SOUND = require('sound-play')
 enum Sounds {
     MinorIssue = 1,
     MinorSuccess,
@@ -68,59 +66,58 @@ export class ViperServerService extends BackendService {
         if (sfx === Sounds.MajorSuccess) SOUND.play(path.join(sfx_prefix, 'magic.mp3')) 
     }
 
-    public start(): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            let policy = Settings.settings.viperServerSettings.viperServerPolicy
-            if ( policy === 'attach' ) {
-                this.backendProcess = null
-                this._url = Settings.settings.viperServerSettings.viperServerAddress
-                this._port = Settings.settings.viperServerSettings.viperServerPort
-                resolve(true)
+    public async start(): Promise<boolean> {
+        const policy = Settings.settings.viperServerSettings.viperServerPolicy;
+        if (policy === 'attach') {
+            this.backendProcess = null;
+            this._url = Settings.settings.viperServerSettings.viperServerAddress;
+            this._port = Settings.settings.viperServerSettings.viperServerPort;
+            return true;
+        } else if (policy === 'create') {
+            const command = await this.getViperServerStartCommand()
+            Log.log(command, LogLevel.Debug);
 
-            } else if ( policy === 'create' ) {
-                let command = this.getViperServerStartCommand()
-                Log.log(command, LogLevel.Debug)
-
-                Server.startingOrRestarting = true
-                this.startTimeout(++this.instanceCount)
+            Server.startingOrRestarting = true;
+            this.startTimeout(++this.instanceCount);
                 
-                let errorReason = ""
-                this.backendProcess = child_process.exec(command, { 
-                    maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, 
-                    cwd: Server.backendOutputDirectory 
-                })
-                let expected_url_msg = new RegExp(/ViperServer online at ([/a-zA-Z0-9:.\-_]+):(\d+).*/)
-                let expected_log_msg = new RegExp(/Writing \[level:(\w+)\] logs into journal: (.*)/)
+            let errorReason = "";
+            this.backendProcess = child_process.exec(command, { 
+                maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, 
+                cwd: Server.backendOutputDirectory 
+            });
+            const expected_url_msg = new RegExp(/ViperServer online at ([/a-zA-Z0-9:.\-_]+):(\d+).*/);
+            const expected_log_msg = new RegExp(/Writing \[level:(\w+)\] logs into journal: (.*)/);
+            const serverReady = new Promise((resolve:(success: boolean) => void, reject) => {
                 this.backendProcess.stdout.on('data', (data: string) => {
-                    Log.logWithOrigin("VS", data.trim(), LogLevel.LowLevelDebug)
-                    let res = expected_url_msg.exec(data)
-                    let log = expected_log_msg.exec(data)
-                    if ( res != null && res.length === 3 ) {
+                    Log.logWithOrigin("VS", data.trim(), LogLevel.LowLevelDebug);
+                    const res = expected_url_msg.exec(data);
+                    const log = expected_log_msg.exec(data);
+                    if (res != null && res.length === 3) {
                         //FIXME: disabling Wifi causes this language server to crash (blame request.post).
                         //this._url = res[1]
-                        this._url = Settings.settings.viperServerSettings.viperServerAddress
-                        this._port = parseInt(res[2])
+                        this._url = Settings.settings.viperServerSettings.viperServerAddress;
+                        this._port = parseInt(res[2]);
                         // This is the last stdout message we expect from the server.
-                        this.removeAllListeners()
+                        this.removeAllListeners();
                         // Ready to start working with the server.
-                        resolve(true)
-                    } 
-                    if ( log != null && log.length === 2 ) {
-                        this._server_logfile = log[1]
+                        resolve(true);
                     }
-                })
-                this.backendProcess.stderr.on('data',(data:string) => {
-                    errorReason = errorReason += "\n" + data
-                })
-                this.backendProcess.on('exit', code => {
-                    Log.log("ViperServer is stopped.", LogLevel.Info)
-                    this.setStopped()
-                })
-            
-            } else {
-                throw new Error('unexpected value in settings: ' + policy)
-            }
-        })
+                    if (log != null && log.length === 2) {
+                        this._server_logfile = log[1];
+                    }
+                });
+            });
+            this.backendProcess.stderr.on('data',(data:string) => {
+                errorReason += "\n" + data
+            })
+            this.backendProcess.on('exit', code => {
+                Log.log(`ViperServer has stopped with exit code ${code}.`, LogLevel.Info);
+                this.setStopped();
+            });
+            return await serverReady;
+        } else {
+            throw new Error('unexpected value in settings: ' + policy);
+        }
     }
 
     public stop(): Promise<boolean> {
@@ -180,11 +177,20 @@ export class ViperServerService extends BackendService {
         }
     }
 
-    private getViperServerStartCommand(): string {
-        let command = "java " + Settings.settings.javaSettings.customArguments +  
-                      " " + Settings.settings.viperServerSettings.customArguments + 
-                      " --logLevel " + this.logLevelToStr(Settings.settings.preferences.logLevel) +
-                      " --logFile " + Server.tempDirectory
+    private async getViperServerStartCommand(): Promise<string> {
+        let javaPath: string
+        try {
+            javaPath = await Settings.getJavaPath();
+        } catch (errorMsg) {
+            Log.hint(errorMsg);
+            throw errorMsg;
+        }
+
+        const javaArgs = Settings.settings.javaSettings.customArguments;
+        const customArgs = Settings.settings.viperServerSettings.customArguments;
+        const logLevel = this.logLevelToStr(Settings.settings.preferences.logLevel);
+        const logFile = Server.tempDirectory;
+        let command = `${javaPath} ${javaArgs} ${customArgs} --logLevel ${logLevel} --logFile ${logFile}`;
 
         command = command.replace(/\$backendPaths\$/g, Settings.viperServerJars())
         command = command.replace(/\$backendSpecificCache\$/g, (Settings.settings.viperServerSettings.backendSpecificCache === true ? "--backendSpecificCache" : ""))

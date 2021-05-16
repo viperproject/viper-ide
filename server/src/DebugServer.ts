@@ -11,9 +11,8 @@
 import { Server } from './ServerClass';
 import { Log } from './Log';
 import { Common, LaunchRequestArguments, StatementType, Position, StepType, VerificationState, LogLevel } from './ViperProtocol'
-import { VerificationTask } from './VerificationTask';
 import { Settings } from './Settings';
-let ipc = require('node-ipc');
+import * as ipc from 'node-ipc';
 
 export class DebugServer {
 

@@ -11,19 +11,13 @@ import * as path from 'path';
 // as well as import your extension to test it
 import * as vscode from 'vscode';
 import * as myExtension from '../extension';
-import Uri from 'vscode-uri';
-import { Common, VerificationState } from '../ViperProtocol';
-import { Event } from 'typescript.events';
+import { Common } from '../ViperProtocol';
 import { State } from '../ExtensionState';
-import * as child_process from 'child_process';
-import * as mocha from 'mocha';
 import { Helper } from '../Helper';
 import { Log } from '../Log';
 
 let ready = false;
 //let verified = false;
-
-let executionStates = [];
 
 export class UnitTestCallback {
     backendStarted = (b) => { };

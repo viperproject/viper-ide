@@ -7,12 +7,11 @@
   */
  
 'use strict';
-import { clearTimeout } from 'timers';
 
-import child_process = require('child_process');
+import * as child_process from 'child_process'
 import { Log } from './Log'
 import { Settings } from './Settings'
-import { Common, Stage, Backend, VerificationState, LogLevel } from './ViperProtocol'
+import { Common, Backend, LogLevel } from './ViperProtocol'
 import { Server } from './ServerClass';
 import { BackendService } from './BackendService';
 

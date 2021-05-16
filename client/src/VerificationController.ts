@@ -14,7 +14,7 @@ import { Timer } from './Timer';
 import * as vscode from 'vscode';
 import { State } from './ExtensionState';
 import { Common, Progress, HintMessage, Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success } from './ViperProtocol';
-import Uri from 'vscode-uri';
+import { URI } from 'vscode-uri';
 import { Log } from './Log';
 import { StateVisualizer, MyDecorationOptions } from './StateVisualizer';
 import { Helper } from './Helper';
@@ -107,7 +107,7 @@ export class VerificationController {
 
     //for autoverify all viper files in workspace
     private verifyingAllFiles = false;
-    private allFilesToAutoVerify: Uri[];
+    private allFilesToAutoVerify: URI[];
     private nextFileToAutoVerify: number;
     private autoVerificationResults: string[];
     private autoVerificationStartTime: number;
@@ -842,7 +842,7 @@ export class VerificationController {
                         State.addToWorklist(new Task({ type: TaskType.VerificationComplete, uri: uri, manuallyTriggered: false }));
                     }
                     if (this.verifyingAllFiles) {
-                        this.autoVerificationResults.push(`${Success[params.success]}: ${Uri.parse(params.uri).fsPath}`);
+                        this.autoVerificationResults.push(`${Success[params.success]}: ${URI.parse(params.uri).fsPath}`);
                         this.autoVerifyFile();
                     }
                     break;
@@ -888,7 +888,7 @@ export class VerificationController {
             fileListReader = vscode.workspace.findFiles('**/' + endings, '');
         }
 
-        fileListReader.then((uris: Uri[]) => {
+        fileListReader.then((uris: URI[]) => {
             if (!uris) {
                 Log.error('cannot start verifying all files in directory, uris is ' + uris);
             } else {

@@ -18,11 +18,10 @@ import { Settings } from './Settings'
 import * as pathHelper from 'path'
 import * as fs from 'fs'
 import * as http from 'http'
-const os = require('os')
-const globToRexep = require('glob-to-regexp')
-let mkdirp = require('mkdirp')
-var DecompressZip = require('decompress-zip')
-import findJavaHome = require('find-java-home')
+import * as os from 'os'
+import * as globToRexep from 'glob-to-regexp'
+import * as mkdirp from 'mkdirp'
+import * as DecompressZip from 'decompress-zip'
 
 export class Server {
     static backend: Backend;
@@ -377,29 +376,9 @@ export class Server {
     public static updateViperTools(askForPermission: boolean) {
         try {
             // Check Java installation
-            this.backendService.isJreInstalled().then(is_jre_correct => {
-                if (!is_jre_correct) {
-                    // If the user doesn't have JRE x64 at all, notify them that Viper IDE won't work. 
-                    findJavaHome({'allowJre': true, 'registry': "x64"}, (err, home) => {
-                        if (err) {
-                            // JRE cannot be found
-                            Log.hint(`Error locating Java: ${err}. Viper IDE requires JRE 8-to-15 (x64).`)
-                        } else if (home) {
-                            // JRE is found but it is not on Path
-                            Log.hint(`Found a viable JRE installation at '${home}'. ` + 
-                                     `If this is the JRE you want to use with Viper IDE, ` + 
-                                     `please add its 'bin' subdirectory to your system's ` + 
-                                     `PATH variable and restart VS Code.`)
-                        }
-                    })
-                } else {
-                    Log.log(`JRE checks passed.`, LogLevel.Verbose)
-                }
-            }).catch(err => {
-                Log.hint(`Error while checking Java installation: ${err}. ` + 
-                         `Viper IDE requires JRE 8-to-15 (x64).`)
-            })
-            
+            Settings.getJavaPath()
+                .then(javaPath => Log.log(`Java home found: ${javaPath}.`, LogLevel.Verbose))
+                .catch(err => Log.hint(`Error while checking Java installation: ${err}.`));
 
             if (!Settings.upToDate()) {
                 Log.hint("The settings are not up to date, refresh them before updating the Viper Tools. ", true)

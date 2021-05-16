@@ -14,7 +14,7 @@ import * as path from 'path';
 import { Commands, LogLevel, ViperSettings } from './ViperProtocol';
 import { Log } from './Log';
 import { ViperFileState } from './ViperFileState';
-import Uri from 'vscode-uri';
+import { URI } from 'vscode-uri';
 import { Helper } from './Helper';
 import { StateVisualizer } from './StateVisualizer';
 import { Color, StatusBar } from './StatusBar';
@@ -104,7 +104,7 @@ export class State {
         this.statusBarProgress.hide().updateProgressBar(0);
     }
 
-    public static setLastActiveFile(uri: Uri | string | vscode.Uri, editor: vscode.TextEditor): ViperFileState {
+    public static setLastActiveFile(uri: URI | string | vscode.Uri, editor: vscode.TextEditor): ViperFileState {
         this.lastActiveFileUri = uri.toString();
         let lastActiveFile = this.getFileState(uri);
         if (lastActiveFile) {
@@ -147,13 +147,13 @@ export class State {
         return this.isBackendReady;
     }
 
-    public static getVisualizer(uri: Uri | string | vscode.Uri): StateVisualizer {
+    public static getVisualizer(uri: URI | string | vscode.Uri): StateVisualizer {
         let fileState = this.getFileState(uri);
         return fileState ? fileState.stateVisualizer : null;
     }
 
     ///retrieves the requested file, creating it when needed
-    public static getFileState(uri: Uri | string | vscode.Uri): ViperFileState {
+    public static getFileState(uri: URI | string | vscode.Uri): ViperFileState {
         if (!uri) return null;
         let uriObject: vscode.Uri = Helper.uriToObject(uri);
         let uriString: string = Helper.uriToString(uri);
@@ -212,7 +212,7 @@ export class State {
         }
     }
 
-    public static dispose(): Promise<any> {
+    public static dispose(): Promise<void> {
         try {
             return new Promise((resolve, reject) => {
                 Log.log("Ask language server to shut down.", LogLevel.Info);

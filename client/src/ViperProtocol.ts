@@ -8,11 +8,10 @@
  
 'use strict';
 
-import Uri from 'vscode-uri';
-import child_process = require('child_process');
+import { URI } from 'vscode-uri';
+import * as child_process from 'child_process';
 import { Log } from './Log';
-import { strict } from 'assert';
-var sudo = require('sudo-prompt');
+import * as sudo from 'sudo-prompt';
 
 //Global interfaces:
 
@@ -434,6 +433,8 @@ export interface UserPreferences extends VersionedSettings {
 }
 
 export interface JavaSettings extends VersionedSettings {
+    // optional path to a Java binary
+    javaBinary: string
     //The arguments used for all java invocations
     customArguments: string;
 }
@@ -610,13 +611,13 @@ export interface TimingInfo {
 export class Common {
     //URI helper Methods
     public static uriToPath(uri: string): string {
-        let uriObject: Uri = Uri.parse(uri);
+        let uriObject: URI = URI.parse(uri);
         let platformIndependentPath = uriObject.fsPath;
         return platformIndependentPath;
     }
 
     public static pathToUri(path: string): string {
-        let uriObject: Uri = Uri.file(path);
+        let uriObject: URI = URI.file(path);
         let platformIndependentUri = uriObject.toString();
         return platformIndependentUri;
     }

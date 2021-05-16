@@ -8,8 +8,7 @@
  
 'use strict';
 
-import {Log} from './Log';
-import {LogLevel} from './ViperProtocol';
+import { Log } from './Log';
 
 class DotAttribute {
     name: string;
