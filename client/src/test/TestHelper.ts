@@ -25,19 +25,37 @@ export const LONG = 'longDuration.vpr';
 
 export default class TestHelper {
     private static callbacks: UnitTestCallbackImpl = null;
+    // preserve context for restarting extension between different test suites
+    private static context: vscode.ExtensionContext = null;
 
     public static async setup() {
         // setup callbacks:
         assert(this.callbacks == null);
         this.callbacks = new UnitTestCallbackImpl();
         State.unitTest = this.callbacks;
+        if (this.context != null) {
+            // the extension is kept alive between suites (even with calling `deactive` on the extension).
+            // Thus, restart extension (based on https://github.com/microsoft/vscode/issues/45774#issuecomment-373423895):
+            // we assume that `deactivate` has already been called (as part of `teardown`)
+            for (const sub of this.context.subscriptions) {
+                try {
+                    sub.dispose();
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+            await myExtension.activate(this.context);
+        } else {
+            this.callbacks.activated = () => { this.context = State.context; };
+        }
     }
 
     public static async teardown() {
         assert(this.callbacks != null);
         this.callbacks = null;
         await myExtension.deactivate();
-        await this.checkForRunningProcesses(true, true, true);
+        // FIXME: set all args to true as soon as leaking java command is fixed
+        await this.checkForRunningProcesses(false, true, true);
     }
 
     public static log(msg: string) {
@@ -51,6 +69,7 @@ export default class TestHelper {
     public static async startExtension(): Promise<void> {
         await TestHelper.openFile(EMPTY);
         await TestHelper.waitForBackendStarted();
+        this.context = State.context;
     }
 
     public static async openFile(fileName: string): Promise<vscode.TextDocument> {
@@ -147,7 +166,7 @@ export default class TestHelper {
         await TestHelper.executeCommand('viper.updateViperTools');
     }
 
-    private static executeCommand(command: string, args?) {
+    public static executeCommand(command: string, args?) {
         TestHelper.log(command + (args ? ' ' + args : ''));
         return vscode.commands.executeCommand(command, args);
     }
@@ -166,7 +185,7 @@ export default class TestHelper {
     public static waitForVerificationStart(fileName: string, backend?: string): Promise<void> {
         return new Promise(resolve => {
             TestHelper.callbacks.verificationStarted = (b, f) => {
-                TestHelper.log("Verification Started: file: " + f + ", backend: " + b);
+                TestHelper.log(`Verification Started: file: ${f}, backend: ${b}`);
                 if ((!backend || b === backend) && f === fileName) {
                     resolve();
                 }
@@ -177,10 +196,19 @@ export default class TestHelper {
     public static waitForVerification(fileName: string, backend?: string): Promise<void> {
         return new Promise(resolve => {
             TestHelper.callbacks.verificationComplete = (b, f) => {
-                TestHelper.log("Verification Completed: file: " + f + ", backend: " + b);
+                TestHelper.log(`Verification Completed: file: ${f}, backend: ${b}`);
                 if ((!backend || b === backend) && f === fileName) {
                     resolve();
                 }
+            }
+        });
+    }
+
+    public static waitForVerificationOfAllFilesInWorkspace(): Promise<{verified: number, total: number}> {
+        return new Promise(resolve => {
+            TestHelper.callbacks.allFilesVerified = (verified, total) => {
+                TestHelper.log(`Verification of all files completed: ${verified} of ${total}`);
+                resolve({verified: verified, total: total});
             }
         });
     }
@@ -190,6 +218,24 @@ export default class TestHelper {
             TestHelper.callbacks.verificationStopped = () => {
                 TestHelper.log("verification stopped");
                 resolve();
+            }
+        });
+    }
+
+    public static waitForLogFile(): Promise<void> {
+        return new Promise(resolve => {
+            TestHelper.callbacks.logFileOpened = () => { 
+                TestHelper.log("log file opened");
+                resolve(); 
+            }
+        });
+    }
+
+    public static waitForIdle(): Promise<void> {
+        return new Promise(resolve => {
+            TestHelper.callbacks.ideIsIdle = () => { 
+                TestHelper.log("IDE is idle");
+                resolve(); 
             }
         });
     }

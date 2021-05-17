@@ -37,8 +37,7 @@ let lastVersionWithSettingsChange: Versions;
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
-    if (State.unitTest) State.unitTest.activated();
+export async function activate(context: vscode.ExtensionContext) {
     Helper.loadViperFileExtensions();
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
 
@@ -63,7 +62,7 @@ export function activate(context: vscode.ExtensionContext) {
     State.context = context;
     State.verificationController = new VerificationController();
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/{' + Helper.viperFileEndings.join(",") + "}");
-    State.startLanguageServer(context, fileSystemWatcher, false); //break?
+    await State.startLanguageServer(context, fileSystemWatcher, false);
     State.viperApi = new ViperApi(State.client);
     registerHandlers();
     startAutoSaver();
@@ -76,6 +75,8 @@ export function activate(context: vscode.ExtensionContext) {
         Log.log("No active text editor found", LogLevel.Info);
     }
 
+    if (State.unitTest) State.unitTest.activated();
+    
     return State.viperApi;
 }
 
@@ -88,30 +89,24 @@ function getRequiredVersion(): Versions {
     }
 }
 
-export function deactivate(): Promise<void> {
-    return new Promise((resolve, reject) => {
+export async function deactivate(): Promise<void> {
+    try {
         Log.log("deactivate", LogLevel.Info);
-        State.dispose().then(() => {
-            Log.log("State disposed", LogLevel.Debug);
-            let oldFile = State.getLastActiveFile();
-            if (oldFile) {
-                Log.log("Removing special chars of last opened file.", LogLevel.Debug);
-                oldFile.stateVisualizer.removeSpecialCharacters(() => {
-                    Log.log("Close Log", LogLevel.Debug);
-                    Log.dispose();
-                    Log.log("Deactivated", LogLevel.Info)
-                    resolve();
-                });
-            } else {
-                Log.log("Close Log", LogLevel.Debug);
-                Log.dispose();
-                Log.log("Deactivated", LogLevel.Info)
-                resolve();
-            }
-        }).catch(e => {
-            Log.error("error disposing: " + e);
-        });
-    });
+        await State.dispose();
+        Log.log("State disposed", LogLevel.Debug);
+        const oldFile = State.getLastActiveFile();
+        if (oldFile) {
+            Log.log("Removing special chars of last opened file.", LogLevel.Debug);
+            await new Promise<void>(resolve => {
+                oldFile.stateVisualizer.removeSpecialCharacters(resolve);
+            });
+        }
+        Log.log("Close Log", LogLevel.Debug);
+        Log.dispose();
+        Log.log("Deactivated", LogLevel.Info)
+    } catch (e) {
+        Log.error("error disposing: " + e);
+    }
 }
 
 function registerFormatter() {

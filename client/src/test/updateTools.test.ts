@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import TestHelper, { LONG } from './TestHelper';
-
+/*
 suite('Viper Tools Update Test', () => {
 
     suiteSetup(async function() {
@@ -45,3 +45,4 @@ suite('Viper Tools Update Test', () => {
         assert (!TestHelper.hasObservedInternalError());
     });
 });
+*/

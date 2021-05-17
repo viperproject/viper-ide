@@ -30,7 +30,6 @@ export class State {
     public static isBackendReady: boolean;
     public static isDebugging: boolean;
     public static isVerifying: boolean;
-    private static languageServerDisposable;
     public static isWin = /^win/.test(process.platform);
     public static isLinux = /^linux/.test(process.platform);
     public static isMac = /^darwin/.test(process.platform);
@@ -170,7 +169,7 @@ export class State {
         return result;
     }
 
-    public static startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, brk: boolean) {
+    public static startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, brk: boolean): Promise<void> {
         // The server is implemented in node
         let serverModule = State.context.asAbsolutePath(path.join('server', 'server.js'));
 
@@ -204,23 +203,23 @@ export class State {
 
         Log.log("Start Language Server", LogLevel.Info);
         // Create the language client and start the client.
-        this.languageServerDisposable = State.client.start();
+        const disposable = State.client.start();
+        // Push the disposable to the context's subscriptions so that the
+        // client can be deactivated on extension deactivation
+        context.subscriptions.push(disposable);
 
-        if (!State.client || !this.languageServerDisposable) {
-            Log.error("LanguageClient is undefined");
-        }
+        return State.client.onReady();
     }
 
-    public static dispose(): Promise<void> {
+    public static async dispose(): Promise<void> {
+        if (State.client == null) {
+            return;
+        }
         try {
-            return new Promise((resolve, reject) => {
-                Log.log("Ask language server to shut down.", LogLevel.Info);
-                State.client.sendRequest(Commands.Dispose, null).then(() => {
-                    Log.log("Language server has shut down, terminate the connection", LogLevel.Info);
-                    this.languageServerDisposable.dispose();
-                    resolve();
-                });
-            });
+            Log.log("Ask language server to shut down.", LogLevel.Info);
+            await State.client.sendRequest(Commands.Dispose, null);
+            Log.log("Language server has shut down, terminate the connection", LogLevel.Info);
+            await State.client.stop();
         } catch (e) {
             Log.error("Error disposing state: " + e);
         }
