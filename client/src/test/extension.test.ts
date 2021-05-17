@@ -12,18 +12,35 @@
 // import * as vscode from 'vscode';
 // import * as myExtension from '../extension';
 // import { Common } from '../ViperProtocol';
-// import { State } from '../ExtensionState';
+// import { State, UnitTestCallback } from '../ExtensionState';
 // import { Helper } from '../Helper';
 // import { Log } from '../Log';
 
-// console.log("extension.test.ts");
 
-// let ready = false;
-// //let verified = false;
+// class UnitTestCallbackImpl implements UnitTestCallback {
+//     backendStarted = (backend: string) => { };
+//     verificationComplete = (backend: string, filename: string) => { };
+//     logFileOpened = () => { };
+//     allFilesVerified = (verified: number, total: number) => { };
+//     ideIsIdle = () => { };
+//     internalErrorDetected = () => { internalErrorDetected = true; }
+//     activated = () => { };
+//     viperUpdateComplete = () => { };
+//     viperUpdateFailed = () => { };
+//     verificationStopped = () => { };
+//     verificationStarted = (backend: string, filename: string) => { };
+// }
 
+// let internalErrorDetected: boolean;
+
+// const SILICON = 'silicon';
+// const CARBON = 'carbon';
+// const SIMPLE = 'simple.sil';
+// const EMPTY = 'empty.txt';
+// const LONG = 'longDuration.vpr';
 
 // //Initialize
-// State.unitTest = new UnitTestCallback();
+// State.unitTest = new UnitTestCallbackImpl();
 
 // //TestOpeningWorkspace();
 
@@ -48,7 +65,6 @@
 //         State.unitTest.backendStarted = (b) => {
 //             log("Backend " + b + " started");
 //             if (!backend || b === backend) {
-//                 ready = true;
 //                 resolve(true);
 //             }
 //         }
@@ -77,10 +93,10 @@
 //     });
 // }
 
-// function waitForVerificationOfAllFilesInWorkspace(): Promise<boolean> {
+// function waitForVerificationOfAllFilesInWorkspace(): Promise<{verified: number, total: number}> {
 //     return new Promise((resolve, reject) => {
-//         State.unitTest.allFilesVerified = (res) => {
-//             resolve(res);
+//         State.unitTest.allFilesVerified = (verified, total) => {
+//             resolve({verified: verified, total: total});
 //         }
 //     });
 // }
@@ -143,19 +159,258 @@
 // }
 
 // function StartViperIdeTests() {
-//     
+//     suite("ViperIDE Startup tests:", () => {
+
+//         test("Language Detection, and Backend Startup test.", function (done) {
+//             log("Language Detection, and Backend Startup test.");
+//             this.timeout(40000);
+
+//             openFile(SIMPLE).then(document => {
+//                 if (document.languageId != 'viper') {
+//                     throw new Error("The language of viper file was not detected correctly: should: viper, is: " + document.languageId);
+//                 }
+//                 return waitForBackendStarted(SILICON);
+//             }).then(() => {
+//                 //     selectBackend(CARBON);
+//                 //     return waitForBackendStarted(CARBON);
+//                 // }).then(() => {
+//                 //backend ready
+//                 done();
+//             });
+//         });
+
+//         test("Test simple verification with silicon", function (done) {
+//             log("Test simple verification with silicon");
+//             this.timeout(25000);
+
+//             //3. viper file should verify with silicon 
+//             waitForVerification(SIMPLE).then(() => {
+//                 //verified
+//                 done();
+//             });
+//         });
+//     });
 // }
 
 // function ViperToolsUpdateTest() {
-//     
+//     suite("Viper Tools Update Test:", () => {
+//         // //requires running backend
+//         test("Viper Tools Update Test", function (done) {
+//             log("Viper Tools Update Test");
+//             this.timeout(60000);
+
+//             executeCommand('viper.updateViperTools');
+
+//             openFile(LONG);
+
+//             //wait until viper tools update done
+//             waitForViperToolsUpdate().then(success => {
+//                 //viper tools update done
+//                 if (success) return waitForBackendStarted();
+//                 else throw new Error("viper Tools Update failed");
+//             }).then(() => {
+//                 return waitForVerification(LONG);
+//             }).then(() => {
+//                 //backend ready
+//                 done();
+//             });
+//         })
+
+//         //requires running backend
+//         test("Test abort of first verification after viper tools update", function (done) {
+//             log("Test abort of first verification after viper tools update");
+//             this.timeout(30000)
+
+//             internalErrorDetected = false;
+
+//             //stop the verification after 1000ms
+//             setTimeout(() => {
+//                 stopVerification()
+//             }, 1000)
+
+//             verify();
+
+//             waitForAbort().then(() => {
+//                 return checkForRunningProcesses(false, false, true);
+//                 //return wait(1000);
+//             }).then(ok => {
+//                 //aborted
+//                 //reverify longDuration viper file
+//                 verify()
+//                 return waitForVerification(LONG);
+//             }).then(() => {
+//                 //verified
+//                 checkForInternalErrorBefore(done);
+//             });
+//         });
+//     })
 // }
 
 // function ViperIdeTests() {
 //     // Defines a Mocha test suite to group tests of similar kind together
-//     describe("ViperIDE tests:", function () {
+//     suite("ViperIDE tests:", () => {
 
-//      
-//         
+//         //requires running backend
+//         test("Test abort", function (done) {
+//             log("Test abort");
+//             this.timeout(30000);
+
+//             internalErrorDetected = false;
+
+//             //open a file that takes longer
+//             openFile(LONG).then(() => {
+//                 verify();
+//                 return waitForVerification(LONG);
+//             }).then(() => {
+//                 verify();
+//                 //stop the verification after 300ms
+//                 setTimeout(() => {
+//                     stopVerification()
+//                 }, 300)
+
+//                 return waitForAbort();
+//             }).then(() => {
+//                 return checkForRunningProcesses(false, true, true);
+//             }).then(ok => {
+//                 //aborted
+//                 //reverify longDuration viper file
+//                 verify()
+//                 return waitForVerification(LONG);
+//             }).then(() => {
+//                 //verified
+//                 checkForInternalErrorBefore(done);
+//             })
+//         });
+
+//         //requires running non-silicon backend
+//         test("Test closing files", function (done) {
+//             log("Test closing files");
+//             this.timeout(30000);
+//             internalErrorDetected = false;
+
+//             //selectBackend(SILICON);
+//             //waitForBackendStarted(SILICON).then(() => {
+//             openFile(LONG).then(() => {
+//                 verify();
+//                 return wait(500)
+//             }).then(() => {
+//                 return closeFile();
+//             }).then(() => {
+//                 return openFile(SIMPLE);
+//             }).then(() => {
+//                 return wait(200);
+//             }).then(() => {
+//                 stopVerification();
+//             }).then(() => {
+//                 return closeFile();
+//             }).then(() => {
+//                 return openFile(LONG);
+//             }).then(() => {
+//                 return waitForVerification(LONG);
+//             }).then(() => {
+//                 checkForInternalErrorBefore(done);
+//             })
+//         });
+
+//         test("Test not verifying verified files", function (done) {
+//             log("Test not verifying verified files");
+//             this.timeout(40000);
+
+//             let simpleAlreadyOpen = path.basename(vscode.window.activeTextEditor.document.fileName) == SIMPLE
+
+//             //reopen simple viper file
+//             openFile(SIMPLE).then(() => {
+//                 if (simpleAlreadyOpen) return true;
+//                 return waitForVerification(SIMPLE);
+//             }).then(() => {
+//                 //simulate context switch by opening non-viper file
+//                 return openFile(EMPTY);
+//             }).then(() => {
+//                 return openFile(SIMPLE);
+//             }).then(() => {
+//                 //wait 1000ms for verification start
+//                 return waitForTimeout(1000, waitForVerificationStart(SIMPLE));
+//             }).then(timeoutHit => {
+//                 if (timeoutHit) {
+//                     done();
+//                 } else {
+//                     //verified
+//                     throw new Error("unwanted reverification of verified file after switching context");
+//                 }
+//             });
+//         });
+
+//         test("Test zooming", function (done) {
+//             log("Test zooming");
+//             this.timeout(20000);
+
+//             executeCommand("workbench.action.zoomIn").then(() => {
+//                 return wait(5000);
+//             }).then(() => {
+//                 return executeCommand("workbench.action.zoomOut");
+//             }).then(() => {
+//                 return waitForTimeout(9000, waitForBackendStarted())
+//             }).then((timeoutHit) => {
+//                 if (timeoutHit) {
+//                     done();
+//                 } else {
+//                     throw new Error("backend was restarted, but it should not be");
+//                 }
+//             });
+//         });
+
+//         test("Test autoVerify", function (done) {
+//             log("Test autoVerify");
+//             this.timeout(2000);
+
+//             //turn auto verify back on in the end 
+//             let timer = setTimeout(() => {
+//                 executeCommand("viper.toggleAutoVerify")
+//             }, 1500);
+
+//             executeCommand("viper.toggleAutoVerify").then(() => {
+//                 return openFile(LONG)
+//             }).then(() => {
+//                 return openFile(SIMPLE)
+//             }).then(() => {
+//                 return waitForTimeout(1000, waitForVerificationStart(LONG))
+//             }).then((timeoutHit) => {
+//                 if (timeoutHit) {
+//                     clearTimeout(timer);
+//                     executeCommand("viper.toggleAutoVerify").then(() => done())
+//                 } else {
+//                     throw new Error("verification was started even if autoVerify is disabled");
+//                 }
+//             })
+//         });
+
+//         //requires SIMPLE open
+//         test("Test Helper Methods", function (done) {
+//             log("Test Helper Methods");
+//             this.timeout(1000);
+
+//             checkAssert(Helper.formatProgress(12.9), "13%", "formatProgress");
+//             checkAssert(Helper.formatSeconds(12.99), "13.0 seconds", "formatSeconds");
+//             checkAssert(Helper.isViperSourceFile("/folder/file.vpr"), true, "isViperSourceFile unix path");
+//             checkAssert(Helper.isViperSourceFile("..\\.\\folder\\file.sil"), true, "isViperSourceFile relavive windows path");
+//             checkAssert(!Helper.isViperSourceFile("C:\\absolute\\path\\file.ts"), true, "isViperSourceFile absolute windows path");
+//             checkAssert(path.basename(Helper.uriToString(Helper.getActiveFileUri())), SIMPLE, "active file");
+
+//             done();
+//         });
+
+//         test("Test opening logFile", function (done) {
+//             log("Test opening logFile");
+//             this.timeout(2000);
+
+//             executeCommand('viper.openLogFile');
+//             waitForLogFile().then(() => {
+//                 executeCommand('workbench.action.closeActiveEditor');
+//                 return wait(500);
+//             }).then(() => {
+//                 done();
+//             })
+//         });
 //     });
 // }
 
@@ -189,8 +444,8 @@
 // }
 
 // function ViperIdeStressTests() {
-//     describe("ViperIDE Stress Tests:", function () {
-//         it("1. multiple fast verification requests", function (done) {
+//     suite("ViperIDE Stress Tests:", () => {
+//         test("1. multiple fast verification requests", function (done) {
 //             log("1. multiple fast verification requests");
 //             this.timeout(11000);
 
@@ -220,7 +475,7 @@
 //             });
 //         });
 
-//         it("2. quickly change backends", function (done) {
+//         test("2. quickly change backends", function (done) {
 //             log("2. quickly change backends");
 //             this.timeout(50000);
 
@@ -242,7 +497,7 @@
 //             });
 //         });
 
-//         it("3. quickly start, stop, and restart verification", function (done) {
+//         test("3. quickly start, stop, and restart verification", function (done) {
 //             log("3. quickly start, stop, and restart verification");
 //             this.timeout(15000);
 
@@ -256,7 +511,7 @@
 //             });
 //         });
 
-//         it("4. closing all files right after starting verificaiton", function (done) {
+//         test("4. closing all files right after starting verificaiton", function (done) {
 //             log("4. closing all files right after starting verificaiton");
 //             this.timeout(6000);
 
@@ -270,7 +525,7 @@
 //             executeCommand('workbench.action.closeAllEditors');
 //         });
 
-//         it("Test simple verification with carbon", function (done) {
+//         test("Test simple verification with carbon", function (done) {
 //             log("Test simple verification with carbon");
 //             this.timeout(35000);
 
@@ -292,8 +547,8 @@
 // }
 
 // function TestVerificationOfAllFilesInWorkspace() {
-//     describe("Workspace tests:", function () {
-//         it("Test Verification of all files in folder", function (done) {
+//     suite("Workspace tests:", () => {
+//         test("Test Verification of all files in folder", function (done) {
 //             log("Test Verification of all files in folder");
 //             this.timeout(200000);
 
@@ -301,7 +556,7 @@
 //             waitForIdle().then(() => {
 //                 executeCommand('viper.verifyAllFilesInWorkspace', Helper.uriToString(TestContext.DATA_ROOT));
 //                 return waitForVerificationOfAllFilesInWorkspace();
-//             }).then((result: any) => {
+//             }).then(result => {
 //                 if (result.verified == result.total) {
 //                     done();
 //                 } else {
@@ -313,13 +568,13 @@
 // }
 
 // function TestOpeningWorkspace() {
-//     describe("Folder Tests:", function () {
-//         it("Test opening a folder", function (done) {
+//     suite("Folder Tests:", () => {
+//         test("Test opening a folder", function (done) {
 //             log("Test opening a folder");
 //             this.timeout(100000);
 
 //             executeCommand('vscode.openFolder', Helper.uriToObject(Common.pathToUri(TestContext.DATA_ROOT))).then(() => {
-//                 State.unitTest = new UnitTestCallback();
+//                 State.unitTest = new UnitTestCallbackImpl();
 //                 return wait(10000);
 //             }).then(() => {
 //                 return waitForBackendStarted();
@@ -331,7 +586,22 @@
 // }
 
 // function FinishViperIdeTests() {
-//     
+//     suite("Deactivation Tests:", () => {
+//         test("Test closing all auxilary processes", function (done) {
+//             log("Test closing all auxilary processes");
+//             this.timeout(10000);
+
+//             TestContext.dispose();
+
+//             wait(5000).then(() => {
+//                 return checkForRunningProcesses(true, true, true);
+//             }).then(ok => {
+//                 if (ok) {
+//                     done();
+//                 }
+//             })
+//         });
+//     })
 // }
 
 // function checkForRunningProcesses(checkJava: boolean, checkBoogie: boolean, checkZ3: boolean): Thenable<boolean> {

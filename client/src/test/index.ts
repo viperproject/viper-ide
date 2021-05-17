@@ -46,16 +46,10 @@ export async function run(): Promise<void> {
         )
     )
 
-    files.forEach(f => console.log(`Found file: ${f}`));
-
 	// Add files to the test suite
     files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)));
 
-    console.log("tests have been added");
-
     const failures: number = await new Promise(resolve => mocha.run(resolve));
-
-    console.log("mocha has finished running");
 
     if (failures > 0) {
         throw new Error(`${failures} tests failed.`)
