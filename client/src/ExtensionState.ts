@@ -19,7 +19,6 @@ import { Helper } from './Helper';
 import { StateVisualizer } from './StateVisualizer';
 import { Color, StatusBar } from './StatusBar';
 import { VerificationController, Task } from './VerificationController';
-import { UnitTestCallback } from './test/extension.test';
 import { ViperApi } from './ViperApi';
 
 export class State {
@@ -242,4 +241,18 @@ export class State {
             Log.log("OS: Linux", LogLevel.Debug);
         }
     }
+}
+
+export interface UnitTestCallback {
+    backendStarted: (backend: string) => void;
+    verificationComplete: (backend: string, filename: string) => void;
+    logFileOpened: () => void;
+    allFilesVerified: (verified: number, total: number) => void;
+    ideIsIdle: () => void;
+    internalErrorDetected: () => void;
+    activated: () => void;
+    viperUpdateComplete: () => void;
+    viperUpdateFailed: () => void;
+    verificationStopped: () => void;
+    verificationStarted: (backend: string, filename: string) => void;
 }
