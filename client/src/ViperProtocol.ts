@@ -171,7 +171,7 @@ export interface StateChangeParams {
     uri?: string;
     stage?: string;
     error?: string;
-    diagnostics?: string
+    diagnostics?: string;
 }
 
 export interface BackendReadyParams {
@@ -611,8 +611,8 @@ export interface TimingInfo {
 export class Common {
     //URI helper Methods
     public static uriToPath(uri: string): string {
-        let uriObject: URI = URI.parse(uri);
-        let platformIndependentPath = uriObject.fsPath;
+        const uriObject: URI = URI.parse(uri);
+        const platformIndependentPath = uriObject.fsPath;
         return platformIndependentPath;
     }
 
@@ -623,24 +623,19 @@ export class Common {
     }
 
     //Helper methods for child processes
-    public static executer(command: string, dataHandler?: (string) => void, errorHandler?: (string) => void, exitHandler?: () => void): child_process.ChildProcess {
+    public static executer(command: string, onData?: (string) => void, 
+                           onError?: (string) => void, onExit?: () => void): child_process.ChildProcess {
         try {
-            Log.logWithOrigin("executer", command, LogLevel.Debug)
+            Log.logWithOrigin("executer", command, LogLevel.Debug);
             let child: child_process.ChildProcess = child_process.exec(command, function (error, stdout, stderr) {
-                Log.logWithOrigin('executer stdout', stdout, LogLevel.LowLevelDebug);
-                if (dataHandler) {
-                    dataHandler(stdout);
-                }
-                Log.logWithOrigin('executer stderr', stderr, LogLevel.LowLevelDebug);
-                if (errorHandler) {
-                    errorHandler(stderr);
-                }
-                if (error !== null) {
-                    Log.error('executer error: ' + error);
-                }
-                if (exitHandler) {
-                    Log.log("executer done", LogLevel.LowLevelDebug);
-                    exitHandler();
+                Log.logWithOrigin('executer:stdout', stdout, LogLevel.LowLevelDebug);
+                Log.logWithOrigin('executer:stderr', stderr, LogLevel.LowLevelDebug);
+                if (error) Log.logWithOrigin('executer:error', `${error}`, LogLevel.LowLevelDebug);
+                if (onData) onData(stdout);
+                if (onError) onError(stderr);
+                if (onExit) {
+                    Log.logWithOrigin('executer', 'done', LogLevel.LowLevelDebug);
+                    onExit();
                 }
             });
             return child;
@@ -649,10 +644,27 @@ export class Common {
         }
     }
 
+    public static executor(command: string, callback: () => void): void {
+        Log.log("executer: " + command, LogLevel.Debug);
+        child_process.exec(command, (error, stdout, stderr) => {
+            Log.logWithOrigin('stdout', stdout, LogLevel.LowLevelDebug);
+            Log.logWithOrigin('stderr', stderr, LogLevel.LowLevelDebug);
+            if (error) {
+                Log.error('executer error: ' + error);
+            }
+            callback();
+        });
+    }
+
     public static sudoExecuter(command: string, name: string, callback) {
         Log.log("sudo-executer: " + command, LogLevel.Debug)
-        let options = { name: name }
-        let child = sudo.exec(command, options, function (error, stdout, stderr) {
+        let options = { 
+            name: name,
+            /* TODO: add Viper icon
+            icns: '/Applications/Electron.app/Contents/Resources/Viper.icns'
+            */
+        }
+        sudo.exec(command, options, (error, stdout, stderr) => {
             Log.logWithOrigin('stdout', stdout, LogLevel.LowLevelDebug);
             Log.logWithOrigin('stderr', stderr, LogLevel.LowLevelDebug);
             if (error) {
@@ -680,6 +692,42 @@ export class Common {
             Log.error("Error spawning command: " + e);
         }
     }
+
+    public static spawn(
+        cmd: string, 
+        args?: string[] | undefined, 
+        options?: child_process.SpawnOptionsWithoutStdio | undefined
+      ): Promise<Output> {
+        Log.log(`Viper-IDE/server: Running '${cmd} ${args ? args.join(' ') : ''}'`, LogLevel.Debug);
+        return new Promise((resolve, reject) => {
+          let stdout = '';
+          let stderr = '';
+    
+          const proc = child_process.spawn(cmd, args, options);
+    
+          proc.stdout.on('data', (data) => stdout += data);
+          proc.stderr.on('data', (data) => stderr += data);
+          proc.on('close', (code) => {
+            Log.log("┌──── Begin stdout ────┐", LogLevel.Debug);
+            Log.log(stdout, LogLevel.Debug);
+            Log.log("└──── End stdout ──────┘", LogLevel.Debug);
+            Log.log("┌──── Begin stderr ────┐", LogLevel.Debug);
+            Log.log(stderr, LogLevel.Debug);
+            Log.log("└──── End stderr ──────┘", LogLevel.Debug);
+            resolve({ stdout, stderr, code });
+          });
+          proc.on('error', (err) => {
+            Log.log("┌──── Begin stdout ────┐", LogLevel.Debug);
+            Log.log(stdout, LogLevel.Debug);
+            Log.log("└──── End stdout ──────┘", LogLevel.Debug);
+            Log.log("┌──── Begin stderr ────┐", LogLevel.Debug);
+            Log.log(stderr, LogLevel.Debug);
+            Log.log("└──── End stderr ──────┘", LogLevel.Debug);
+            Log.log(`Error: ${err}`, LogLevel.Debug);
+            reject(err);
+          });
+        });
+      }
 
     public static backendRestartNeeded(settings: ViperSettings, oldBackendName: string, newBackendName: string) {
         if (!settings)
@@ -718,4 +766,10 @@ export class Common {
             return 1;
         }
     }
+}
+
+export interface Output {
+    stdout: string;
+    stderr: string;
+    code: number;
 }

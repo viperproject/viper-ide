@@ -685,7 +685,7 @@ export class Settings {
               } else {
                 if (!Array.isArray(javaHomes) || javaHomes.length === 0) {
                   const msg = "Could not find a 64-bit Java installation with at least version 1.8. "
-                    + "Please install one and/or manually specify it in the Gobra settings.";
+                    + "Please install one and/or manually specify it in the Viper-IDE settings.";
                   reject(msg);
                 } else {
                   const javaHome = javaHomes[0];
