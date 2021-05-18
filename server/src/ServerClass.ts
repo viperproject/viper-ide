@@ -375,10 +375,8 @@ export class Server {
 
     public static updateViperTools(askForPermission: boolean) {
         try {
-            // Check Java installation
-            Settings.getJavaPath()
-                .then(javaPath => Log.log(`Java home found: ${javaPath}.`, LogLevel.Verbose))
-                .catch(err => Log.hint(`Error while checking Java installation: ${err}.`));
+            // We assume here that the settings have been checked and are fine.
+            // In particular, we do not check the path to the Java installation again.
 
             if (!Settings.upToDate()) {
                 Log.hint("The settings are not up to date, refresh them before updating the Viper Tools. ", true)

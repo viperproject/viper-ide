@@ -180,7 +180,8 @@ export class ViperServerService extends BackendService {
     private async getViperServerStartCommand(): Promise<string> {
         let javaPath: string
         try {
-            javaPath = await Settings.getJavaPath();
+            const res = await Settings.getJavaPath();
+            javaPath = res.path;
         } catch (errorMsg) {
             Log.hint(errorMsg);
             throw errorMsg;
