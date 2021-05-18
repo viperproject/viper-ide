@@ -51,7 +51,7 @@ jobs:
       - name: Cache npm
         uses: actions/cache@v2
         with:
-          path: .npm
+          path: client/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
@@ -63,7 +63,7 @@ jobs:
           git config --global url."https://github.com/".insteadOf
           ssh://git@github.com/
 
-      - run: npm ci --cache .npm --prefer-offline
+      - run: npm ci --prefer-offline
         working-directory: server
 
       - run: npm ci --cache .npm --prefer-offline
