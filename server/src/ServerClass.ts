@@ -395,23 +395,10 @@ export class Server {
             let dir = <string>Settings.settings.paths.viperToolsPath
             let viperToolsPath = pathHelper.join(dir, filename)
 
-            // In case the update is started automatically, always ask for permission. 
-            // If it was requested by the user, only ask when sudo permission is needed.
-            let prepareFolderPromise
-            if (askForPermission) {
-                prepareFolderPromise = Server.sudoRefreshDirAndSetOwner(dir)
-            } else {
-                prepareFolderPromise = Server.rmViperToolsDir(dir).then(() => 
-                    Server.makeSureFileExistsAndCheckForWritePermission(viperToolsPath).then(error => {
-                        if (error && !Settings.isWin && error.startsWith("EACCES")) {
-                            //change the owner of the location 
-                            Log.log("Try to change the ownership of " + dir, LogLevel.Debug)
-                            return Server.sudoRefreshDirAndSetOwner(dir)
-                        } else {
-                            return error
-                        }
-                    }))
-            }
+            const prepareFolderPromise = Server.confirmViperToolsUpdate()
+                .then(() => Server.rmViperToolsDir(dir))
+                .then(() => Server.makeSureFileExistsAndCheckForWritePermission(viperToolsPath))
+
             prepareFolderPromise.then(error => {
                 if (error) {
                     throw new Error("The Viper Tools Update failed, change the ViperTools directory to a folder in which you have permission to create files. " + error)
@@ -460,6 +447,19 @@ export class Server {
         }
     }
 
+    private static confirmViperToolsUpdate(): Promise<void> {
+        // note that `confirm` is unfortunately not available in the server environment.
+        // as a hack to make users aware of Viper IDE installing something, we use execute "echo" as sudo.
+        // after switching to the LSP frontend of ViperServer, the update routine will be triggered by the client and thus
+        // we will have access to the vscode API and can show a proper confirmation dialog.
+        const command = "echo"
+        return Common.sudoExecuter(command, "ViperTools Installer")
+            .catch(() => {
+                // rethrow error but with a better message:
+                throw `Administrator permissions have not been granted to Viper IDE for installing Viper tools.`;
+            });
+    }
+
     private static rmViperToolsDir(path: string): Promise<void> {
         let command: string
         if (Settings.isWin) {
@@ -467,25 +467,8 @@ export class Server {
         } else {
             command = `rm -fr '${path}'`
         }
-        return new Promise((resolve, reject) => {
+        return new Promise(resolve => {
             Common.executor(command, resolve)
         }) 
     }
-
-    private static sudoRefreshDirAndSetOwner(path: string): Promise<void> {
-        let command: string
-        if (Settings.isWin) {
-            command = '( if exist "' + path + '"\ ( rmdir /s /q "' + path + '" ) ) && mkdir "' + path + '" && takeown /f "' + path + '" /r /d y && icacls "' + path + '" /grant %USERNAME%:F /t /q'
-        } else if (Settings.isLinux) {
-            let user = Server.getUser()
-            command = `rm -fr '` + path + `'; sh -c "mkdir -p '` + path + `'; chown -R ` + user + `:` + user + ` '` + path + `'"`
-        } else {
-            let user = Server.getUser()
-            command = `rm -fr '` + path + `'; sh -c "mkdir -p '` + path + `'; chown -R ` + user + `:staff '` + path + `'"`
-        }
-        return new Promise((resolve, reject) => {
-            Common.sudoExecuter(command, "ViperTools Installer", resolve)
-        })
-    }
-
 }

@@ -656,7 +656,7 @@ export class Common {
         })
     }
 
-    public static sudoExecuter(command: string, name: string, callback) {
+    public static sudoExecuter(command: string, name: string): Promise<void> {
         Log.log("sudo-executer: " + command, LogLevel.Debug)
         let options = { 
             name: name,
@@ -664,14 +664,18 @@ export class Common {
             icns: '/Applications/Electron.app/Contents/Resources/Viper.icns'
             */
         }
-        sudo.exec(command, options, (error, stdout, stderr) => {
-            Log.logWithOrigin('stdout', stdout, LogLevel.LowLevelDebug)
-            Log.logWithOrigin('stderr', stderr, LogLevel.LowLevelDebug)
-            if (error) {
-                Log.error('sudo-executer error: ' + error)
-            }
-            callback()
-        })
+        return new Promise((resolve, reject) => {
+            sudo.exec(command, options, (error, stdout, stderr) => {
+                Log.logWithOrigin('stdout', stdout, LogLevel.LowLevelDebug)
+                Log.logWithOrigin('stderr', stderr, LogLevel.LowLevelDebug)
+                if (error) {
+                    Log.error('sudo-executer error: ' + error)
+                    reject(error);
+                } else {
+                    resolve();
+                }
+            })
+        });
     }
 
     public static spawner(command: string, args: string[]): child_process.ChildProcess {
