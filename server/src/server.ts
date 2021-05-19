@@ -12,6 +12,7 @@ import { SymbolKind } from 'vscode-languageserver'
 // Import the module and reference it with the alias vscode in your code below
 
 import { IPCMessageReader, IPCMessageWriter, createConnection, InitializeResult, SymbolInformation } from 'vscode-languageserver'
+import * as yargs from 'yargs';
 import { Log } from './Log'
 import { Settings } from './Settings'
 import { Backend, Common, StateColors, ExecutionTrace, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams } from './ViperProtocol'
@@ -20,6 +21,19 @@ import { Statement } from './Statement'
 import { DebugServer } from './DebugServer'
 import { Server } from './ServerClass'
 import { ViperServerService } from './ViperServerService'
+
+const argv = yargs
+    .option('globalStorage', {
+        description: 'Path to the global storage folder provided by VSCode to a particular extension',
+        type: 'string',
+    })
+    .help() // show help if `--help` is used
+    .argv;
+// pass command line option to Settings:
+if (argv.globalStorage) {
+    Settings.globalStoragePath = argv.globalStorage;
+}
+
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 Server.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
@@ -59,8 +73,8 @@ function registerHandlers() {
     Server.connection.onDidChangeConfiguration((change) => {
         try {
             Log.log('Configuration changed', LogLevel.Info);
-            let oldSettings = Settings.settings;
-            Settings.settings = <ViperSettings>change.settings.viperSettings;
+            const oldSettings = Settings.settings;
+            Settings.settings = change.settings.viperSettings as ViperSettings;
             Log.logLevel = Settings.settings.preferences.logLevel; //after this line, Logging works
             Server.refreshEndings();
             Settings.initiateBackendRestartIfNeeded(oldSettings);

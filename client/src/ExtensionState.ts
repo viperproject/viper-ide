@@ -177,14 +177,15 @@ export class State {
             Log.log(serverModule + " does not exist. Reinstall the Extension", LogLevel.Debug);
             return;
         }
+        const args = ["--globalStorage", context.globalStorageUri.fsPath]
         // The debug options for the server
-        let debugOptions = { execArgv: ["--nolazy", "--inspect=5443"] };
+        const debugOptions = { execArgv: ["--nolazy", "--inspect=5443"] };
 
         // If the extension is launch in debug mode the debug server options are use
         // Otherwise the run options are used
         let serverOptions: ServerOptions = {
-            run: { module: serverModule, transport: TransportKind.ipc },
-            debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions }
+            run: { module: serverModule, transport: TransportKind.ipc, args: args },
+            debug: { module: serverModule, transport: TransportKind.ipc, args: args, options: debugOptions }
         }
 
         // Options to control the language client

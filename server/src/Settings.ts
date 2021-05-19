@@ -34,6 +34,12 @@ export class Settings {
     public static VERIFY = "verify";
     public static selectedBackend: string;
 
+    /** 
+     * path to global storage folder provided by VSCode to extensions.
+     * This field is populated by server.ts based on CLI options
+     * */
+    public static globalStoragePath: string = null;
+
     private static firstSettingsCheck = true;
 
     private static _valid: boolean = false;
@@ -314,7 +320,27 @@ export class Settings {
 
                     //Check Paths
                     //check viperToolsPath
-                    let resolvedPath: ResolvedPath = this.checkPath(settings.paths.viperToolsPath, "Path to Viper Tools:", false, true, true);
+                    let resolvedPath: ResolvedPath = this.checkPath(settings.paths.viperToolsPath, "Path to Viper Tools:", false, true, true, true);
+                    let usesDefaultViperToolsPath = false;
+                    if (resolvedPath.path == null || resolvedPath.path === "") {
+                        if (this.globalStoragePath != null) {
+                            // use default location:
+                            const defaultViperToolsPath = pathHelper.join(this.globalStoragePath, 'stable');
+                            resolvedPath = this.checkPath(defaultViperToolsPath, "Path to Viper Tools:", false, true, true, false);
+                            const logMsg = `viperToolsPath was not specified in the settings but a global storage path has been provided. ` +
+                                `The provided global storage path has been resolved to '${JSON.stringify(resolvedPath)}'.`;
+                            Log.log(logMsg, LogLevel.Debug);
+                            usesDefaultViperToolsPath = true;
+                        } else {
+                            Log.log(`viperToolsPath was not specified in the settings and a global storage path has not been provided`, LogLevel.Info);
+                        }
+                    }
+                    if (!usesDefaultViperToolsPath) {
+                        // rerun check on original path but with stricter options
+                        // this will cause the creation of the necessary error elements if necessary
+                        resolvedPath = this.checkPath(settings.paths.viperToolsPath, "Path to Viper Tools:", false, true, true, false);
+                    }
+
                     settings.paths.viperToolsPath = resolvedPath.path;
                     if (!resolvedPath.exists) {
                         if (!viperToolsUpdated) {
