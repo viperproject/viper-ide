@@ -363,13 +363,15 @@ export interface ViperSettings {
     javaSettings: JavaSettings;
     //Settings for AdvancedFeatures
     advancedFeatures: AdvancedFeatureSettings;
+    //Decision whether stable or nightly releases should be downloaded:
+    buildVersion: "stable" | "nightly";
 }
 
 export interface VersionedSettings { v: string; }
 
 export interface ViperServerSettings extends VersionedSettings {
     //Locator to the ViperServer jars
-    serverJars: string | string[] | PlatformDependentPath | PlatformDependentListOfPaths;
+    serverJar: string | PlatformDependentPath;
     //custom commandLine arguments
     customArguments: string;
     //it set to false, cached errors are reused across backends
@@ -379,7 +381,7 @@ export interface ViperServerSettings extends VersionedSettings {
     //After timeout ms the startup of the viperServer is expected to have failed and thus aborted
     timeout: number;
     //Specifies whether ViperServer should be started by the IDE or whether the IDE should attach to an existing instance of ViperServer. Possible values: "attach", "create". 
-    viperServerPolicy: string;
+    viperServerPolicy: "attach" | "create";
     //Specifies the address part of the URL that ViperServer is running on. 
     viperServerAddress: string;
     //Specifies the port part of the URL that ViperServer is running on. Only needed if viperServerPolicy is set to 'attach'. 
@@ -442,11 +444,15 @@ export interface UserPreferences extends VersionedSettings {
     autoVerifyAfterBackendChange: boolean;
     //Display the verification progress in the status bar. Only useful if the backend supports progress reporting.
     showProgress: boolean;
-    //The URL for downloading the ViperTools from
-    viperToolsProvider: string | PlatformDependentURL;
+    //The URL for downloading the stable ViperTools from
+    stableViperToolsProvider: string | PlatformDependentPath;
+    //The URL for downloading the nightly ViperTools from
+    nightlyViperToolsProvider: string | PlatformDependentPath;
 }
 
 export interface JavaSettings extends VersionedSettings {
+    //Optional path to the java binary:
+    javaBinary: string;
     //The arguments used for all java invocations
     customArguments: string;
 }
@@ -471,18 +477,6 @@ export interface AdvancedFeatureSettings extends VersionedSettings {
 }
 
 export interface PlatformDependentPath {
-    windows?: string;
-    mac?: string;
-    linux?: string;
-}
-
-export interface PlatformDependentListOfPaths {
-    windows?: string[];
-    mac?: string[];
-    linux?: string[];
-}
-
-export interface PlatformDependentURL {
     windows?: string;
     mac?: string;
     linux?: string;

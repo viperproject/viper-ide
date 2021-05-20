@@ -95,7 +95,7 @@ export class Log {
 
     public static updateSettings() {
         let oldLogLevel = Log.logLevel;
-        Log.logLevel = Helper.getConfiguration("preferences").logLevel || LogLevel.Default;
+        Log.logLevel = Helper.getLogLevelSettings() || LogLevel.Default;
         if (State.unitTest) {
             Log.logLevel = LogLevel.LowLevelDebug;
         }

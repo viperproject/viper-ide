@@ -15,7 +15,7 @@
         "email": "viper@inf.ethz.ch",
         "url": "https://viper.ethz.ch"
     },
-    "main": "./out/extension",
+    "main": "./dist/extension",
     "engines": {
         "vscode": "^1.33.1",
         "node": "*"
@@ -31,6 +31,7 @@
         "decompress-zip": "^0.2.2",
         "flatmap-stream": "0.0.1-security",
         "glob-to-regexp": "^0.4.1",
+        "locate-java-home": "git+https://github.com/viperproject/locate-java-home.git",
         "mkdirp": "^0.5.1",
         "node-ipc": "^9.1.1",
         "portfinder": "^1.0.20",
@@ -43,7 +44,7 @@
         "tree-kill": "^1.2.1",
         "unused-filename": "^2.1.0",
         "viz.js": "^2.1.2",
-        "vsce": "^1.87.0",
+        "vs-verification-toolbox": "git+https://github.com/viperproject/vs-verification-toolbox.git",
         "vscode-debugadapter": "^1.34.0",
         "vscode-debugprotocol": "^1.34.0",
         "vscode-languageclient": "^5.2.1",
@@ -52,20 +53,26 @@
     },
     "devDependencies": {
         "@types/mocha": "^5.2.6",
-        "@types/node": "^10.14.6",
+        "@types/node": "^14.11.8",
         "mocha": "^6.1.4",
+        "ts-loader": "^8.0.4",
         "typescript": "^3.4.5",
         "typescript.events": "^7.9.0",
+        "vsce": "^1.87.0",
         "vscode": "^1.1.34",
-        "vscode-debugadapter-testsupport": "^1.34.0"
+        "vscode-debugadapter-testsupport": "^1.34.0",
+        "webpack": "^5.1.0",
+        "webpack-cli": "^4.0.0"
     },
     "scripts": {
-        "compile": "npm run compileServer && tsc -p ./",
-        "watch": "tsc -w -p ./",
-        "prepublish": "npm run prepublishServer && node ./node_modules/vscode/bin/install && npm run compile",
-        "test": "node ./node_modules/vscode/bin/test",
-        "compileServer": "cd ../server && npm run compile && cd ../client",
-        "prepublishServer": "cd ../server && npm install && cd ../client"
+        "deleteDistFolder": "node scripts/deleteDistFolder.js",
+        "vscode:prepublish": "npm run deleteDistFolder && webpack --mode production",
+        "webpack": "npm run deleteDistFolder && webpack --mode development",
+        "webpack-dev": "npm run deleteDistFolder && webpack --mode development --watch",
+        "test-compile": "npm run deleteDistFolder && tsc -p ./",
+        "pretest": "npm run test-compile",
+        "test": "node ./dist/test/runTest.js",
+        "package": "vsce package"
     },
     "activationEvents": [
         "onLanguage:viper"
@@ -274,22 +281,16 @@
         ],
         "configuration": {
             "type": "object",
-            "title": "Viper Configuration",
+            "title": "Viper",
             "properties": {
                 "viperSettings.viperServerSettings": {
                     "type": "object",
                     "default": {
                         "v": "674a514867b1",
-                        "serverJars": {
-                            "windows": [
-                                "$viperTools$/backends"
-                            ],
-                            "linux": [
-                                "$viperTools$/backends"
-                            ],
-                            "mac": [
-                                "$viperTools$/backends"
-                            ]
+                        "serverJar": {
+                            "windows": "$viperTools$/server/server.jar",
+                            "linux": "$viperTools$/server/server.jar",
+                            "mac": "$viperTools$/server/server.jar"
                         },
                         "customArguments": " $backendSpecificCache$",
                         "backendSpecificCache": true,
@@ -357,7 +358,7 @@
                         },
                         "boogieExecutable": {
                             "windows": "$viperTools$/boogie/Binaries/Boogie.exe",
-                            "linux": "$viperTools$/boogie/Binaries/Boogie.exe",
+                            "linux": "$viperTools$/boogie/Binaries/Boogie",
                             "mac": "$viperTools$/boogie/Binaries/Boogie"
                         }
                     },
@@ -367,14 +368,19 @@
                     "type": "object",
                     "default": {
                         "v": "674a514867b1",
-                        "autoSave": true,
+                        "autoSave": null,
                         "logLevel": 3,
                         "autoVerifyAfterBackendChange": true,
                         "showProgress": true,
-                        "viperToolsProvider": {
-                            "windows": "http://viper.ethz.ch/downloads/ViperToolsWin.zip",
-                            "linux": "http://viper.ethz.ch/downloads/ViperToolsLinux.zip",
-                            "mac": "http://viper.ethz.ch/downloads/ViperToolsMac.zip"
+                        "stableViperToolsProvider": {
+                            "windows": "github.com/viperproject/viperserver/releases/latest?asset-name=ViperToolsWin.zip",
+                            "linux": "github.com/viperproject/viperserver/releases/latest?asset-name=ViperToolsLinux.zip",
+                            "mac": "github.com/viperproject/viperserver/releases/latest?asset-name=ViperToolsMac.zip"
+                        },
+                        "nightlyViperToolsProvider": {
+                            "windows": "github.com/viperproject/viperserver/releases/latest?asset-name=ViperToolsWin.zip&include-prereleases",
+                            "linux": "github.com/viperproject/viperserver/releases/latest?asset-name=ViperToolsLinux.zip&include-prereleases",
+                            "mac": "github.com/viperproject/viperserver/releases/latest?asset-name=ViperToolsMac.zip&include-prereleases"
                         }
                     },
                     "description": "General user preferences. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Preferences"
@@ -383,6 +389,7 @@
                     "type": "object",
                     "default": {
                         "v": "674a514867b1",
+                        "javaBinary": "",
                         "customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$ -server $mainMethod$"
                     },
                     "description": "Settings used for running Java commands. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Java-Settings"
@@ -401,6 +408,16 @@
                         "verificationBufferSize": 102400
                     },
                     "description": "Settings concerning the advanced features. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Advanced-Features"
+                },
+                "viperSettings.buildVersion": {
+                    "scope": "window",
+                    "type": "string",
+                    "enum": [
+                        "stable",
+                        "nightly"
+                    ],
+                    "default": "stable",
+                    "description": "Select the build version of the Viper Tools."
                 }
             }
         }

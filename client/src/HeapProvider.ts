@@ -44,15 +44,15 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
     public provideTextDocumentContent(uri: vscode.Uri): string {
         let previousState = "Previous State";
         let currentState = "Current State";
-        if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
-            if (Helper.getConfiguration("advancedFeatures").compareStates === true) {
+        if (Helper.getAdvancedFeatureSettings().simpleMode === true) {
+            if (Helper.getAdvancedFeatureSettings().compareStates === true) {
                 previousState = "Reference State";
                 currentState = "Error State";
             }
         }
 
         let table: string;
-        let darkGraphs = <boolean>Helper.getConfiguration("advancedFeatures").darkGraphs === true;
+        let darkGraphs = <boolean>Helper.getAdvancedFeatureSettings().darkGraphs === true;
         if (this.heapGraphs.length > 1) {
             table = ` <table style="width:100%">
   <colgroup>
@@ -138,11 +138,11 @@ export class HeapProvider implements vscode.TextDocumentContentProvider {
 
         //use viz.js
         currentHeap = this.generateSvg(heapGraph.heap);
-        if (Helper.getConfiguration("advancedFeatures").showOldState === true) {
+        if (Helper.getAdvancedFeatureSettings().showOldState === true) {
             oldHeap = `<h3>Old Heap</h3>
     ${this.generateSvg(heapGraph.oldHeap)}`;
         }
-        if (Helper.getConfiguration("advancedFeatures").showPartialExecutionTree === true) {
+        if (Helper.getAdvancedFeatureSettings().showPartialExecutionTree === true) {
             partialExecutionTree = `<h3>Partial Execution Tree</h3>
     ${this.generateSvg(heapGraph.partialExecutionTree)}`;
         }

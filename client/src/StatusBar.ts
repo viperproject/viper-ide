@@ -44,7 +44,7 @@ export class StatusBar {
     }
 
     public show() {
-        if (Helper.getConfiguration('preferences').showProgress === true) {
+        if (Helper.getShowProgressSettings() === true) {
             this.elem.show();
         }
         return this;

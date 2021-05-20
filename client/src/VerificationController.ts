@@ -707,7 +707,7 @@ export class VerificationController {
                 //no file is verifying
                 State.resetViperFiles()
                 State.addToWorklist(new Task({ type: TaskType.Clear, uri: Helper.getActiveFileUri(), manuallyTriggered: false }));
-                if (Helper.getConfiguration('preferences').autoVerifyAfterBackendChange === true) {
+                if (Helper.getAutoVerifyAfterBackendChangeSettings() === true) {
                     Log.log("AutoVerify after backend change", LogLevel.Info);
                     State.addToWorklist(new Task({ type: TaskType.Verify, uri: Helper.getActiveFileUri(), manuallyTriggered: false }));
                 }
@@ -782,7 +782,7 @@ export class VerificationController {
 
                         //complete the timing measurement
                         this.addTiming(params.filename, 100, Color.ACTIVE);
-                        if (Helper.getConfiguration("preferences").showProgress === true) {
+                        if (Helper.getShowProgressSettings() === true) {
                             verifiedFile.stateVisualizer.addTimingInformationToFileState({ total: params.time, timings: this.timings });
                         }
 

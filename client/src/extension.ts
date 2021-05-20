@@ -97,7 +97,7 @@ function getRequiredVersion(): Versions {
     }
 }
 
-export function deactivate(): Promise<any> {
+export function deactivate(): Promise<void> {
     return new Promise((resolve, reject) => {
         Log.log("deactivate", LogLevel.Info);
         State.dispose().then(() => {
@@ -137,7 +137,7 @@ function startAutoSaver() {
     autoSaver = new Timer(() => {
         //only save viper files
         if (vscode.window.activeTextEditor != null && vscode.window.activeTextEditor.document.languageId == 'viper') {
-            if (Helper.getConfiguration('preferences').autoSave === true) {
+            if (Helper.getAutoSaveSettings() === true) {
                 vscode.window.activeTextEditor.document.save();
             }
         }
@@ -376,7 +376,7 @@ function registerHandlers() {
                 if (Helper.areAdvancedFeaturesEnabled()) {
                     let visualizer = State.getVisualizer(heapGraph.fileUri);
                     let state = visualizer.decorationOptions[heapGraph.state];
-                    if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
+                    if (Helper.getAdvancedFeatureSettings().simpleMode === true) {
                         //Simple Mode
                         if (state.isErrorState) {
                             //replace the error state
@@ -483,7 +483,7 @@ function registerHandlers() {
         State.context.subscriptions.push(vscode.commands.registerCommand('viper.showAllStates', () => {
             if (State.isDebugging) {
                 let viperFile = State.getLastActiveFile();
-                if ((!Helper.getConfiguration("advancedFeatures").simpleMode === true) && viperFile) {
+                if ((!Helper.getAdvancedFeatureSettings().simpleMode === true) && viperFile) {
                     viperFile.stateVisualizer.showAllDecorations();
                 }
             }
