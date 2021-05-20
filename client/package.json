@@ -17,7 +17,7 @@
     },
     "main": "./dist/extension",
     "engines": {
-        "vscode": "^1.33.1",
+        "vscode": "^1.45.0",
         "node": "*"
     },
     "icon": "images/icon_bright_orange_avatar.png",
@@ -55,21 +55,26 @@
         "@types/mocha": "^5.2.6",
         "@types/node": "^14.11.8",
         "mocha": "^6.1.4",
+        "npm-run-all": "^4.1.5",
+        "rimraf": "^3.0.2",
         "ts-loader": "^8.0.4",
         "typescript": "^3.4.5",
         "typescript.events": "^7.9.0",
         "vsce": "^1.87.0",
-        "vscode": "^1.1.34",
         "vscode-debugadapter-testsupport": "^1.34.0",
         "webpack": "^5.1.0",
         "webpack-cli": "^4.0.0"
     },
     "scripts": {
-        "deleteDistFolder": "node scripts/deleteDistFolder.js",
-        "vscode:prepublish": "npm run deleteDistFolder && webpack --mode production",
-        "webpack": "npm run deleteDistFolder && webpack --mode development",
-        "webpack-dev": "npm run deleteDistFolder && webpack --mode development --watch",
-        "test-compile": "npm run deleteDistFolder && tsc -p ./",
+        "webpack-production": "webpack --mode production",
+        "webpack-development": "webpack --mode development",
+        "webpack-development-watch": "webpack --mode development --watch",
+        "tsc": "tsc",
+        "clean": "rimraf dist",
+        "vscode:prepublish": "npm-run-all --sequential clean webpack-production",
+        "compile": "npm-run-all --sequential clean webpack-development",
+        "watch": "npm-run-all --sequential clean webpack-development-watch",
+        "test-compile": "npm-run-all --sequential clean tsc",
         "pretest": "npm run test-compile",
         "test": "node ./dist/test/runTest.js",
         "package": "vsce package"
@@ -288,9 +293,9 @@
                     "default": {
                         "v": "674a514867b1",
                         "serverJar": {
-                            "windows": "$viperTools$/server/server.jar",
-                            "linux": "$viperTools$/server/server.jar",
-                            "mac": "$viperTools$/server/server.jar"
+                            "windows": "$viperTools$/server/viperserver.jar",
+                            "linux": "$viperTools$/server/viperserver.jar",
+                            "mac": "$viperTools$/server/viperserver.jar"
                         },
                         "customArguments": " $backendSpecificCache$",
                         "backendSpecificCache": true,
@@ -347,9 +352,9 @@
                     "default": {
                         "v": "674a514867b1",
                         "viperToolsPath": {
-                            "windows": "%ProgramFiles%\\Viper\\",
-                            "linux": "/usr/local/Viper",
-                            "mac": "/usr/local/Viper"
+                            "windows": "",
+                            "linux": "",
+                            "mac": ""
                         },
                         "z3Executable": {
                             "windows": "$viperTools$/z3/bin/z3.exe",
@@ -413,10 +418,10 @@
                     "scope": "window",
                     "type": "string",
                     "enum": [
-                        "stable",
-                        "nightly"
+                        "Stable",
+                        "Nightly"
                     ],
-                    "default": "stable",
+                    "default": "Stable",
                     "description": "Select the build version of the Viper Tools."
                 }
             }

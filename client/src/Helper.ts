@@ -10,14 +10,27 @@
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { Log } from './Log';
 import * as path from 'path';
 import * as locate_java_home from 'locate-java-home';
 import * as child_process from 'child_process';
+import * as os from 'os'
+import { Log } from './Log';
 import { AdvancedFeatureSettings, LogLevel, PlatformDependentPath, ViperSettings } from './ViperProtocol';
-import { GitHubReleaseAsset } from 'vs-verification-toolbox';
 import { IJavaHomeInfo } from 'locate-java-home/js/es5/lib/interfaces';
-const globToRexep = require('glob-to-regexp');
+import { Location } from 'vs-verification-toolbox';
+import * as globToRexep from 'glob-to-regexp';
+
+export class Texts {
+    public static installingViperToolsConfirmationMessage = "Viper IDE requires the Viper tools. Do you want to install them?";
+    public static installingViperToolsConfirmationYesButton = "Yes";
+    public static installingViperToolsConfirmationNoButton = "No";
+    public static viperToolsInstallationDenied = "Installation of the required Viper tools has been denied. Restart Visual Studio Code and allow their installation.";
+    public static updatingViperTools = "Updating Viper tools";
+    public static ensuringViperTools = "Ensuring Viper tools";
+    public static successfulUpdatingViperTools = "Successfully updated Viper tools. Please restart the IDE.";
+    public static successfulEnsuringViperTools = "Successfully ensured Viper tools.";
+    public static changedBuildChannel = "Changed the build channel of Viper tools. Please restart the IDE.";
+}
 
 export class Helper {
 
@@ -39,8 +52,11 @@ export class Helper {
         }
     }
 
-    public static isNightly(): boolean {
-        return Helper.getViperSettings().buildVersion == "nightly";
+    public static getBuildChannel(): BuildChannel {
+        if (Helper.getViperSettings().buildVersion == "Nightly") {
+            return BuildChannel.Nightly;
+        }
+        return BuildChannel.Stable;
     }
 
     private static getPlatformPath(paths: string | PlatformDependentPath): string {
@@ -140,19 +156,41 @@ export class Helper {
         }
     }
     
-    public static getServerProcessArgs(serverBinary: string): string[] {
-        const configuredArgString = Helper.getViperSettings().javaSettings.customArguments
-            .replace("$serverBinary$", serverBinary);
-        return configuredArgString.split(" ");
+    public static getServerProcessArgs(serverBinary: string): string {
+        const javaArgs = Helper.getViperSettings().javaSettings.customArguments;
+        const customArgs = Helper.getViperSettings().viperServerSettings.customArguments;
+        const logLevel = Helper.logLevelToStr(Helper.getViperSettings().preferences.logLevel);
+        const logFile = path.join(os.tmpdir(), ".vscode");
+        let command = `${javaArgs} ${customArgs} --logLevel ${logLevel} --logFile ${logFile}`;
+
+        command = command.replace(/\$backendPaths\$/g, `'${serverBinary}'`);
+        command = command.replace(/\$backendSpecificCache\$/g, (Helper.getViperSettings().viperServerSettings.backendSpecificCache === true ? "--backendSpecificCache" : ""));
+        command = command.replace(/\$mainMethod\$/g, "viper.server.ViperServerRunner --serverMode LSP");
+        return command;
+    }
+
+    private static logLevelToStr(l: number): string {
+        switch (l) {
+            case 0: return `OFF`
+            case 1: return `ERROR`
+            case 2: return `WARN`
+            case 3: return `INFO`
+            case 4: return `TRACE`
+            case 5: return `ALL`
+            default: return `ALL`
+        }
     }
 
     /**
      * Gets Viper Tools Provider URL as stored in the settings.
      * Note that the returned URL might be invalid or correspond to one of the "special" URLs as specified in the README (e.g. to download a GitHub release asset)
      */
-    public static getViperToolsProvider(nightly: boolean = false): string {
+    public static getViperToolsProvider(channel: BuildChannel): string {
         const preferences = Helper.getViperSettings().preferences;
-        return Helper.getPlatformPath(nightly ? preferences.nightlyViperToolsProvider : preferences.stableViperToolsProvider);
+        if (channel == BuildChannel.Nightly) {
+            return Helper.getPlatformPath(preferences.nightlyViperToolsProvider);
+        }
+        return Helper.getPlatformPath(preferences.stableViperToolsProvider);
     }
 
     public static getLogLevelSettings(): number {
@@ -175,87 +213,64 @@ export class Helper {
         return preferences.autoSave;
     }
 
-    /**
-     * Takes an url as input and checks whether it's a special URL to a GitHub release asset.
-     * This function returns an object that indicates with the `isGitHubAsset` flag whether it is a GitHub asset or not. In addition, the `getUrl` function can
-     * be called to lazily construct the URL for downloading the asset.
-     */
-    public static parseGitHubAssetURL(url: string): {isGitHubAsset: boolean, getUrl: () => Promise<string>} {
-        const token = this.getGitHubToken();
-        const latestRe = /^github.com\/([^/]+)\/([^/]+)\/releases\/latest\?asset-name=([^/?&]+)(&include-prereleases|)$/;
-        const tagRe = /^github.com\/([^/]+)\/([^/]+)\/releases\/tags\/([^/?]+)\?asset-name=([^/?&]+)$/;
-        const latestReMatches = url.match(latestRe);
-        if (latestReMatches != null) {
-            // match was found
-            const owner = latestReMatches[1];
-            const repo = latestReMatches[2];
-            const assetName = latestReMatches[3];
-            const includePrereleases = latestReMatches[4] === "&include-prereleases";
-            const resolveGitHubUrl = () => GitHubReleaseAsset.getLatestAssetUrl(owner, repo, assetName, includePrereleases, token)
-                .catch(Helper.rethrow(`Retrieving asset URL of latest GitHub release has failed `
-                    + `(owner: '${owner}', repo: '${repo}', asset-name: '${assetName}', include-prereleases: ${includePrereleases})`));
-            return {
-                isGitHubAsset: true,
-                getUrl: resolveGitHubUrl,
-            };
-        }
-        const tagReMatches = url.match(tagRe);
-        if (tagReMatches != null) {
-            // match was found
-            const owner = tagReMatches[1];
-            const repo = tagReMatches[2];
-            const tag = tagReMatches[3];
-            const assetName = tagReMatches[4];
-            const resolveGitHubUrl = () => GitHubReleaseAsset.getTaggedAssetUrl(owner, repo, assetName, tag, token)
-                .catch(Helper.rethrow(`Retrieving asset URL of a tagged GitHub release has failed `
-                    + `(owner: '${owner}', repo: '${repo}', tag: '${tag}', asset-name: '${assetName}')`));
-            return {
-                isGitHubAsset: true,
-                getUrl: resolveGitHubUrl,
-            };
-        }
-        // no match, return unmodified input URL:
-        return {
-            isGitHubAsset: false,
-            getUrl: () => Promise.resolve(url),
-        };
-    }
-
     public static getGitHubToken(): string {
         return process.env["GITHUB_TOKEN"];
     }
 
     /**
-     * Get Location where Gobra Tools will be installed.
+     * Returns true if Viper IDE runs in a non-interactive environment and confirmations should automatically be accepted.
      */
-    public static getViperToolsPath(): string {
-        const viperToolsPaths = Helper.getViperSettings().paths.viperToolsPath;
-        return Helper.getPlatformPath(viperToolsPaths);
+    public static assumeYes(): boolean {
+        const value = process.env["VIPER_IDE_ASSUME_YES"];
+        return value != null && 
+            (value == "1" || value.toUpperCase() === "TRUE");
     }
 
-    public static getServerJarPath(nightly: boolean = false): string {
+    /**
+     * Returns true if `getViperToolsPath` should be wiped after activating the extension to ensure a clean system state.
+     */
+    public static cleanInstall(): boolean {
+        const value = process.env["VIPER_IDE_CLEAN_INSTALL"];
+        return value != null && 
+            (value == "1" || value.toUpperCase() === "TRUE");
+    }
+
+    /**
+     * Get Location where Viper Tools will be installed.
+     */
+    public static getViperToolsPath(context: vscode.ExtensionContext): string {
+        const viperToolsPaths = Helper.getViperSettings().paths.viperToolsPath;
+        const path = Helper.getPlatformPath(viperToolsPaths);
+        if (path == null || path === "") {
+            // use default location instead:
+            return context.globalStorageUri.fsPath;
+        }
+        return path;
+    }
+
+    public static getServerJarPath(location: Location): string {
         const serverJarPaths = Helper.getViperSettings().viperServerSettings.serverJar;
         const platformServerJarPath = Helper.getPlatformPath(serverJarPaths);
         if (platformServerJarPath != null) {
-            return platformServerJarPath.replace("$viperTools$", Helper.getViperToolsPath() + Helper.extractionAddition());
+            return platformServerJarPath.replace("$viperTools$", location.basePath);
         }
         return null;
     }
 
-    public static getBoogiePath(nightly: boolean = false): string {
+    public static getBoogiePath(location: Location): string {
         const boogiePaths = Helper.getViperSettings().paths.boogieExecutable;
         const platformBoogiePath = Helper.getPlatformPath(boogiePaths);
         if (platformBoogiePath != null) {
-            return platformBoogiePath.replace("$viperTools$", Helper.getViperToolsPath() + Helper.extractionAddition());
+            return platformBoogiePath.replace("$viperTools$", location.basePath);
         }
         return null;
     }
 
-    public static getZ3Path(nightly: boolean = false): string {
+    public static getZ3Path(location: Location): string {
         const z3Paths = Helper.getViperSettings().paths.z3Executable;
         const platformZ3Path = Helper.getPlatformPath(z3Paths)
         if (platformZ3Path != null) {
-            return platformZ3Path.replace("$viperTools$", Helper.getViperToolsPath() + Helper.extractionAddition());
+            return platformZ3Path.replace("$viperTools$", location.basePath);
         }
         return null;
     }
@@ -270,6 +285,10 @@ export class Helper {
 
     public static getViperServerPort(): number {
         return Helper.getViperSettings().viperServerSettings.viperServerPort;
+    }
+
+    public static getVerificationBufferSize(): number {
+        return Helper.getViperSettings().advancedFeatures.verificationBufferSize;
     }
 
     //unused
@@ -401,4 +420,9 @@ export interface Output {
     stdout: string;
     stderr: string;
     code: number;
+}
+
+export enum BuildChannel {
+    Nightly = "Nightly",
+    Stable = "Stable"
 }

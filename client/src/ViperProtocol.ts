@@ -364,7 +364,7 @@ export interface ViperSettings {
     //Settings for AdvancedFeatures
     advancedFeatures: AdvancedFeatureSettings;
     //Decision whether stable or nightly releases should be downloaded:
-    buildVersion: "stable" | "nightly";
+    buildVersion: "Stable" | "Nightly";
 }
 
 export interface VersionedSettings { v: string; }

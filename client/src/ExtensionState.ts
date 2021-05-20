@@ -7,23 +7,24 @@
   */
  
 'use strict';
-import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind, StreamInfo } from 'vscode-languageclient';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import * as path from 'path';
 import * as net from 'net';
 import * as child_process from "child_process";
 import * as readline from 'readline';
+import * as os from 'os';
+import Uri from 'vscode-uri';
+import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind, StreamInfo } from 'vscode-languageclient';
 import { Commands, LogLevel, ViperSettings } from './ViperProtocol';
 import { Log } from './Log';
 import { ViperFileState } from './ViperFileState';
-import Uri from 'vscode-uri';
 import { Helper } from './Helper';
 import { StateVisualizer } from './StateVisualizer';
 import { Color, StatusBar } from './StatusBar';
 import { VerificationController, Task } from './VerificationController';
 import { UnitTestCallback } from './test/extension.test';
 import { ViperApi } from './ViperApi';
+import { Location } from 'vs-verification-toolbox';
 
 export class State {
     public static client: LanguageClient;
@@ -163,23 +164,23 @@ export class State {
         return result;
     }
 
-    public static startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, brk: boolean): Promise<void> {
+    public static startLanguageServer(context: vscode.ExtensionContext, location: Location, fileSystemWatcher: vscode.FileSystemWatcher, brk: boolean): Promise<void> {
         let serverOptions: ServerOptions;
         if (Helper.attachToViperServer()) {
             const connectionInfo = {
                 host: Helper.getViperServerAddress(),
                 port: Helper.getViperServerPort()
             }
-            serverOptions = () => State.connectToServer(connectionInfo);
+            serverOptions = () => State.connectToServer(location, connectionInfo);
         } else {
-            const serverBin = Helper.getServerJarPath(Helper.isNightly());
+            const serverBin = Helper.getServerJarPath(location);
             // check if server binary exists:
             if (!fs.existsSync(serverBin)) {
                 const msg = `The server binary ${serverBin} does not exist. Please update Viper Tools.`;
                 vscode.window.showErrorMessage(msg);
                 return Promise.reject(msg);
             }
-            serverOptions = () => State.startServerProcess(serverBin);
+            serverOptions = () => State.startServerProcess(location, serverBin);
         }
   
         // Options to control the language client
@@ -209,8 +210,8 @@ export class State {
     }
 
     // creates a server for the given server binary
-    private static async startServerProcess(serverBin: string): Promise<StreamInfo> {
-        const javaPath = await State.checkDependenciesAndGetJavaPath();
+    private static async startServerProcess(location: Location, serverBin: string): Promise<StreamInfo> {
+        const javaPath = await State.checkDependenciesAndGetJavaPath(location);
 
         // spawn ViperServer and get port number on which it is reachable:
         const portNr = await new Promise((resolve:(port: number) => void, reject) => {
@@ -231,8 +232,14 @@ export class State {
             }
 
             const processArgs = Helper.getServerProcessArgs(serverBin);
-            Helper.log(`Viper-IDE: Running '${javaPath} ${processArgs.join(' ')}'`);
-            const serverProcess = child_process.spawn(javaPath, processArgs);
+            const command = `${javaPath} ${processArgs}`;
+            Helper.log(`Viper-IDE: Running '${command}'`);
+            const backendOutputDirectory = os.tmpdir();
+            const serverProcess = child_process.exec(command, { 
+                maxBuffer: 1024 * Helper.getVerificationBufferSize(), 
+                cwd: backendOutputDirectory 
+            });
+
             // redirect stdout to readline which nicely combines and splits lines
             const rl = readline.createInterface({ input: serverProcess.stdout });
             rl.on('line', stdOutLineHandler);
@@ -266,8 +273,8 @@ export class State {
     }
 
     // creates a server for the given server binary
-    private static async connectToServer(connectionInfo: net.NetConnectOpts): Promise<StreamInfo> {
-        await State.checkDependenciesAndGetJavaPath();
+    private static async connectToServer(location: Location, connectionInfo: net.NetConnectOpts): Promise<StreamInfo> {
+        await State.checkDependenciesAndGetJavaPath(location);
         const socket = net.connect(connectionInfo);
         return {
         reader: socket,
@@ -275,13 +282,13 @@ export class State {
         };
     }
 
-    private static async checkDependenciesAndGetJavaPath(): Promise<string> {
+    private static async checkDependenciesAndGetJavaPath(location: Location): Promise<string> {
         // test whether java and z3 binaries can be used:
         Helper.log("Checking Java...");
         const javaPath = await Helper.getJavaPath();
         await Helper.spawn(javaPath, ["-version"]);
         Helper.log("Checking Z3...");
-        const z3Path = Helper.getZ3Path(Helper.isNightly());
+        const z3Path = Helper.getZ3Path(location);
         await Helper.spawn(z3Path, ["--version"]);
         return javaPath;
     }

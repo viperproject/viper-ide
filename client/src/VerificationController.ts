@@ -23,6 +23,7 @@ import { ViperFileState } from './ViperFileState';
 import { StatusBar, Color } from './StatusBar';
 import { VerificationTerminatedEvent } from './ViperApi';
 import { ENOTSOCK } from 'constants';
+import ViperTools from './ViperTools';
 
 export interface ITask {
     type: TaskType;
@@ -351,8 +352,13 @@ export class VerificationController {
                             } else {
                                 task.markStarted(TaskType.UpdatingViperTools);
                                 Log.logWithOrigin("workList", "UpdatingViperTools", LogLevel.LowLevelDebug);
-                                State.client.sendNotification(Commands.UpdateViperTools);
-                                State.statusBarProgress.updateProgressBar(0).show();
+                                ViperTools.update(State.context, true)
+                                    .then(() => true)
+                                    .catch(err => {
+                                        Log.error(`Viper tools update has failed with err '${err}'`);
+                                        return false;
+                                    })
+                                    .then(success => State.client.sendNotification(Commands.ViperUpdateComplete, success));
                             }
                             break;
                         case TaskType.UpdatingViperTools:

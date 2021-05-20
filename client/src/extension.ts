@@ -20,13 +20,15 @@
 // an LSP frontend.
 //============================================================================//
 
+import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
+import Uri from 'vscode-uri';
+import * as stripJSONComments from 'strip-json-comments';
 import { Timer } from './Timer';
-import * as vscode from 'vscode';
 import { State } from './ExtensionState';
 import { SettingsError, Common, Progress, HintMessage, Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success, BackendStartedParams } from './ViperProtocol';
-import Uri from 'vscode-uri';
 import { Log } from './Log';
 import { StateVisualizer, MyDecorationOptions } from './StateVisualizer';
 import { Helper } from './Helper';
@@ -35,8 +37,7 @@ import { ViperFileState } from './ViperFileState';
 import { StatusBar, Color } from './StatusBar';
 import { VerificationController, TaskType, Task, CheckResult } from './VerificationController';
 import { ViperApi } from './ViperApi';
-let stripJSONComments = require('strip-json-comments');
-const os = require('os');
+import ViperTools from './ViperTools';
 
 let autoSaver: Timer;
 
@@ -46,7 +47,7 @@ let formatter: ViperFormatter;
 let lastVersionWithSettingsChange: Versions;
 
 // this method is called when your extension is activated
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
     if (State.unitTest) State.unitTest.activated();
     Helper.loadViperFileExtensions();
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
@@ -72,7 +73,9 @@ export function activate(context: vscode.ExtensionContext) {
     State.context = context;
     State.verificationController = new VerificationController();
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/{' + Helper.viperFileEndings.join(",") + "}");
-    State.startLanguageServer(context, fileSystemWatcher, false); //break?
+    // ensure that tools are installed and get their installation location:
+    const location = await ViperTools.update(context, false);
+    await State.startLanguageServer(context, location, fileSystemWatcher, false); //break?
     State.viperApi = new ViperApi(State.client);
     registerHandlers();
     startAutoSaver();
