@@ -42,7 +42,6 @@ export class ViperServerService extends BackendService {
     // FIXME:this is needed because Carbon does not stop the corresponding Boogie process. 
     // FIXME:see https://bitbucket.org/viperproject/carbon/issues/225
     // FIXME:search keyword [FIXME:KILL_BOOGIE] for other parts of this workaround. 
-    private _z3_pids_promise: Promise<number[]> | null
     private _boogie_pids: number[] | undefined = null
     
     private _current_file: string
@@ -199,40 +198,39 @@ export class ViperServerService extends BackendService {
         return command
     }
 
-    private updatePids() {
-        if ( Server.backend.type === 'carbon' && !this._boogie_pids ) {
-            // 1. Find the current Boogie processes (there's typically only one)
-            this._z3_pids_promise = this.getBoogiePids().then(boogie_pid_list => {
-                Log.log(`Current Boogie processes: ${boogie_pid_list.join(', ')}`, LogLevel.LowLevelDebug)
-                this._boogie_pids = boogie_pid_list
-                Promise.all(boogie_pid_list.map(bpid => this.getZ3Pids(bpid))).then((z3_pids_list: number[][]) => {
-                    return [].concat.apply([], z3_pids_list)  // efficient flattening
-                }).then(z3_pids => {
-                    Log.log(`Current Z3 processes have the following PIDs: ${z3_pids}`, LogLevel.Info)
-                    return z3_pids
-                }).catch(err => {
-                    Log.error(`Collecting PIDs for Z3 processes failed.`)
-                    return err
-                })
+    private getZ3PidsOfCurrentBoogieProcesses(): Promise<number[]> {
+        // Find the current Boogie processes (there's typically only one)
+        return this.getBoogiePids().then(boogie_pid_list => {
+            Log.log(`Current Boogie processes: ${boogie_pid_list.join(', ')}`, LogLevel.LowLevelDebug)
+            this._boogie_pids = boogie_pid_list
+            this.getZ3Pids(boogie_pid_list).then(z3_pids => {
+                Log.log(`Current Z3 processes have the following PIDs: ${z3_pids}`, LogLevel.Info)
+                return z3_pids
             }).catch(err => {
-                Log.error(`Could not get PIDs of current Boogie processes:\n ${err.join('\n ')}`)
+                Log.error(`Collecting PIDs for Z3 processes failed.`)
                 return err
             })
-        }
+        }).catch(err => {
+            Log.error(`Could not get PIDs of current Boogie processes:\n ${err.join('\n ')}`)
+            return err
+        })
     }
 
-    private cleanupProcessImpl(ps: number[]): Promise<number[]> {
-        return Promise.all(ps.map(pid => {
-            return new Promise<number>((res, rej) => {
-                tree_kill(pid, "SIGTERM", err1 => {
-                    Log.log(`Terminating process with PID ${pid} did not success: ${err1}.` +
-                            ` Try sending SIGKILL...`, LogLevel.LowLevelDebug)
-                    tree_kill(pid, "SIGKILL", err2 => {
-                        rej(err2)
-                    })
-                    res(pid)
+    private cleanupProcessImpl(ps: number[]): Promise<number[]> { 
+        return Promise.all(ps.map(pid => { 
+            return new Promise<number>((res, rej) => { 
+                tree_kill(pid, "SIGTERM", err1 => { 
+                    if (err1) { 
+                        Log.log(`Terminating process with PID ${pid} did not success: ${err1}.` +
+                                ` Try sending SIGKILL...`, LogLevel.LowLevelDebug)
+                        tree_kill(pid, "SIGKILL", err2 => { 
+                            if (err2) rej(err2)
+                            else res(pid)
+                        })
+                    } else { 
+                        res(pid)
+                    }
                 })
-                res(pid)
             })
         }))
     }
@@ -240,33 +238,20 @@ export class ViperServerService extends BackendService {
     private cleanupProcesses(): Promise<void> {
         return new Promise((res, rej) => {
             if ( Server.backend.type === 'carbon' && this._boogie_pids ) {
-                /*return this.cleanupProcessImpl(this._boogie_pids).then(pids => {
+                
+                let boogie_pids_promise = this._boogie_pids
+                ? Promise.resolve(this._boogie_pids)
+                : this.getBoogiePids()
+                
+                boogie_pids_promise.then(bpids => this.cleanupProcessImpl(bpids).then(pids => {
                     Log.log(`Successfully terminated the following Boogie processes: ${pids}`, LogLevel.Info)
                 }).catch(err => {
-                    Log.log(`Could not terminate some Boogie process: ${err}`, LogLevel.LowLevelDebug)
-                }).finally(() => {*/
+                    Log.log(`Did not find zombie Boogie instances (that's a good thing!)`, LogLevel.LowLevelDebug)
+                }).finally(() => {
+                    this._boogie_pids = null
+                    res()
+                }))
 
-                let first_attempt_z3_pids_promise: Promise<number[]> = this._z3_pids_promise
-                this.updatePids()  // second attempt
-                this._boogie_pids = null
-                let z3_pids_promise = [first_attempt_z3_pids_promise]
-                if (this._z3_pids_promise) z3_pids_promise.push(this._z3_pids_promise)
-
-                // If Boogie has terminated but its Z3 instances are zombies... Kill the zombies! 
-                Promise.all(z3_pids_promise).then((z3_pids_list: number[][]) => {
-                    return [].concat.apply([], z3_pids_list)  // efficient flattening
-                }).then(z3_pids => {
-                    this.cleanupProcessImpl(z3_pids).then(pids => {
-                        Log.log(`Successfully terminated the following zombie Z3 processes: ${pids}`, LogLevel.Info)
-                    }).catch(err => {
-                        Log.log(`No zombie instances of Z3 found (that's a good thing!)`, LogLevel.LowLevelDebug)
-                    }).finally(() => {
-                        this._z3_pids_promise = null
-                        res()
-                    })
-                })
-
-                // })
             } else {
                 res()
             }
@@ -395,14 +380,10 @@ export class ViperServerService extends BackendService {
             if ( message.msg_type === 'backend_sub_process_report' ) {
                 if ( message.msg_body.phase === 'after_input_sent' ) {
                     // If in use is Carbon, get and store the PIDs of dependent Z3 and Boogie processes
+                    // (available only in newer versions of Carbon)
                     let bpid = message.msg_body.pid
-                    if (bpid) {
-                        Log.log(`Current Boogie PID: ${bpid}`, LogLevel.LowLevelDebug)
-                        this._boogie_pids = [bpid]
-                        this._z3_pids_promise = this.getZ3Pids(bpid)
-                    } else {
-                        this.updatePids()
-                    } 
+                    Log.log(`Current Boogie PID: ${bpid}`, LogLevel.LowLevelDebug)
+                    this._boogie_pids = [bpid]
                 }
                 return
             }
@@ -728,8 +709,7 @@ export class ViperServerService extends BackendService {
                 command = `pgrep -l -P ${pid} ${pname}`
             }
             let child_pids: number[] = []
-            let errors: string[] = []
-            let wmic = Common.executer(command, 
+            Common.executer(command, 
                 stdout => {
                     let array_of_lines = (<string>stdout).match(/[^\r\n]+/g)
                     if (array_of_lines) {
@@ -740,13 +720,12 @@ export class ViperServerService extends BackendService {
                         })
                     }
                 }, stderr => {
-                    if (stderr) errors.concat(`${stderr}`)
-                }, () => {
-                    if (errors.length > 0) {
-                        reject(errors)
-                    } else {
-                        resolve(child_pids)
+                    if (stderr) {
+                        Log.log(`Process with PID ${pid} does not exist anymore. ` + 
+                                `Hence, I couldn't find any of its children.`, LogLevel.LowLevelDebug)
                     }
+                }, () => {
+                    resolve(child_pids)
                 })
         })
     }
@@ -759,7 +738,13 @@ export class ViperServerService extends BackendService {
         } 
     }
 
-    private getZ3Pids(parent_proc_pid: number): Promise<number[]> {
+    private getZ3Pids(parent_proc_pid_list: number[]): Promise<number[]> {
+        return Promise.all(parent_proc_pid_list.map(ppid => this.getZ3PidsImpl(ppid))).then((z3_pids_list: number[][]) => {
+            return [].concat.apply([], z3_pids_list)  // efficient flattening
+        })
+    }
+
+    private getZ3PidsImpl(parent_proc_pid: number): Promise<number[]> {
         let z3_exe_name = Settings.isWin ? "z3.exe" : "z3"
         return this.getChildrenPidsForProcess(z3_exe_name, parent_proc_pid).catch(reason => {
             // The parent process (e.g. Boogie) might not have created its Z3 instances at this time. 
