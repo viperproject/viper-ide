@@ -9,12 +9,10 @@
 'use strict';
 import { SymbolInformation, SymbolKind } from 'vscode-languageserver'
 
-import child_process = require('child_process');
 import * as language_server from 'vscode-languageserver';
 import { Settings } from './Settings'
 import { IDefinition, Definition, Member, Common, ExecutionTrace, BackendOutput, BackendOutputType, SymbExLogEntry, Stage, MyProtocolDecorationOptions, StepsAsDecorationOptionsResult, StatementType, StateColors, Position, Range, HeapGraph, VerificationState, LogLevel, Success } from './ViperProtocol'
 import { Log } from './Log';
-import { BackendService } from './BackendService';
 import { Statement } from './Statement';
 import { Model } from './Model';
 import * as pathHelper from 'path';
@@ -24,7 +22,6 @@ import { Server } from './ServerClass';
 import { DebugServer } from './DebugServer';
 import * as fs from 'fs';
 import { Verifiable } from './Verifiable';
-import { resolve } from 'path';
 
 export class VerificationTask {
     //state that is valid across verifications

@@ -35,46 +35,43 @@
         "automatic deduction"
     ],
     "dependencies": {
-        "command-exists": "^1.2.8",
-        "decompress-zip": "^0.2.2",
-        "find-java-home": "github:aterga/node-find-java-home",
+        "decompress-zip": "^0.3.1",
         "glob-to-regexp": "^0.4.1",
-        "master": "^0.0.14",
+        "locate-java-home": "git+https://github.com/viperproject/locate-java-home.git",
         "mkdirp": "^0.5.1",
-        "node-ipc": "^9.1.1",
-        "portfinder": "^1.0.20",
-        "psl": "^1.1.31",
+        "node-ipc": "^9.1.4",
         "request": "^2.88.2",
         "sound-play": "^1.1.0",
         "stream-json": "^1.7.1",
         "strip-json-comments": "3.0.1",
         "sudo-prompt": "8.2.5",
-        "tree-kill": "^1.2.1",
+        "tree-kill": "^1.2.2",
         "unused-filename": "^2.1.0",
         "viz.js": "^2.1.2",
-        "vsce": "^1.87.1",
         "vscode-debugadapter": "^1.34.0",
         "vscode-debugprotocol": "^1.34.0",
         "vscode-languageclient": "^5.2.1",
         "vscode-languageserver": "^5.2.1",
-        "vscode-uri": "^1.0.8"
+        "vscode-test": "^1.3.0",
+        "vscode-uri": "^2.1.1"
     },
     "devDependencies": {
-        "@types/mocha": "^5.2.6",
-        "@types/node": "^10.14.6",
-        "mocha": "^6.1.4",
-        "typescript": "^3.4.5",
+        "@types/mocha": "^8.0.3",
+        "@types/node": "^14.11.8",
+        "@types/vscode": "^1.43.0",
+        "mocha": "^8.1.3",
+        "typescript": "^4.0.3",
         "typescript.events": "^7.9.0",
-        "vscode": "^1.1.34",
+        "vsce": "^1.87.1",
         "vscode-debugadapter-testsupport": "^1.34.0"
     },
     "scripts": {
         "compile": "npm run compileServer && tsc -p ./",
         "watch": "tsc -w -p ./",
-        "prepublish": "npm run prepublishServer && node ./node_modules/vscode/bin/install && npm run compile",
-        "test": "node ./node_modules/vscode/bin/test",
+        "prepublish": "npm run prepublishServer && npm run compile",
+        "test": "node ./out/test/runTest.js",
         "compileServer": "cd ../server && npm run compile && cd ../client",
-        "prepublishServer": "cd ../server && npm install && cd ../client"
+        "prepublishServer": "cd ../server && npm install && npm run compile && cd ../client"
     },
     "activationEvents": [
         "onLanguage:viper"
@@ -394,6 +391,7 @@
                     "type": "object",
                     "default": {
                         "v": "674a514867b1",
+                        "javaBinary": "",
                         "customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$ -server $mainMethod$"
                     },
                     "description": "Settings used for running Java commands. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Java-Settings"

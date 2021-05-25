@@ -10,7 +10,7 @@
 
 import { Log } from './Log';
 import { Model } from './Model';
-import { LogLevel, StatementType } from './ViperProtocol';
+import { LogLevel } from './ViperProtocol';
 import { Variable, Statement, NameType, ValueType, ConditionType, HeapChunk } from './Statement';
 import { DotNode, DotCluster, DotGraph } from './DotGraph';
 import { Settings } from './Settings';

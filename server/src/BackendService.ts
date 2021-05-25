@@ -7,12 +7,11 @@
   */
  
 'use strict';
-import { clearTimeout } from 'timers';
 
-import child_process = require('child_process');
+import * as child_process from 'child_process'
 import { Log } from './Log'
 import { Settings } from './Settings'
-import { Common, Stage, Backend, VerificationState, LogLevel } from './ViperProtocol'
+import { Stage, Backend, VerificationState, LogLevel } from './ViperProtocol'
 import { Server } from './ServerClass';
 
 export abstract class BackendService {
@@ -24,8 +23,6 @@ export abstract class BackendService {
     ngSessionFinished = () => { };
 
     private _ready: boolean = false;
-
-    static REQUIRED_JAVA_VERSION = 8;
 
     protected timeout;
     protected engine: string;
@@ -170,38 +167,5 @@ export abstract class BackendService {
         this._ready = false;
         Server.startingOrRestarting = false;
         Server.sendStateChangeNotification({ newState: VerificationState.Stopped });
-    }
-
-    public isJreInstalled(): Promise<boolean> {
-        Log.log("Check JRE version", LogLevel.Verbose)
-        return new Promise((resolve, reject) => {
-            let is64bit = false
-            let dataHandler = (data: string) => {
-                is64bit = is64bit || data.indexOf("64") >= 0
-                if (this.findAppropriateVersion(data)) {
-                    resolve(true)
-                }
-            }
-            let exitHandler = () => {
-                if (!is64bit) {
-                    Log.error("Error: your Java version is not 64-bit. Viper IDE requires JRE 8-to-15 (x64).")
-                }
-                resolve(false)
-            }
-            let jreTester = Common.executer("java -version", dataHandler, dataHandler, exitHandler)
-        })
-    }
-
-    private findAppropriateVersion(s: string): boolean {
-        try {
-            let match = /([1-9]\d*)\.(\d+)\.(\d+)/.exec(s)
-            if (match && match[1] && match[2] && match[3]) {
-                let major = Number.parseInt(match[1])
-                let minor = Number.parseInt(match[2])
-                return major > 1 || (major === 1 && minor >= BackendService.REQUIRED_JAVA_VERSION)
-            }
-        } catch (e) {
-            Log.error("Error checking for the right java version: " + e)
-        }
     }
 }

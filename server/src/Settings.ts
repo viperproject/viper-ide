@@ -8,15 +8,16 @@
  
 'use strict';
 
-import fs = require('fs');
+import * as fs from 'fs';
 import * as pathHelper from 'path';
 import { Log } from './Log';
-import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, SettingsErrorType, SettingsError, Commands, Success, ViperSettings, Stage, Backend, LogLevel } from './ViperProtocol';
+import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, SettingsErrorType, SettingsError, Commands, Success, ViperSettings, Stage, Backend, LogLevel, Common } from './ViperProtocol';
 import { Server } from './ServerClass';
-import { BackendService } from './BackendService';
 import { ViperServerService } from './ViperServerService';
-const os = require('os');
-var portfinder = require('portfinder');
+import * as locate_java_home from 'locate-java-home';
+import { IJavaHomeInfo } from 'locate-java-home/js/es5/lib/interfaces';
+import * as os from 'os';
+
 
 export interface ResolvedPath {
     path: string,
@@ -272,118 +273,124 @@ export class Settings {
         return oldSettings;
     }
 
-    public static checkSettings(viperToolsUpdated: boolean): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            try {
-                this._valid = false;
-                this._errors = [];
-                this._upToDate = false;
+    public static async checkSettings(viperToolsUpdated: boolean): Promise<boolean> {
+        try {
+            this._valid = false;
+            this._errors = [];
+            this._upToDate = false;
 
-                Server.connection.sendRequest(Commands.CheckIfSettingsVersionsSpecified).then<Versions>((errors: SettingsError[]) => {
-                    if (errors) {
-                        this.addErrors(errors);
-                        return null;
+            const errors: SettingsError[] = await Server.connection.sendRequest(Commands.CheckIfSettingsVersionsSpecified);
+            if (errors) {
+                this.addErrors(errors);
+                return false;
+            }
+            
+            //check settings versions
+            const requiredVersions: Versions = await Server.connection.sendRequest(Commands.RequestRequiredVersion);
+            if (this.firstSettingsCheck) {
+                Log.log("Extension Version: " + requiredVersions.extensionVersion + " - " + Version.hash(requiredVersions.extensionVersion), LogLevel.LowLevelDebug)
+                this.firstSettingsCheck = false;
+            }
+            const settings = Settings.settings;
+            const oldSettings: string[] = this.checkSettingsVersion(settings, requiredVersions);
+            const defaultSettings = requiredVersions.defaultSettings;
+
+            if (oldSettings.length > 0) {
+                const affectedSettings = oldSettings.length < 10 ? "(" + oldSettings.join(", ") + ")" : "(" + oldSettings.length + ")";
+                this.addError("Old viper settings detected: " + affectedSettings + " please replace the old settings with the new default settings.");
+                return false;
+            }
+
+            this._upToDate = true;
+
+            //Check viperToolsProvider
+            settings.preferences.viperToolsProvider = this.checkPlatformDependentUrl(settings.preferences.viperToolsProvider);
+
+            //Check Paths
+            //check viperToolsPath
+            const resolvedPath: ResolvedPath = this.checkPath(settings.paths.viperToolsPath, "Path to Viper Tools:", false, true, true);
+            settings.paths.viperToolsPath = resolvedPath.path;
+            if (!resolvedPath.exists) {
+                if (!viperToolsUpdated) {
+                    //Automatically install the Viper tools
+                    Server.updateViperTools(true);
+                    // in this case we do not want to continue restarting the backend,
+                    //the backend will be restarted after the update
+                    return Promise.reject();
+                } else {
+                    return false;
+                }
+            }
+
+            // check z3 executable
+            settings.paths.z3Executable = this.checkPath(settings.paths.z3Executable, `z3 Executable:`, true, true, true).path
+            // check boogie executable
+            settings.paths.boogieExecutable = this.checkPath(settings.paths.boogieExecutable, `Boogie Executable (if you don't need Boogie, set it to ""):`, true, true, true).path
+            // check sfx prefix
+            settings.paths.sfxPrefix = this.checkPath(settings.paths.sfxPrefix, `Prefix the sound effect resources (if you don't want sounds, set it to ""):`, false, true, true, true).path
+
+            //check backends
+            if (!settings.verificationBackends || settings.verificationBackends.length == 0) {
+                settings.verificationBackends = defaultSettings["viperSettings.verificationBackends"].default;
+            } else {
+                defaultSettings["viperSettings.verificationBackends"].default.forEach(defaultBackend => {
+                    const customBackend = settings.verificationBackends.filter(backend => backend.name == defaultBackend.name)[0];
+                    if (customBackend) {
+                        //Merge the backend with the default backend
+                        this.mergeBackend(customBackend, defaultBackend);
                     } else {
-                        //check settings versions
-                        return Server.connection.sendRequest(Commands.RequestRequiredVersion);
-                    }
-                }).then((requiredVersions: Versions) => {
-                    if (!requiredVersions) {
-                        resolve(false);
-                        return;
-                    }
-                    if (this.firstSettingsCheck) {
-                        Log.log("Extension Version: " + requiredVersions.extensionVersion + " - " + Version.hash(requiredVersions.extensionVersion), LogLevel.LowLevelDebug)
-                        this.firstSettingsCheck = false;
-                    }
-                    let settings = Settings.settings;
-                    let oldSettings: string[] = this.checkSettingsVersion(settings, requiredVersions);
-                    let defaultSettings = requiredVersions.defaultSettings;
-
-                    if (oldSettings.length > 0) {
-                        let affectedSettings = oldSettings.length < 10 ? "(" + oldSettings.join(", ") + ")" : "(" + oldSettings.length + ")";
-                        this.addError("Old viper settings detected: " + affectedSettings + " please replace the old settings with the new default settings.");
-                        resolve(false); return;
-                    }
-
-                    this._upToDate = true;
-
-                    //Check viperToolsProvider
-                    settings.preferences.viperToolsProvider = this.checkPlatformDependentUrl(settings.preferences.viperToolsProvider);
-
-                    //Check Paths
-                    //check viperToolsPath
-                    let resolvedPath: ResolvedPath = this.checkPath(settings.paths.viperToolsPath, "Path to Viper Tools:", false, true, true);
-                    settings.paths.viperToolsPath = resolvedPath.path;
-                    if (!resolvedPath.exists) {
-                        if (!viperToolsUpdated) {
-                            //Automatically install the Viper tools
-                            Server.updateViperTools(true);
-                            reject(); // in this case we do not want to continue restarting the backend,
-                            //the backend will be restarted after the update
-                        } else {
-                            resolve(false);
-                        }
-                        return;
-                    }
-
-                    // check z3 executable
-                    settings.paths.z3Executable = this.checkPath(settings.paths.z3Executable, `z3 Executable:`, true, true, true).path
-                    // check boogie executable
-                    settings.paths.boogieExecutable = this.checkPath(settings.paths.boogieExecutable, `Boogie Executable (if you don't need Boogie, set it to ""):`, true, true, true).path
-                    // check sfx prefix
-                    settings.paths.sfxPrefix = this.checkPath(settings.paths.sfxPrefix, `Prefix the sound effect resources (if you don't want sounds, set it to ""):`, false, true, true, true).path
-
-                    //check backends
-                    if (!settings.verificationBackends || settings.verificationBackends.length == 0) {
-                        settings.verificationBackends = defaultSettings["viperSettings.verificationBackends"].default;
-                    } else {
-                        defaultSettings["viperSettings.verificationBackends"].default.forEach(defaultBackend => {
-                            let customBackend = settings.verificationBackends.filter(backend => backend.name == defaultBackend.name)[0];
-                            if (customBackend) {
-                                //Merge the backend with the default backend
-                                this.mergeBackend(customBackend, defaultBackend);
-                            } else {
-                                //Add the default backend if there is none with the same name
-                                settings.verificationBackends.push(defaultBackend);
-                            }
-                        })
-                    }
-                    Settings.checkBackends(settings.verificationBackends);
-
-                    //check ViperServer related settings
-                    let viperServerRequired = settings.verificationBackends.some(elem => this.useViperServer(elem));
-                    if (viperServerRequired) {
-                        //check viperServer path
-                        settings.viperServerSettings.serverJars = this.checkPaths(settings.viperServerSettings.serverJars, "viperServerPath:");
-                        if(this.viperServerJars().trim().length == 0){
-                            this.addError("Missing viper server jars at paths: " + JSON.stringify(settings.viperServerSettings.serverJars))
-                        }
-                        //check viperServerTimeout
-                        settings.viperServerSettings.timeout = this.checkTimeout(settings.viperServerSettings.timeout, "viperServerSettings:");
-                        //check the customArguments
-                    }
-
-                    //no need to check preferences
-                    //check java settings
-                    if (!settings.javaSettings.customArguments) {
-                        this.addError("The customArguments are missing in the java settings");
-                    }
-
-                    //checks done
-                    this._valid = !this._errors.some(error => error.type == SettingsErrorType.Error); //if there is no error -> valid
-                    if (this._valid) {
-                        Log.log("The settings are ok", LogLevel.Info);
-                        resolve(true);
-                    } else {
-                        resolve(false);
+                        //Add the default backend if there is none with the same name
+                        settings.verificationBackends.push(defaultBackend);
                     }
                 });
-            } catch (e) {
-                Log.error("Error checking settings: " + e);
-                resolve(false);
             }
-        });
+            Settings.checkBackends(settings.verificationBackends);
+
+            //check ViperServer related settings
+            const viperServerRequired = settings.verificationBackends.some(elem => this.useViperServer(elem));
+            if (viperServerRequired) {
+                //check viperServer path
+                settings.viperServerSettings.serverJars = this.checkPaths(settings.viperServerSettings.serverJars, "viperServerPath:");
+                if(this.viperServerJars().trim().length == 0){
+                    this.addError("Missing viper server jars at paths: " + JSON.stringify(settings.viperServerSettings.serverJars))
+                }
+                //check viperServerTimeout
+                settings.viperServerSettings.timeout = this.checkTimeout(settings.viperServerSettings.timeout, "viperServerSettings:");
+                //check the customArguments
+            }
+
+            //no need to check preferences
+            //check java settings
+            try {
+                const javaPathInfo = await this.getJavaPath();
+                if (javaPathInfo.isAmbiguous) {
+                    const warnMsg = `Multiple Java installations have been discovered. '${javaPathInfo.path}' will be used. ` +
+                        `You can manually provide a path to a Java installation by specifying ` +
+                        `'"viper.javaSettings.javaBinary": "<path>"' in your settings file.`;
+                    this.addWarning(warnMsg);
+                }
+            } catch (e) {
+                // if something goes wrong, getJavaPath will provide the error description, which we can simply forward:
+                this.addError(e);
+            }
+            if (!settings.javaSettings.customArguments) {
+                this.addError("The customArguments are missing in the java settings");
+            }
+
+            //checks done
+            const settingsErrors = this._errors.filter(error => error.type == SettingsErrorType.Error);
+            this._valid = settingsErrors.length == 0; //if there is no error -> valid
+            if (this._valid) {
+                Log.log("The settings are ok", LogLevel.Info);
+            } else {
+                const errorString = settingsErrors.map(err => err.msg).join(", ");
+                Log.log(`The following settings errors have been observed: ${errorString}`, LogLevel.Info);
+            }
+            return this._valid;
+        } catch (e) {
+            Log.error("Error checking settings: " + e);
+            return false;
+        }
     }
 
     private static mergeBackend(custom: Backend, def: Backend) {
@@ -629,6 +636,75 @@ export class Settings {
             return null;
         }
         return timeout;
+    }
+
+    /**
+     * Searches for a Java home and tries to use it.
+     * Promise is resolved with the path to the Java executable that should be used.
+     * Otherwise, promise is rejected with an error message (as string) in case something went wrong
+     */
+    public static async getJavaPath(): Promise<{path: string, isAmbiguous: boolean}> {
+        const configuredJavaBinary = Settings.settings.javaSettings.javaBinary;
+        const searchForJavaHome = configuredJavaBinary == null || configuredJavaBinary == "";
+        let javaPath: string;
+        let isAmbiguous: boolean;
+        if (searchForJavaHome) {
+            // no java binary configured, search for it:
+            const javaHomes = await Settings.getJavaHomes();
+            javaPath = javaHomes[0].executables.java;
+            Log.log(`Java was successfully located at ${javaPath}`, LogLevel.Debug);
+            isAmbiguous = javaHomes.length !== 1;
+        } else {
+            Log.log(`Uses Java home found in settings: ${configuredJavaBinary}`, LogLevel.Debug);
+            javaPath = configuredJavaBinary;
+            isAmbiguous = false;
+        }
+
+        // try to execute `java -version`:
+        try {
+            const javaVersionOutput = await Common.spawn(javaPath, ["-version"]);
+            const javaVersion = javaVersionOutput.stdout.concat(javaVersionOutput.stderr);
+            Log.log(`Java home found: ${javaPath}. It's version is: ${javaVersion}`, LogLevel.Verbose);
+            return { path: javaPath, isAmbiguous: isAmbiguous };
+        } catch (err) {
+            let errorMsg: string
+            if (searchForJavaHome) {
+                errorMsg = `A Java home was found at '${javaPath}' but executing it with '-version' has failed: ${err}.`;
+            } else {
+                errorMsg = `The Java home is in the settings configured to be '${javaPath}' but executing it with '-version' has failed: ${err}.`;
+            }
+            // rethrow error
+            throw errorMsg;
+        }
+    }
+
+    /**
+     * Searches for Java homes. Promise is rejected with an error message (as string) in case something went wrong
+     */
+    private static getJavaHomes(): Promise<IJavaHomeInfo[]> {
+        return new Promise((resolve, reject) => {
+          try {
+            const options = {
+              version: ">=1.8",
+              mustBe64Bit: true
+            };
+            locate_java_home.default(options, (err, javaHomes) => {
+              if (err) {
+                reject(err.message);
+              } else {
+                if (!Array.isArray(javaHomes) || javaHomes.length === 0) {
+                  const msg = "Could not find a 64-bit Java installation with at least version 1.8. "
+                    + "Please install one and/or manually specify it in the Viper-IDE settings.";
+                  reject(msg);
+                } else {
+                  resolve(javaHomes);
+                }
+              }
+            });
+          } catch (err) {
+            reject(err.message);
+          }
+        });
     }
 
     public static backendJars(backend: Backend): string {
