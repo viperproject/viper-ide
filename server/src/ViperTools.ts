@@ -1,10 +1,23 @@
 import * as fs from "fs";
+import * as path from 'path';
 import { Log } from "./Log";
 import { Settings } from "./Settings";
 import { LogLevel } from "./ViperProtocol";
 import { Dependency, DependencyInstaller, GitHubReleaseAsset, GitHubZipExtractor, LocalReference, Location, ProgressListener, RemoteZipExtractor } from "./vs-verification-toolbox";
 
 export default class ViperTools {
+    /**
+     * This is a temporary solution to compute the installation path based on the build channel without calling `update`
+     */
+    public static getInstalledViperToolsPath(context: ViperToolsContext): string {
+        const selectedChannel = Helper.getBuildChannel(context);
+        if (selectedChannel === BuildChannel.Local) {
+            return context.localViperToolsPath;
+        } else {
+            return path.join(Settings.globalStoragePath, selectedChannel, this.buildChannelSubfolderName);
+        }
+    }
+
     /**
      * Checks, downloads, and installs Viper tools
      * @param shouldUpdate indicates whether tools should be updated even though they are already installed
@@ -87,12 +100,16 @@ export default class ViperTools {
         return new LocalReference(Helper.getLocalViperToolsPath(context));
     }
 
+    private static get buildChannelSubfolderName(): string {
+        return "ViperTools";
+    }
+
     private static async getRemoteDependencyInstaller(context: ViperToolsContext, buildChannel: BuildChannel): Promise<DependencyInstaller> {
         const viperToolsRawProviderUrl = Helper.getViperToolsProvider(context, buildChannel);
         // note that `viperToolsProvider` might be one of the "special" URLs as specified in the README (i.e. to a GitHub releases asset):
         const viperToolsProvider = this.parseGitHubAssetURL(viperToolsRawProviderUrl);
 
-        const folderName = "ViperTools"; // folder name to which ZIP will be unzipped to
+        const folderName = this.buildChannelSubfolderName; // folder name to which ZIP will be unzipped to
         if (viperToolsProvider.isGitHubAsset) {
             // provider is a GitHub release
             const token = Helper.getGitHubToken();

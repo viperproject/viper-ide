@@ -254,9 +254,7 @@ function registerHandlers() {
     });
 
     Server.connection.onNotification(Commands.UpdateViperTools, async () => {
-        await Server.ensureViperTools(true);
-        // trigger a restart of the backend
-        Settings.initiateBackendRestartIfNeeded(null, null, true);
+        Server.ensureViperTools(true);
     });
 
     Server.connection.onNotification(Commands.FlushCache, (file) => {

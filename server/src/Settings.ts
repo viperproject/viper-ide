@@ -313,22 +313,24 @@ export class Settings {
             settings.preferences.stableViperToolsProvider = this.checkPlatformDependentUrl("stableViperToolsProvider", settings.preferences.stableViperToolsProvider);
             settings.preferences.nightlyViperToolsProvider = this.checkPlatformDependentUrl("nightlyViperToolsProvider", settings.preferences.nightlyViperToolsProvider);
 
-            if (!viperToolsUpdated) {
-                const installedToolsLocation = await Server.ensureViperTools(false);
-                settings.paths.viperToolsPath = installedToolsLocation.basePath;
-            }
+            // overwrite `viperToolsPath` by actual location at which Viper tools should be installed (depending on the build channel):
+            settings.paths.viperToolsPath = Server.getInstalledViperToolsPath();
 
             //Check Paths
             //check viperToolsPath
             const resolvedPath: ResolvedPath = this.checkPath(settings.paths.viperToolsPath, "Path to Viper Tools:", false, true, true);
             settings.paths.viperToolsPath = resolvedPath.path;
-            if (viperToolsUpdated) {
-                // we have just updated Viper tools
-                // if the resolved path does not exist then something went wrong:
-                if (!resolvedPath.exists) {
+            if (!resolvedPath.exists) {
+                if (!viperToolsUpdated) {
+                    //Automatically install the Viper tools
+                    Server.ensureViperTools(false);
+                    // in this case we do not want to continue restarting the backend,
+                    //the backend will be restarted after the update
+                    return Promise.reject();
+                } else {
+                    // we have just updated Viper tools but the resolved path still does not exist
                     return false;
                 }
-                // otherwise continue checking settings
             }
 
             // check z3 executable

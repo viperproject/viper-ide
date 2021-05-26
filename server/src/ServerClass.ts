@@ -223,7 +223,7 @@ export class Server {
         return { start: start, end: end };
     }
 
-    public static async ensureViperTools(shouldUpdate: boolean): Promise<Location> {
+    private static getContext(): ViperToolsContext {
         function providerUrl(channel: BuildChannel): string {
             if (channel === BuildChannel.Nightly) {
                 return Settings.settings.preferences.nightlyViperToolsProvider as string;
@@ -236,6 +236,28 @@ export class Server {
             Log.progress(step, fraction, 1, LogLevel.Debug);
         }
 
+        return {
+            buildVersion: Settings.settings.buildVersion,
+            localViperToolsPath: Settings.settings.paths.viperToolsPath as string,
+            getViperToolsProviderUrl: providerUrl,
+            getBoogiePath: (unzippedPath: string) => pathHelper.join(unzippedPath, "boogie", "Binaries", "Boogie"),
+            getZ3Path: (unzippedPath: string) => pathHelper.join(unzippedPath, "z3", "bin", "z3"),
+            confirm: Server.confirmViperToolsUpdate,
+            progressListener: reportProgress
+        };
+    }
+
+    /**
+     * This is a temporary solution to compute the installation path based on the build channel without calling `ensureViperTools`
+     */
+    public static getInstalledViperToolsPath(): string {
+        const context = this.getContext();
+        return ViperTools.getInstalledViperToolsPath(context);
+    }
+
+    public static async ensureViperTools(shouldUpdate: boolean): Promise<Location> {
+        
+
         try {
             // We assume here that the settings have been checked and are fine.
             // In particular, we do not check the path to the Java installation again.
@@ -247,18 +269,12 @@ export class Server {
             }
 
             Log.log("Updating Viper Tools ...", LogLevel.Default);
-            const context: ViperToolsContext = {
-                buildVersion: Settings.settings.buildVersion,
-                localViperToolsPath: Settings.settings.paths.viperToolsPath as string,
-                getViperToolsProviderUrl: providerUrl,
-                getBoogiePath: (unzippedPath: string) => pathHelper.join(unzippedPath, "boogie", "Binaries", "Boogie"),
-                getZ3Path: (unzippedPath: string) => pathHelper.join(unzippedPath, "z3", "bin", "z3"),
-                confirm: Server.confirmViperToolsUpdate,
-                progressListener: reportProgress
-            };
+            const context = this.getContext();
             const location = await ViperTools.update(context, shouldUpdate);
             
             Server.connection.sendNotification(Commands.ViperUpdateComplete, true);
+            // trigger a restart of the backend
+            Settings.initiateBackendRestartIfNeeded(null, null, true);
             return location;
         } catch (e) {
             const errMsg = `Error installing Viper tools: ${e}`;

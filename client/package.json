@@ -363,9 +363,9 @@
                     "default": {
                         "v": "674a514867b1",
                         "viperToolsPath": {
-                            "windows": "",
-                            "linux": "",
-                            "mac": ""
+                            "windows": "%APPDATA%\\Viper\\",
+                            "linux": "$HOME/.config/Viper",
+                            "mac": "$HOME/Library/Application Support/Viper"
                         },
                         "z3Executable": {
                             "windows": "$viperTools$/z3/bin/z3.exe",
@@ -436,7 +436,7 @@
                         "Local"
                     ],
                     "default": "Stable",
-                    "description": "Select the build version of the Viper Tools."
+                    "description": "Select the build version of the Viper Tools. The path specified at 'viperSettings.paths.viperToolsPath' will be used for build version 'Local'"
                 }
             }
         }
