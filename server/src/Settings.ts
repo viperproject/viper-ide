@@ -316,7 +316,8 @@ export class Settings {
                     this._upToDate = true;
 
                     //Check viperToolsProvider
-                    settings.preferences.viperToolsProvider = this.checkPlatformDependentUrl(settings.preferences.viperToolsProvider);
+                    settings.preferences.stableViperToolsProvider = this.checkPlatformDependentUrl("stableViperToolsProvider", settings.preferences.stableViperToolsProvider);
+                    settings.preferences.nightlyViperToolsProvider = this.checkPlatformDependentUrl("nightlyViperToolsProvider", settings.preferences.nightlyViperToolsProvider);
 
                     //Check Paths
                     //check viperToolsPath
@@ -325,7 +326,7 @@ export class Settings {
                     if (resolvedPath.path == null || resolvedPath.path === "") {
                         if (this.globalStoragePath != null) {
                             // use default location:
-                            const defaultViperToolsPath = pathHelper.join(this.globalStoragePath, 'stable');
+                            const defaultViperToolsPath = pathHelper.join(this.globalStoragePath, 'Stable', 'ViperTools');
                             resolvedPath = this.checkPath(defaultViperToolsPath, "Path to Viper Tools:", false, true, true, false);
                             const logMsg = `viperToolsPath was not specified in the settings but a global storage path has been provided. ` +
                                 `The provided global storage path has been resolved to '${JSON.stringify(resolvedPath)}'.`;
@@ -437,7 +438,7 @@ export class Settings {
         });
     }
 
-    private static checkPlatformDependentUrl(url: string | PlatformDependentURL): string {
+    private static checkPlatformDependentUrl(key: string, url: string | PlatformDependentURL): string {
         let stringURL = null;
         if (url) {
             if (typeof url === "string") {
@@ -455,7 +456,7 @@ export class Settings {
             }
         }
         if (!stringURL || stringURL.length == 0) {
-            this.addError("The viperToolsProvider is missing in the preferences");
+            this.addError(`The ${key} is missing in the preferences`);
         }
         //TODO: check url format
         return stringURL;

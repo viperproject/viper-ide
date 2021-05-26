@@ -287,13 +287,19 @@ function registerHandlers() {
                 Log.error("Error handling saved document: " + e);
             }
         }));
-        State.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
+        State.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
             try {
                 Log.updateSettings();
                 State.verificationController.stopDebuggingOnServer();
                 State.verificationController.stopDebuggingLocally();
             } catch (e) {
                 Log.error("Error handling configuration change: " + e);
+            }
+            if (event.affectsConfiguration("viperSettings.buildVersion")) {
+                Log.log(`buildVersion has been changed in the settings`, LogLevel.Info);
+                // IDE should be reopened such that changes take effect:
+                vscode.window.showInformationMessage(
+                    "Changed the build version of Viper Tools. Please restart the IDE.");
             }
         }));
         //trigger verification texteditorChange

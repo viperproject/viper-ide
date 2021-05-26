@@ -339,6 +339,7 @@ export interface ViperSettings {
     javaSettings: JavaSettings;
     //Settings for AdvancedFeatures
     advancedFeatures: AdvancedFeatureSettings;
+    buildVersion: "Stable" | "Nightly";
 }
 
 export interface VersionedSettings { v: string; }
@@ -428,8 +429,11 @@ export interface UserPreferences extends VersionedSettings {
     // Emit sound effects, indicating reached milestones in a verification process
     enableSoundEffects: boolean; 
 
-    // The URL for downloading the ViperTools from
-    viperToolsProvider: string | PlatformDependentURL;
+    // The URL for downloading the stable ViperTools from
+    stableViperToolsProvider: string | PlatformDependentURL;
+
+    // The URL for downloading the nightly ViperTools from
+    nightlyViperToolsProvider: string | PlatformDependentURL;
 }
 
 export interface JavaSettings extends VersionedSettings {
@@ -491,7 +495,7 @@ export interface Progress {
     postfix?: string;
 }
 
-export interface Versions extends Thenable<Versions> {
+export interface Versions {
     viperServerSettingsVersion: string;
     backendSettingsVersion: string;
     pathSettingsVersion: string;

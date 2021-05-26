@@ -10,18 +10,15 @@
 import { ViperServerService } from './ViperServerService'
 
 import { IConnection, TextDocuments, PublishDiagnosticsParams } from 'vscode-languageserver'
-import { Common, ProgressParams, Command, LogParams, SettingsCheckedParams, Position, Range, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel } from './ViperProtocol'
+import { Common, ProgressParams, LogParams, SettingsCheckedParams, Position, Range, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel } from './ViperProtocol'
 import { BackendService } from './BackendService'
 import { VerificationTask } from './VerificationTask'
 import { Log } from './Log'
 import { Settings } from './Settings'
 import * as pathHelper from 'path'
-import * as fs from 'fs'
-import * as http from 'http'
 import * as os from 'os'
 import * as globToRexep from 'glob-to-regexp'
-import * as mkdirp from 'mkdirp'
-import * as DecompressZip from 'decompress-zip'
+import ViperTools, { BuildChannel, ViperToolsContext } from './ViperTools'
 
 export class Server {
     static backend: Backend;
@@ -225,250 +222,53 @@ export class Server {
         return { start: start, end: end };
     }
 
-    //file system helper methods
-
-    public static getUser(): string {
-        if (Settings.isLinux) {
-            return process.env["USER"];
-        } else if (Settings.isMac) {
-            return process.env["USER"];
-        } else {
-            Log.error("getUser is unimplemented for Windows")//TODO: implement
-            return;
-        }
-    }
-
-    public static makeSureFileExistsAndCheckForWritePermission(filePath: string, firstTry = true): Promise<any> {
-        return new Promise((resolve, reject) => {
-            try {
-                let folder = pathHelper.dirname(filePath);
-                mkdirp(folder, (err) => {
-                    if (err && err.code != 'EEXIST') {
-                        resolve(err.code + ": Error creating " + folder + " " + err.message);
-                    } else {
-                        fs.open(filePath, 'a', (err, file) => {
-                            if (err) {
-                                resolve(err.code + ": Error opening " + filePath + " " + err.message)
-                            } else {
-                                fs.close(file, err => {
-                                    if (err) {
-                                        resolve(err.code + ": Error closing " + filePath + " " + err.message)
-                                    } else {
-                                        fs.access(filePath, 2, (e) => { //fs.constants.W_OK is 2
-                                            if (e) {
-                                                resolve(e.code + ": Error accessing " + filePath + " " + e.message)
-                                            } else {
-                                                resolve(null);
-                                            }
-                                        });
-                                    }
-                                });
-                            }
-                        });
-                    }
-                });
-            } catch (e) {
-                resolve(e);
+    public static async updateViperTools(askForPermission: boolean) {
+        function providerUrl(channel: BuildChannel): string {
+            if (channel === BuildChannel.Nightly) {
+                return Settings.settings.preferences.nightlyViperToolsProvider as string;
+            } else {
+                return Settings.settings.preferences.stableViperToolsProvider as string;
             }
-        });
-    }
-
-    public static download(url, filePath): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            try {
-                Log.startProgress();
-                let file = fs.createWriteStream(filePath);
-                let request = http.get(url, function (response) {
-                    response.pipe(file);
-
-                    //download progress 
-                    // WTF, why is it a union type? No answer here: 
-                    // https://nodejs.org/api/http.html#http_class_http_incomingmessage
-                    let resp_head = response.headers['content-length']
-
-                    let len = typeof resp_head === 'string'
-                        ? parseInt(resp_head, 10) 
-                        : parseInt(resp_head[0], 10);
-                    let cur = 0;
-                    response.on("data", function (chunk) {
-                        cur += chunk.length;
-                        Log.progress("Download Viper Tools", cur, len, LogLevel.Debug);
-                    });
-
-                    file.on('finish', function () {
-                        file.close();
-                        resolve(true);
-                    });
-                    request.on('error', function (err) {
-                        Log.error("Error downloading viper tools: " + err.message);
-                        fs.unlink(filePath, (e) => { 
-                            Log.error(" (things got really nasty: the newly created files cannot be deleted.)");
-                        });
-                        resolve(false);
-                    });
-                });
-            } catch (e) {
-                Log.error("Error downloading viper tools: " + e);
-            }
-        });
-    };
-
-    public static extract(filePath: string): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            try {
-                //extract files
-                Log.log("Extracting files...", LogLevel.Info)
-                Log.startProgress();
-                let unzipper = new DecompressZip(filePath);
-
-                unzipper.on('progress', function (fileIndex, fileCount) {
-                    Log.progress("Extracting Viper Tools", fileIndex + 1, fileCount, LogLevel.Debug);
-                });
-
-                unzipper.on('error', function (e) {
-                    if (e.code && e.code == 'ENOENT') {
-                        Log.error("Error updating the Viper Tools, missing create file permission in the viper tools directory: " + e);
-                    } else if (e.code && e.code == 'EACCES') {
-                        Log.error("Error extracting " + filePath + ": " + e + " | " + e.message);
-                    } else {
-                        Log.error("Error extracting " + filePath + ": " + e);
-                    }
-                    resolve(false);
-                });
-
-                unzipper.on('extract', function (log) {
-                    resolve(true);
-                });
-
-                unzipper.extract({
-                    path: pathHelper.dirname(filePath),
-                    filter: function (file) {
-                        return file.type !== "SymbolicLink";
-                    }
-                });
-            } catch (e) {
-                Log.error("Error extracting viper tools: " + e);
-                resolve(false);
-            }
-        });
-    }
-
-    public static getParentDir(fileOrFolderPath: string): string {
-        if (!fileOrFolderPath) return null
-        let obj = pathHelper.parse(fileOrFolderPath)
-        if (obj.base) {
-            return obj.dir
         }
-        let folderPath = obj.dir
-        let match = folderPath.match(/(^.*)[\/\\].+$/); //the regex retrieves the parent directory
-        if (match) {
-            if (match[1] == fileOrFolderPath) {
-                Log.error("getParentDir has a fixpoint at " + fileOrFolderPath)
-                return null
-            }
-            return match[1]
-        }
-        else {
-            return null
-        }
-    }
 
-    public static updateViperTools(askForPermission: boolean) {
+        function reportProgress(fraction: number, step: string) {
+            Log.progress(step, fraction, 1, LogLevel.Debug);
+        }
+
         try {
-            // Check Java installation
-            Settings.getJavaPath()
-                .then(javaPath => Log.log(`Java home found: ${javaPath}.`, LogLevel.Verbose))
-                .catch(err => Log.hint(`Error while checking Java installation: ${err}.`));
+            Log.log("Updating Viper Tools ...", LogLevel.Default);
 
-            if (!Settings.upToDate()) {
-                Log.hint("The settings are not up to date, refresh them before updating the Viper Tools. ", true)
-                Server.connection.sendNotification(Commands.ViperUpdateComplete, false)  // update failed
-                return
-            }
-
-            Log.log("Updating Viper Tools ...", LogLevel.Default)
-            let url = <string>Settings.settings.preferences.viperToolsProvider
-            // Extract the expected file's name
-            let filename = url.split(/[\\\/]/).pop()
-
-            // Check access to download location
-            let dir = <string>Settings.settings.paths.viperToolsPath
-            let viperToolsPath = pathHelper.join(dir, filename)
-
-            const prepareFolderPromise = Server.confirmViperToolsUpdate()
-                .then(() => Server.rmViperToolsDir(dir))
-                .then(() => Server.makeSureFileExistsAndCheckForWritePermission(viperToolsPath))
-
-            prepareFolderPromise.then(error => {
-                if (error) {
-                    throw new Error("The Viper Tools Update failed, change the ViperTools directory to a folder in which you have permission to create files. " + error)
-                }
-                //download Viper Tools
-                Log.log("Downloading ViperTools from " + url + " ...", LogLevel.Default)
-                return Server.download(url, viperToolsPath)
-            }).then(success => {
-                if (success) {
-                    return Server.extract(viperToolsPath)
-                } else {
-                    throw new Error("Downloading viper tools unsuccessful.")
-                }
-            }).then(success => {
-                if (success) {
-                    Log.log("Extracting ViperTools finished " + (success ? "" : "un") + "successfully", LogLevel.Info)
-                    if (success) {
-                        // chmod to allow the execution of boogie and z3 files  
-                        // 755 is for (read, write, execute)
-                        // TODO: use async code and add error handlers
-                        if (Settings.isLinux || Settings.isMac) {
-                            fs.chmodSync(pathHelper.join(dir, "z3", "bin", "z3"), '755')  
-                            fs.chmodSync(pathHelper.join(dir, "boogie", "Binaries", "Boogie"), '755')
-                        }
-                        // delete the archive
-                        fs.unlink(viperToolsPath, (err) => {
-                            if (err) {
-                                Log.error("Error deleting archive after ViperToolsUpdate: " + err)
-                            }
-                            Log.log("ViperTools Update completed", LogLevel.Default)
-                            Server.connection.sendNotification(Commands.ViperUpdateComplete, true)  //success
-                        })
-                        // trigger a restart of the backend
-                        Settings.initiateBackendRestartIfNeeded(null, null, true)
-                    }
-                } else {
-                    throw new Error("Extracting viper tools unsuccessful.")
-                }
-            }).catch(e => {
-                Log.error(e)
-                Server.connection.sendNotification(Commands.ViperUpdateComplete, false)  //update failed
-            })
+            const context: ViperToolsContext = {
+                buildVersion: Settings.settings.buildVersion,
+                viperToolsPath: Settings.settings.paths.viperToolsPath as string,
+                getViperToolsProviderUrl: providerUrl,
+                getBoogiePath: (unzippedPath: string) => pathHelper.join(unzippedPath, "boogie", "Binaries", "Boogie"),
+                getZ3Path: (unzippedPath: string) => pathHelper.join(unzippedPath, "z3", "bin", "z3"),
+                confirm: Server.confirmViperToolsUpdate,
+                progressListener: reportProgress
+            };
+            await ViperTools.update(context, true);
+            
+            Server.connection.sendNotification(Commands.ViperUpdateComplete, true);
+            // trigger a restart of the backend
+            Settings.initiateBackendRestartIfNeeded(null, null, true);
         } catch (e) {
             Log.error("Error installing Viper tools: " + e)
-            Server.connection.sendNotification(Commands.ViperUpdateComplete, false)  //update failed
+            Server.connection.sendNotification(Commands.ViperUpdateComplete, false); //update failed
         }
     }
 
-    private static confirmViperToolsUpdate(): Promise<void> {
+    private static confirmViperToolsUpdate(): Promise<boolean> {
         // note that `confirm` is unfortunately not available in the server environment.
         // as a hack to make users aware of Viper IDE installing something, we use execute "echo" as sudo.
         // after switching to the LSP frontend of ViperServer, the update routine will be triggered by the client and thus
         // we will have access to the vscode API and can show a proper confirmation dialog.
         const command = "echo"
         return Common.sudoExecuter(command, "ViperTools Installer")
+            .then(() => true)
             .catch(() => {
-                // rethrow error but with a better message:
-                throw `Administrator permissions have not been granted to Viper IDE for installing Viper tools.`;
+                Log.log(`Administrator permissions have not been granted to Viper IDE for installing Viper tools.`, LogLevel.Info);
+                return false;
             });
-    }
-
-    private static rmViperToolsDir(path: string): Promise<void> {
-        let command: string
-        if (Settings.isWin) {
-            command = `if exist "${path}"\ ( rmdir /s /q  + "${path}" )`
-        } else {
-            command = `rm -fr '${path}'`
-        }
-        return new Promise(resolve => {
-            Common.executor(command, resolve)
-        }) 
     }
 }

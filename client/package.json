@@ -35,10 +35,12 @@
         "automatic deduction"
     ],
     "dependencies": {
-        "decompress-zip": "^0.3.1",
+        "@octokit/rest": "^18.5.3",
+        "extract-zip": "^2.0.1",
+        "fs-extra": "^10.0.0",
         "glob-to-regexp": "^0.4.1",
+        "got": "^11.8.2",
         "locate-java-home": "git+https://github.com/viperproject/locate-java-home.git",
-        "mkdirp": "^0.5.1",
         "node-ipc": "^9.1.4",
         "request": "^2.88.2",
         "sound-play": "^1.1.0",
@@ -289,7 +291,7 @@
         ],
         "configuration": {
             "type": "object",
-            "title": "Viper Configuration",
+            "title": "Viper",
             "properties": {
                 "viperSettings.viperServerSettings": {
                     "type": "object",
@@ -297,13 +299,13 @@
                         "v": "674a514867b1",
                         "serverJars": {
                             "windows": [
-                                "$viperTools$/backends"
+                                "$viperTools$/server"
                             ],
                             "linux": [
-                                "$viperTools$/backends"
+                                "$viperTools$/server"
                             ],
                             "mac": [
-                                "$viperTools$/backends"
+                                "$viperTools$/server"
                             ]
                         },
                         "customArguments": " $backendSpecificCache$",
@@ -388,10 +390,15 @@
                         "autoVerifyAfterBackendChange": true,
                         "showProgress": true,
                         "enableSoundEffects": false,
-                        "viperToolsProvider": {
-                            "windows": "http://viper.ethz.ch/downloads/ViperToolsReleaseWin.zip",
-                            "linux": "http://viper.ethz.ch/downloads/ViperToolsReleaseLinux.zip",
-                            "mac": "http://viper.ethz.ch/downloads/ViperToolsReleaseMac.zip"
+                        "stableViperToolsProvider": {
+                            "windows": "github.com/viperproject/viperserver/releases/latest?asset-name=ViperToolsWin.zip",
+                            "linux": "github.com/viperproject/viperserver/releases/latest?asset-name=ViperToolsLinux.zip",
+                            "mac": "github.com/viperproject/viperserver/releases/latest?asset-name=ViperToolsMac.zip"
+                        },
+                        "nightlyViperToolsProvider": {
+                            "windows": "github.com/viperproject/viperserver/releases/latest?asset-name=ViperToolsWin.zip&include-prereleases",
+                            "linux": "github.com/viperproject/viperserver/releases/latest?asset-name=ViperToolsLinux.zip&include-prereleases",
+                            "mac": "github.com/viperproject/viperserver/releases/latest?asset-name=ViperToolsMac.zip&include-prereleases"
                         }
                     },
                     "description": "General user preferences. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Preferences"
@@ -419,6 +426,16 @@
                         "verificationBufferSize": 102400
                     },
                     "description": "Settings concerning the advanced features. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Advanced-Features"
+                },
+                "viperSettings.buildVersion": {
+                    "scope": "window",
+                    "type": "string",
+                    "enum": [
+                        "Stable",
+                        "Nightly"
+                    ],
+                    "default": "Stable",
+                    "description": "Select the build version of the Viper Tools."
                 }
             }
         }

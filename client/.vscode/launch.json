@@ -12,7 +12,10 @@
             "stopOnEntry": false,
             "sourceMaps": true,
             "outFiles": ["${workspaceRoot}/out/**/*.js"],
-            "preLaunchTask": "npm: watch"
+            "preLaunchTask": {
+                "type": "npm",
+                "script": "compile"
+            }
         },
         {
             "name": "Test",
@@ -25,8 +28,7 @@
             ],
             "stopOnEntry": false,
             "sourceMaps": true,
-            "outFiles": ["${workspaceRoot}/out/test/**/*.js"],
-            "preLaunchTask": "npm: watch"
+            "outFiles": ["${workspaceRoot}/out/test/**/*.js"]
         }/*,
         {
             "name": "Run Server",

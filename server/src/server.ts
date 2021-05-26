@@ -7,9 +7,6 @@
   */
  
 'use strict'
-import { SymbolKind } from 'vscode-languageserver'
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 
 import { IPCMessageReader, IPCMessageWriter, createConnection, InitializeResult, SymbolInformation } from 'vscode-languageserver'
 import * as yargs from 'yargs';
