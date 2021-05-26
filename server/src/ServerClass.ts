@@ -236,8 +236,16 @@ export class Server {
         }
 
         try {
-            Log.log("Updating Viper Tools ...", LogLevel.Default);
+            // We assume here that the settings have been checked and are fine.
+            // In particular, we do not check the path to the Java installation again.
 
+            if (!Settings.upToDate()) {
+                Log.hint("The settings are not up to date, refresh them before updating the Viper Tools. ", true)
+                Server.connection.sendNotification(Commands.ViperUpdateComplete, false)  // update failed
+                return
+            }
+
+            Log.log("Updating Viper Tools ...", LogLevel.Default);
             const context: ViperToolsContext = {
                 buildVersion: Settings.settings.buildVersion,
                 viperToolsPath: Settings.settings.paths.viperToolsPath as string,

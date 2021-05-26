@@ -360,7 +360,7 @@ export interface ViperServerSettings extends VersionedSettings {
     //Specifies the address part of the URL that ViperServer is running on. 
     viperServerAddress: string;
     //Specifies the port part of the URL that ViperServer is running on. Only needed if viperServerPolicy is set to 'attach'. 
-    viperServerPort: number
+    viperServerPort: number;
 }
 
 export interface Backend extends VersionedSettings {
@@ -615,8 +615,8 @@ export interface TimingInfo {
 export class Common {
     //URI helper Methods
     public static uriToPath(uri: string): string {
-        let uriObject: URI = URI.parse(uri, false);
-        let platformIndependentPath = uriObject.path;
+        const uriObject: URI = URI.parse(uri);
+        const platformIndependentPath = uriObject.fsPath;
         return platformIndependentPath;
     }
 
@@ -630,34 +630,34 @@ export class Common {
     public static executer(command: string, onData?: (string) => void, 
                            onError?: (string) => void, onExit?: () => void): child_process.ChildProcess {
         try {
-            Log.logWithOrigin("executer", command, LogLevel.Debug)
+            Log.logWithOrigin("executer", command, LogLevel.Debug);
             let child: child_process.ChildProcess = child_process.exec(command, function (error, stdout, stderr) {
-                Log.logWithOrigin('executer:stdout', stdout, LogLevel.LowLevelDebug)
-                Log.logWithOrigin('executer:stderr', stderr, LogLevel.LowLevelDebug)
-                if (error) Log.logWithOrigin('executer:error', `${error}`, LogLevel.LowLevelDebug)
-                if (onData) onData(stdout)
-                if (onError) onError(stderr)
+                Log.logWithOrigin('executer:stdout', stdout, LogLevel.LowLevelDebug);
+                Log.logWithOrigin('executer:stderr', stderr, LogLevel.LowLevelDebug);
+                if (error) Log.logWithOrigin('executer:error', `${error}`, LogLevel.LowLevelDebug);
+                if (onData) onData(stdout);
+                if (onError) onError(stderr);
                 if (onExit) {
-                    Log.logWithOrigin('executer', 'done', LogLevel.LowLevelDebug)
-                    onExit()
+                    Log.logWithOrigin('executer', 'done', LogLevel.LowLevelDebug);
+                    onExit();
                 }
-            })
-            return child
+            });
+            return child;
         } catch (e) {
-            Log.error("Error executing " + command + ": " + e)
+            Log.error("Error executing " + command + ": " + e);
         }
     }
 
     public static executor(command: string, callback: () => void): void {
-        Log.log("executer: " + command, LogLevel.Debug)
+        Log.log("executer: " + command, LogLevel.Debug);
         child_process.exec(command, (error, stdout, stderr) => {
-            Log.logWithOrigin('stdout', stdout, LogLevel.LowLevelDebug)
-            Log.logWithOrigin('stderr', stderr, LogLevel.LowLevelDebug)
+            Log.logWithOrigin('stdout', stdout, LogLevel.LowLevelDebug);
+            Log.logWithOrigin('stderr', stderr, LogLevel.LowLevelDebug);
             if (error) {
-                Log.error('executer error: ' + error)
+                Log.error('executer error: ' + error);
             }
-            callback()
-        })
+            callback();
+        });
     }
 
     public static sudoExecuter(command: string, name: string): Promise<void> {

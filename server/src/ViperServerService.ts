@@ -30,9 +30,13 @@ enum Sounds {
 
 export class ViperServerService extends BackendService {
 
-    private _server_logfile: string
-    private _port: number
-    private _url: string
+    /** 
+     * TODO: Each nullable variable should be replaced with a promise.
+     * TODO: All clients that rely on such objects should be rewritten via the async pattern. ATG 2021
+     **/
+    private _server_logfile: string | undefined
+    private _port: number | undefined
+    private _url: string | undefined
     private _pipeline = null
 
     // the JID that ViperServer assigned to the current verification job.
@@ -42,7 +46,6 @@ export class ViperServerService extends BackendService {
     // FIXME:this is needed because Carbon does not stop the corresponding Boogie process. 
     // FIXME:see https://bitbucket.org/viperproject/carbon/issues/225
     // FIXME:search keyword [FIXME:KILL_BOOGIE] for other parts of this workaround. 
-    private _z3_pids_promise: Promise<number[]> | null
     private _boogie_pids: number[] | undefined = null
     
     private _current_file: string
@@ -116,7 +119,7 @@ export class ViperServerService extends BackendService {
             });
             return await serverReady;
         } else {
-            throw new Error('unexpected value in settings: ' + policy);
+            throw new Error('unexpected policy value in settings: ' + policy);
         }
     }
 
@@ -180,7 +183,8 @@ export class ViperServerService extends BackendService {
     private async getViperServerStartCommand(): Promise<string> {
         let javaPath: string
         try {
-            javaPath = await Settings.getJavaPath();
+            const res = await Settings.getJavaPath();
+            javaPath = res.path;
         } catch (errorMsg) {
             Log.hint(errorMsg);
             throw errorMsg;
@@ -198,40 +202,39 @@ export class ViperServerService extends BackendService {
         return command
     }
 
-    private updatePids() {
-        if ( Server.backend.type === 'carbon' && !this._boogie_pids ) {
-            // 1. Find the current Boogie processes (there's typically only one)
-            this._z3_pids_promise = this.getBoogiePids().then(boogie_pid_list => {
-                Log.log(`Current Boogie processes: ${boogie_pid_list.join(', ')}`, LogLevel.LowLevelDebug)
-                this._boogie_pids = boogie_pid_list
-                Promise.all(boogie_pid_list.map(bpid => this.getZ3Pids(bpid))).then((z3_pids_list: number[][]) => {
-                    return [].concat.apply([], z3_pids_list)  // efficient flattening
-                }).then(z3_pids => {
-                    Log.log(`Current Z3 processes have the following PIDs: ${z3_pids}`, LogLevel.Info)
-                    return z3_pids
-                }).catch(err => {
-                    Log.error(`Collecting PIDs for Z3 processes failed.`)
-                    return err
-                })
+    private getZ3PidsOfCurrentBoogieProcesses(): Promise<number[]> {
+        // Find the current Boogie processes (there's typically only one)
+        return this.getBoogiePids().then(boogie_pid_list => {
+            Log.log(`Current Boogie processes: ${boogie_pid_list.join(', ')}`, LogLevel.LowLevelDebug)
+            this._boogie_pids = boogie_pid_list
+            this.getZ3Pids(boogie_pid_list).then(z3_pids => {
+                Log.log(`Current Z3 processes have the following PIDs: ${z3_pids}`, LogLevel.Info)
+                return z3_pids
             }).catch(err => {
-                Log.error(`Could not get PIDs of current Boogie processes:\n ${err.join('\n ')}`)
+                Log.error(`Collecting PIDs for Z3 processes failed.`)
                 return err
             })
-        }
+        }).catch(err => {
+            Log.error(`Could not get PIDs of current Boogie processes:\n ${err.join('\n ')}`)
+            return err
+        })
     }
 
-    private cleanupProcessImpl(ps: number[]): Promise<number[]> {
-        return Promise.all(ps.map(pid => {
-            return new Promise<number>((res, rej) => {
-                tree_kill(pid, "SIGTERM", err1 => {
-                    Log.log(`Terminating process with PID ${pid} did not success: ${err1}.` +
-                            ` Try sending SIGKILL...`, LogLevel.LowLevelDebug)
-                    tree_kill(pid, "SIGKILL", err2 => {
-                        rej(err2)
-                    })
-                    res(pid)
+    private cleanupProcessImpl(ps: number[]): Promise<number[]> { 
+        return Promise.all(ps.map(pid => { 
+            return new Promise<number>((res, rej) => { 
+                tree_kill(pid, "SIGTERM", err1 => { 
+                    if (err1) { 
+                        Log.log(`Terminating process with PID ${pid} did not success: ${err1}.` +
+                                ` Try sending SIGKILL...`, LogLevel.LowLevelDebug)
+                        tree_kill(pid, "SIGKILL", err2 => { 
+                            if (err2) rej(err2)
+                            else res(pid)
+                        })
+                    } else { 
+                        res(pid)
+                    }
                 })
-                res(pid)
             })
         }))
     }
@@ -239,33 +242,20 @@ export class ViperServerService extends BackendService {
     private cleanupProcesses(): Promise<void> {
         return new Promise((res, rej) => {
             if ( Server.backend.type === 'carbon' && this._boogie_pids ) {
-                /*return this.cleanupProcessImpl(this._boogie_pids).then(pids => {
+                
+                let boogie_pids_promise = this._boogie_pids
+                ? Promise.resolve(this._boogie_pids)
+                : this.getBoogiePids()
+                
+                boogie_pids_promise.then(bpids => this.cleanupProcessImpl(bpids).then(pids => {
                     Log.log(`Successfully terminated the following Boogie processes: ${pids}`, LogLevel.Info)
                 }).catch(err => {
-                    Log.log(`Could not terminate some Boogie process: ${err}`, LogLevel.LowLevelDebug)
-                }).finally(() => {*/
+                    Log.log(`Did not find zombie Boogie instances (that's a good thing!)`, LogLevel.LowLevelDebug)
+                }).finally(() => {
+                    this._boogie_pids = null
+                    res()
+                }))
 
-                let first_attempt_z3_pids_promise: Promise<number[]> = this._z3_pids_promise
-                this.updatePids()  // second attempt
-                this._boogie_pids = null
-                let z3_pids_promise = [first_attempt_z3_pids_promise]
-                if (this._z3_pids_promise) z3_pids_promise.push(this._z3_pids_promise)
-
-                // If Boogie has terminated but its Z3 instances are zombies... Kill the zombies! 
-                Promise.all(z3_pids_promise).then((z3_pids_list: number[][]) => {
-                    return [].concat.apply([], z3_pids_list)  // efficient flattening
-                }).then(z3_pids => {
-                    this.cleanupProcessImpl(z3_pids).then(pids => {
-                        Log.log(`Successfully terminated the following zombie Z3 processes: ${pids}`, LogLevel.Info)
-                    }).catch(err => {
-                        Log.log(`No zombie instances of Z3 found (that's a good thing!)`, LogLevel.LowLevelDebug)
-                    }).finally(() => {
-                        this._z3_pids_promise = null
-                        res()
-                    })
-                })
-
-                // })
             } else {
                 res()
             }
@@ -394,14 +384,10 @@ export class ViperServerService extends BackendService {
             if ( message.msg_type === 'backend_sub_process_report' ) {
                 if ( message.msg_body.phase === 'after_input_sent' ) {
                     // If in use is Carbon, get and store the PIDs of dependent Z3 and Boogie processes
+                    // (available only in newer versions of Carbon)
                     let bpid = message.msg_body.pid
-                    if (bpid) {
-                        Log.log(`Current Boogie PID: ${bpid}`, LogLevel.LowLevelDebug)
-                        this._boogie_pids = [bpid]
-                        this._z3_pids_promise = this.getZ3Pids(bpid)
-                    } else {
-                        this.updatePids()
-                    } 
+                    Log.log(`Current Boogie PID: ${bpid}`, LogLevel.LowLevelDebug)
+                    this._boogie_pids = [bpid]
                 }
                 return
             }
@@ -541,56 +527,62 @@ export class ViperServerService extends BackendService {
 
     public flushCache(filePath?: string): Promise<string> {
         return new Promise((resolve, reject) => {
-            let url = this._url + ':' + this._port + '/cache/flush'
-            if (filePath) {
-                Log.log(`Requesting ViperServer to flush the cache for (` + filePath + `)...`, LogLevel.Info)
-
-                let options = {
-                    url: url, 
-                    headers: {'content-type': 'application/json'},
-                    body: JSON.stringify({ backend: Server.backend.name, file: filePath })
-                }
-
-                request.post(options).on('error', (error) => {
-                    Log.log(`error while requesting ViperServer to flush the cache for (` + filePath + `).` +
-                            ` Request URL: ${url}\n` +
-                            ` Error message: ${error}`, LogLevel.Default)
-                    reject(error)
-
-                }).on('data', (data) => {
-                    let response = JSON.parse(data.toString())
-                    if ( !response.msg ) {
-                        Log.log(`ViperServer did not complain about the way we requested it to flush the cache for (` + filePath + `).` + 
-                                ` However, it also did not provide the expected bye-bye message.` + 
-                                ` It said: ${data.toString}`, LogLevel.Debug)
-                        resolve(response)
-                    } else {
-                        Log.log(`ViperServer has confirmed that the cache for (` + filePath + `) has been flushed.`, LogLevel.Debug)
-                        resolve(response.msg)
-                    }
-                })
-
+            if (!this._url) {
+                let msg = `The URL of a ViperServer instance isn't set yet.`
+                Log.log(msg, LogLevel.Debug)
+                resolve(msg)
             } else {
-                Log.log(`Requesting ViperServer to flush the entire cache...`, LogLevel.Info)
+                let url = this._url + ':' + this._port + '/cache/flush'
+                if (filePath) {
+                    Log.log(`Requesting ViperServer to flush the cache for (` + filePath + `)...`, LogLevel.Info)
 
-                request.get(url).on('error', (error) => {
-                    Log.log(`error while requesting ViperServer to flush the entire cache.` +
-                            ` Request URL: ${url}\n` +
-                            ` Error message: ${error}`, LogLevel.Default)
-                    reject(error)
-
-                }).on('data', (data) => {
-                    let response = JSON.parse(data.toString())
-                    if ( !response.msg ) {
-                        Log.log(`ViperServer did not complain about the way we requested it to flush the entire cache.` + 
-                                ` However, it also did not provide the expected bye-bye message.` + 
-                                ` It said: ${data.toString}`, LogLevel.Debug)
-                        resolve(response)
-                    } else {
-                        Log.log(`ViperServer has confirmed that the entire cache has been flushed.`, LogLevel.Debug)
-                        resolve(response.msg)
+                    let options = {
+                        url: url, 
+                        headers: {'content-type': 'application/json'},
+                        body: JSON.stringify({ backend: Server.backend.name, file: filePath })
                     }
-                })
+
+                    request.post(options).on('error', (error) => {
+                        Log.log(`error while requesting ViperServer to flush the cache for (` + filePath + `).` +
+                                ` Request URL: ${url}\n` +
+                                ` Error message: ${error}`, LogLevel.Default)
+                        reject(error)
+
+                    }).on('data', (data) => {
+                        let response = JSON.parse(data.toString())
+                        if ( !response.msg ) {
+                            Log.log(`ViperServer did not complain about the way we requested it to flush the cache for (` + filePath + `).` + 
+                                    ` However, it also did not provide the expected bye-bye message.` + 
+                                    ` It said: ${data.toString}`, LogLevel.Debug)
+                            resolve(response)
+                        } else {
+                            Log.log(`ViperServer has confirmed that the cache for (` + filePath + `) has been flushed.`, LogLevel.Debug)
+                            resolve(response.msg)
+                        }
+                    })
+
+                } else {
+                    Log.log(`Requesting ViperServer to flush the entire cache...`, LogLevel.Info)
+
+                    request.get(url).on('error', (error) => {
+                        Log.log(`error while requesting ViperServer to flush the entire cache.` +
+                                ` Request URL: ${url}\n` +
+                                ` Error message: ${error}`, LogLevel.Default)
+                        reject(error)
+
+                    }).on('data', (data) => {
+                        let response = JSON.parse(data.toString())
+                        if ( !response.msg ) {
+                            Log.log(`ViperServer did not complain about the way we requested it to flush the entire cache.` + 
+                                    ` However, it also did not provide the expected bye-bye message.` + 
+                                    ` It said: ${data.toString}`, LogLevel.Debug)
+                            resolve(response)
+                        } else {
+                            Log.log(`ViperServer has confirmed that the entire cache has been flushed.`, LogLevel.Debug)
+                            resolve(response.msg)
+                        }
+                    })
+                }
             }
         })
     }
@@ -598,76 +590,86 @@ export class ViperServerService extends BackendService {
     private postStartRequest(request_body): Promise<number> {
         return new Promise((resolve, reject) => {
             Log.log(`Requesting ViperServer to start new job...`, LogLevel.Debug)
-            let options = {
-                url: this._url + ':' + this._port + '/verify', 
-                headers: {'content-type': 'application/json'},
-                body: JSON.stringify(request_body)
+            if (!this._url) {
+                let msg = `The URL of a ViperServer instance isn't set yet.`
+                Log.log(msg, LogLevel.Debug)
+                reject(msg)
+            } else {
+                let options = {
+                    url: this._url + ':' + this._port + '/verify', 
+                    headers: {'content-type': 'application/json'},
+                    body: JSON.stringify(request_body)
+                }
+                request.post(options, (error, response, body) => { 
+                    let json_body = JSON.parse(body)
+            
+                    // This callback processes the initial response from ViperServer. 
+                    // ViperServer confirms that the verification task has been accepted and 
+                    //  returns a job ID (which is unique for this session).
+                    if (error) {
+                        Log.log(`Got error from POST request to ViperServer: ` + 
+                                JSON.stringify(error, undefined, 2), LogLevel.Debug)
+                        reject(error)
+                    }
+                    if (response.statusCode !== 200) {
+                        Log.log(`Bad response on POST request to ViperServer: ` + 
+                                JSON.stringify(response, undefined, 2), LogLevel.Debug)
+                        reject(`bad response code: ${response.statusCode}`)
+                    }
+                    if (typeof json_body.msg !== 'undefined') {
+                        Log.log(`ViperServer had trouble accepting the POST request: ` + 
+                                JSON.stringify(body.msg, undefined, 2), LogLevel.Debug)
+                        reject(`ViperServer: ${json_body.msg}`)
+                    }
+                    if (typeof json_body.id === 'undefined') {
+                        Log.log(`It seems that ViperServer\'s REST API has been changed.` + 
+                                ` Body of response: ` + JSON.stringify(json_body, undefined, 2),
+                                LogLevel.Debug)
+                        reject(`ViperServer did not provide a job ID: ${json_body}`)
+                    } 
+                    if (json_body.id === -1) {
+                        Log.log(`ViperServer was unable to book verification job (jid -1)`,
+                                LogLevel.Debug)
+                        reject(`ViperServer returned job ID -1`)
+                    }
+                    Log.log(`ViperServer started new job with ID ${json_body.id}`,
+                            LogLevel.Debug)
+                    resolve(json_body.id)
+                })
             }
-            request.post(options, (error, response, body) => { 
-                let json_body = JSON.parse(body)
-        
-                // This callback processes the initial response from ViperServer. 
-                // ViperServer confirms that the verification task has been accepted and 
-                //  returns a job ID (which is unique for this session).
-                if (error) {
-                    Log.log(`Got error from POST request to ViperServer: ` + 
-                            JSON.stringify(error, undefined, 2), LogLevel.Debug)
-                    reject(error)
-                }
-                if (response.statusCode !== 200) {
-                    Log.log(`Bad response on POST request to ViperServer: ` + 
-                            JSON.stringify(response, undefined, 2), LogLevel.Debug)
-                    reject(`bad response code: ${response.statusCode}`)
-                }
-                if (typeof json_body.msg !== 'undefined') {
-                    Log.log(`ViperServer had trouble accepting the POST request: ` + 
-                            JSON.stringify(body.msg, undefined, 2), LogLevel.Debug)
-                    reject(`ViperServer: ${json_body.msg}`)
-                }
-                if (typeof json_body.id === 'undefined') {
-                    Log.log(`It seems that ViperServer\'s REST API has been changed.` + 
-                            ` Body of response: ` + JSON.stringify(json_body, undefined, 2),
-                            LogLevel.Debug)
-                    reject(`ViperServer did not provide a job ID: ${json_body}`)
-                } 
-                if (json_body.id === -1) {
-                    Log.log(`ViperServer was unable to book verification job (jid -1)`,
-                            LogLevel.Debug)
-                    reject(`ViperServer returned job ID -1`)
-                }
-                Log.log(`ViperServer started new job with ID ${json_body.id}`,
-                        LogLevel.Debug)
-                resolve(json_body.id)
-            })
-
         })
     }
 
     private sendStopRequest(): Promise<boolean> {
         return new Promise((resolve, reject) => { 
             Log.log(`Requesting ViperServer to exit...`, LogLevel.Debug)
-            let url = this._url + ':' + this._port + '/exit'
-            request.get(url).on('error', (err) => {
-                Log.log(`error while requesting ViperServer to stop.` +
-                        ` Request URL: ${url}\n` +
-                        ` Error message: ${err}`, LogLevel.Default)
-                reject(err)
-            }).on('data', (data) => {
-                let response = JSON.parse(data.toString())
-                if ( !response.msg ) {
-                    Log.log(`ViperServer did not complain about the way we requested it to exit.` + 
-                            ` However, it also did not provide the expected bye-bye message.` + 
-                            ` It said: ${data.toString}`, LogLevel.Debug)
-                    resolve(true)
-                } else if ( response.msg !== 'shutting down...' ) {
-                    Log.log(`ViperServer responded with an unexpected bye-bye message: ${response.msg}`, 
-                            LogLevel.Debug)
-                    resolve(true)
-                } else {
-                    Log.log(`ViperServer has exited properly.`, LogLevel.Debug)
-                    resolve(true)
-                }
-            })    
+            if (!this._url) {
+                Log.log(`The URL of a ViperServer instance isn't set yet.`, LogLevel.Debug)
+                resolve(false)
+            } else {
+                let url = this._url + ':' + this._port + '/exit'
+                request.get(url).on('error', (err) => {
+                    Log.log(`error while requesting ViperServer to stop.` +
+                            ` Request URL: ${url}\n` +
+                            ` Error message: ${err}`, LogLevel.Default)
+                    reject(err)
+                }).on('data', (data) => {
+                    let response = JSON.parse(data.toString())
+                    if ( !response.msg ) {
+                        Log.log(`ViperServer did not complain about the way we requested it to exit.` + 
+                                ` However, it also did not provide the expected bye-bye message.` + 
+                                ` It said: ${data.toString}`, LogLevel.Debug)
+                        resolve(true)
+                    } else if ( response.msg !== 'shutting down...' ) {
+                        Log.log(`ViperServer responded with an unexpected bye-bye message: ${response.msg}`, 
+                                LogLevel.Debug)
+                        resolve(true)
+                    } else {
+                        Log.log(`ViperServer has exited properly.`, LogLevel.Debug)
+                        resolve(true)
+                    }
+                })
+            }
         })
     }
 
@@ -683,36 +685,41 @@ export class ViperServerService extends BackendService {
 
         return new Promise<boolean>((resolve, reject) => {
             Log.log(`Requesting ViperServer to discard verification job #${jid}...`, LogLevel.Debug)
-            let url = this._url + ':' + this._port + '/discard/' + jid
-            request.get(url).on('error', (err: any) => {
-                Log.log(`error while requesting ViperServer to discard a job.` +
-                        ` Request URL: ${url}\n` +
-                        ` Error message: ${err}`, LogLevel.Default)
-                reject(err)
-            }).on('data', (data) => {
-                let data_str = data.toString()
-                if ( this.isInternalServerError(data_str) ) {
-                    Log.log(`ViperServer encountered an internal server error.` + 
-                            ` The exact message is: ${data_str}`, LogLevel.Debug)
-                    resolve(false)
-                }
-                try {
-                    let response = JSON.parse(data_str)
-                    if ( !response.msg ) {
-                        Log.log(`ViperServer did not complain about the way we requested it to discard a job.` + 
-                                ` However, it also did not provide the expected confirmation message.` + 
-                                ` It said: ${data_str}`, LogLevel.Debug)
-                        resolve(true)
-                    } else { 
-                        Log.log(`ViperServer: ${response.msg}`, LogLevel.Debug)
-                        resolve(true)
+            if (!this._url) {
+                Log.log(`The URL of a ViperServer instance isn't set yet.`, LogLevel.Debug)
+                resolve(false)
+            } else {
+                let url = this._url + ':' + this._port + '/discard/' + jid
+                request.get(url).on('error', (err: any) => {
+                    Log.log(`error while requesting ViperServer to discard a job.` +
+                            ` Request URL: ${url}\n` +
+                            ` Error message: ${err}`, LogLevel.Default)
+                    reject(err)
+                }).on('data', (data) => {
+                    let data_str = data.toString()
+                    if ( this.isInternalServerError(data_str) ) {
+                        Log.log(`ViperServer encountered an internal server error.` + 
+                                ` The exact message is: ${data_str}`, LogLevel.Debug)
+                        resolve(false)
                     }
-                } catch (e) {
-                    Log.log(`ViperServer responded with something that is not a valid JSON object.` + 
-                            ` The exact message is: ${data_str}`, LogLevel.Debug)
-                    resolve(false)
-                }
-            })
+                    try {
+                        let response = JSON.parse(data_str)
+                        if ( !response.msg ) {
+                            Log.log(`ViperServer did not complain about the way we requested it to discard a job.` + 
+                                    ` However, it also did not provide the expected confirmation message.` + 
+                                    ` It said: ${data_str}`, LogLevel.Debug)
+                            resolve(true)
+                        } else { 
+                            Log.log(`ViperServer: ${response.msg}`, LogLevel.Debug)
+                            resolve(true)
+                        }
+                    } catch (e) {
+                        Log.log(`ViperServer responded with something that is not a valid JSON object.` + 
+                                ` The exact message is: ${data_str}`, LogLevel.Debug)
+                        resolve(false)
+                    }
+                })
+            }
         }).then(shutdown_success => {
             return this.cleanupProcesses().then(() => shutdown_success)
         })
@@ -727,8 +734,7 @@ export class ViperServerService extends BackendService {
                 command = `pgrep -l -P ${pid} ${pname}`
             }
             let child_pids: number[] = []
-            let errors: string[] = []
-            let wmic = Common.executer(command, 
+            Common.executer(command, 
                 stdout => {
                     let array_of_lines = (<string>stdout).match(/[^\r\n]+/g)
                     if (array_of_lines) {
@@ -739,13 +745,12 @@ export class ViperServerService extends BackendService {
                         })
                     }
                 }, stderr => {
-                    if (stderr) errors.concat(`${stderr}`)
-                }, () => {
-                    if (errors.length > 0) {
-                        reject(errors)
-                    } else {
-                        resolve(child_pids)
+                    if (stderr) {
+                        Log.log(`Process with PID ${pid} does not exist anymore. ` + 
+                                `Hence, I couldn't find any of its children.`, LogLevel.LowLevelDebug)
                     }
+                }, () => {
+                    resolve(child_pids)
                 })
         })
     }
@@ -758,7 +763,13 @@ export class ViperServerService extends BackendService {
         } 
     }
 
-    private getZ3Pids(parent_proc_pid: number): Promise<number[]> {
+    private getZ3Pids(parent_proc_pid_list: number[]): Promise<number[]> {
+        return Promise.all(parent_proc_pid_list.map(ppid => this.getZ3PidsImpl(ppid))).then((z3_pids_list: number[][]) => {
+            return [].concat.apply([], z3_pids_list)  // efficient flattening
+        })
+    }
+
+    private getZ3PidsImpl(parent_proc_pid: number): Promise<number[]> {
         let z3_exe_name = Settings.isWin ? "z3.exe" : "z3"
         return this.getChildrenPidsForProcess(z3_exe_name, parent_proc_pid).catch(reason => {
             // The parent process (e.g. Boogie) might not have created its Z3 instances at this time. 
