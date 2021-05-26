@@ -432,7 +432,8 @@
                     "type": "string",
                     "enum": [
                         "Stable",
-                        "Nightly"
+                        "Nightly",
+                        "Local"
                     ],
                     "default": "Stable",
                     "description": "Select the build version of the Viper Tools."

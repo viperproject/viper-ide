@@ -313,40 +313,22 @@ export class Settings {
             settings.preferences.stableViperToolsProvider = this.checkPlatformDependentUrl("stableViperToolsProvider", settings.preferences.stableViperToolsProvider);
             settings.preferences.nightlyViperToolsProvider = this.checkPlatformDependentUrl("nightlyViperToolsProvider", settings.preferences.nightlyViperToolsProvider);
 
-            //Check Paths
-            //check viperToolsPath
-            let resolvedPath: ResolvedPath = this.checkPath(settings.paths.viperToolsPath, "Path to Viper Tools:", false, true, true, true);
-            let usesDefaultViperToolsPath = false;
-            if (resolvedPath.path == null || resolvedPath.path === "") {
-                if (this.globalStoragePath != null) {
-                    // use default location:
-                    const defaultViperToolsPath = pathHelper.join(this.globalStoragePath, 'Stable', 'ViperTools');
-                    resolvedPath = this.checkPath(defaultViperToolsPath, "Path to Viper Tools:", false, true, true, false);
-                    const logMsg = `viperToolsPath was not specified in the settings but a global storage path has been provided. ` +
-                        `The provided global storage path has been resolved to '${JSON.stringify(resolvedPath)}'.`;
-                    Log.log(logMsg, LogLevel.Debug);
-                    usesDefaultViperToolsPath = true;
-                } else {
-                    Log.log(`viperToolsPath was not specified in the settings and a global storage path has not been provided`, LogLevel.Info);
-                }
-            }
-            if (!usesDefaultViperToolsPath) {
-                // rerun check on original path but with stricter options
-                // this will cause the creation of the necessary error elements if necessary
-                resolvedPath = this.checkPath(settings.paths.viperToolsPath, "Path to Viper Tools:", false, true, true, false);
+            if (!viperToolsUpdated) {
+                const installedToolsLocation = await Server.ensureViperTools(false);
+                settings.paths.viperToolsPath = installedToolsLocation.basePath;
             }
 
+            //Check Paths
+            //check viperToolsPath
+            const resolvedPath: ResolvedPath = this.checkPath(settings.paths.viperToolsPath, "Path to Viper Tools:", false, true, true);
             settings.paths.viperToolsPath = resolvedPath.path;
-            if (!resolvedPath.exists) {
-                if (!viperToolsUpdated) {
-                    //Automatically install the Viper tools
-                    Server.updateViperTools(true);
-                    // in this case we do not want to continue restarting the backend,
-                    //the backend will be restarted after the update
-                    return Promise.reject();
-                } else {
+            if (viperToolsUpdated) {
+                // we have just updated Viper tools
+                // if the resolved path does not exist then something went wrong:
+                if (!resolvedPath.exists) {
                     return false;
                 }
+                // otherwise continue checking settings
             }
 
             // check z3 executable

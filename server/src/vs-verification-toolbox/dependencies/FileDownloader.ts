@@ -22,10 +22,13 @@ export class FileDownloader implements DependencyInstaller {
 		readonly filename: string = path.basename(remoteUrl)
 	) { }
 
-	public async install(location: Location, shouldUpdate: boolean, progressListener: ProgressListener): Promise<Location> {
+	public async install(location: Location, shouldUpdate: boolean, progressListener: ProgressListener, confirm:() => Promise<void>): Promise<Location> {
 		const target = location.child(this.filename);
 
 		if (!shouldUpdate && await target.exists()) { return target; }
+
+		// ask for confirmation:
+		await confirm();
 
 		await location.mkdir();
 		const temp = location.child(`.${this.filename}.download`);

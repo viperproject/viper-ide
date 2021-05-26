@@ -18,10 +18,12 @@ export class GitHubZipExtractor implements DependencyInstaller {
         private readonly token?: string
     ) { }
 
-    public async install(location: Location, shouldUpdate: boolean, progressListener: ProgressListener): Promise<Location> {
+    public async install(location: Location, shouldUpdate: boolean, progressListener: ProgressListener, confirm:() => Promise<void>): Promise<Location> {
         const target = location.child(this.folderName);
 
         if (!shouldUpdate && await target.exists()) { return target; }
+
+        // we do not ask here for confirmation but defer that to the InstallerSequence
 
         if (this.sequence == null) {
             const remoteUrl = await this.remoteUrlFn();
@@ -40,6 +42,6 @@ export class GitHubZipExtractor implements DependencyInstaller {
             ]);
         }
 
-        return this.sequence.install(location, shouldUpdate, progressListener);
+        return this.sequence.install(location, shouldUpdate, progressListener, confirm);
     }
 }

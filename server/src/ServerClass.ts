@@ -10,7 +10,7 @@
 import { ViperServerService } from './ViperServerService'
 
 import { IConnection, TextDocuments, PublishDiagnosticsParams } from 'vscode-languageserver'
-import { Common, ProgressParams, LogParams, SettingsCheckedParams, Position, Range, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel } from './ViperProtocol'
+import { Common, ProgressParams, LogParams, SettingsCheckedParams, Position, Range, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel, ViperSettings } from './ViperProtocol'
 import { BackendService } from './BackendService'
 import { VerificationTask } from './VerificationTask'
 import { Log } from './Log'
@@ -19,6 +19,7 @@ import * as pathHelper from 'path'
 import * as os from 'os'
 import * as globToRexep from 'glob-to-regexp'
 import ViperTools, { BuildChannel, ViperToolsContext } from './ViperTools'
+import { Location } from './vs-verification-toolbox'
 
 export class Server {
     static backend: Backend;
@@ -222,7 +223,7 @@ export class Server {
         return { start: start, end: end };
     }
 
-    public static async updateViperTools(askForPermission: boolean) {
+    public static async ensureViperTools(shouldUpdate: boolean): Promise<Location> {
         function providerUrl(channel: BuildChannel): string {
             if (channel === BuildChannel.Nightly) {
                 return Settings.settings.preferences.nightlyViperToolsProvider as string;
@@ -248,21 +249,22 @@ export class Server {
             Log.log("Updating Viper Tools ...", LogLevel.Default);
             const context: ViperToolsContext = {
                 buildVersion: Settings.settings.buildVersion,
-                viperToolsPath: Settings.settings.paths.viperToolsPath as string,
+                localViperToolsPath: Settings.settings.paths.viperToolsPath as string,
                 getViperToolsProviderUrl: providerUrl,
                 getBoogiePath: (unzippedPath: string) => pathHelper.join(unzippedPath, "boogie", "Binaries", "Boogie"),
                 getZ3Path: (unzippedPath: string) => pathHelper.join(unzippedPath, "z3", "bin", "z3"),
                 confirm: Server.confirmViperToolsUpdate,
                 progressListener: reportProgress
             };
-            await ViperTools.update(context, true);
+            const location = await ViperTools.update(context, shouldUpdate);
             
             Server.connection.sendNotification(Commands.ViperUpdateComplete, true);
-            // trigger a restart of the backend
-            Settings.initiateBackendRestartIfNeeded(null, null, true);
+            return location;
         } catch (e) {
-            Log.error("Error installing Viper tools: " + e)
+            const errMsg = `Error installing Viper tools: ${e}`;
+            Log.error(errMsg);
             Server.connection.sendNotification(Commands.ViperUpdateComplete, false); //update failed
+            return Promise.reject(errMsg);
         }
     }
 

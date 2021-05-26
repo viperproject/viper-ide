@@ -253,8 +253,10 @@ function registerHandlers() {
         }
     });
 
-    Server.connection.onNotification(Commands.UpdateViperTools, () => {
-        Server.updateViperTools(false);
+    Server.connection.onNotification(Commands.UpdateViperTools, async () => {
+        await Server.ensureViperTools(true);
+        // trigger a restart of the backend
+        Settings.initiateBackendRestartIfNeeded(null, null, true);
     });
 
     Server.connection.onNotification(Commands.FlushCache, (file) => {
@@ -423,7 +425,7 @@ function canVerificationBeStarted(uri: string, manuallyTriggered: boolean): bool
 }
 
 function checkSettingsAndStartServer(backendName: string) {
-    let backend;
+    let backend: Backend;
     Settings.checkSettings(false).then(() => {
         if (Settings.valid()) {
             backend = Settings.selectBackend(Settings.settings, backendName);

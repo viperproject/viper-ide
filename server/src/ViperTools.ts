@@ -2,7 +2,7 @@ import * as fs from "fs";
 import { Log } from "./Log";
 import { Settings } from "./Settings";
 import { LogLevel } from "./ViperProtocol";
-import { Dependency, DependencyInstaller, GitHubReleaseAsset, GitHubZipExtractor, Location, ProgressListener, RemoteZipExtractor } from "./vs-verification-toolbox";
+import { Dependency, DependencyInstaller, GitHubReleaseAsset, GitHubZipExtractor, LocalReference, Location, ProgressListener, RemoteZipExtractor } from "./vs-verification-toolbox";
 
 export default class ViperTools {
     /**
@@ -19,9 +19,22 @@ export default class ViperTools {
             context.progressListener(fraction, step);
         }
 
+        async function confirm(): Promise<void> {
+            if (shouldUpdate || Helper.assumeYes()) {
+                // do not ask user
+                return;
+            } else {
+                const confirmation = await context.confirm();
+                if (!confirmation) {
+                    // user has dismissed message without confirming
+                    return Promise.reject(Texts.viperToolsInstallationDenied);
+                }
+            }
+        }
+
         const selectedChannel = Helper.getBuildChannel(context);
         const dependency = await this.getDependency(context, shouldUpdate);
-        const location: Location = await dependency.install(selectedChannel, shouldUpdate, intermediateListener)
+        const location: Location = await dependency.install(selectedChannel, shouldUpdate, intermediateListener, confirm)
             .catch(Helper.rethrow(`Downloading and unzipping the Viper Tools has failed`));
 
         if (Settings.isLinux || Settings.isMac) {
@@ -49,33 +62,32 @@ export default class ViperTools {
             // Convert string to enum. See https://stackoverflow.com/a/17381004/2491528
             BuildChannel[c as keyof typeof BuildChannel]);
         
-        const viperToolsPath = Helper.getViperToolsPath(context);
-        // make sure that this path exists:
-        if (!fs.existsSync(viperToolsPath)) {
-            fs.mkdirSync(viperToolsPath);
-            // ask user for consent to install Viper Tools on first launch:
-            if (!shouldUpdate && !Helper.assumeYes()) {
-              const confirmation = await context.confirm();
-              if (!confirmation) {
-                // user has dismissed message without confirming
-                return Promise.reject(Texts.viperToolsInstallationDenied);
-              }
-            }
-     
-            fs.mkdirSync(viperToolsPath, { recursive: true });
-        }
-
+        // note that `installDestination` is only used if tools actually have to be downloaded and installed there, i.e. it is 
+        // not used for build channel "Local":
+        const installDestination = Settings.globalStoragePath;
         const installers = await Promise.all(buildChannels
             .map<Promise<[BuildChannel, DependencyInstaller]>>(async c => 
                 [c, await this.getDependencyInstaller(context, c)])
             );
         return new Dependency<BuildChannel>(
-            viperToolsPath,
+            installDestination,
             ...installers
         );
     }
 
-    private static async getDependencyInstaller(context: ViperToolsContext, buildChannel: BuildChannel): Promise<DependencyInstaller> {
+    private static getDependencyInstaller(context: ViperToolsContext, buildChannel: BuildChannel): Promise<DependencyInstaller> {
+        if (buildChannel == BuildChannel.Local) {
+            return this.getLocalDependencyInstaller(context);
+        } else {
+            return this.getRemoteDependencyInstaller(context, buildChannel);
+        }
+    }
+
+    private static async getLocalDependencyInstaller(context: ViperToolsContext): Promise<DependencyInstaller> {
+        return new LocalReference(Helper.getLocalViperToolsPath(context));
+    }
+
+    private static async getRemoteDependencyInstaller(context: ViperToolsContext, buildChannel: BuildChannel): Promise<DependencyInstaller> {
         const viperToolsRawProviderUrl = Helper.getViperToolsProvider(context, buildChannel);
         // note that `viperToolsProvider` might be one of the "special" URLs as specified in the README (i.e. to a GitHub releases asset):
         const viperToolsProvider = this.parseGitHubAssetURL(viperToolsRawProviderUrl);
@@ -140,8 +152,8 @@ export default class ViperTools {
 }
 
 export class ViperToolsContext {
-    buildVersion: string; // "Nightly" or "Stable"
-    viperToolsPath: string; // path to installation location (not considering stable/nightly subfolders)
+    buildVersion: "Stable" | "Nightly" | "Local";
+    localViperToolsPath: string; // path to location at which Viper tools have been manually installed (only used for build version "Local")
     getViperToolsProviderUrl: (channel: BuildChannel) => string;
     getBoogiePath: (unzippedPath: string) => string; // only used on macOS and Linux
     getZ3Path: (unzippedPath: string) => string; // only used on macOS and Linux
@@ -163,8 +175,10 @@ class Texts {
 
 class Helper {
     public static getBuildChannel(context: ViperToolsContext): BuildChannel {
-        if (context.buildVersion == "Nightly") {
+        if (context.buildVersion === "Nightly") {
             return BuildChannel.Nightly;
+        } else if (context.buildVersion === "Local") {
+            return BuildChannel.Local
         }
         return BuildChannel.Stable;
     }
@@ -173,7 +187,7 @@ class Helper {
      * Gets Viper Tools Provider URL as stored in the settings.
      * Note that the returned URL might be invalid or correspond to one of the "special" URLs as specified in the README (e.g. to download a GitHub release asset)
      */
-     public static getViperToolsProvider(context: ViperToolsContext, channel: BuildChannel): string {
+    public static getViperToolsProvider(context: ViperToolsContext, channel: BuildChannel): string {
         return context.getViperToolsProviderUrl(channel);
     }
 
@@ -191,10 +205,10 @@ class Helper {
     }
 
     /**
-     * Get Location where Viper Tools will be installed.
+     * Get path to location at which Viper tools have been manually installed (only used for build version "Local").
      */
-     public static getViperToolsPath(context: ViperToolsContext): string {
-        return context.viperToolsPath;
+     public static getLocalViperToolsPath(context: ViperToolsContext): string {
+        return context.localViperToolsPath;
     }
 
     public static getBoogiePath(context: ViperToolsContext, location: Location): string {
@@ -214,6 +228,7 @@ class Helper {
 }
 
 export enum BuildChannel {
+    Stable = "Stable",
     Nightly = "Nightly",
-    Stable = "Stable"
+    Local = "Local"
 }

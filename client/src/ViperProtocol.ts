@@ -339,7 +339,7 @@ export interface ViperSettings {
     javaSettings: JavaSettings;
     //Settings for AdvancedFeatures
     advancedFeatures: AdvancedFeatureSettings;
-    buildVersion: "Stable" | "Nightly";
+    buildVersion: "Stable" | "Nightly" | "Local";
 }
 
 export interface VersionedSettings { v: string; }

@@ -10,9 +10,12 @@ export class ZipExtractor implements DependencyInstaller {
 		readonly deleteZip: boolean = false
 	) { }
 
-	public async install(location: Location, shouldUpdate: boolean, progressListener: ProgressListener): Promise<Location> {
+	public async install(location: Location, shouldUpdate: boolean, progressListener: ProgressListener, confirm:() => Promise<void>): Promise<Location> {
 		const target = location.enclosingFolder.child(this.targetName);
 		if (!shouldUpdate && await target.exists()) { return target; }
+
+		// ask for confirmation:
+		await confirm();
 
 		try {
 			await target.mkdir();

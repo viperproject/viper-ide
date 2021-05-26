@@ -7,7 +7,7 @@ export class LocalReference implements DependencyInstaller {
 		readonly referencePath: string
 	) { }
 
-	public async install(location: Location, shouldUpdate: boolean, progressListener: ProgressListener): Promise<Location> {
+	public async install(location: Location, shouldUpdate: boolean, progressListener: ProgressListener, confirm:() => Promise<void>): Promise<Location> {
 		if (!await fs.pathExists(this.referencePath)) {
 			throw new Error(`Can't create a local reference to the nonexistent location ${this.referencePath}`);
 		}
