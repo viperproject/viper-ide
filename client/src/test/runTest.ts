@@ -91,10 +91,8 @@ async function runTestSuite(vscode_version: string, settingsPath: string, testSu
 		const env: NodeJS.ProcessEnv = process.env;
 		// add additional environment variables to
 		// - path to test suite that should be executed by index.js
-		// - auto accept confirmation messages of Viper-IDE
 		// - wipe global storage path to force install Viper Tools after each activation
 		env.VIPER_IDE_TEST_SUITE = testSuitePath;
-		env.VIPER_IDE_ASSUME_YES = "1";
 		env.VIPER_IDE_CLEAN_INSTALL = "1";
 
 		// Run the tests in the workspace

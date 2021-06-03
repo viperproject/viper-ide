@@ -11,14 +11,14 @@
 import * as vscode from "vscode";
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
+import * as unusedFilename from 'unused-filename';
 import { Progress, LogLevel } from './ViperProtocol';
 import { Helper } from './Helper';
 import { State } from './ExtensionState';
-const os = require('os');
-const unusedFilename = require('unused-filename');
 
 export class Log {
-    static tempDirectory = path.join(os.tmpdir(), ".vscode");
+    static tempDirectory = Log.getTempDir();
     static logFilePath: string;
     static logFile: fs.WriteStream;
     static outputChannel = vscode.window.createOutputChannel('Viper');
@@ -27,6 +27,16 @@ export class Log {
     private static START_TIME = new Date().getTime();
 
     static logTiming = true;
+
+    private static getTempDir(): string {
+        // check if a particular dir has been passed as an environment variable.
+        // this is mainly used for CI purposes:
+        const logDir = process.env["VIPER_IDE_LOG_DIR"];
+        if (logDir == null || logDir === "") {
+            return path.join(os.tmpdir(), ".vscode");
+        }
+        return logDir;
+    }
 
     public static initialize() {
         try {
