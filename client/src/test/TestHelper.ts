@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import * as myExtension from '../extension';
 import { State, UnitTestCallback } from '../ExtensionState';
 import { Log } from '../Log';
-import { Common } from '../ViperProtocol';
+import { Common, LogLevel } from '../ViperProtocol';
 
 export const PROJECT_ROOT = path.join(__dirname, "..", "..");
 export const DATA_ROOT = path.join(PROJECT_ROOT, "src", "test", "data");
@@ -31,6 +31,9 @@ export default class TestHelper {
         assert(this.callbacks == null);
         this.callbacks = new UnitTestCallbackImpl();
         State.unitTest = this.callbacks;
+        // call `Log.updateSettings()` as early as possible after setting `State.unitTest` such that 
+        // the appropriate log level for tests is set:
+        Log.updateSettings();
 
         // The following comment explains how an extension could be restarted in between test suites:
         // https://github.com/microsoft/vscode/issues/45774#issuecomment-373423895
@@ -47,7 +50,7 @@ export default class TestHelper {
     }
 
     public static log(msg: string) {
-        console.log(`[UnitTest ${Log.prettyUptime()}] ${msg}`);
+        Log.logWithOrigin("UnitTest", msg, LogLevel.Verbose);
     }
 
     private static getTestDataPath(fileName: string): string {

@@ -10,23 +10,23 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 
+import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
+import * as stripJSONComments from 'strip-json-comments';
 import { Timer } from './Timer';
-import * as vscode from 'vscode';
 import { State } from './ExtensionState';
-import { SettingsError, Common, Progress, HintMessage, Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success } from './ViperProtocol';
+import { SettingsError, Progress, HintMessage, Versions, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, Commands, StateChangeParams, LogLevel } from './ViperProtocol';
 import { URI } from 'vscode-uri';
 import { Log } from './Log';
-import { StateVisualizer, MyDecorationOptions } from './StateVisualizer';
+import { StateVisualizer } from './StateVisualizer';
 import { Helper } from './Helper';
 import { ViperFormatter } from './ViperFormatter';
 import { ViperFileState } from './ViperFileState';
-import { StatusBar, Color } from './StatusBar';
-import { VerificationController, TaskType, Task, CheckResult } from './VerificationController';
+import { Color } from './StatusBar';
+import { VerificationController, TaskType, Task } from './VerificationController';
 import { ViperApi } from './ViperApi';
-let stripJSONComments = require('strip-json-comments');
-const os = require('os');
 
 let autoSaver: Timer;
 
@@ -191,16 +191,16 @@ function registerHandlers() {
             Log.hint(data.message, "Viper", data.showSettingsButton, data.showViperToolsUpdateButton);
         });
         State.client.onNotification(Commands.Log, (msg: { data: string, logLevel: LogLevel }) => {
-            Log.log((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
+            Log.log(`Server: ${msg.data}`, msg.logLevel);
         });
         State.client.onNotification(Commands.Progress, (msg: { data: Progress, logLevel: LogLevel }) => {
             Log.progress(msg.data, msg.logLevel);
         });
         State.client.onNotification(Commands.ToLogFile, (msg: { data: string, logLevel: LogLevel }) => {
-            Log.toLogFile((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
+            Log.toLogFile(`Server: ${msg.data}`, msg.logLevel);
         });
         State.client.onNotification(Commands.Error, (msg: { data: string, logLevel: LogLevel }) => {
-            Log.error((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
+            Log.error(`Server: ${msg.data}`, msg.logLevel);
         });
 
         State.client.onNotification(Commands.ViperUpdateComplete, (success) => {
@@ -653,7 +653,7 @@ function checkIfSettingsVersionsSpecified(): Thenable<SettingsError[]> {
     })
 }
 
-let settings = [
+const settings = [
     "viperSettings.viperServerSettings",
     "viperSettings.paths",
     "viperSettings.preferences",
