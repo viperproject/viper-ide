@@ -5,6 +5,7 @@ suite('ViperIDE Stress Tests', () => {
 
     suiteSetup(async function() {
         await TestHelper.setup();
+        await TestHelper.startExtension();
     });
 
     suiteTeardown(async function() {
