@@ -25,29 +25,17 @@ export const LONG = 'longDuration.vpr';
 
 export default class TestHelper {
     private static callbacks: UnitTestCallbackImpl = null;
-    // preserve context for restarting extension between different test suites
-    private static context: vscode.ExtensionContext = null;
 
     public static async setup() {
         // setup callbacks:
         assert(this.callbacks == null);
         this.callbacks = new UnitTestCallbackImpl();
         State.unitTest = this.callbacks;
-        if (this.context != null) {
-            // the extension is kept alive between suites (even with calling `deactive` on the extension).
-            // Thus, restart extension (based on https://github.com/microsoft/vscode/issues/45774#issuecomment-373423895):
-            // we assume that `deactivate` has already been called (as part of `teardown`)
-            for (const sub of this.context.subscriptions) {
-                try {
-                    sub.dispose();
-                } catch (e) {
-                    console.error(e);
-                }
-            }
-            await myExtension.activate(this.context);
-        } else {
-            this.callbacks.activated = () => { this.context = State.context; };
-        }
+
+        // The following comment explains how an extension could be restarted in between test suites:
+        // https://github.com/microsoft/vscode/issues/45774#issuecomment-373423895
+        // However, we solve it by executing each test suite individually. This is controlled by `runTest.ts`
+        // that calls `index.ts` with a particular test suite.
     }
 
     public static async teardown() {
@@ -69,7 +57,6 @@ export default class TestHelper {
     public static async startExtension(): Promise<void> {
         await TestHelper.openFile(EMPTY);
         await TestHelper.waitForBackendStarted();
-        this.context = State.context;
     }
 
     public static async openFile(fileName: string): Promise<vscode.TextDocument> {

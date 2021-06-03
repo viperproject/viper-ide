@@ -6,6 +6,7 @@ suite('Workspace Tests', () => {
 
     suiteSetup(async function() {
         await TestHelper.setup();
+        await TestHelper.startExtension();
     });
 
     suiteTeardown(async function() {

@@ -214,6 +214,7 @@ export class State {
 
     public static async dispose(): Promise<void> {
         if (State.client == null) {
+            State.reset();
             return;
         }
         try {
@@ -224,6 +225,7 @@ export class State {
         } catch (e) {
             Log.error("Error disposing state: " + e);
         }
+        State.reset();
     }
 
     public static checkOperatingSystem() {

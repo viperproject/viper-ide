@@ -18,7 +18,7 @@
             }
         },
         {
-            "name": "Test",
+            "name": "Test (Startup)",
             "type": "extensionHost",
             "request": "launch",
             "runtimeExecutable": "${execPath}",
@@ -26,9 +26,16 @@
                 "--extensionDevelopmentPath=${workspaceRoot}",
                 "--extensionTestsPath=${workspaceRoot}/out/test"
             ],
+            "env": {
+                "VIPER_IDE_TEST_SUITE": "${workspaceRoot}/out/test/startup.test.js"
+            },
             "stopOnEntry": false,
             "sourceMaps": true,
-            "outFiles": ["${workspaceRoot}/out/test/**/*.js"]
+            "outFiles": ["${workspaceRoot}/out/test/**/*.js"],
+            "preLaunchTask": {
+                "type": "npm",
+                "script": "pretest"
+            }
         }/*,
         {
             "name": "Run Server",
