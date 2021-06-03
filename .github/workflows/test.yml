@@ -80,7 +80,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Viper-IDE log files
-        # if: ${{ failure() }}
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v2
         with:
           name: TestLogs-${{ matrix.os }}
