@@ -57,8 +57,8 @@ export class Commands {
     //CLIENT TO SERVER
     //Client asks server for the list of backend names
     static RequestBackendNames = "RequestBackendNames";//void
-    //Client tells server to dispose itself
-    static Dispose = "Dispose";//void
+    //Client tells server to stop all verifications before later on shutting server down (via shutdown command)
+    static StopAllVerifications = "StopAllVerifications";//void
     //Client requests verification for a file
     static Verify = "Verify";//VerifyParams
     //Client tells server to abort the running verification

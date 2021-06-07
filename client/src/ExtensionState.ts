@@ -218,9 +218,9 @@ export class State {
             return;
         }
         try {
-            Log.log("Ask language server to shut down.", LogLevel.Info);
-            await State.client.sendRequest(Commands.Dispose, null);
-            Log.log("Language server has shut down, terminate the connection", LogLevel.Info);
+            Log.log("Ask language server to stop all verifications.", LogLevel.Info);
+            await State.client.sendRequest(Commands.StopAllVerifications, null);
+            Log.log("Language server has stopped verifications", LogLevel.Info);
             await State.client.stop();
         } catch (e) {
             Log.error("Error disposing state: " + e);

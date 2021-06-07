@@ -61,7 +61,8 @@ function registerHandlers() {
     Server.connection.onShutdown(() => {
         try {
             Log.log("On Shutdown", LogLevel.Debug);
-            Server.backendService.stop();
+            return Server.backendService.kill()
+                .then(res => Log.log(`Backend service has been stopped (result: ${res})`, LogLevel.Debug));
         } catch (e) {
             Log.error("Error handling shutdown: " + e);
         }
@@ -265,21 +266,23 @@ function registerHandlers() {
         }
     });
 
-    Server.connection.onRequest(Commands.Dispose, () => {
+    Server.connection.onRequest(Commands.StopAllVerifications, () => {
         try {
             //if there are running verifications, stop related processes
-            Server.verificationTasks.forEach(task => {
+            const tasks = Array.from(Server.verificationTasks.values());
+            const stopPromises = tasks.map(task => {
                 if (task.running) {
                     //Todo[ATG_6.10.2017]: use UIDs for logging verification tasks.
                     Log.log("stop verification of " + task.filename, LogLevel.Default);
-                    Server.backendService.stopVerification();
+                    return Server.backendService.stopVerification();
+                } else {
+                    Promise.resolve(true);
                 }
             });
-
-            console.log("dispose language server");
-            return Server.backendService.kill()
+            return Promise.all(tasks)
+                .then(results => results.every(res => res));
         } catch (e) {
-            Log.error("Error handling dispose request: " + e);
+            Log.error("Error handling stop all verifications request: " + e);
             return Promise.reject()
         }
     })

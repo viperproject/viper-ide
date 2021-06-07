@@ -44,7 +44,7 @@ export abstract class BackendService {
         this.stop();
     }
 
-    public kill() {
+    public kill(): Promise<boolean> {
         return this.stop();
     }
 
