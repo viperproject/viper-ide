@@ -45,8 +45,7 @@ export default class TestHelper {
         assert(this.callbacks != null);
         this.callbacks = null;
         await myExtension.deactivate();
-        // FIXME: set all args to true as soon as leaking java command is fixed
-        await this.checkForRunningProcesses(false, true, true);
+        await this.checkForRunningProcesses(true, true, true);
     }
 
     public static log(msg: string) {
