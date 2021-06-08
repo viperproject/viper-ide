@@ -111,6 +111,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: macos-latest
+            viper-tools-zip-file: "ViperToolsMac.zip"
+          - os: ubuntu-latest
+            viper-tools-zip-file: "ViperToolsLinux.zip"
+          - os: windows-latest
+            viper-tools-zip-file: "ViperToolsWin.zip"
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Viper-IDE
@@ -147,6 +154,41 @@ jobs:
 
       - run: npm ci --cache .npm --prefer-offline
         working-directory: client
+
+      # there are two different scenarios in which different stuff should be tested:
+      # - regular changes to Viper-IDE: the normal test configuration should be used, which tests against the latest stable and
+      #   nightly ViperTool releases. Any change to the Viper-IDE have ensure compatability
+      # - before releasing Viper-IDE together with some ViperTools, Viper-IDE has to be tested against the latest stable and
+      #   nightly ViperTool releases AND the ViperTools that should be released.
+      - name: Download ViperTools to test against
+        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
+        uses: actions/download-artifact@v2
+        with:
+          name: ViperTools
+          path: client/ViperTools
+
+      - name: Unzip ViperTools
+        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
+        # we use 7zip as this is preinstalled on all runners
+        run: 7zip x ${{ matrix.viper-tools-zip-file }} -oExtractedTools
+        working-directory: client/ViperTools
+
+      - name: Echo ViperTools
+        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
+        run: ls
+        working-directory: client/ViperTools
+
+      - name: Echo ViperTools
+        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
+        run: ls
+        working-directory: client/ViperTools/ExtractedTools
+
+      - name: Create additional test config
+        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
+        uses: finnp/create-file-action@master
+        env:
+          FILE_NAME: client/src/test/data/settings/ci_local.json
+          FILE_DATA: '{ "viperSettings.buildVersion": "Local", "viperSettings.paths": {"v": "674a514867b1", "viperToolsPath": {"windows": "${{ github.workspace }}\\client\\ViperTools\\ExtractedTools", "linux": "${{ github.workspace }}/client/ViperTools/ExtractedTools", "mac": "${{ github.workspace }}/client/ViperTools/ExtractedTools"}}}'
 
       - name: Run tests (headless)
         uses: GabrielBB/xvfb-action@v1
