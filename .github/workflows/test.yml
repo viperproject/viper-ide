@@ -179,7 +179,18 @@ jobs:
 
       - name: Create additional test config content
         if: ${{ contains(needs.create-viper-tools.result, 'success') }}
-        run: echo "CONFIG_CONTENT={ \"viperSettings.buildVersion\": \"Local\", \"viperSettings.paths\": {\"v\": \"674a514867b1\", \"viperToolsPath\": {\"windows\": \"${{ github.workspace }}\\client\\ViperTools\\ExtractedTools\", \"linux\": \"${{ github.workspace }}/client/ViperTools/ExtractedTools\", \"mac\": \"${{ github.workspace }}/client/ViperTools/ExtractedTools\"}}}" >> $GITHUB_ENV
+        run: |
+          echo CONFIG_CONTENT='{ \
+            "viperSettings.buildVersion": "Local", \
+            "viperSettings.paths": { \
+              "v": "674a514867b1", \
+              "viperToolsPath": { \
+                "windows": "${{ github.workspace }}\\client\\ViperTools\\ExtractedTools", \
+                "linux": "${{ github.workspace }}/client/ViperTools/ExtractedTools", \
+                "mac": "${{ github.workspace }}/client/ViperTools/ExtractedTools" \
+              } \
+            } \
+          }' >> $GITHUB_ENV
 
       - name: Write config content to a file (non-windows)
         if: ${{ !startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
