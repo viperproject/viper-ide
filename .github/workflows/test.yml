@@ -12,21 +12,100 @@ on:
   pull_request: # run this workflow on every pull_request
   workflow_dispatch: # allow to manually trigger this workflow
     inputs:
+      type:
+        description: 'Specifies whether a stable or nightly release should be triggered. Has to be "stable" or "nightly".'
+        required: true
+        default: 'stable'
+      viperserver_tag_name:
+        description: 'Tag name of ViperServer release from which server JAR should be downloaded from'
+        required: true
       tag_name:
         description: 'Tag name for stable release.'
         required: true
       release_name:
         description: 'Release title for stable release.'
         required: true
-  schedule:
-    - cron: '0 7 * * *' # run every day at 07:00 UTC
 
 
 jobs:
+  create-viper-tools:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      VIPERSERVER_URL: "https://github.com/viperproject/viperserver/releases/download/${{ github.event.inputs.viperserver_tag_name }}/viperserver.jar"
+      # we fake a ternary operator `a ? b : c` by using `a && b || c` as mentioned here:
+      # https://github.com/actions/runner/issues/409
+      WIN-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyWin.zip' || 'http://viper.ethz.ch/downloads/ViperToolsLastReleaseWin.zip' }}
+      LINUX-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyLinux.zip' || 'http://viper.ethz.ch/downloads/ViperToolsLastReleaseLinux.zip' }}
+      MAC-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyMac.zip' || 'http://viper.ethz.ch/downloads/ViperToolsLastReleaseMac.zip' }}
+    steps:
+      - name: Install prerequisites
+        run: sudo apt-get install curl zip unzip
+
+      - name: Download ViperServer fat JAR
+        run: curl -L ${{ env.VIPERSERVER_URL }} --output viperserver.jar
+
+      - name: Download Viper Tools for Windows
+        run: curl --fail --silent --show-error ${{ env.WIN-TOOLS-URL}} --output ViperToolsWin.zip
+      - name: Unzip Viper Tools for Windows
+        run: unzip ViperToolsWin.zip -d OrigViperToolsWin
+      - name: Download Viper Tools for Linux
+        run: curl --fail --silent --show-error ${{ env.LINUX-TOOLS-URL }} --output ViperToolsLinux.zip
+      - name: Unzip Viper Tools for Linux
+        run: unzip ViperToolsLinux.zip -d OrigViperToolsLinux
+      - name: Download Viper Tools for macOS
+        run: curl --fail --silent --show-error ${{ env.MAC-TOOLS-URL }} --output ViperToolsMac.zip
+      - name: Unzip Viper Tools for macOS
+        run: unzip ViperToolsMac.zip -d OrigViperToolsMac
+
+      - name: Create a fresh Viper Tools folder per platform
+        run: |
+          mkdir -p ViperToolsWin
+          mkdir -p ViperToolsLinux
+          mkdir -p ViperToolsMac
+
+      - name: Copy boogie from OrigViperTools to ViperTools
+        run: |
+          cp -R OrigViperToolsWin/boogie ViperToolsWin/boogie/
+          cp -R OrigViperToolsLinux/boogie ViperToolsLinux/boogie/
+          cp -R OrigViperToolsMac/boogie ViperToolsMac/boogie/
+
+      - name: Copy z3 from OrigViperTools to ViperTools
+        run: |
+          cp -R OrigViperToolsWin/z3 ViperToolsWin/z3/
+          cp -R OrigViperToolsLinux/z3 ViperToolsLinux/z3/
+          cp -R OrigViperToolsMac/z3 ViperToolsMac/z3/
+
+      - name: Copy ViperServer fat JAR to ViperTools
+        run: |
+          mkdir -p ViperToolsWin/server && cp viperserver.jar ViperToolsWin/server
+          mkdir -p ViperToolsLinux/server && cp viperserver.jar ViperToolsLinux/server
+          mkdir -p ViperToolsMac/server && cp viperserver.jar ViperToolsMac/server
+
+      - name: Create folder to store all ViperTools platform zip files
+        run: mkdir deploy
+        # note that we change into the tool folder to zip it. This avoids including the parent folder in the zip
+      - name: Zip ViperTools for Windows
+        run: zip -r ../deploy/ViperToolsWin.zip ./*
+        working-directory: ViperToolsWin
+      - name: Zip ViperTools for Linux
+        run: zip -r ../deploy/ViperToolsLinux.zip ./*
+        working-directory: ViperToolsLinux
+      - name: Zip ViperTools for macOS
+        run: zip -r ../deploy/ViperToolsMac.zip ./*
+        working-directory: ViperToolsMac
+
+      - name: Upload ViperTools zip files
+        uses: actions/upload-artifact@v2
+        with:
+          name: ViperTools
+          path: deploy
+
+
   build-and-test:
-    # build-and-test is the base job on which all other jobs depend
-    # we enforce here that the nightly build job only runs in the main repo:
-    if: (github.event_name == 'schedule' && github.repository == 'viperproject/viper-ide') || (github.event_name != 'schedule')
+    needs: create-viper-tools
+    # make the dependency optional in the sense that this job should be executed whenever the dependency was successful or skipped:
+    if: ${{ always() && (contains(needs.create-viper-tools.result, 'success') || contains(needs.create-viper-tools.result, 'skipped')) }}
     strategy:
       # tests should not be stopped when they fail on one of the OSes:
       fail-fast: false
@@ -119,8 +198,8 @@ jobs:
           path: client/viper-ide.vsix
 
 
-  create-stable-release:
-    # this job creates a stable draft-release and adds viper-ide.vsix as a release asset
+  create-release:
+    # this job creates a nightly release or stable draft-release and adds viper-ide.vsix and Viper Tools as release assets
     if: github.event_name == 'workflow_dispatch'
     needs: build-and-test
     runs-on: ubuntu-latest
@@ -135,8 +214,38 @@ jobs:
           name: viper-ide.vsix
           path: client
 
+      - name: Download ViperTools
+        uses: actions/download-artifact@v2
+        with:
+          name: ViperTools
+          path: deploy
+
+      - name: Create release tag
+        if: ${{ github.event.inputs.type != 'stable' }}
+        shell: bash
+        run: echo "TAG_NAME=$(date +v-%Y-%m-%d-%H%M)" >> $GITHUB_ENV
+
+      - name: Create nightly release
+        if: ${{ github.event.inputs.type != 'stable' }}
+        id: create_nightly_release
+        uses: viperproject/create-nightly-release@v1
+        env:
+          # This token is provided by Actions, you do not need to create your own token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          release_name: Nightly Release ${{ env.TAG_NAME }}
+          body: Based on ViperServer release ${{ github.event.inputs.viperserver_tag_name }}
+          keep_num: 1 # keep the previous nightly release such that there are always two
+
+      - name: Store nightly release upload URL
+        if: ${{ github.event.inputs.type != 'stable' }}
+        shell: bash
+        run: echo "UPLOAD_URL=${{ steps.create_nightly_release.outputs.upload_url }}" >> $GITHUB_ENV
+
       - name: Create stable draft-release
-        id: create_release
+        if: ${{ github.event.inputs.type == 'stable' }}
+        id: create_stable_release
         uses: actions/create-release@v1
         env:
           # This token is provided by Actions, you do not need to create your own token
@@ -144,18 +253,54 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag_name }}
           release_name: ${{ github.event.inputs.release_name }}
+          body: Based on ViperServer release ${{ github.event.inputs.viperserver_tag_name }}
           draft: true
           prerelease: false
+
+      - name: Store stable release upload URL
+        if: ${{ github.event.inputs.type == 'stable' }}
+        shell: bash
+        run: echo "UPLOAD_URL=${{ steps.create_stable_release.outputs.upload_url }}" >> $GITHUB_ENV
 
       - name: Upload packaged Viper IDE
         uses: actions/upload-release-asset@v1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          upload_url: ${{ env.UPLOAD_URL }}
           asset_path: client/viper-ide.vsix
           asset_name: viper-ide.vsix
           asset_content_type: application/octet-stream
+
+      - name: Upload ViperTools for Windows
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: deploy/ViperToolsWin.zip
+          asset_name: ViperToolsWin.zip
+          asset_content_type: application/zip
+
+      - name: Upload ViperTools for Ubuntu
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: deploy/ViperToolsLinux.zip
+          asset_name: ViperToolsLinux.zip
+          asset_content_type: application/zip
+
+      - name: Upload ViperTools for macOS
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: deploy/ViperToolsMac.zip
+          asset_name: ViperToolsMac.zip
+          asset_content_type: application/zip
 
       # compare version in client/package.json with last published version on
       # VS Marketplace and deploy this version if newer.
