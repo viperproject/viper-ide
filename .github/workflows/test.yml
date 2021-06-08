@@ -177,29 +177,57 @@ jobs:
         run: powershell Expand-Archive -LiteralPath ${{ matrix.viper-tools-zip-file }} -DestinationPath ExtractedTools
         working-directory: client/ViperTools
 
-      - name: Create additional test config content
-        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
-        run: |
-          echo CONFIG_CONTENT='{ \
-            "viperSettings.buildVersion": "Local", \
-            "viperSettings.paths": { \
-              "v": "674a514867b1", \
-              "viperToolsPath": { \
-                "windows": "${{ github.workspace }}\\client\\ViperTools\\ExtractedTools", \
-                "linux": "${{ github.workspace }}/client/ViperTools/ExtractedTools", \
-                "mac": "${{ github.workspace }}/client/ViperTools/ExtractedTools" \
-              } \
-            } \
-          }' >> $GITHUB_ENV
+      #- name: Create additional test config content
+      #  if: ${{ contains(needs.create-viper-tools.result, 'success') }}
+      #  run: |
+      #    echo CONFIG_CONTENT='{ \
+      #      "viperSettings.buildVersion": "Local", \
+      #      "viperSettings.paths": { \
+      #        "v": "674a514867b1", \
+      #        "viperToolsPath": { \
+      #          "windows": "${{ github.workspace }}\\client\\ViperTools\\ExtractedTools", \
+      #          "linux": "${{ github.workspace }}/client/ViperTools/ExtractedTools", \
+      #          "mac": "${{ github.workspace }}/client/ViperTools/ExtractedTools" \
+      #        } \
+      #      } \
+      #    }' >> $GITHUB_ENV
 
       - name: Write config content to a file (non-windows)
         if: ${{ !startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
-        run: echo ${{ env.CONFIG_CONTENT }} > src/test/data/settings/ci_local.json
+        run: |
+          echo '{ 
+            "viperSettings.buildVersion": "Local",
+            "viperSettings.paths": {
+              "v": "674a514867b1",
+              "viperToolsPath": {
+                "windows": "${{ github.workspace }}\\client\\ViperTools\\ExtractedTools",
+                "linux": "${{ github.workspace }}/client/ViperTools/ExtractedTools",
+                "mac": "${{ github.workspace }}/client/ViperTools/ExtractedTools"
+              }
+            }
+          }' > src/test/data/settings/ci_local.json
         working-directory: client
 
       - name: Write config content to a file (windows)
         if: ${{ startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
-        run: powershell Set-Content -Path 'src/test/data/settings/ci_local.json' -Value ${{ env.CONFIG_CONTENT }}
+        run: |
+          powershell Set-Content -Path 'src/test/data/settings/ci_local.json' -Value `
+          '{ `
+            "viperSettings.buildVersion": "Local", `
+            "viperSettings.paths": { `
+              "v": "674a514867b1", `
+              "viperToolsPath": { `
+                "windows": "${{ github.workspace }}\\client\\ViperTools\\ExtractedTools", `
+                "linux": "${{ github.workspace }}/client/ViperTools/ExtractedTools", `
+                "mac": "${{ github.workspace }}/client/ViperTools/ExtractedTools" `
+              } \
+            } \
+          }'
+        working-directory: client
+
+      - name: Get config content (windows)
+        if: ${{ startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        run: powershell Get-Content -Path 'src/test/data/settings/ci_local.json'
         working-directory: client
 
       - name: Run tests (headless)
