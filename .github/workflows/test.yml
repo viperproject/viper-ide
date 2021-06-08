@@ -177,22 +177,19 @@ jobs:
         run: powershell Expand-Archive -LiteralPath ${{ matrix.viper-tools-zip-file }} -DestinationPath ExtractedTools
         working-directory: client/ViperTools
 
-      - name: Echo ViperTools
+      - name: Create additional test config content
         if: ${{ contains(needs.create-viper-tools.result, 'success') }}
-        run: ls
-        working-directory: client/ViperTools
+        run: echo "CONFIG_CONTENT={ \"viperSettings.buildVersion\": \"Local\", \"viperSettings.paths\": {\"v\": \"674a514867b1\", \"viperToolsPath\": {\"windows\": \"${{ github.workspace }}\\client\\ViperTools\\ExtractedTools\", \"linux\": \"${{ github.workspace }}/client/ViperTools/ExtractedTools\", \"mac\": \"${{ github.workspace }}/client/ViperTools/ExtractedTools\"}}}" >> $GITHUB_ENV
 
-      - name: Echo ViperTools
-        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
-        run: ls
-        working-directory: client/ViperTools/ExtractedTools
+      - name: Write config content to a file (non-windows)
+        if: ${{ !startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        run: echo ${{ env.CONFIG_CONTENT }} > src/test/data/settings/ci_local.json
+        working-directory: client
 
-      - name: Create additional test config
-        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
-        uses: finnp/create-file-action@master
-        env:
-          FILE_NAME: client/src/test/data/settings/ci_local.json
-          FILE_DATA: '{ "viperSettings.buildVersion": "Local", "viperSettings.paths": {"v": "674a514867b1", "viperToolsPath": {"windows": "${{ github.workspace }}\\client\\ViperTools\\ExtractedTools", "linux": "${{ github.workspace }}/client/ViperTools/ExtractedTools", "mac": "${{ github.workspace }}/client/ViperTools/ExtractedTools"}}}'
+      - name: Write config content to a file (windows)
+        if: ${{ startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        run: powershell Set-Content -Path 'src/test/data/settings/ci_local.json' -Value ${{ env.CONFIG_CONTENT }}
+        working-directory: client
 
       - name: Run tests (headless)
         uses: GabrielBB/xvfb-action@v1
