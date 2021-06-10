@@ -28,10 +28,12 @@ export default class TestHelper {
     private static callbacks: UnitTestCallbackImpl = null;
 
     public static async setup() {
+        console.log("TestHelper.setup()");
         // setup callbacks:
         assert(this.callbacks == null);
         this.callbacks = new UnitTestCallbackImpl();
         State.unitTest = this.callbacks;
+        console.log("TestHelper has set State.unitTest");
         // call `Log.updateSettings()` as early as possible after setting `State.unitTest` such that 
         // the appropriate log level for tests is set:
         Log.updateSettings();
@@ -107,6 +109,12 @@ export default class TestHelper {
             shell: true
         };
         let outputs: Output[] = [];
+        // note for pgrep on macOS and linux:
+        // the pgrep command might show up in the list of running commands. Simply using `-f java.*Viper` can thus lead to false
+        // positives as it matches the command line of just this pgrep command. Two different solutions to this problem are
+        // described here: https://serverfault.com/q/367921
+        // either one can use `-f [j]ava.*Viper` or `-f [^]]java.*Viper` to avoid this problem. As we do have a static string to match
+        // against, we have opted for the first variant.
         if (State.isWin) {
             function getArgs(whereCond: string): string[] {
                 return ['process', 'where', whereCond, 'get', 'ParentProcessId,ProcessId,Name,CommandLine'];
@@ -116,13 +124,11 @@ export default class TestHelper {
             if (checkBoogie) outputs.push(await Common.spawn('wmic', getArgs('name="Boogie.exe"'), options));
         } else if (State.isMac) {
             if (checkZ3) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$UID"', 'z3'], options));
-            if (checkJava) outputs.push(await Common.spawn('pgrep', ['-l', '-u', '"$UID"', '-f', 'java.*Viper'], options));
+            if (checkJava) outputs.push(await Common.spawn('pgrep', ['-l', '-u', '"$UID"', '-f', '"[j]ava.*Viper"'], options));
             if (checkBoogie) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$UID"', 'Boogie'], options));
         } else {
-            // list all java processes (for debugging):
-            await Common.spawn('ps', ['-f'], options);
             if (checkZ3) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$(whoami)"', 'z3'], options));
-            if (checkJava) outputs.push(await Common.spawn('pgrep', ['-l', '-u', '"$(whoami)"', '-f', 'java.*Viper'], options));
+            if (checkJava) outputs.push(await Common.spawn('pgrep', ['-l', '-u', '"$(whoami)"', '-f', '"[j]ava.*Viper"'], options));
             if (checkBoogie) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$(whoami)"', 'Boogie'], options));
         }
         const outputMsgs = outputs
