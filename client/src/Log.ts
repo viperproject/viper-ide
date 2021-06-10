@@ -198,8 +198,12 @@ export class Log {
     }
 
     public static dispose() {
-        Log.logFile.close();
-        Log.logFile = null;
+        if (State.unitTest) {
+            Log.log("Log: ignoring call to `dispose` because we are running in a unit test environment", LogLevel.Info);
+        } else {
+            Log.logFile.close();
+            Log.logFile = null;
+        }
     }
 
     public static hint(message: string, tag: string = "Viper", showSettingsButton = false, showViperToolsUpdateButton = false) {

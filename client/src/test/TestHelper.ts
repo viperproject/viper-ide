@@ -5,12 +5,13 @@
 // Copyright (c) 2011-2020 ETH Zurich.
 
 import * as assert from 'assert';
+import { SpawnOptionsWithoutStdio } from 'child_process';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as myExtension from '../extension';
 import { State, UnitTestCallback } from '../ExtensionState';
 import { Log } from '../Log';
-import { Common, LogLevel } from '../ViperProtocol';
+import { Common, LogLevel, Output } from '../ViperProtocol';
 
 export const PROJECT_ROOT = path.join(__dirname, "..", "..");
 export const DATA_ROOT = path.join(PROJECT_ROOT, "src", "test", "data");
@@ -46,6 +47,11 @@ export default class TestHelper {
         this.callbacks = null;
         await myExtension.deactivate();
         await this.checkForRunningProcesses(true, true, true);
+
+        // at the very end, set `unitTest` to false and dispose log because `Log.dispose()` as part of `deactivate`
+        // has been ignored if `unitTest` is non-null:
+        State.unitTest = null;
+        Log.dispose();
     }
 
     public static log(msg: string) {
@@ -97,47 +103,43 @@ export default class TestHelper {
     }
 
     public static async checkForRunningProcesses(checkJava: boolean, checkBoogie: boolean, checkZ3: boolean): Promise<void> {
-        return new Promise((resolve, reject) => {
-            let command: string;
-            if (State.isWin) {
-                let terms = [];
-                if (checkJava) {
-                    let term = `(CommandLine like "%Viper%" and (`;
-                    let innerTerms = [];
-                    if (checkJava) innerTerms.push('name="java.exe"');
-                    term += innerTerms.join(' or ');
-                    term += '))'
-                    terms.push(term);
-                }
-                if (checkBoogie) terms.push('name="Boogie.exe"');  // TODO use platform-independent binary names
-                if (checkZ3) terms.push('name="z3.exe"');   // TODO use platform-independent binary names
-                command = `wmic process where '` + terms.join(' or ') + `' get ParentProcessId,ProcessId,Name,CommandLine`
-            } else if (State.isMac) {
-                let terms = [];
-                if (checkZ3) terms.push('pgrep -x -l -u "$UID" z3')
-                if (checkJava) terms.push('pgrep -l -u "$UID" -f java.*Viper')
-                if (checkBoogie) terms.push('pgrep -x -l -u "$UID" Boogie');
-                command = terms.join('; ');
-            } else {
-                let terms = [];
-                if (checkZ3) terms.push('pgrep -x -l -u "$(whoami)" z3')
-                if (checkJava) terms.push('pgrep -l -u "$(whoami)" -f java.*Viper')
-                if (checkBoogie) terms.push('pgrep -x -l -u "$(whoami)" Boogie');
-                command = terms.join('; ');
+        const options: SpawnOptionsWithoutStdio = {
+            shell: true
+        };
+        let outputs: Output[] = [];
+        if (State.isWin) {
+            function getArgs(whereCond: string): string[] {
+                return ['process', 'where', whereCond, 'get', 'ParentProcessId,ProcessId,Name,CommandLine'];
             }
-            const pgrep = Common.executer(command);
-            pgrep.stdout.on('data', data => {
-                const outputMsg = `Process found: '${data}'`;
-                TestHelper.log(outputMsg);
-                const stringData = (<string>data).replace(/[\n\r]/g, " ");
+            if (checkZ3) outputs.push(await Common.spawn('wmic', getArgs('name="z3.exe"'), options));
+            if (checkJava) outputs.push(await Common.spawn('wmic', getArgs('(CommandLine like "%Viper%" and name="java.exe")'), options));
+            if (checkBoogie) outputs.push(await Common.spawn('wmic', getArgs('name="Boogie.exe"'), options));
+        } else if (State.isMac) {
+            if (checkZ3) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$UID"', 'z3'], options));
+            if (checkJava) outputs.push(await Common.spawn('pgrep', ['-l', '-u', '"$UID"', '-f', 'java.*Viper'], options));
+            if (checkBoogie) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$UID"', 'Boogie'], options));
+        } else {
+            if (checkZ3) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$(whoami)"', 'z3'], options));
+            if (checkJava) outputs.push(await Common.spawn('pgrep', ['-l', '-u', '"$(whoami)"', '-f', 'java.*Viper'], options));
+            if (checkBoogie) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$(whoami)"', 'Boogie'], options));
+        }
+        const outputMsgs = outputs
+            .map(out => {
+                const stringData = out.stdout.replace(/[\n\r]/g, " ");
                 if (/^.*?(\d+).*/.test(stringData)) {
-                    reject(outputMsg);
+                    const outputMsg = `Process found: '${out.stdout}'`;
+                    TestHelper.log(outputMsg);
+                    return [outputMsg];
+                } else {
+                    return [];
                 }
-            });
-            pgrep.on('exit', data => {
-                resolve();
-            });
-        });
+            }).reduce((prev, cur) => prev.concat(cur), []);
+        if (outputMsgs.length == 0) {
+            // no processes found
+            return Promise.resolve();
+        } else {
+            return Promise.reject(new Error(`The following processes have been found: ${outputMsgs.join(', ')}`));
+        }
     }
 
     public static async verify(): Promise<void> {
