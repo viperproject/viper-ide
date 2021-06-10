@@ -11,7 +11,7 @@
             ],
             "stopOnEntry": false,
             "sourceMaps": true,
-            "outFiles": ["${workspaceRoot}/out/**/*.js"],
+            "outFiles": ["${workspaceRoot}/dist/**/*.js"],
             "preLaunchTask": {
                 "type": "npm",
                 "script": "compile"
@@ -24,14 +24,14 @@
             "runtimeExecutable": "${execPath}",
             "args": [
                 "--extensionDevelopmentPath=${workspaceRoot}",
-                "--extensionTestsPath=${workspaceRoot}/out/test"
+                "--extensionTestsPath=${workspaceRoot}/dist/test"
             ],
             "env": {
-                "VIPER_IDE_TEST_SUITE": "${workspaceRoot}/out/test/startup.test.js"
+                "VIPER_IDE_TEST_SUITE": "${workspaceRoot}/dist/test/startup.test.js"
             },
             "stopOnEntry": false,
             "sourceMaps": true,
-            "outFiles": ["${workspaceRoot}/out/test/**/*.js"],
+            "outFiles": ["${workspaceRoot}/dist/test/**/*.js"],
             "preLaunchTask": {
                 "type": "npm",
                 "script": "pretest"
