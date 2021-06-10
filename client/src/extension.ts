@@ -27,6 +27,7 @@ import { ViperFileState } from './ViperFileState';
 import { Color } from './StatusBar';
 import { VerificationController, TaskType, Task } from './VerificationController';
 import { ViperApi } from './ViperApi';
+import * as Notifier from './Notifier';
 
 let autoSaver: Timer;
 
@@ -75,7 +76,7 @@ export async function activate(context: vscode.ExtensionContext) {
         Log.log("No active text editor found", LogLevel.Info);
     }
 
-    if (State.unitTest) State.unitTest.activated();
+    Notifier.notifyExtensionActivation();
     
     return State.viperApi;
 }

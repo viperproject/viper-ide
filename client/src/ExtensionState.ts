@@ -252,7 +252,6 @@ export interface UnitTestCallback {
     allFilesVerified: (verified: number, total: number) => void;
     ideIsIdle: () => void;
     internalErrorDetected: () => void;
-    activated: () => void;
     viperUpdateComplete: () => void;
     viperUpdateFailed: () => void;
     verificationStopped: () => void;

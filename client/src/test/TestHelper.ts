@@ -12,6 +12,7 @@ import * as myExtension from '../extension';
 import { State, UnitTestCallback } from '../ExtensionState';
 import { Log } from '../Log';
 import { Common, LogLevel, Output } from '../ViperProtocol';
+import * as Notifier from '../Notifier';
 
 export const PROJECT_ROOT = path.join(__dirname, "..", "..");
 export const DATA_ROOT = path.join(PROJECT_ROOT, "src", "test", "data");
@@ -28,6 +29,8 @@ export default class TestHelper {
     private static callbacks: UnitTestCallbackImpl = null;
 
     public static async setup() {
+        await TestHelper.startExtension();
+
         console.log("TestHelper.setup()");
         // setup callbacks:
         assert(this.callbacks == null);
@@ -71,7 +74,7 @@ export default class TestHelper {
 
     public static async startExtension(): Promise<void> {
         await TestHelper.openFile(EMPTY);
-        await TestHelper.waitForBackendStarted();
+        await Notifier.waitExtensionActivation();
     }
 
     public static async openFile(fileName: string): Promise<vscode.TextDocument> {
@@ -292,7 +295,6 @@ class UnitTestCallbackImpl implements UnitTestCallback {
     allFilesVerified = (verified: number, total: number) => { };
     ideIsIdle = () => { };
     internalErrorDetected = () => { this.errorDetected = true; }
-    activated = () => { };
     viperUpdateComplete = () => { };
     viperUpdateFailed = () => { };
     verificationStopped = () => { };
