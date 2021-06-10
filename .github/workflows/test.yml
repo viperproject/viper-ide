@@ -177,6 +177,20 @@ jobs:
         run: powershell Expand-Archive -LiteralPath ${{ matrix.viper-tools-zip-file }} -DestinationPath ExtractedTools
         working-directory: client/ViperTools
 
+      - name: Create path to extracted tools (non-windows)
+        if: ${{ !startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        run: |
+          echo "EXTRACTED_TOOLS_PATH=${{ github.workspace }}/client/ViperTools/ExtractedTools" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Create path to extracted tools (windows)
+        if: ${{ startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        # replace all backslashes by double backslashes to properly escape them in the resulting JSON
+        run: |
+          PATH='EXTRACTED_TOOLS_PATH=${{ github.workspace }}\client\ViperTools\ExtractedTools'
+          echo ${PATH//'\'/'\\\\'} >> $GITHUB_ENV
+        shell: bash
+
       - name: Create an additional test config
         if: ${{ contains(needs.create-viper-tools.result, 'success') }}
         run: |
@@ -185,9 +199,9 @@ jobs:
             "viperSettings.paths": {
               "v": "674a514867b1",
               "viperToolsPath": {
-                "windows": "${{ github.workspace }}\client\ViperTools\ExtractedTools",
-                "linux": "${{ github.workspace }}/client/ViperTools/ExtractedTools",
-                "mac": "${{ github.workspace }}/client/ViperTools/ExtractedTools"
+                "windows": "${{ env.EXTRACTED_TOOLS_PATH }}",
+                "linux": "${{ env.EXTRACTED_TOOLS_PATH }}",
+                "mac": "${{ env.EXTRACTED_TOOLS_PATH }}"
               }
             }
           }' > client/src/test/data/settings/ci_local.json
