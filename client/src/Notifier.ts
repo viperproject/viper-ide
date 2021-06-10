@@ -24,6 +24,7 @@ export function waitExtensionActivation(): Promise<void> {
             resolve();
         } else {
             waitingForExtensionActivation.push(resolve);
+            console.log(`waitingForExtensionActivation.length: ${waitingForExtensionActivation.length}`);
         }
     });
 }
@@ -32,5 +33,6 @@ export function notifyExtensionActivation(): void {
     // Log.log("The extension is now active.", LogLevel.Info);
     console.log("The extension is now active.");
     isExtensionActive = true;
+    console.log(`waitingForExtensionActivation.length: ${waitingForExtensionActivation.length}`);
     waitingForExtensionActivation.forEach(listener => listener());
 }
