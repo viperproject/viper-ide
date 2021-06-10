@@ -188,7 +188,7 @@ jobs:
         # replace all backslashes by double backslashes to properly escape them in the resulting JSON
         run: |
           PATH='EXTRACTED_TOOLS_PATH=${{ github.workspace }}\client\ViperTools\ExtractedTools'
-          echo ${PATH//'\'/'\\\\'} >> $GITHUB_ENV
+          echo ${PATH//'\'/'\\'} >> $GITHUB_ENV
         shell: bash
 
       - name: Create an additional test config
