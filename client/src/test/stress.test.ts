@@ -1,9 +1,10 @@
 import * as assert from 'assert';
-import TestHelper, { CARBON, SILICON, SIMPLE } from './TestHelper';
+import TestHelper, { CARBON, SETUP_TIMEOUT, SILICON, SIMPLE } from './TestHelper';
 
 suite('ViperIDE Stress Tests', () => {
 
     suiteSetup(async function() {
+        this.timeout(SETUP_TIMEOUT);
         await TestHelper.setup();
         await TestHelper.startExtension();
     });

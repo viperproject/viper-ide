@@ -1,10 +1,11 @@
 import * as assert from 'assert';
 import { Helper } from '../Helper';
-import TestHelper, { CARBON, DATA_ROOT, SILICON, SIMPLE } from './TestHelper';
+import TestHelper, { DATA_ROOT, SETUP_TIMEOUT } from './TestHelper';
 
 suite('Workspace Tests', () => {
 
     suiteSetup(async function() {
+        this.timeout(SETUP_TIMEOUT);
         await TestHelper.setup();
         await TestHelper.startExtension();
     });

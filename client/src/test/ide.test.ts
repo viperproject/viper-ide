@@ -1,11 +1,12 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import { Helper } from '../Helper';
-import TestHelper, { EMPTY_TXT, LONG, SIMPLE } from './TestHelper';
+import TestHelper, { EMPTY_TXT, LONG, SETUP_TIMEOUT, SIMPLE } from './TestHelper';
 
 suite('ViperIDE Tests', () => {
 
     suiteSetup(async function() {
+        this.timeout(SETUP_TIMEOUT);
         await TestHelper.setup();
         // these tests require a running backend:
         await TestHelper.startExtension();

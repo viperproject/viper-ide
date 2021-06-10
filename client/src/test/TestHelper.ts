@@ -19,6 +19,9 @@ export const DATA_ROOT = path.join(PROJECT_ROOT, "src", "test", "data");
 export const SILICON = 'silicon';
 export const CARBON = 'carbon';
 
+// set timeout to a large value such that extension can be started and Viper tools installed:
+export const SETUP_TIMEOUT = 4 * 60 * 1000; // 4min
+
 
 export const SIMPLE = 'simple.sil';
 export const EMPTY = 'empty.sil';
@@ -74,14 +77,14 @@ export default class TestHelper {
 
     public static async startExtension(): Promise<void> {
         await TestHelper.openFile(EMPTY);
-        TestHelper.log("Waiting for extension activation...");
+        console.log("Waiting for extension activation...");
         await Notifier.waitExtensionActivation();
         TestHelper.log("Extension has been activated");
     }
 
     public static async openFile(fileName: string): Promise<vscode.TextDocument> {
         const filePath = TestHelper.getTestDataPath(fileName);
-        TestHelper.log("Open " + filePath);
+        console.log("Open " + filePath);
         const document = await vscode.workspace.openTextDocument(filePath);
         await vscode.window.showTextDocument(document);
         return document;

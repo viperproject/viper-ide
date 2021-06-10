@@ -4,6 +4,7 @@ import TestHelper, { LONG } from './TestHelper';
 suite('Viper Tools Update Test', () => {
 
     suiteSetup(async function() {
+        this.timeout(SETUP_TIMEOUT);
         await TestHelper.setup();
         // these tests require a running backend:
         await TestHelper.startExtension();
