@@ -4,9 +4,6 @@
 //
 // Copyright (c) 2011-2020 ETH Zurich.
 
-import { Log } from "./Log";
-import { LogLevel } from "./ViperProtocol";
-
 // all credits go to prusti-assistant
 /**
  * This module keeps a global state and allows clients to wait for the
@@ -32,7 +29,8 @@ export function waitExtensionActivation(): Promise<void> {
 }
 
 export function notifyExtensionActivation(): void {
-    Log.log("The extension is now active.", LogLevel.Info);
+    // Log.log("The extension is now active.", LogLevel.Info);
+    console.log("The extension is now active.");
     isExtensionActive = true;
     waitingForExtensionActivation.forEach(listener => listener());
 }
