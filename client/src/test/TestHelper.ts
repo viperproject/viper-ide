@@ -74,7 +74,9 @@ export default class TestHelper {
 
     public static async startExtension(): Promise<void> {
         await TestHelper.openFile(EMPTY);
+        TestHelper.log("Waiting for extension activation...");
         await Notifier.waitExtensionActivation();
+        TestHelper.log("Extension has been activated");
     }
 
     public static async openFile(fileName: string): Promise<vscode.TextDocument> {

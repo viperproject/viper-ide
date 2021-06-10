@@ -14,7 +14,7 @@ import { LogLevel } from "./ViperProtocol";
  *  - The extension has been fully activated.
  */
 
- let isExtensionActive = false;
+let isExtensionActive = false;
 
 type Listener = () => void;
 
