@@ -119,6 +119,8 @@ export default class TestHelper {
             if (checkJava) outputs.push(await Common.spawn('pgrep', ['-l', '-u', '"$UID"', '-f', 'java.*Viper'], options));
             if (checkBoogie) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$UID"', 'Boogie'], options));
         } else {
+            // list all java processes (for debugging):
+            await Common.spawn('ps', ['-fC', 'java'], options);
             if (checkZ3) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$(whoami)"', 'z3'], options));
             if (checkJava) outputs.push(await Common.spawn('pgrep', ['-l', '-u', '"$(whoami)"', '-f', 'java.*Viper'], options));
             if (checkBoogie) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$(whoami)"', 'Boogie'], options));
