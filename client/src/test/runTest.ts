@@ -56,7 +56,8 @@ async function main() {
 async function getTestSuites(): Promise<string[]> {
 	const files: Array<string> = await new Promise((resolve, reject) =>
         glob(
-            "**/*.test.js",
+            // "**/*.test.js",
+			"**/startup.test.js",
             {
                 cwd: TESTS_ROOT,
             },

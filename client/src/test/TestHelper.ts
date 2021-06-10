@@ -127,10 +127,11 @@ export default class TestHelper {
             }
             const pgrep = Common.executer(command);
             pgrep.stdout.on('data', data => {
-                TestHelper.log("Process found: " + data);
+                const outputMsg = `Process found: '${data}'`;
+                TestHelper.log(outputMsg);
                 const stringData = (<string>data).replace(/[\n\r]/g, " ");
                 if (/^.*?(\d+).*/.test(stringData)) {
-                    reject("Process found");
+                    reject(outputMsg);
                 }
             });
             pgrep.on('exit', data => {
