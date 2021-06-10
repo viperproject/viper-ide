@@ -34,6 +34,11 @@ export default class TestHelper {
         this.callbacks = new UnitTestCallbackImpl();
         State.unitTest = this.callbacks;
         console.log("TestHelper has set State.unitTest");
+        if (State.unitTest) {
+            console.log(`State.unitTest evaluates to true`);
+        } else {
+            console.log(`State.unitTest evaluates to false`);
+        }
         // call `Log.updateSettings()` as early as possible after setting `State.unitTest` such that 
         // the appropriate log level for tests is set:
         Log.updateSettings();
