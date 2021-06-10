@@ -66,6 +66,7 @@ export async function activate(context: vscode.ExtensionContext) {
     await State.startLanguageServer(context, fileSystemWatcher, false);
     State.viperApi = new ViperApi(State.client);
     registerHandlers();
+    Notifier.notifyExtensionActivation();
     startAutoSaver();
     State.initializeStatusBar(context);
     registerFormatter();
@@ -75,8 +76,6 @@ export async function activate(context: vscode.ExtensionContext) {
     } else {
         Log.log("No active text editor found", LogLevel.Info);
     }
-
-    Notifier.notifyExtensionActivation();
     
     return State.viperApi;
 }
