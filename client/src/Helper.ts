@@ -10,10 +10,9 @@
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as globToRexep from 'glob-to-regexp';
 import { Log } from './Log';
-import * as path from 'path';
 import { LogLevel } from './ViperProtocol';
-const globToRexep = require('glob-to-regexp');
 
 export class Helper {
 

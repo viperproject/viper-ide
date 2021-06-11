@@ -8,12 +8,12 @@
  
 'use strict';
 
+import {basename} from 'path';
+import {readFileSync} from 'fs';
+import * as ipc from 'node-ipc';
 import {DebugSession, InitializedEvent, TerminatedEvent, StoppedEvent, Thread, StackFrame, Scope, Source, Handles} from 'vscode-debugadapter';
 import {DebugProtocol} from 'vscode-debugprotocol';
-import {readFileSync} from 'fs';
-import {basename} from 'path';
-import {LaunchRequestArguments, StepType} from './ViperProtocol'
-const ipc = require('node-ipc');
+import {StepType} from './ViperProtocol'
 
 /**
  * This interface should always match the schema found in the mock-debug extension manifest.

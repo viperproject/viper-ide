@@ -8,12 +8,12 @@
  
 'use strict';
 
+import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as child_process from 'child_process';
 import { Log } from './Log';
 import { GetExecutionTraceParams, ExecutionTrace, TimingInfo, ShowHeapParams, StepsAsDecorationOptionsResult, MyProtocolDecorationOptions, StateColors, Position, HeapGraph, Commands, LogLevel } from './ViperProtocol';
-import * as fs from 'fs';
-import child_process = require('child_process');
 import { HeapProvider } from './HeapProvider';
-import * as vscode from 'vscode';
 import { Helper } from './Helper';
 import { State } from './ExtensionState';
 import { ViperFileState } from './ViperFileState';
