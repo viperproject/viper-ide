@@ -32,9 +32,6 @@ export default class TestHelper {
     private static callbacks: UnitTestCallbackImpl = null;
 
     public static async setup() {
-        // await TestHelper.startExtension();
-
-        TestHelper.log("TestHelper.setup()");
         // setup callbacks:
         assert(this.callbacks == null);
         this.callbacks = new UnitTestCallbackImpl();
@@ -42,6 +39,9 @@ export default class TestHelper {
         // call `Log.updateSettings()` as early as possible after setting `State.unitTest` such that 
         // the appropriate log level for tests is set:
         Log.updateSettings();
+        // directly write the log file's location to the console (as opposed to sending it to `Log`) because
+        // all log output is suppressed while unit testing:
+        console.info(`Log file is stored at '${Log.logFilePath}'`);
 
         // The following comment explains how an extension could be restarted in between test suites:
         // https://github.com/microsoft/vscode/issues/45774#issuecomment-373423895
@@ -71,9 +71,7 @@ export default class TestHelper {
 
     public static async startExtension(): Promise<void> {
         await TestHelper.openFile(EMPTY);
-        console.log("Waiting for extension activation...");
         await Notifier.waitExtensionActivation();
-        TestHelper.log("Extension has been activated");
     }
 
     public static async openFile(fileName: string): Promise<vscode.TextDocument> {

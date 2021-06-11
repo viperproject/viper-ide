@@ -106,7 +106,6 @@ export class Log {
     public static updateSettings() {
         let oldLogLevel = Log.logLevel;
         Log.logLevel = Helper.getConfiguration("preferences").logLevel || LogLevel.Default;
-        console.log(`updateSettings: State.unitTest is ${State.unitTest ? 'true' : 'false'}`);
         if (State.unitTest) {
             // we want to keep output small during testing and in case log output matters,
             // it can be looked up in the log file. Thus, there is no reason to spam the

@@ -56,8 +56,7 @@ async function main() {
 async function getTestSuiteFilenames(): Promise<string[]> {
 	return new Promise((resolve, reject) =>
         glob(
-            // "**/*.test.js",
-			"**/startup.test.js",
+            "**/*.test.js",
             {
                 cwd: TESTS_ROOT,
             },
