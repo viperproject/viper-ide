@@ -19,7 +19,7 @@ suite('Extension Startup', () => {
     });
 
     test("Test simple verification with Silicon", async function(){
-        this.timeout(25000);
+        this.timeout(40000);
         await TestHelper.openAndVerify(SIMPLE);
     });
 

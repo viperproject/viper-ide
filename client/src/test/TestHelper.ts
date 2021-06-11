@@ -32,19 +32,13 @@ export default class TestHelper {
     private static callbacks: UnitTestCallbackImpl = null;
 
     public static async setup() {
-        await TestHelper.startExtension();
+        // await TestHelper.startExtension();
 
-        console.log("TestHelper.setup()");
+        TestHelper.log("TestHelper.setup()");
         // setup callbacks:
         assert(this.callbacks == null);
         this.callbacks = new UnitTestCallbackImpl();
         State.unitTest = this.callbacks;
-        console.log("TestHelper has set State.unitTest");
-        if (State.unitTest) {
-            console.log(`State.unitTest evaluates to true`);
-        } else {
-            console.log(`State.unitTest evaluates to false`);
-        }
         // call `Log.updateSettings()` as early as possible after setting `State.unitTest` such that 
         // the appropriate log level for tests is set:
         Log.updateSettings();
@@ -84,7 +78,7 @@ export default class TestHelper {
 
     public static async openFile(fileName: string): Promise<vscode.TextDocument> {
         const filePath = TestHelper.getTestDataPath(fileName);
-        console.log("Open " + filePath);
+        TestHelper.log("Open " + filePath);
         const document = await vscode.workspace.openTextDocument(filePath);
         await vscode.window.showTextDocument(document);
         return document;
