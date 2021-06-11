@@ -23,6 +23,7 @@
 'use strict';
 
 const path = require('path');
+const ESLintPlugin = require('eslint-webpack-plugin');
 
 /**@type {import('webpack').Configuration}*/
 const config = {
@@ -43,6 +44,11 @@ const config = {
         // support reading TypeScript and JavaScript files -> https://github.com/TypeStrong/ts-loader
         extensions: ['.ts', '.js']
     },
+    plugins: [
+        new ESLintPlugin({
+            extensions: ['ts']
+        })
+    ],
     module: {
         rules: [
             {
