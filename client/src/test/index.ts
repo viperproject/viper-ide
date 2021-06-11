@@ -30,11 +30,12 @@ export async function run(): Promise<void> {
         timeout: 600_000, // ms
         color: true,
 	});
-    /*
+    
     // do not look for test suites but only execute the one passed as an environment variable:
     const testSuitePath = process.env["VIPER_IDE_TEST_SUITE"];
-    mocha.addFile(testSuitePath);
-    */
+    console.log(`VIPER_IDE_TEST_SUITE: '${testSuitePath}'`);
+    // mocha.addFile(testSuitePath);
+    
     const testsRoot = path.resolve(__dirname, '..');
 
     const files: Array<string> = await new Promise((resolve, reject) =>
@@ -50,7 +51,11 @@ export async function run(): Promise<void> {
         )
     )
     // Add files to the test suite
-    files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)));
+    files.forEach(f => {
+        const file = path.resolve(testsRoot, f);
+        console.log(`adding file to mocha: '${file}'`);
+        mocha.addFile(file);
+    });
 
     const failures: number = await new Promise(resolve => mocha.run(resolve));
 

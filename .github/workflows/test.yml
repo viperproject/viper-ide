@@ -214,7 +214,6 @@ jobs:
 
       - name: Run tests (headless)
         uses: GabrielBB/xvfb-action@v1
-        id: runTests
         with:
           run: npm test --full-trace
           working-directory: client
