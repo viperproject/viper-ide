@@ -18,7 +18,9 @@
 // BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT 
 // OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+import * as path from 'path';
 import * as Mocha from 'mocha';
+import * as glob from 'glob';
 
 export async function run(): Promise<void> {
 	// Create the mocha test
@@ -28,10 +30,27 @@ export async function run(): Promise<void> {
         timeout: 600_000, // ms
         color: true,
 	});
-
+    /*
     // do not look for test suites but only execute the one passed as an environment variable:
     const testSuitePath = process.env["VIPER_IDE_TEST_SUITE"];
     mocha.addFile(testSuitePath);
+    */
+    const testsRoot = path.resolve(__dirname, '..');
+
+    const files: Array<string> = await new Promise((resolve, reject) =>
+        glob(
+            "**/startup.test.js",
+            {
+                cwd: testsRoot,
+            },
+            (err, result) => {
+                if (err) reject(err)
+                else resolve(result)
+            }
+        )
+    )
+    // Add files to the test suite
+    files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)));
 
     const failures: number = await new Promise(resolve => mocha.run(resolve));
 
