@@ -69,15 +69,11 @@ export default class TestHelper {
         return path.join(DATA_ROOT, fileName);
     }
 
-    public static async startExtension(backendHasToBeStarted: boolean = false): Promise<void> {
-        let ready: Promise<void>
-        if (backendHasToBeStarted) {
-            ready = TestHelper.waitForBackendStarted(); 
-        } else {
-            ready = Notifier.waitExtensionActivation();
-        }
-        await TestHelper.openFile(EMPTY);
-        await ready;
+    public static async startExtension(): Promise<void> {
+        const fileName = EMPTY;
+        const verified = TestHelper.waitForVerification(fileName);
+        await TestHelper.openFile(fileName);
+        await verified;
     }
 
     public static async openFile(fileName: string): Promise<vscode.TextDocument> {

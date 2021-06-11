@@ -7,7 +7,7 @@ suite('Viper Tools Update Test', () => {
         this.timeout(SETUP_TIMEOUT);
         await TestHelper.setup();
         // these tests require a running backend:
-        await TestHelper.startExtension(true);
+        await TestHelper.startExtension();
     });
 
     suiteTeardown(async function() {
