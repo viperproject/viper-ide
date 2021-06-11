@@ -1,13 +1,13 @@
 import * as assert from 'assert';
-import TestHelper, { LONG } from './TestHelper';
-/*
+import TestHelper, { LONG, SETUP_TIMEOUT } from './TestHelper';
+
 suite('Viper Tools Update Test', () => {
 
     suiteSetup(async function() {
         this.timeout(SETUP_TIMEOUT);
         await TestHelper.setup();
         // these tests require a running backend:
-        await TestHelper.startExtension();
+        await TestHelper.startExtension(true);
     });
 
     suiteTeardown(async function() {
@@ -46,4 +46,3 @@ suite('Viper Tools Update Test', () => {
         assert (!TestHelper.hasObservedInternalError());
     });
 });
-*/

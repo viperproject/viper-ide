@@ -16,7 +16,6 @@ import { Server } from './ServerClass';
 
 export abstract class BackendService {
     backendProcess: child_process.ChildProcess;
-    instanceCount: number = 0;
     isSessionRunning: boolean = false;
     backendServerPid: number;
     
@@ -24,7 +23,7 @@ export abstract class BackendService {
 
     private _ready: boolean = false;
 
-    protected timeout;
+    private timeout: NodeJS.Timeout = null;
     protected engine: string;
 
     public isViperServerService: boolean;
@@ -108,15 +107,21 @@ export abstract class BackendService {
         });
     }
 
-    protected startTimeout(instanceCount: number) {
-        let timeout = Settings.settings.viperServerSettings.timeout
+    protected startTimeout(): void {
+        const timeout = Settings.settings.viperServerSettings.timeout
         if (timeout) {
             this.timeout = setTimeout(() => {
-                if (!this.isReady() && this.instanceCount == instanceCount) {
-                    Log.hint("The backend server startup timed out after " + timeout + "ms, make sure the files in " + Settings.expandViperToolsPath("$ViperTools$/backends/") + " contain no conflicting jars");
-                    this.kill();
-                }
+                Log.hint("The backend server startup timed out after " + timeout + "ms, make sure the files in " + Settings.expandViperToolsPath("$ViperTools$/backends/") + " contain no conflicting jars");
+                this.kill();
             }, timeout);
+        }
+    }
+
+    protected clearStartTimeout(): void {
+        if (this.timeout) {
+            clearTimeout(this.timeout);
+            this.timeout = null;
+            Log.log("start timeout has been cleared", LogLevel.LowLevelDebug);
         }
     }
 
@@ -124,6 +129,7 @@ export abstract class BackendService {
         this._ready = true;
         Server.backend = backend;
         Server.startingOrRestarting = false;
+        this.clearStartTimeout();
         Log.log("The backend is ready for verification", LogLevel.Info);
         Server.sendBackendReadyNotification({
             name: Server.backend.name,
@@ -166,6 +172,7 @@ export abstract class BackendService {
         Log.log("Set Stopped. ", LogLevel.Debug);
         this._ready = false;
         Server.startingOrRestarting = false;
+        this.clearStartTimeout();
         Server.sendStateChangeNotification({ newState: VerificationState.Stopped });
     }
 }

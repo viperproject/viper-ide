@@ -255,9 +255,24 @@ export class Server {
         return ViperTools.getInstalledViperToolsPath(context);
     }
 
+    private static cacheInternalEnsureViperTools: Promise<Location> = null;
     public static async ensureViperTools(shouldUpdate: boolean): Promise<Location> {
-        
+        let cachedPromise: Promise<Location> = this.cacheInternalEnsureViperTools;
+        if (cachedPromise != null) {
+            // ensureViperTools is already ongoing, do not start it again but return the cached promise:
+            return cachedPromise;
+        }
+        // ensureViperTools is not already ongoing, start it:
+        cachedPromise = this.internalEnsureViperTools(shouldUpdate);
+        this.cacheInternalEnsureViperTools = cachedPromise;
+        // reset cache when operation is done:
+        return cachedPromise.then(loc => {
+            this.cacheInternalEnsureViperTools = null;
+            return loc;
+        });
+    }
 
+    private static async internalEnsureViperTools(shouldUpdate: boolean): Promise<Location> {
         try {
             // We assume here that the settings have been checked and are fine.
             // In particular, we do not check the path to the Java installation again.

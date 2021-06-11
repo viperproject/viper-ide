@@ -425,40 +425,40 @@ function canVerificationBeStarted(uri: string, manuallyTriggered: boolean): bool
     return true;
 }
 
-function checkSettingsAndStartServer(backendName: string) {
-    let backend: Backend;
-    Settings.checkSettings(false).then(() => {
-        if (Settings.valid()) {
-            backend = Settings.selectBackend(Settings.settings, backendName);
-            if (backend) {
-                changeBackendEngineIfNeeded(backend);
-                return Server.backendService.start(backend);
+async function checkSettingsAndStartServer(backendName: string): Promise<void> {
+    try {
+        await Settings.checkSettings(false);
+        const valid = Settings.valid();
+        if (!valid) {
+            return Promise.reject(new Error("backend start skipped because of invalid settings"));
+        }
+        const backend = Settings.selectBackend(Settings.settings, backendName);
+        if (backend) {
+            changeBackendEngineIfNeeded(backend);
+            const success = await Server.backendService.start(backend);
+            if (success) {
+                Server.backendService.setReady(backend);
             } else {
-                Log.error("cannot start backend " + backendName + ", no configuration found.");
-                return false;
+                Server.backendService.setStopped();
+                Log.log("The ViperServer could not be started.", LogLevel.Debug);
             }
         } else {
-            return false;
+            const errMsg = `cannot start backend ${backendName}, no configuration found.`;
+            Log.error(errMsg);
+            return Promise.reject(new Error(errMsg));
         }
-    }).then(success => {
-        if (success) {
-            Server.backendService.setReady(backend);
-        } else {
-            Server.backendService.setStopped();
-            Log.log("The ViperServer could not be started.", LogLevel.Debug);
-        }
-    }).catch(reason => {
+    } catch (reason) {
         if (reason.startsWith("startupFailed")) {
             Log.hint("The ViperServer startup failed, make sure the dependencies are not missing/conflicting.",true,true)
             Log.error("ViperServer: " + reason);
             Server.backendService.setStopped();
-            //prevent the timeout from happening
-            Server.backendService.instanceCount++;
         } else {
             Log.error("startViperServer failed: " + reason);
             Server.backendService.kill();
         }
-    });
+        // rethrow error:
+        return Promise.reject(new Error(reason));
+    }
 }
 
 function changeBackendEngineIfNeeded(backend: Backend) {

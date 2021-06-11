@@ -47,6 +47,7 @@ export default class ViperTools {
 
         const selectedChannel = Helper.getBuildChannel(context);
         const dependency = await this.getDependency(context, shouldUpdate);
+        Log.log(`Installing dependencies for build channel ${selectedChannel}`, LogLevel.Debug);
         const location: Location = await dependency.install(selectedChannel, shouldUpdate, intermediateListener, confirm)
             .catch(Helper.rethrow(`Downloading and unzipping the Viper Tools has failed`));
 

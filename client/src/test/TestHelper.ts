@@ -39,9 +39,6 @@ export default class TestHelper {
         // call `Log.updateSettings()` as early as possible after setting `State.unitTest` such that 
         // the appropriate log level for tests is set:
         Log.updateSettings();
-        // directly write the log file's location to the console (as opposed to sending it to `Log`) because
-        // all log output is suppressed while unit testing:
-        console.info(`Log file is stored at '${Log.logFilePath}'`);
 
         // The following comment explains how an extension could be restarted in between test suites:
         // https://github.com/microsoft/vscode/issues/45774#issuecomment-373423895
@@ -58,6 +55,9 @@ export default class TestHelper {
         // at the very end, set `unitTest` to false and dispose log because `Log.dispose()` as part of `deactivate`
         // has been ignored if `unitTest` is non-null:
         State.unitTest = null;
+        // directly write the log file's location to the console (as opposed to sending it to `Log`) because
+        // all log output is suppressed while unit testing:
+        console.info(`Log file is stored at '${Log.logFilePath}'`);
         Log.dispose();
     }
 
@@ -69,9 +69,15 @@ export default class TestHelper {
         return path.join(DATA_ROOT, fileName);
     }
 
-    public static async startExtension(): Promise<void> {
+    public static async startExtension(backendHasToBeStarted: boolean = false): Promise<void> {
+        let ready: Promise<void>
+        if (backendHasToBeStarted) {
+            ready = TestHelper.waitForBackendStarted(); 
+        } else {
+            ready = Notifier.waitExtensionActivation();
+        }
         await TestHelper.openFile(EMPTY);
-        await Notifier.waitExtensionActivation();
+        await ready;
     }
 
     public static async openFile(fileName: string): Promise<vscode.TextDocument> {

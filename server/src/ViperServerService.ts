@@ -84,9 +84,8 @@ export class ViperServerService extends BackendService {
             Log.log(command, LogLevel.Debug);
 
             Server.startingOrRestarting = true;
-            this.startTimeout(++this.instanceCount);
-                
-            let errorReason = "";
+            this.startTimeout();
+
             this.backendProcess = child_process.exec(command, { 
                 maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, 
                 cwd: Server.backendOutputDirectory 
@@ -112,7 +111,7 @@ export class ViperServerService extends BackendService {
                 });
             });
             this.backendProcess.stderr.on('data',(data:string) => {
-                errorReason += "\n" + data
+                Log.logWithOrigin("ViperServer STDERR", data.trim(), LogLevel.Info);
             })
             this._backendProcessExit = new Promise(resolve => {
                 this.backendProcess.on('exit', code => {
@@ -130,7 +129,6 @@ export class ViperServerService extends BackendService {
     public async stop(): Promise<boolean> {
         if (this.backendProcess) {
             Log.log(`Sending exit request to ViperServer...`, LogLevel.Debug);
-            //clearTimeout(this.timeout)
             this.setStopping();
             const stopResponse = await this.sendStopRequest();
             // wait until server process has exited:

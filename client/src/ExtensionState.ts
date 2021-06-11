@@ -222,6 +222,7 @@ export class State {
             await State.client.sendRequest(Commands.StopAllVerifications, null);
             Log.log("Language server has stopped verifications", LogLevel.Info);
             await State.client.stop();
+            Log.log("Language server has stopped", LogLevel.Info);
         } catch (e) {
             Log.error("Error disposing state: " + e);
         }
