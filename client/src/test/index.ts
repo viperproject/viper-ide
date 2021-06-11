@@ -20,7 +20,6 @@
 
 import * as path from 'path';
 import * as Mocha from 'mocha';
-import * as glob from 'glob';
 
 export async function run(): Promise<void> {
 	// Create the mocha test
@@ -32,30 +31,11 @@ export async function run(): Promise<void> {
 	});
     
     // do not look for test suites but only execute the one passed as an environment variable:
-    const testSuitePath = process.env["VIPER_IDE_TEST_SUITE"];
-    console.log(`VIPER_IDE_TEST_SUITE: '${testSuitePath}'`);
-    // mocha.addFile(testSuitePath);
-    
+    const testSuiteFilename = process.env["VIPER_IDE_TEST_SUITE"];
     const testsRoot = path.resolve(__dirname, '..');
-
-    const files: Array<string> = await new Promise((resolve, reject) =>
-        glob(
-            "**/startup.test.js",
-            {
-                cwd: testsRoot,
-            },
-            (err, result) => {
-                if (err) reject(err)
-                else resolve(result)
-            }
-        )
-    )
-    // Add files to the test suite
-    files.forEach(f => {
-        const file = path.resolve(testsRoot, f);
-        console.log(`adding file to mocha: '${file}'`);
-        mocha.addFile(file);
-    });
+    // resolve the path to the test suite here and not already in runTest.ts due to the problems
+    // mentioned in the comment in `getTestSuiteFilenames()`.
+    mocha.addFile(path.resolve(testsRoot, testSuiteFilename));
 
     const failures: number = await new Promise(resolve => mocha.run(resolve));
 

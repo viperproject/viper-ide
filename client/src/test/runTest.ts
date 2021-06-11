@@ -41,20 +41,20 @@ async function main() {
 	console.info("Reading list of settings...");
 	const settings_list = fs.readdirSync(path.join(DATA_ROOT, "settings")).sort();
 	assert(settings_list.length > 0, "There are no settings to test");
-	const testSuitePaths = await getTestSuites();
-	assert(testSuitePaths.length > 0, "There are no test suites to test");
+	const testSuiteFilenames = await getTestSuiteFilenames();
+	assert(testSuiteFilenames.length > 0, "There are no test suites to test");
 
 	for (const settings_file of settings_list) {
 		console.info(`Testing with settings '${settings_file}'...`);
 		const settings_path = path.join(DATA_ROOT, "settings", settings_file);
-		for (const testSuitePath of testSuitePaths) {
-			await runTestSuite(vscode_version, settings_path, testSuitePath);
+		for (const testSuiteFilename of testSuiteFilenames) {
+			await runTestSuite(vscode_version, settings_path, testSuiteFilename);
 		}
 	}
 }
 
-async function getTestSuites(): Promise<string[]> {
-	const files: Array<string> = await new Promise((resolve, reject) =>
+async function getTestSuiteFilenames(): Promise<string[]> {
+	return new Promise((resolve, reject) =>
         glob(
             // "**/*.test.js",
 			"**/startup.test.js",
@@ -67,11 +67,17 @@ async function getTestSuites(): Promise<string[]> {
             }
         )
     );
-
-	return files.map(f => path.resolve(TESTS_ROOT, f));
+	// do not resolve the path to the test suites here.
+	// on Windows CI the following path would be resolved:
+	// "D:\a\viper-ide\viper-ide\client\dist\test\startup.test.js"
+	// however when resolving the path in index.ts, the following path is created:
+	// "d:\a\viper-ide\viper-ide\client\dist\test\startup.test.js"
+	// this does not seem to be an issue at first sight, however weird issues arise
+	// at runtime of the extension: for example, the notifier does not work because the
+	// the test suite and extension use distinct global variables in the notifier.
 }
 
-async function runTestSuite(vscode_version: string, settingsPath: string, testSuitePath: string): Promise<void> {
+async function runTestSuite(vscode_version: string, settingsPath: string, testSuiteFilename: string): Promise<void> {
 	// The folder containing the Extension Manifest package.json
 	// Passed to `--extensionDevelopmentPath`
 	const extensionDevelopmentPath = PROJECT_ROOT;
@@ -91,10 +97,10 @@ async function runTestSuite(vscode_version: string, settingsPath: string, testSu
 		// get environment variables
 		const env: NodeJS.ProcessEnv = process.env;
 		// add additional environment variables to
-		// - path to test suite that should be executed by index.js
+		// - name of the test suite that should be executed by index.js
 		// - auto accept confirmation messages of Viper-IDE
 		// - wipe global storage path to force install Viper Tools after each activation
-		env.VIPER_IDE_TEST_SUITE = testSuitePath;
+		env.VIPER_IDE_TEST_SUITE = testSuiteFilename;
 		env.VIPER_IDE_ASSUME_YES = "1";
 		env.VIPER_IDE_CLEAN_INSTALL = "1";
 
