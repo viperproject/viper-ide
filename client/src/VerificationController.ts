@@ -934,8 +934,10 @@ export class VerificationController {
             this.nextFileToAutoVerify++;
             vscode.workspace.openTextDocument(currFile).then((document) => {
                 vscode.window.showTextDocument(document).then(() => {
-                    //verify(State.getFileState(currFile), false);
-                    State.addToWorklist(new Task({ type: TaskType.Verify, uri: currFile, manuallyTriggered: false }));
+                    // set `manuallyTriggered` to true such that all files get reverified in case they have already
+                    // been verified. This is sensible as this action is the immediate result of the user executing
+                    // the verify all files in workspace command.
+                    State.addToWorklist(new Task({ type: TaskType.Verify, uri: currFile, manuallyTriggered: true }));
                 })
             })
         } else {
