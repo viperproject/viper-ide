@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import TestHelper, { LONG, SETUP_TIMEOUT } from './TestHelper';
+import TestHelper, { LONG, SETUP_TIMEOUT, SIMPLE } from './TestHelper';
 
 suite('Viper Tools Update Test', () => {
 
@@ -17,14 +17,11 @@ suite('Viper Tools Update Test', () => {
     test("Viper Tools Update Test", async function() {
         this.timeout(60000);
 
-        await TestHelper.startViperToolsUpdate();
         const updateDone = TestHelper.waitForViperToolsUpdate();
-        const verified = TestHelper.openAndVerify(LONG);
-
+        await TestHelper.startViperToolsUpdate();
         const success = await updateDone;
         assert(success, "Viper Tools Update failed")
         await TestHelper.waitForBackendStarted();
-        await verified;
     });
 
     test("Test abort of first verification after viper tools update", async function(){
@@ -44,5 +41,10 @@ suite('Viper Tools Update Test', () => {
         //reverify
         await TestHelper.openAndVerify(LONG);
         assert (!TestHelper.hasObservedInternalError());
+    });
+
+    test("Test verification is possible after viper tools update", async function() {
+        this.timeout(40000);
+        await TestHelper.openAndVerify(SIMPLE);
     });
 });
