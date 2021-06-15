@@ -15,6 +15,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as stripJSONComments from 'strip-json-comments';
+import * as rimraf from 'rimraf';
 import { Timer } from './Timer';
 import { State } from './ExtensionState';
 import { SettingsError, Progress, HintMessage, Versions, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, Commands, StateChangeParams, LogLevel } from './ViperProtocol';
@@ -61,6 +62,7 @@ export async function activate(context: vscode.ExtensionContext) {
     Log.log('Viper-Client is now active.', LogLevel.Info);
     State.checkOperatingSystem();
     State.context = context;
+    await cleanViperToolsIfRequested(context);
     State.verificationController = new VerificationController();
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/{' + Helper.viperFileEndings.join(",") + "}");
     await State.startLanguageServer(context, fileSystemWatcher, false);
@@ -78,6 +80,34 @@ export async function activate(context: vscode.ExtensionContext) {
     }
     
     return State.viperApi;
+}
+
+async function cleanViperToolsIfRequested(context: vscode.ExtensionContext): Promise<void> {
+    // start of in a clean state by wiping Viper Tools if this was requested via
+	// environment variables. In particular, this is used for the extension tests.
+	if (Helper.cleanInstall()) {
+        const globalStoragePath = Helper.getGlobalStoragePath(context);
+        let files: string[] = [];
+        if (fs.existsSync(globalStoragePath)) {
+            // only read directory if it actually exists
+            files = await fs.promises.readdir(globalStoragePath);
+        }
+        if (files.length === 0) {
+            Log.log(`cleanInstall has been requested but viper tools do not exist yet --> NOP`, LogLevel.Info);
+            return;
+        }
+        Log.log(`cleanInstall has been requested and viper tools already exist --> delete them`, LogLevel.Info);
+        return new Promise((resolve, reject) => {
+            // we do not delete `globalStoragePath` but only its content:
+            rimraf(path.join(globalStoragePath, '*'), (err: Error) => {
+                if (err == null) {
+                    resolve();
+                } else {
+                    reject(err);
+                }
+            });
+        });
+	}
 }
 
 function getRequiredVersion(): Versions {

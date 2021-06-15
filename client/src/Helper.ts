@@ -101,4 +101,20 @@ export class Helper {
         if (!progress) return "0%";
         return progress.toFixed(0) + "%";
     }
+
+    /**
+     * Returns the path to the global storage location provided by VSCode to the extension
+     */
+    public static getGlobalStoragePath(context: vscode.ExtensionContext): string {
+        return context.globalStorageUri.fsPath;
+    }
+
+    /**
+     * Returns true if `getGobraToolsPath` should be wiped after activating the extension to ensure a clean system state.
+     */
+    public static cleanInstall(): boolean {
+        const value = process.env["VIPER_IDE_CLEAN_INSTALL"];
+        return value != null &&
+            (value == "1" || value.toUpperCase() == "TRUE");
+    }
 }
