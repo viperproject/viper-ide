@@ -894,27 +894,23 @@ export class VerificationTask {
         }
     }
 
-    public abortVerificationIfRunning(): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            try {
-                if (!this.running) {
-                    resolve(true)
-                    return
-                }
+    public async abortVerificationIfRunning(): Promise<void> {
+        if (!this.running) {
+            return;
+        }
 
-                Log.log('Abort running verification', LogLevel.Info)
-                this.aborting = true
-              
-                Server.backendService.stopVerification().then(() => { resolve(true) })
+        Log.log('Abort running verification', LogLevel.Info);
+        this.aborting = true;
 
-                this.running = false
-                this.lastSuccess = Success.Aborted
-
-            } catch (e) {
-                Log.error("Error aborting verification of " + this.filename + ": " + e)
-                resolve(false)
-            }
-        })
+        try {
+            await Server.backendService.stopVerification();
+            this.running = false;
+            this.lastSuccess = Success.Aborted;
+        } catch (e) {
+            const errMsg = `Error aborting verification of ${this.filename}: ${e}`;
+            Log.error(errMsg);
+            throw new Error(errMsg);
+        }
     }
 
     public getStepsOnLine(line: number): Statement[] {
@@ -953,7 +949,16 @@ export class VerificationTask {
         }
     }
 
-    public static stopAllRunningVerifications(): Promise<boolean> {
+    public static async stopAllRunningVerifications(): Promise<void> {
+        const tasks = Array.from(Server.verificationTasks.values());
+        const promises: Promise<void>[] = tasks.map(task => task.abortVerificationIfRunning());
+        return Promise.all(promises).then(); // the `then` is necessary to convert from `void[]` to `void`
+        /*
+        if (tasks.length == 0) {
+            Log.log(`stopAllRunningVerifications: no verifications to be stopped`, LogLevel.LowLevelDebug);
+            return;
+        }
+
         return new Promise((resolve, reject) => {
             try {
                 if (Server.verificationTasks && Server.verificationTasks.size > 0) {
@@ -980,5 +985,6 @@ export class VerificationTask {
                 reject();
             }
         });
+        */
     }
 }

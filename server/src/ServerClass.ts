@@ -27,11 +27,17 @@ export class Server {
     static executedStages: Stage[];
     static connection: IConnection;
     static documents: TextDocuments = new TextDocuments();
-    static verificationTasks: Map<string, VerificationTask> = new Map();
     static backendService: BackendService = new ViperServerService();
     static debuggedVerificationTask: VerificationTask;
     static startingOrRestarting: boolean = false;
     static viperFileEndings: string[];
+
+    /** do not access this field directly by use the getter `verificationTasks`; non-null */
+    private static _verificationTasks: Map<string, VerificationTask> = new Map();
+    /** returns a non-null map */
+    static get verificationTasks(): Map<string, VerificationTask> {
+        return this._verificationTasks;
+    }
 
     static stage(): Stage {
         if (this.executedStages && this.executedStages.length > 0) {

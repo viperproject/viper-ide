@@ -233,24 +233,21 @@ function registerHandlers() {
         }
     });
 
-    Server.connection.onNotification(Commands.Verify, (data: VerifyRequest) => {
-        try { 
-            let verificationstarted = false;
+    Server.connection.onNotification(Commands.Verify, async (data: VerifyRequest) => {
+        try {
             //it does not make sense to reverify if no changes were made and the verification is already running
             if (canVerificationBeStarted(data.uri, data.manuallyTriggered)) {
                 Settings.workspace = data.workspace;
                 Log.log("start or restart verification", LogLevel.Info);
                 //stop all other verifications because the backend crashes if multiple verifications are run in parallel
-                VerificationTask.stopAllRunningVerifications().then(success => {
-                    //start verification
-                    Server.executedStages = [];
-                    verificationstarted = Server.verificationTasks.get(data.uri).verify(data.manuallyTriggered) === true;
-                    if (!verificationstarted) {
-                        Server.sendVerificationNotStartedNotification(data.uri);
-                    }
-                }, () => {
+                await VerificationTask.stopAllRunningVerifications();
+                Log.log(`other verifications have been stopped`, LogLevel.LowLevelDebug);
+                //start verification
+                Server.executedStages = [];
+                const verificationstarted = Server.verificationTasks.get(data.uri).verify(data.manuallyTriggered);
+                if (!verificationstarted) {
                     Server.sendVerificationNotStartedNotification(data.uri);
-                });
+                }
             } else {
                 Log.log("The verification cannot be started.", LogLevel.Info);
                 Server.sendVerificationNotStartedNotification(data.uri);
@@ -352,26 +349,23 @@ function registerHandlers() {
         });
     });
 
-    Server.connection.onRequest(Commands.StopVerification, (uri: string) => {
-        return new Promise<boolean>((resolve, reject) => {
-            try {
-                let task = Server.verificationTasks.get(uri);
-                if (task) {
-                    task.abortVerificationIfRunning().then((success) => {
-                        Server.sendStateChangeNotification({
-                            newState: VerificationState.Ready,
-                            verificationCompleted: false,
-                            verificationNeeded: false,
-                            uri: uri
-                        }, task);
-                        resolve(success);
-                    })
-                }
-            } catch (e) {
-                Log.error("Error handling stop verification request (critical): " + e);
-                resolve(false);
+    Server.connection.onRequest(Commands.StopVerification, async (uri: string) => {
+        try {
+            const task = Server.verificationTasks.get(uri);
+            if (task) {
+                await task.abortVerificationIfRunning();
+                Server.sendStateChangeNotification({
+                    newState: VerificationState.Ready,
+                    verificationCompleted: false,
+                    verificationNeeded: false,
+                    uri: uri
+                }, task);
             }
-        });
+            return true;
+        } catch (e) {
+            Log.error(`Error handling stop verification request (critical): ${e}`);
+            return false;
+        }
     });
 
     Server.connection.onNotification(Commands.StopDebugging, () => {
