@@ -11,14 +11,12 @@
 import * as vscode from "vscode";
 import * as path from 'path';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as unusedFilename from 'unused-filename';
 import { Progress, LogLevel } from './ViperProtocol';
 import { Helper } from './Helper';
 import { State } from './ExtensionState';
 
 export class Log {
-    static tempDirectory = Log.getTempDir();
     static logFilePath: string;
     static logFile: fs.WriteStream;
     static outputChannel = vscode.window.createOutputChannel('Viper');
@@ -28,25 +26,13 @@ export class Log {
 
     static logTiming = true;
 
-    private static getTempDir(): string {
-        // check if a particular dir has been passed as an environment variable.
-        // this is mainly used for CI purposes:
-        const logDir = process.env["VIPER_IDE_LOG_DIR"];
-        if (logDir == null || logDir === "") {
-            return path.join(os.tmpdir(), ".vscode");
-        }
-        return logDir;
-    }
 
     public static initialize() {
         try {
             Log.updateSettings();
-            //create logfile's directory if it wasn't created before
-            if (!fs.existsSync(this.tempDirectory)) {
-                fs.mkdirSync(this.tempDirectory);
-            }
             if (!this.logFile) {
-                this.logFilePath = unusedFilename.sync(path.join(this.tempDirectory, "viper.log"));
+                const logDirectory = Helper.getLogDir();
+                this.logFilePath = unusedFilename.sync(path.join(logDirectory, "viper.log"));
                 Log.log('The logFile is located at: "' + this.logFilePath + '"', LogLevel.Info)
                 try {
                     Log.createFile(this.logFilePath);

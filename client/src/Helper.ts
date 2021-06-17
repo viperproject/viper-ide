@@ -11,6 +11,8 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as globToRexep from 'glob-to-regexp';
+import * as path from 'path';
+import * as os from 'os';
 import { Log } from './Log';
 import { LogLevel } from './ViperProtocol';
 
@@ -107,6 +109,24 @@ export class Helper {
      */
     public static getGlobalStoragePath(context: vscode.ExtensionContext): string {
         return context.globalStorageUri.fsPath;
+    }
+
+    /**
+     * Returns the directory in which log files should be stored.
+     * The directory will be created if it does not exist yet
+     */
+     public static getLogDir(): string {
+        // check if a particular dir has been passed as an environment variable.
+        // this is mainly used for CI purposes:
+        let logDir = process.env["VIPER_IDE_LOG_DIR"];
+        if (logDir == null || logDir === "") {
+            logDir = path.join(os.tmpdir(), ".vscode");
+        }
+        //create logfile's directory if it wasn't created before
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+        }
+        return logDir;
     }
 
     /**

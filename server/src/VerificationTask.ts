@@ -929,7 +929,7 @@ export class VerificationTask {
 
     public loadSymbExLogFromFile() {
         try {
-            let symbExLogPath = pathHelper.join(Server.tempDirectory, "executionTreeData.js");
+            let symbExLogPath = pathHelper.join(Server.backendOutputDirectory, "executionTreeData.js");
             Log.log("Loading The symbexLog from: " + symbExLogPath, LogLevel.Debug);
             if (fs.existsSync(symbExLogPath)) {
                 let content = fs.readFileSync(symbExLogPath).toString();

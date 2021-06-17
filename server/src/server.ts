@@ -24,11 +24,18 @@ const argv = yargs
         description: 'Path to the global storage folder provided by VSCode to a particular extension',
         type: 'string',
     })
+    .option('logDir', {
+        description: 'Path to a folder in which log files should be stored',
+        type: 'string',
+    })
     .help() // show help if `--help` is used
     .argv;
 // pass command line option to Settings:
 if (argv.globalStorage) {
     Settings.globalStoragePath = argv.globalStorage;
+}
+if (argv.logDir) {
+    Settings.logDirPath = argv.logDir;
 }
 
 

@@ -177,7 +177,10 @@ export class State {
             Log.log(serverModule + " does not exist. Reinstall the Extension", LogLevel.Debug);
             return;
         }
-        const args = ["--globalStorage", Helper.getGlobalStoragePath(context)];
+        const args = [
+            "--globalStorage", Helper.getGlobalStoragePath(context),
+            "--logDir", Helper.getLogDir()
+        ];
         // The debug options for the server
         const debugOptions = { execArgv: ["--nolazy", "--inspect=5443"] };
 

@@ -23,7 +23,6 @@ import { Location } from './vs-verification-toolbox'
 
 export class Server {
     static backend: Backend;
-    static tempDirectory: string = pathHelper.join(os.tmpdir(), ".vscode");
     static backendOutputDirectory: string = os.tmpdir();
     static executedStages: Stage[];
     static connection: IConnection;

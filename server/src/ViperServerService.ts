@@ -11,15 +11,16 @@
 import * as request from 'request'
 import * as StreamValues from 'stream-json/streamers/StreamValues'
 import * as child_process from 'child_process'
+import * as tree_kill from 'tree-kill'
+import * as path from 'path'
+import * as SOUND from 'sound-play'
+import * as os from 'os'
 import { Log } from './Log'
 import { Settings } from './Settings'
 import { Common, Backend, LogLevel, Commands, VerificationState } from './ViperProtocol'
 import { Server } from './ServerClass'
 import { BackendService } from './BackendService'
-import * as tree_kill from 'tree-kill'
-import * as path from 'path'
 import { DiagnosticSeverity } from 'vscode-languageserver'
-import * as SOUND from 'sound-play'
 import { assert } from 'console'
 
 enum Sounds {
@@ -192,7 +193,7 @@ export class ViperServerService extends BackendService {
         const javaArgs = Settings.settings.javaSettings.customArguments;
         const customArgs = Settings.settings.viperServerSettings.customArguments;
         const logLevel = this.logLevelToStr(Settings.settings.preferences.logLevel);
-        const logFile = Server.tempDirectory;
+        const logFile = Settings.logDirPath == null ? os.tmpdir() : Settings.logDirPath;
         let command = `${javaPath} ${javaArgs} ${customArgs} --logLevel ${logLevel} --logFile ${logFile}`;
 
         command = command.replace(/\$backendPaths\$/g, Settings.viperServerJars())

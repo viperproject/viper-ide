@@ -37,8 +37,14 @@ export class Settings {
     /** 
      * path to global storage folder provided by VSCode to extensions.
      * This field is populated by server.ts based on CLI options
-     * */
+     */
     public static globalStoragePath: string = null;
+
+    /**
+     * path to the folder in which log files should be stored.
+     * This field is populated by server.ts based on CLI options
+     */
+    public static logDirPath: string = null;
 
     private static firstSettingsCheck = true;
 
