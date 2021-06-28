@@ -1,4 +1,4 @@
-import TestHelper, { CARBON, SETUP_TIMEOUT, SILICON, SIMPLE } from './TestHelper';
+import TestHelper, { CARBON, EMPTY, SETUP_TIMEOUT, SILICON, SIMPLE } from './TestHelper';
 
 suite('Extension Startup', () => {
 
@@ -21,6 +21,11 @@ suite('Extension Startup', () => {
     test("Test simple verification with Silicon", async function(){
         this.timeout(40000);
         await TestHelper.openAndVerify(SIMPLE);
+    });
+
+    test("Test simple verification with Silicon and a different file", async function(){
+        this.timeout(40000);
+        await TestHelper.openAndVerify(EMPTY);
     });
 
     test("Language Detection, and Carbon Backend Startup test.", async function() {

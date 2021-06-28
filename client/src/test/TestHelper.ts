@@ -91,15 +91,16 @@ export default class TestHelper {
     }
     
     public static async openAndVerify(fileName: string): Promise<vscode.TextDocument> {
-        const filePath = TestHelper.getTestDataPath(fileName);
         // open file, ...
         const document = await TestHelper.openFile(fileName);
 
         const verified = TestHelper.waitForVerification(fileName);
         // ... send verification command to server...
+        TestHelper.log("openAndVerify: file is open, now executing the verify command");
         await TestHelper.verify();
         // ... and wait for result notification from server
         await verified;
+        TestHelper.log("openAndVerify: file is verified");
         return document;
     }
 
