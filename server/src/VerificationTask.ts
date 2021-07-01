@@ -259,6 +259,7 @@ export class VerificationTask {
     }
 
     verify(manuallyTriggered: boolean): boolean {
+        Log.log(`verify ${pathHelper.basename(this.fileUri)} with manuallyTriggered set to ${manuallyTriggered}`, LogLevel.LowLevelDebug);
         //Initialization
         this.prepareVerification();
         this.manuallyTriggered = manuallyTriggered;

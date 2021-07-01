@@ -244,7 +244,10 @@ function registerHandlers() {
                 Log.log(`other verifications have been stopped`, LogLevel.LowLevelDebug);
                 //start verification
                 Server.executedStages = [];
-                const verificationstarted = Server.verificationTasks.get(data.uri).verify(data.manuallyTriggered);
+                const task = Server.verificationTasks.get(data.uri);
+                Log.log(`start verifying task ${task}`, LogLevel.LowLevelDebug);
+                const verificationstarted = task.verify(data.manuallyTriggered);
+                Log.log(`verificationstarted: ${verificationstarted}`, LogLevel.LowLevelDebug);
                 if (!verificationstarted) {
                     Server.sendVerificationNotStartedNotification(data.uri);
                 }
