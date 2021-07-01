@@ -243,7 +243,9 @@ function registerHandlers() {
                 await VerificationTask.stopAllRunningVerifications();
                 Log.log(`other verifications have been stopped`, LogLevel.LowLevelDebug);
                 //start verification
+                Log.log(`before setting executedStages`, LogLevel.LowLevelDebug);
                 Server.executedStages = [];
+                Log.log(`after setting executedStages`, LogLevel.LowLevelDebug);
                 Log.log(`Server.verificationTasks: ${Server.verificationTasks} (size: ${Server.verificationTasks.size})`, LogLevel.LowLevelDebug);
                 const task = Server.verificationTasks.get(data.uri);
                 Log.log(`start verifying task ${task}`, LogLevel.LowLevelDebug);
