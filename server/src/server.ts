@@ -241,7 +241,7 @@ function registerHandlers() {
                 Log.log("start or restart verification", LogLevel.Info);
                 //stop all other verifications because the backend crashes if multiple verifications are run in parallel
                 await VerificationTask.stopAllRunningVerifications();
-                Log.log(`other verifications have been stopped`, LogLevel.LowLevelDebug);
+                Log.log(`other verifications have been stopped - test`, LogLevel.LowLevelDebug);
                 //start verification
                 Log.log(`before setting executedStages`, LogLevel.LowLevelDebug);
                 Server.executedStages = [];
