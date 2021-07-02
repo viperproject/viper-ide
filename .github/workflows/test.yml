@@ -155,60 +155,35 @@ jobs:
       - run: npm ci --cache .npm --prefer-offline
         working-directory: client
 
-      # there are two different scenarios in which different stuff should be tested:
-      # - regular changes to Viper-IDE: the normal test configuration should be used, which tests against the latest stable and
-      #   nightly ViperTool releases. Any change to the Viper-IDE have ensure compatability
-      # - before releasing Viper-IDE together with some ViperTools, Viper-IDE has to be tested against the latest stable and
-      #   nightly ViperTool releases AND the ViperTools that should be released.
-      - name: Download ViperTools to test against
-        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
-        uses: actions/download-artifact@v2
-        with:
-          name: ViperTools
-          path: client/ViperTools
-
-      - name: Unzip ViperTools (non-windows)
-        if: ${{ !startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
-        run: unzip ${{ matrix.viper-tools-zip-file }} -d ExtractedTools
-        working-directory: client/ViperTools
-
-      - name: Unzip ViperTools (windows)
-        if: ${{ startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
-        run: powershell Expand-Archive -LiteralPath ${{ matrix.viper-tools-zip-file }} -DestinationPath ExtractedTools
-        working-directory: client/ViperTools
-
       - name: Create path to extracted tools (non-windows)
-        if: ${{ !startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ !startsWith(matrix.os, 'windows') }}
         run: |
-          echo "EXTRACTED_TOOLS_PATH=${{ github.workspace }}/client/ViperTools/ExtractedTools" >> $GITHUB_ENV
+          echo "VIPERSERVER_PATH=${{ github.workspace }}/client/ViperTools/viperserver.jar" >> $GITHUB_ENV
         shell: bash
 
       - name: Create path to extracted tools (windows)
-        if: ${{ startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ startsWith(matrix.os, 'windows') }}
         # replace all backslashes by double backslashes to properly escape them in the resulting JSON
         run: |
-          PATH='EXTRACTED_TOOLS_PATH=${{ github.workspace }}\client\ViperTools\ExtractedTools'
+          PATH='VIPERSERVER_PATH=${{ github.workspace }}\client\ViperTools\viperserver.jar'
           echo ${PATH//'\'/'\\'} >> $GITHUB_ENV
         shell: bash
 
       - name: Create an additional test config
-        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
         run: |
           echo '{ 
-            "viperSettings.buildVersion": "Local",
-            "viperSettings.paths": {
+            "viperSettings.viperServerSettings": {
               "v": "674a514867b1",
-              "viperToolsPath": {
-                "windows": "${{ env.EXTRACTED_TOOLS_PATH }}",
-                "linux": "${{ env.EXTRACTED_TOOLS_PATH }}",
-                "mac": "${{ env.EXTRACTED_TOOLS_PATH }}"
+              "serverJars": {
+                "windows": "${{ env.VIPERSERVER_PATH }}",
+                "linux": "${{ env.VIPERSERVER_PATH }}",
+                "mac": "${{ env.VIPERSERVER_PATH }}"
               }
             }
           }' > client/src/test/data/settings/ci_local.json
         shell: bash
 
       - name: Get config content
-        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
         run: cat client/src/test/data/settings/ci_local.json
         shell: bash
 
