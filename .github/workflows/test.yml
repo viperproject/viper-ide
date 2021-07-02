@@ -171,6 +171,7 @@ jobs:
 
       - name: Create an additional test config
         run: |
+          mkdir -p client/src/test/data/settings
           echo '{ 
             "viperSettings.viperServerSettings": {
               "v": "674a514867b1",
