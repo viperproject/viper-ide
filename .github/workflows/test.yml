@@ -188,7 +188,88 @@ jobs:
         run: cat client/src/test/data/settings/ci_local.json
         shell: bash
 
-      - name: Run tests (headless)
+      - name: 1 Run tests (headless)
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: npm test --full-trace
+          working-directory: client
+        env:
+          VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 2 Run tests (headless)
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: npm test --full-trace
+          working-directory: client
+        env:
+          VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 3 Run tests (headless)
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: npm test --full-trace
+          working-directory: client
+        env:
+          VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 4 Run tests (headless) 
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: npm test --full-trace
+          working-directory: client
+        env:
+          VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 5 Run tests (headless)
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: npm test --full-trace
+          working-directory: client
+        env:
+          VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 6 Run tests (headless)
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: npm test --full-trace
+          working-directory: client
+        env:
+          VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 7 Run tests (headless)
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: npm test --full-trace
+          working-directory: client
+        env:
+          VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 8 Run tests (headless)
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: npm test --full-trace
+          working-directory: client
+        env:
+          VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 9 Run tests (headless)
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: npm test --full-trace
+          working-directory: client
+        env:
+          VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 10 Run tests (headless)
         uses: GabrielBB/xvfb-action@v1
         with:
           run: npm test --full-trace
