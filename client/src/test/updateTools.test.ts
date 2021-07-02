@@ -14,28 +14,29 @@ suite('Viper Tools Update Test', () => {
         await TestHelper.teardown();
     });
 
-    test("Viper Tools Update Test", async function() {
+    test("Viper Tools Update Test & test abort of first verification", async function() {
         this.timeout(60000);
-
-        const updateDone = TestHelper.waitForViperToolsUpdate();
-        await TestHelper.startViperToolsUpdate();
-        const success = await updateDone;
-        assert(success, "Viper Tools Update failed")
-        await TestHelper.waitForBackendStarted();
-    });
-
-    test("Test abort of first verification after viper tools update", async function(){
-        this.timeout(30000);
         TestHelper.resetErrors();
 
-        // stop the verification after 1000ms
+        const updateDone = TestHelper.waitForViperToolsUpdate();
+        const backendStarted = TestHelper.waitForBackendStarted();
+        await TestHelper.startViperToolsUpdate();
+
+        // open LONG such that it will be verified as soon as backend has started:
+        const aborted = TestHelper.waitForAbort();
+        await TestHelper.openFile(LONG);
+
+        const success = await updateDone;
+        assert(success, "Viper Tools Update failed")
+        await backendStarted;
+
+        // stop the verification after 1s
         setTimeout(() => {
             TestHelper.stopVerification()
         }, 1000);
 
-        TestHelper.openAndVerify(LONG);
-
-        await TestHelper.waitForAbort();
+        // wait until verification is aborted:
+        await aborted;
         await TestHelper.checkForRunningProcesses(false, false, true);
 
         //reverify
