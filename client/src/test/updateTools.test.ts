@@ -28,15 +28,19 @@ suite('Viper Tools Update Test', () => {
 
         const success = await updateDone;
         assert(success, "Viper Tools Update failed")
+        TestHelper.log("Viper Tools Update done");
         await backendStarted;
+        TestHelper.log("backend started");
 
         // stop the verification after 1s
         setTimeout(() => {
+            TestHelper.log("timeout triggered: stopping verification");
             TestHelper.stopVerification()
         }, 1000);
 
         // wait until verification is aborted:
         await aborted;
+        TestHelper.log("verification has been aborted");
         await TestHelper.checkForRunningProcesses(false, false, true);
 
         //reverify
