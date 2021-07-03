@@ -251,7 +251,7 @@ export class VerificationController {
                 let done = false;
                 while (!done && this.workList.length > 0) {
                     // print workllist:
-                    Log.logWithOrigin("workList", `tasks: ${this.workList.map(task => task.type).toString}`, LogLevel.LowLevelDebug);
+                    Log.logWithOrigin("workList", `tasks: ${this.workList.map(task => TaskType[task.type]).join(", ")}`, LogLevel.LowLevelDebug);
 
                     let task = this.workList[0];
 
