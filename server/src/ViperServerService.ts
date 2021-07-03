@@ -104,12 +104,7 @@ export class ViperServerService extends BackendService {
                         this._url = Settings.settings.viperServerSettings.viperServerAddress;
                         this._port = parseInt(res[2]);
                         // Ready to start working with the server.
-                        Log.log(`artificially waiting for 1s before signaling that ViperServer is ready`, LogLevel.Info);
-                        setTimeout(() => {
-                            Log.log(`1s artificial delay is now over`, LogLevel.LowLevelDebug);
-                            resolve(true);
-                        }, 1000);
-                        // resolve(true);
+                        resolve(true);
                     }
                     if (log != null && log.length === 2) {
                         this._server_logfile = log[1];
