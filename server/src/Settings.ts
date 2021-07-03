@@ -207,41 +207,40 @@ export class Settings {
     }
 
     //tries to restart backend, 
-    public static initiateBackendRestartIfNeeded(oldSettings?: ViperSettings, selectedBackend?: string, viperToolsUpdated: boolean = false) {
-        Settings.checkSettings(viperToolsUpdated).then(() => {
-            if (Settings.valid()) {
-                let newBackend = Settings.selectBackend(Settings.settings, selectedBackend);
+    public static async initiateBackendRestartIfNeeded(oldSettings?: ViperSettings, selectedBackend?: string, viperToolsUpdated: boolean = false): Promise<void> {
+        await Settings.checkSettings(viperToolsUpdated);
+        if (Settings.valid()) {
+            let newBackend = Settings.selectBackend(Settings.settings, selectedBackend);
 
-                if (newBackend) {
-                    //only restart the backend after settings changed if the active backend was affected
+            if (newBackend) {
+                //only restart the backend after settings changed if the active backend was affected
 
-                    Log.log("check if restart needed", LogLevel.LowLevelDebug);
-                    let backendChanged = !Settings.backendEquals(Server.backend, newBackend) //change in backend
-                    let mustRestartBackend = !Server.backendService.isReady() //backend is not ready -> restart
-                        || viperToolsUpdated //Viper Tools Update might have modified the binaries
-                        || (Server.backendService.isViperServerService != this.useViperServer(newBackend)) //the new backend requires another engine type
-                        || (Settings.useViperServer(newBackend) && this.viperServerRelatedSettingsChanged(oldSettings)) // the viperServerSettings changed
-                    if (mustRestartBackend || backendChanged) {
-                        Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info);
-                        Server.backend = newBackend;
-                        Server.verificationTasks.forEach(task => task.resetLastSuccess());
-                        Server.sendStartBackendMessage(Server.backend.name, mustRestartBackend, Settings.useViperServer(newBackend));
-                    } else {
-                        Log.log("No need to restart backend. It is still the same", LogLevel.Debug)
-                        Server.backend = newBackend;
-                        Server.sendBackendReadyNotification({
-                            name: Server.backend.name,
-                            restarted: false,
-                            isViperServer: Settings.useViperServer(newBackend)
-                        });
-                    }
+                Log.log("check if restart needed", LogLevel.LowLevelDebug);
+                let backendChanged = !Settings.backendEquals(Server.backend, newBackend) //change in backend
+                let mustRestartBackend = !Server.backendService.isReady() //backend is not ready -> restart
+                    || viperToolsUpdated //Viper Tools Update might have modified the binaries
+                    || (Server.backendService.isViperServerService != this.useViperServer(newBackend)) //the new backend requires another engine type
+                    || (Settings.useViperServer(newBackend) && this.viperServerRelatedSettingsChanged(oldSettings)) // the viperServerSettings changed
+                if (mustRestartBackend || backendChanged) {
+                    Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info);
+                    Server.backend = newBackend;
+                    Server.verificationTasks.forEach(task => task.resetLastSuccess());
+                    Server.sendStartBackendMessage(Server.backend.name, mustRestartBackend, Settings.useViperServer(newBackend));
                 } else {
-                    Log.error("No backend, even though the setting check succeeded.");
+                    Log.log("No need to restart backend. It is still the same", LogLevel.Debug)
+                    Server.backend = newBackend;
+                    Server.sendBackendReadyNotification({
+                        name: Server.backend.name,
+                        restarted: false,
+                        isViperServer: Settings.useViperServer(newBackend)
+                    });
                 }
             } else {
-                Server.backendService.stop();
+                Log.error("No backend, even though the setting check succeeded.");
             }
-        });
+        } else {
+            Server.backendService.stop();
+        }
     }
 
     private static addError(msg: string) {
