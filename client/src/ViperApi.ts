@@ -82,6 +82,10 @@ export class ViperApi {
         return State.getLastActiveFile();
     }
 
+    public getBackendName(): string {
+        return State.activeBackend
+    }
+
     public isBackendReady(): boolean {
         return State.isBackendReady;
     }

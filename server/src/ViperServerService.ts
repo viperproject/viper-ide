@@ -316,6 +316,9 @@ export class ViperServerService extends BackendService {
             }
 
             if ( message.msg_type === 'program_definitions' ) {
+                // Forward a copy of this message to a potential debugger extension.
+                Server.connection.sendNotification(Commands.UnhandledViperServerMessageType, message)
+
                 return onData(JSON.stringify({
                     type: "Definitions", 
                     definitions: message.msg_body.definitions.map(d => {
@@ -427,6 +430,11 @@ export class ViperServerService extends BackendService {
 
                             if ( message.msg_body.kind === 'for_entity' || global_failure ) {
 
+                                if ( first_error.counterexample ) {
+                                    // Forward a copy of this message to a potential debugger extension.
+                                    Server.connection.sendNotification(Commands.UnhandledViperServerMessageType, message)
+                                }
+
                                 this.emitSound(Sounds.MinorIssue)
                                     
                                 onData(JSON.stringify({ 
@@ -484,11 +492,11 @@ export class ViperServerService extends BackendService {
 
             return true
         })
-        // this._pipeline.on("end", () => {
-        //     //Log.log("ViperServer stream ended.", LogLevel.LowLevelDebug)
-        //     this._pipeline = StreamValues.withParser()
-        // })
-
+        
+        // Notify dependent extensions about the server settings, e.g. what are the active verification backend's parameters 
+        let message = {'msg_type': 'backend_configuration', 'msg_body': Server.backend}
+        Server.connection.sendNotification(Commands.UnhandledViperServerMessageType, message)
+        
         this.startVerifyStream(command, onData, onError, onClose)
     }
 

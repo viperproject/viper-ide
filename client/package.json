@@ -17,7 +17,7 @@
     },
     "main": "./out/extension",
     "engines": {
-        "vscode": "^1.33.1",
+        "vscode": "^1.43.0",
         "node": "*"
     },
     "icon": "images/icon_bright_orange_avatar.png",
