@@ -292,9 +292,14 @@ export class Server {
             const context = this.getContext();
             const location = await ViperTools.update(context, shouldUpdate);
             
-            Server.connection.sendNotification(Commands.ViperUpdateComplete, true);
             // trigger a restart of the backend
-            Settings.initiateBackendRestartIfNeeded(null, null, true);
+            await Settings.initiateBackendRestartIfNeeded(null, null, true);
+            // initiate backend restart before sending update complete notification
+            // this is important as otherwise the client's state machine might continue, e.g. by verifying a file.
+            // verifying a file will however not be possible as the backend is not yet ready and the client's state
+            // machine will then send a backend start message. As `initiateBackendRestartIfNeeded` will also come
+            // to the conclusion that the backend needs to be (re)started, this causes restarting the backend twice.
+            Server.connection.sendNotification(Commands.ViperUpdateComplete, true);
             return location;
         } catch (e) {
             const errMsg = `Error installing Viper tools: ${e}`;
