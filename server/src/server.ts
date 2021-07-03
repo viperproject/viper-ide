@@ -258,7 +258,7 @@ function registerHandlers() {
         }
     });
 
-    Server.connection.onNotification(Commands.UpdateViperTools, async () => {
+    Server.connection.onNotification(Commands.UpdateViperTools, () => {
         Server.ensureViperTools(true);
     });
 

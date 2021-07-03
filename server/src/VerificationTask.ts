@@ -953,38 +953,5 @@ export class VerificationTask {
         const tasks = Array.from(Server.verificationTasks.values());
         const promises: Promise<void>[] = tasks.map(task => task.abortVerificationIfRunning());
         return Promise.all(promises).then(); // the `then` is necessary to convert from `void[]` to `void`
-        /*
-        if (tasks.length == 0) {
-            Log.log(`stopAllRunningVerifications: no verifications to be stopped`, LogLevel.LowLevelDebug);
-            return;
-        }
-
-        return new Promise((resolve, reject) => {
-            try {
-                if (Server.verificationTasks && Server.verificationTasks.size > 0) {
-                    let promises: Promise<boolean>[] = [];
-                    Server.verificationTasks.forEach(task => {
-                        if (task.running) {
-                            promises.push(new Promise((res, rej) => {
-                                task.abortVerificationIfRunning().then(() => { res(true) });
-                            }));
-                        }
-                    });
-                    if (promises.length > 0) {
-                        Log.log("Stop all running verificationTasks", LogLevel.Debug)
-                    }
-                    Promise.all(promises).then(() => {
-                        resolve(true);
-                    })
-                } else {
-                    //nothing to stop
-                    resolve(true);
-                }
-            } catch (e) {
-                Log.error("Error stopping all running verifications: " + e);
-                reject();
-            }
-        });
-        */
     }
 }
