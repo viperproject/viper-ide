@@ -250,9 +250,6 @@ export class VerificationController {
                 //Start processing the tasks
                 let done = false;
                 while (!done && this.workList.length > 0) {
-                    // print workllist:
-                    Log.logWithOrigin("workList", `tasks: ${this.workList.map(task => TaskType[task.type]).join(", ")}`, LogLevel.LowLevelDebug);
-
                     let task = this.workList[0];
 
                     let fileState = State.getFileState(task.uri); //might be null
