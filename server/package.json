@@ -32,13 +32,18 @@
     "devDependencies": {
         "@types/mocha": "^8.0.3",
         "@types/node": "^15.6.1",
+        "@types/node-ipc": "^9.1.4",
         "@types/stream-json": "^1.5.1",
         "@types/vscode": "^1.43.0",
         "@types/yargs": "^15.0.8",
+        "@vercel/ncc": "^0.28.6",
+        "npm-run-all": "^4.1.5",
+        "rimraf": "^3.0.2",
         "typescript": "^4.2.4"
     },
     "scripts": {
-        "compile": "tsc -p .",
-        "watch": "tsc -w -p ."
+        "clean": "rimraf dist",
+        "bundle": "ncc build src/server.ts --source-map --license licenses.txt --out ../client/server",
+        "compile": "npm-run-all --sequential clean bundle"
     }
 }

@@ -171,7 +171,7 @@ export class State {
 
     public static startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, brk: boolean): Promise<void> {
         // The server is implemented in node
-        let serverModule = State.context.asAbsolutePath(path.join('server', 'server.js'));
+        const serverModule = State.context.asAbsolutePath(path.join('server', 'index.js'));
 
         if (!fs.existsSync(serverModule)) {
             Log.log(serverModule + " does not exist. Reinstall the Extension", LogLevel.Debug);

@@ -9,7 +9,7 @@
 'use strict'
 
 import { IPCMessageReader, IPCMessageWriter, createConnection, InitializeResult, SymbolInformation } from 'vscode-languageserver'
-import * as yargs from 'yargs';
+const yargs = require('yargs/yargs') // LA July 5th 2021: this is the only way I could find that works together with `ncc` (see documentation for `yargs` mentioned below)
 import { Log } from './Log'
 import { Settings } from './Settings'
 import { Backend, Common, StateColors, ExecutionTrace, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams } from './ViperProtocol'
@@ -19,7 +19,9 @@ import { DebugServer } from './DebugServer'
 import { Server } from './ServerClass'
 import { ViperServerService } from './ViperServerService'
 
-const argv = yargs
+// uses 'yargs' as recommended for use together with ncc
+// see https://github.com/yargs/yargs/blob/master/docs/bundling.md
+const argv = yargs(process.argv.slice(2))
     .option('globalStorage', {
         description: 'Path to the global storage folder provided by VSCode to a particular extension',
         type: 'string',
@@ -29,7 +31,7 @@ const argv = yargs
         type: 'string',
     })
     .help() // show help if `--help` is used
-    .argv;
+    .parse();
 // pass command line option to Settings:
 if (argv.globalStorage) {
     Settings.globalStoragePath = argv.globalStorage;

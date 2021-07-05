@@ -9,3 +9,7 @@ src/**
 .gitignore
 tsconfig.json
 vsc-extension-quickstart.md
+server/server.key
+server/server.pub
+node_modules/**
+logs/**

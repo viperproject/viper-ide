@@ -149,7 +149,7 @@ jobs:
           git config --global url."https://github.com/".insteadOf
           ssh://git@github.com/
 
-      - run: npm ci --prefer-offline
+      - run: npm ci --cache ../client/.npm --prefer-offline # server uses same cache as the client
         working-directory: server
 
       - run: npm ci --cache .npm --prefer-offline
