@@ -13,3 +13,4 @@ server/server.key
 server/server.pub
 node_modules/**
 logs/**
+ViperTools/**
