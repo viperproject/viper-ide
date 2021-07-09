@@ -32,7 +32,7 @@ export class Server {
     static startingOrRestarting: boolean = false;
     static viperFileEndings: string[];
 
-    /** do not access this field directly by use the getter `verificationTasks`; non-null */
+    /** do not access this field directly. Instead, use the getter `verificationTasks`; non-null */
     private static _verificationTasks: Map<string, VerificationTask> = new Map();
     /** returns a non-null map */
     static get verificationTasks(): Map<string, VerificationTask> {
