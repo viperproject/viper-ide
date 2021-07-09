@@ -126,7 +126,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v1
         with:
-          node-version: '14'
+          node-version: '16' # we use latest node instead of LTS 14 to have the same lockfile version as locally used
 
       - name: Setup Java JDK
         uses: actions/setup-java@v1.4.3
@@ -237,10 +237,11 @@ jobs:
       # locate-java-home and vs-verification-toolbox dependencies (the two non-npm dependencies).
       # this seems related to https://github.com/npm/cli/issues/791
       # the current workaround is to `run npm install` first:
-      - name: Run 'npm install' as a workaround to later being able to package Viper-IDE (ubuntu only)
-        if: startsWith(matrix.os, 'ubuntu')
-        run: npm install
-        working-directory: client
+      # this workaround is only necessary when using node 14
+      # - name: Run 'npm install' as a workaround to later being able to package Viper-IDE (ubuntu only)
+      #   if: startsWith(matrix.os, 'ubuntu')
+      #   run: npm install
+      #   working-directory: client
 
       - name: List all files that will be packaged (ubuntu only)
         if: startsWith(matrix.os, 'ubuntu')
