@@ -10,10 +10,11 @@
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { Log } from './Log';
+import * as globToRexep from 'glob-to-regexp';
 import * as path from 'path';
+import * as os from 'os';
+import { Log } from './Log';
 import { LogLevel } from './ViperProtocol';
-const globToRexep = require('glob-to-regexp');
 
 export class Helper {
 
@@ -101,5 +102,39 @@ export class Helper {
     public static formatProgress(progress: number): string {
         if (!progress) return "0%";
         return progress.toFixed(0) + "%";
+    }
+
+    /**
+     * Returns the path to the global storage location provided by VSCode to the extension
+     */
+    public static getGlobalStoragePath(context: vscode.ExtensionContext): string {
+        return context.globalStorageUri.fsPath;
+    }
+
+    /**
+     * Returns the directory in which log files should be stored.
+     * The directory will be created if it does not exist yet
+     */
+     public static getLogDir(): string {
+        // check if a particular dir has been passed as an environment variable.
+        // this is mainly used for CI purposes:
+        let logDir = process.env["VIPER_IDE_LOG_DIR"];
+        if (logDir == null || logDir === "") {
+            logDir = path.join(os.tmpdir(), ".vscode");
+        }
+        //create logfile's directory if it wasn't created before
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+        }
+        return logDir;
+    }
+
+    /**
+     * Returns true if `getGobraToolsPath` should be wiped after activating the extension to ensure a clean system state.
+     */
+    public static cleanInstall(): boolean {
+        const value = process.env["VIPER_IDE_CLEAN_INSTALL"];
+        return value != null &&
+            (value == "1" || value.toUpperCase() == "TRUE");
     }
 }

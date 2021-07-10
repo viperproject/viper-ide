@@ -9,14 +9,16 @@
     "version": "0.0.1",
     "publisher": "viper-admin",
     "engines": {
-        "vscode": "^1.43.0",
+        "vscode": "^1.45.0",
         "node": "*"
     },
     "dependencies": {
-        "decompress-zip": "^0.3.1",
+        "@octokit/rest": "^18.5.3",
+        "extract-zip": "^2.0.1",
+        "fs-extra": "^10.0.0",
         "glob-to-regexp": "^0.4.0",
+        "got": "^11.8.2",
         "locate-java-home": "git+https://github.com/viperproject/locate-java-home.git",
-        "mkdirp": "^0.5.1",
         "node-ipc": "^9.1.4",
         "request": "^2.88.2",
         "sound-play": "^1.1.0",
@@ -24,17 +26,24 @@
         "sudo-prompt": "8.2.3",
         "tree-kill": "^1.2.2",
         "vscode-languageserver": "^5.2.1",
-        "vscode-uri": "^2.1.1"
+        "vscode-uri": "^3.0.2",
+        "yargs": "^16.0.3"
     },
     "devDependencies": {
         "@types/mocha": "^8.0.3",
-        "@types/node": "^14.11.8",
+        "@types/node": "^15.6.1",
+        "@types/node-ipc": "^9.1.4",
         "@types/stream-json": "^1.5.1",
         "@types/vscode": "^1.43.0",
-        "typescript": "^4.0.3"
+        "@types/yargs": "^15.0.8",
+        "@vercel/ncc": "^0.28.6",
+        "npm-run-all": "^4.1.5",
+        "rimraf": "^3.0.2",
+        "typescript": "^4.2.4"
     },
     "scripts": {
-        "compile": "tsc -p .",
-        "watch": "tsc -w -p ."
+        "clean": "rimraf dist",
+        "bundle": "ncc build src/server.ts --source-map --license licenses.txt --out ../client/server",
+        "compile": "npm-run-all --sequential clean bundle"
     }
 }

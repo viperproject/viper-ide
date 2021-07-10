@@ -1,0 +1,405 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Copyright (c) 2011-2020 ETH Zurich.
+
+name: test
+
+
+on:
+  push: # run this workflow on every push
+  pull_request: # run this workflow on every pull_request
+  workflow_dispatch: # allow to manually trigger this workflow
+    inputs:
+      type:
+        description: 'Specifies whether a stable or nightly release should be triggered. Has to be "stable" or "nightly".'
+        required: true
+        default: 'stable'
+      viperserver_tag_name:
+        description: 'Tag name of ViperServer release from which server JAR should be downloaded from'
+        required: true
+      tag_name:
+        description: 'Tag name for stable release.'
+        required: true
+      release_name:
+        description: 'Release title for stable release.'
+        required: true
+
+
+jobs:
+  create-viper-tools:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      VIPERSERVER_URL: "https://github.com/viperproject/viperserver/releases/download/${{ github.event.inputs.viperserver_tag_name }}/viperserver.jar"
+      # we fake a ternary operator `a ? b : c` by using `a && b || c` as mentioned here:
+      # https://github.com/actions/runner/issues/409
+      WIN-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyWin.zip' || 'http://viper.ethz.ch/downloads/ViperToolsLastReleaseWin.zip' }}
+      LINUX-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyLinux.zip' || 'http://viper.ethz.ch/downloads/ViperToolsLastReleaseLinux.zip' }}
+      MAC-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyMac.zip' || 'http://viper.ethz.ch/downloads/ViperToolsLastReleaseMac.zip' }}
+    steps:
+      - name: Install prerequisites
+        run: sudo apt-get install curl zip unzip
+
+      - name: Download ViperServer fat JAR
+        run: curl -L ${{ env.VIPERSERVER_URL }} --output viperserver.jar
+
+      - name: Download Viper Tools for Windows
+        run: curl --fail --silent --show-error ${{ env.WIN-TOOLS-URL}} --output ViperToolsWin.zip
+      - name: Unzip Viper Tools for Windows
+        run: unzip ViperToolsWin.zip -d OrigViperToolsWin
+      - name: Download Viper Tools for Linux
+        run: curl --fail --silent --show-error ${{ env.LINUX-TOOLS-URL }} --output ViperToolsLinux.zip
+      - name: Unzip Viper Tools for Linux
+        run: unzip ViperToolsLinux.zip -d OrigViperToolsLinux
+      - name: Download Viper Tools for macOS
+        run: curl --fail --silent --show-error ${{ env.MAC-TOOLS-URL }} --output ViperToolsMac.zip
+      - name: Unzip Viper Tools for macOS
+        run: unzip ViperToolsMac.zip -d OrigViperToolsMac
+
+      - name: Create a fresh Viper Tools folder per platform
+        run: |
+          mkdir -p ViperToolsWin
+          mkdir -p ViperToolsLinux
+          mkdir -p ViperToolsMac
+
+      - name: Copy boogie from OrigViperTools to ViperTools
+        run: |
+          cp -R OrigViperToolsWin/boogie ViperToolsWin/boogie/
+          cp -R OrigViperToolsLinux/boogie ViperToolsLinux/boogie/
+          cp -R OrigViperToolsMac/boogie ViperToolsMac/boogie/
+
+      - name: Copy z3 from OrigViperTools to ViperTools
+        run: |
+          cp -R OrigViperToolsWin/z3 ViperToolsWin/z3/
+          cp -R OrigViperToolsLinux/z3 ViperToolsLinux/z3/
+          cp -R OrigViperToolsMac/z3 ViperToolsMac/z3/
+
+      - name: Copy ViperServer fat JAR to ViperTools
+        run: |
+          mkdir -p ViperToolsWin/server && cp viperserver.jar ViperToolsWin/server
+          mkdir -p ViperToolsLinux/server && cp viperserver.jar ViperToolsLinux/server
+          mkdir -p ViperToolsMac/server && cp viperserver.jar ViperToolsMac/server
+
+      - name: Create folder to store all ViperTools platform zip files
+        run: mkdir deploy
+        # note that we change into the tool folder to zip it. This avoids including the parent folder in the zip
+      - name: Zip ViperTools for Windows
+        run: zip -r ../deploy/ViperToolsWin.zip ./*
+        working-directory: ViperToolsWin
+      - name: Zip ViperTools for Linux
+        run: zip -r ../deploy/ViperToolsLinux.zip ./*
+        working-directory: ViperToolsLinux
+      - name: Zip ViperTools for macOS
+        run: zip -r ../deploy/ViperToolsMac.zip ./*
+        working-directory: ViperToolsMac
+
+      - name: Upload ViperTools zip files
+        uses: actions/upload-artifact@v2
+        with:
+          name: ViperTools
+          path: deploy
+
+
+  build-and-test:
+    needs: create-viper-tools
+    # make the dependency optional in the sense that this job should be executed whenever the dependency was successful or skipped:
+    if: ${{ always() && (contains(needs.create-viper-tools.result, 'success') || contains(needs.create-viper-tools.result, 'skipped')) }}
+    strategy:
+      # tests should not be stopped when they fail on one of the OSes:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: macos-latest
+            viper-tools-zip-file: "ViperToolsMac.zip"
+          - os: ubuntu-latest
+            viper-tools-zip-file: "ViperToolsLinux.zip"
+          - os: windows-latest
+            viper-tools-zip-file: "ViperToolsWin.zip"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Viper-IDE
+        uses: actions/checkout@v2
+
+      - name: Install Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: '14'
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v1.4.3
+        with:
+          java-version: '11'
+      - run: java --version
+
+      - name: Cache npm
+        uses: actions/cache@v2
+        with:
+          path: client/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      # npm ci fails to clone GitHub repos referenced in package.json with recent node versions
+      # the following work around has been proposed here: https://github.com/actions/setup-node/issues/214#issuecomment-810829250
+      - name: Reconfigure git to use HTTPS authentication
+        run: >
+          git config --global url."https://github.com/".insteadOf
+          ssh://git@github.com/
+
+      - run: npm ci --cache ../client/.npm --prefer-offline # server uses same cache as the client
+        working-directory: server
+
+      - run: npm ci --cache .npm --prefer-offline
+        working-directory: client
+
+      # there are two different scenarios in which different stuff should be tested:
+      # - regular changes to Viper-IDE: the normal test configuration should be used, which tests against the latest stable and
+      #   nightly ViperTool releases. Any change to the Viper-IDE have ensure compatability
+      # - before releasing Viper-IDE together with some ViperTools, Viper-IDE has to be tested against the latest stable and
+      #   nightly ViperTool releases AND the ViperTools that should be released.
+      - name: Download ViperTools to test against
+        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
+        uses: actions/download-artifact@v2
+        with:
+          name: ViperTools
+          path: client/ViperTools
+
+      - name: Unzip ViperTools (non-windows)
+        if: ${{ !startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        run: unzip ${{ matrix.viper-tools-zip-file }} -d ExtractedTools
+        working-directory: client/ViperTools
+
+      - name: Unzip ViperTools (windows)
+        if: ${{ startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        run: powershell Expand-Archive -LiteralPath ${{ matrix.viper-tools-zip-file }} -DestinationPath ExtractedTools
+        working-directory: client/ViperTools
+
+      - name: Create path to extracted tools (non-windows)
+        if: ${{ !startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        run: |
+          echo "EXTRACTED_TOOLS_PATH=${{ github.workspace }}/client/ViperTools/ExtractedTools" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Create path to extracted tools (windows)
+        if: ${{ startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        # replace all backslashes by double backslashes to properly escape them in the resulting JSON
+        run: |
+          PATH='EXTRACTED_TOOLS_PATH=${{ github.workspace }}\client\ViperTools\ExtractedTools'
+          echo ${PATH//'\'/'\\'} >> $GITHUB_ENV
+        shell: bash
+
+      - name: Create an additional test config
+        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
+        run: |
+          echo '{ 
+            "viperSettings.buildVersion": "Local",
+            "viperSettings.paths": {
+              "v": "674a514867b1",
+              "viperToolsPath": {
+                "windows": "${{ env.EXTRACTED_TOOLS_PATH }}",
+                "linux": "${{ env.EXTRACTED_TOOLS_PATH }}",
+                "mac": "${{ env.EXTRACTED_TOOLS_PATH }}"
+              }
+            }
+          }' > client/src/test/data/settings/ci_local.json
+        shell: bash
+
+      - name: Get config content
+        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
+        run: cat client/src/test/data/settings/ci_local.json
+        shell: bash
+
+      - name: Run tests (headless)
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: npm test --full-trace
+          working-directory: client
+        env:
+          VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Viper-IDE log files
+        if: ${{ failure() || cancelled() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: TestLogs-${{ matrix.os }}
+          path: client/logs
+
+      - name: Clean 'dist' folder (ubuntu only)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: npm run clean
+        working-directory: client
+
+      # `npm run package` resp. `vsce` complains that it cannot find 
+      # locate-java-home and vs-verification-toolbox dependencies (the two non-npm dependencies).
+      # this seems related to https://github.com/npm/cli/issues/791
+      # the current workaround is to `run npm install` first:
+      - name: Run 'npm install' as a workaround to later being able to package Viper-IDE (ubuntu only)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: npm install
+        working-directory: client
+
+      - name: List all files that will be packaged (ubuntu only)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: npx vsce ls
+        working-directory: client
+
+      - name: Package Viper-IDE extension (ubuntu only)
+        if: startsWith(matrix.os, 'ubuntu')
+        # note that baseContentUrl has to be manually provided as vsce does not know that it is run in the client subfolder:
+        run: npm run package -- --baseContentUrl https://github.com/viperproject/viper-ide/raw/master/client --out viper-ide.vsix
+        working-directory: client
+
+      - name: Upload packaged Viper-IDE (ubuntu-only)
+        if: startsWith(matrix.os, 'ubuntu')
+        uses: actions/upload-artifact@v2
+        with:
+          name: viper-ide.vsix
+          path: client/viper-ide.vsix
+
+
+  create-release:
+    # this job creates a nightly release or stable draft-release and adds viper-ide.vsix and Viper Tools as release assets
+    if: github.event_name == 'workflow_dispatch'
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      # we have to checkout the repo to read client/package.json later on:
+      - name: Checkout Viper-IDE
+        uses: actions/checkout@v2
+
+      - name: Download packaged Viper IDE
+        uses: actions/download-artifact@v2
+        with:
+          name: viper-ide.vsix
+          path: client
+
+      - name: Download ViperTools
+        uses: actions/download-artifact@v2
+        with:
+          name: ViperTools
+          path: deploy
+
+      - name: Create release tag
+        if: ${{ github.event.inputs.type != 'stable' }}
+        shell: bash
+        run: echo "TAG_NAME=$(date +v-%Y-%m-%d-%H%M)" >> $GITHUB_ENV
+
+      - name: Create nightly release
+        if: ${{ github.event.inputs.type != 'stable' }}
+        id: create_nightly_release
+        uses: viperproject/create-nightly-release@v1
+        env:
+          # This token is provided by Actions, you do not need to create your own token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          release_name: Nightly Release ${{ env.TAG_NAME }}
+          body: Based on ViperServer release ${{ github.event.inputs.viperserver_tag_name }}
+          keep_num: 1 # keep the previous nightly release such that there are always two
+
+      - name: Store nightly release upload URL
+        if: ${{ github.event.inputs.type != 'stable' }}
+        shell: bash
+        run: echo "UPLOAD_URL=${{ steps.create_nightly_release.outputs.upload_url }}" >> $GITHUB_ENV
+
+      - name: Create stable draft-release
+        if: ${{ github.event.inputs.type == 'stable' }}
+        id: create_stable_release
+        uses: actions/create-release@v1
+        env:
+          # This token is provided by Actions, you do not need to create your own token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.event.inputs.tag_name }}
+          release_name: ${{ github.event.inputs.release_name }}
+          body: Based on ViperServer release ${{ github.event.inputs.viperserver_tag_name }}
+          draft: true
+          prerelease: false
+
+      - name: Store stable release upload URL
+        if: ${{ github.event.inputs.type == 'stable' }}
+        shell: bash
+        run: echo "UPLOAD_URL=${{ steps.create_stable_release.outputs.upload_url }}" >> $GITHUB_ENV
+
+      - name: Upload packaged Viper IDE
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: client/viper-ide.vsix
+          asset_name: viper-ide.vsix
+          asset_content_type: application/octet-stream
+
+      - name: Upload ViperTools for Windows
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: deploy/ViperToolsWin.zip
+          asset_name: ViperToolsWin.zip
+          asset_content_type: application/zip
+
+      - name: Upload ViperTools for Ubuntu
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: deploy/ViperToolsLinux.zip
+          asset_name: ViperToolsLinux.zip
+          asset_content_type: application/zip
+
+      - name: Upload ViperTools for macOS
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: deploy/ViperToolsMac.zip
+          asset_name: ViperToolsMac.zip
+          asset_content_type: application/zip
+
+      # compare version in client/package.json with last published version on
+      # VS Marketplace and deploy this version if newer.
+      # credits go to @fpoli!
+      - name: Obtain version information
+        run: |
+          VSCE_OUTPUT="$(
+            npx vsce show viper-admin.viper --json
+          )"
+          if [[ $(echo $VSCE_OUTPUT | grep --fixed-strings --line-regexp undefined) ]]; then
+            LAST_PUBLISHED_VERSION="0"
+          else
+            LAST_PUBLISHED_VERSION="$(
+              echo $VSCE_OUTPUT | jq '.versions[0].version' --raw-output
+            )"
+          fi
+          CURRENT_VERSION="$(
+            cat client/package.json | jq '.version' --raw-output
+          )"
+          echo "LAST_PUBLISHED_VERSION=$LAST_PUBLISHED_VERSION" >> $GITHUB_ENV
+          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
+
+      - name: Publish the extension to Visual Studio Marketplace
+        uses: HaaLeo/publish-vscode-extension@v0
+        if: env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION
+        with:
+          pat: ${{ secrets.VSCE_TOKEN }}
+          registryUrl: https://marketplace.visualstudio.com
+          extensionFile: client/viper-ide.vsix
+          packagePath: ''
+
+      - name: Publish the extension to Open VSX Registry
+        uses: HaaLeo/publish-vscode-extension@v0
+        if: env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION
+        with:
+          pat: ${{ secrets.OPEN_VSX_TOKEN }}
+          registryUrl: https://open-vsx.org
+          extensionFile: client/viper-ide.vsix
+          packagePath: ''

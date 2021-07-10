@@ -10,23 +10,25 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 
+import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
+import * as stripJSONComments from 'strip-json-comments';
+import * as rimraf from 'rimraf';
 import { Timer } from './Timer';
-import * as vscode from 'vscode';
 import { State } from './ExtensionState';
-import { SettingsError, Common, Progress, HintMessage, Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success } from './ViperProtocol';
+import { SettingsError, Progress, HintMessage, Versions, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, Commands, StateChangeParams, LogLevel } from './ViperProtocol';
 import { URI } from 'vscode-uri';
 import { Log } from './Log';
-import { StateVisualizer, MyDecorationOptions } from './StateVisualizer';
+import { StateVisualizer } from './StateVisualizer';
 import { Helper } from './Helper';
 import { ViperFormatter } from './ViperFormatter';
 import { ViperFileState } from './ViperFileState';
-import { StatusBar, Color } from './StatusBar';
-import { VerificationController, TaskType, Task, CheckResult } from './VerificationController';
+import { Color } from './StatusBar';
+import { VerificationController, TaskType, Task } from './VerificationController';
 import { ViperApi } from './ViperApi';
-let stripJSONComments = require('strip-json-comments');
-const os = require('os');
+import * as Notifier from './Notifier';
 
 let autoSaver: Timer;
 
@@ -37,8 +39,7 @@ let lastVersionWithSettingsChange: Versions;
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
-    if (State.unitTest) State.unitTest.activated();
+export async function activate(context: vscode.ExtensionContext) {
     Helper.loadViperFileExtensions();
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
 
@@ -61,11 +62,13 @@ export function activate(context: vscode.ExtensionContext) {
     Log.log('Viper-Client is now active.', LogLevel.Info);
     State.checkOperatingSystem();
     State.context = context;
+    await cleanViperToolsIfRequested(context);
     State.verificationController = new VerificationController();
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/{' + Helper.viperFileEndings.join(",") + "}");
-    State.startLanguageServer(context, fileSystemWatcher, false); //break?
+    await State.startLanguageServer(context, fileSystemWatcher, false);
     State.viperApi = new ViperApi(State.client);
     registerHandlers();
+    Notifier.notifyExtensionActivation();
     startAutoSaver();
     State.initializeStatusBar(context);
     registerFormatter();
@@ -75,8 +78,36 @@ export function activate(context: vscode.ExtensionContext) {
     } else {
         Log.log("No active text editor found", LogLevel.Info);
     }
-
+    
     return State.viperApi;
+}
+
+async function cleanViperToolsIfRequested(context: vscode.ExtensionContext): Promise<void> {
+    // start of in a clean state by wiping Viper Tools if this was requested via
+	// environment variables. In particular, this is used for the extension tests.
+	if (Helper.cleanInstall()) {
+        const globalStoragePath = Helper.getGlobalStoragePath(context);
+        let files: string[] = [];
+        if (fs.existsSync(globalStoragePath)) {
+            // only read directory if it actually exists
+            files = await fs.promises.readdir(globalStoragePath);
+        }
+        if (files.length === 0) {
+            Log.log(`cleanInstall has been requested but viper tools do not exist yet --> NOP`, LogLevel.Info);
+            return;
+        }
+        Log.log(`cleanInstall has been requested and viper tools already exist --> delete them`, LogLevel.Info);
+        return new Promise((resolve, reject) => {
+            // we do not delete `globalStoragePath` but only its content:
+            rimraf(path.join(globalStoragePath, '*'), (err: Error) => {
+                if (err == null) {
+                    resolve();
+                } else {
+                    reject(err);
+                }
+            });
+        });
+	}
 }
 
 function getRequiredVersion(): Versions {
@@ -88,30 +119,24 @@ function getRequiredVersion(): Versions {
     }
 }
 
-export function deactivate(): Promise<void> {
-    return new Promise((resolve, reject) => {
+export async function deactivate(): Promise<void> {
+    try {
         Log.log("deactivate", LogLevel.Info);
-        State.dispose().then(() => {
-            Log.log("State disposed", LogLevel.Debug);
-            let oldFile = State.getLastActiveFile();
-            if (oldFile) {
-                Log.log("Removing special chars of last opened file.", LogLevel.Debug);
-                oldFile.stateVisualizer.removeSpecialCharacters(() => {
-                    Log.log("Close Log", LogLevel.Debug);
-                    Log.dispose();
-                    Log.log("Deactivated", LogLevel.Info)
-                    resolve();
-                });
-            } else {
-                Log.log("Close Log", LogLevel.Debug);
-                Log.dispose();
-                Log.log("Deactivated", LogLevel.Info)
-                resolve();
-            }
-        }).catch(e => {
-            Log.error("error disposing: " + e);
-        });
-    });
+        await State.dispose();
+        Log.log("State disposed", LogLevel.Debug);
+        const oldFile = State.getLastActiveFile();
+        if (oldFile) {
+            Log.log("Removing special chars of last opened file.", LogLevel.Debug);
+            await new Promise<void>(resolve => {
+                oldFile.stateVisualizer.removeSpecialCharacters(resolve);
+            });
+        }
+        Log.log("Close Log", LogLevel.Debug);
+        Log.dispose();
+        Log.log("Deactivated", LogLevel.Info)
+    } catch (e) {
+        Log.error("error disposing: " + e);
+    }
 }
 
 function registerFormatter() {
@@ -196,16 +221,16 @@ function registerHandlers() {
             Log.hint(data.message, "Viper", data.showSettingsButton, data.showViperToolsUpdateButton);
         });
         State.client.onNotification(Commands.Log, (msg: { data: string, logLevel: LogLevel }) => {
-            Log.log((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
+            Log.log(`Server: ${msg.data}`, msg.logLevel);
         });
         State.client.onNotification(Commands.Progress, (msg: { data: Progress, logLevel: LogLevel }) => {
             Log.progress(msg.data, msg.logLevel);
         });
         State.client.onNotification(Commands.ToLogFile, (msg: { data: string, logLevel: LogLevel }) => {
-            Log.toLogFile((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
+            Log.toLogFile(`Server: ${msg.data}`, msg.logLevel);
         });
         State.client.onNotification(Commands.Error, (msg: { data: string, logLevel: LogLevel }) => {
-            Log.error((Log.logLevel >= LogLevel.Debug ? "S: " : "") + msg.data, msg.logLevel);
+            Log.error(`Server: ${msg.data}`, msg.logLevel);
         });
 
         State.client.onNotification(Commands.ViperUpdateComplete, (success) => {
@@ -292,13 +317,19 @@ function registerHandlers() {
                 Log.error("Error handling saved document: " + e);
             }
         }));
-        State.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
+        State.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
             try {
                 Log.updateSettings();
                 State.verificationController.stopDebuggingOnServer();
                 State.verificationController.stopDebuggingLocally();
             } catch (e) {
                 Log.error("Error handling configuration change: " + e);
+            }
+            if (event.affectsConfiguration("viperSettings.buildVersion")) {
+                Log.log(`buildVersion has been changed in the settings`, LogLevel.Info);
+                // IDE should be reopened such that changes take effect:
+                vscode.window.showInformationMessage(
+                    "Changed the build version of Viper Tools. Please restart the IDE.");
             }
         }));
         //trigger verification texteditorChange
@@ -652,7 +683,7 @@ function checkIfSettingsVersionsSpecified(): Thenable<SettingsError[]> {
     })
 }
 
-let settings = [
+const settings = [
     "viperSettings.viperServerSettings",
     "viperSettings.paths",
     "viperSettings.preferences",

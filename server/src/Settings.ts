@@ -34,6 +34,18 @@ export class Settings {
     public static VERIFY = "verify";
     public static selectedBackend: string;
 
+    /** 
+     * path to global storage folder provided by VSCode to extensions.
+     * This field is populated by server.ts based on CLI options
+     */
+    public static globalStoragePath: string | null = null;
+
+    /**
+     * path to the folder in which log files should be stored.
+     * This field is populated by server.ts based on CLI options
+     */
+    public static logDirPath: string | null = null;
+
     private static firstSettingsCheck = true;
 
     private static _valid: boolean = false;
@@ -195,41 +207,40 @@ export class Settings {
     }
 
     //tries to restart backend, 
-    public static initiateBackendRestartIfNeeded(oldSettings?: ViperSettings, selectedBackend?: string, viperToolsUpdated: boolean = false) {
-        Settings.checkSettings(viperToolsUpdated).then(() => {
-            if (Settings.valid()) {
-                let newBackend = Settings.selectBackend(Settings.settings, selectedBackend);
+    public static async initiateBackendRestartIfNeeded(oldSettings?: ViperSettings, selectedBackend?: string, viperToolsUpdated: boolean = false): Promise<void> {
+        await Settings.checkSettings(viperToolsUpdated);
+        if (Settings.valid()) {
+            let newBackend = Settings.selectBackend(Settings.settings, selectedBackend);
 
-                if (newBackend) {
-                    //only restart the backend after settings changed if the active backend was affected
+            if (newBackend) {
+                //only restart the backend after settings changed if the active backend was affected
 
-                    Log.log("check if restart needed", LogLevel.LowLevelDebug);
-                    let backendChanged = !Settings.backendEquals(Server.backend, newBackend) //change in backend
-                    let mustRestartBackend = !Server.backendService.isReady() //backend is not ready -> restart
-                        || viperToolsUpdated //Viper Tools Update might have modified the binaries
-                        || (Server.backendService.isViperServerService != this.useViperServer(newBackend)) //the new backend requires another engine type
-                        || (Settings.useViperServer(newBackend) && this.viperServerRelatedSettingsChanged(oldSettings)) // the viperServerSettings changed
-                    if (mustRestartBackend || backendChanged) {
-                        Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info);
-                        Server.backend = newBackend;
-                        Server.verificationTasks.forEach(task => task.resetLastSuccess());
-                        Server.sendStartBackendMessage(Server.backend.name, mustRestartBackend, Settings.useViperServer(newBackend));
-                    } else {
-                        Log.log("No need to restart backend. It is still the same", LogLevel.Debug)
-                        Server.backend = newBackend;
-                        Server.sendBackendReadyNotification({
-                            name: Server.backend.name,
-                            restarted: false,
-                            isViperServer: Settings.useViperServer(newBackend)
-                        });
-                    }
+                Log.log("check if restart needed", LogLevel.LowLevelDebug);
+                let backendChanged = !Settings.backendEquals(Server.backend, newBackend) //change in backend
+                let mustRestartBackend = !Server.backendService.isReady() //backend is not ready -> restart
+                    || viperToolsUpdated //Viper Tools Update might have modified the binaries
+                    || (Server.backendService.isViperServerService != this.useViperServer(newBackend)) //the new backend requires another engine type
+                    || (Settings.useViperServer(newBackend) && this.viperServerRelatedSettingsChanged(oldSettings)) // the viperServerSettings changed
+                if (mustRestartBackend || backendChanged) {
+                    Log.log(`Change Backend: from ${Server.backend ? Server.backend.name : "No Backend"} to ${newBackend ? newBackend.name : "No Backend"}`, LogLevel.Info);
+                    Server.backend = newBackend;
+                    Server.verificationTasks.forEach(task => task.resetLastSuccess());
+                    Server.sendStartBackendMessage(Server.backend.name, mustRestartBackend, Settings.useViperServer(newBackend));
                 } else {
-                    Log.error("No backend, even though the setting check succeeded.");
+                    Log.log("No need to restart backend. It is still the same", LogLevel.Debug)
+                    Server.backend = newBackend;
+                    Server.sendBackendReadyNotification({
+                        name: Server.backend.name,
+                        restarted: false,
+                        isViperServer: Settings.useViperServer(newBackend)
+                    });
                 }
             } else {
-                Server.backendService.stop();
+                Log.error("No backend, even though the setting check succeeded.");
             }
-        });
+        } else {
+            Server.backendService.stop();
+        }
     }
 
     private static addError(msg: string) {
@@ -304,7 +315,11 @@ export class Settings {
             this._upToDate = true;
 
             //Check viperToolsProvider
-            settings.preferences.viperToolsProvider = this.checkPlatformDependentUrl(settings.preferences.viperToolsProvider);
+            settings.preferences.stableViperToolsProvider = this.checkPlatformDependentUrl("stableViperToolsProvider", settings.preferences.stableViperToolsProvider);
+            settings.preferences.nightlyViperToolsProvider = this.checkPlatformDependentUrl("nightlyViperToolsProvider", settings.preferences.nightlyViperToolsProvider);
+
+            // overwrite `viperToolsPath` by actual location at which Viper tools should be installed (depending on the build channel):
+            settings.paths.viperToolsPath = Server.getInstalledViperToolsPath();
 
             //Check Paths
             //check viperToolsPath
@@ -313,11 +328,12 @@ export class Settings {
             if (!resolvedPath.exists) {
                 if (!viperToolsUpdated) {
                     //Automatically install the Viper tools
-                    Server.updateViperTools(true);
+                    Server.ensureViperTools(false);
                     // in this case we do not want to continue restarting the backend,
                     //the backend will be restarted after the update
                     return Promise.reject();
                 } else {
+                    // we have just updated Viper tools but the resolved path still does not exist
                     return false;
                 }
             }
@@ -417,7 +433,7 @@ export class Settings {
         });
     }
 
-    private static checkPlatformDependentUrl(url: string | PlatformDependentURL): string {
+    private static checkPlatformDependentUrl(key: string, url: string | PlatformDependentURL): string {
         let stringURL = null;
         if (url) {
             if (typeof url === "string") {
@@ -435,7 +451,7 @@ export class Settings {
             }
         }
         if (!stringURL || stringURL.length == 0) {
-            this.addError("The viperToolsProvider is missing in the preferences");
+            this.addError(`The ${key} is missing in the preferences`);
         }
         //TODO: check url format
         return stringURL;

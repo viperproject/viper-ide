@@ -11,15 +11,17 @@
 import * as request from 'request'
 import * as StreamValues from 'stream-json/streamers/StreamValues'
 import * as child_process from 'child_process'
+import * as tree_kill from 'tree-kill'
+import * as path from 'path'
+import * as SOUND from 'sound-play'
+import * as os from 'os'
 import { Log } from './Log'
 import { Settings } from './Settings'
 import { Common, Backend, LogLevel, Commands, VerificationState } from './ViperProtocol'
 import { Server } from './ServerClass'
 import { BackendService } from './BackendService'
-import * as tree_kill from 'tree-kill'
-import * as path from 'path'
 import { DiagnosticSeverity } from 'vscode-languageserver'
-import * as SOUND from 'sound-play'
+import { assert } from 'console'
 
 enum Sounds {
     MinorIssue = 1,
@@ -38,6 +40,8 @@ export class ViperServerService extends BackendService {
     private _port: number | undefined
     private _url: string | undefined
     private _pipeline = null
+    /** promise that resolved with the backend process' exit code */
+    private _backendProcessExit: Promise<number> = null
 
     // the JID that ViperServer assigned to the current verification job.
     private _job_id: number
@@ -81,9 +85,8 @@ export class ViperServerService extends BackendService {
             Log.log(command, LogLevel.Debug);
 
             Server.startingOrRestarting = true;
-            this.startTimeout(++this.instanceCount);
-                
-            let errorReason = "";
+            this.startTimeout();
+
             this.backendProcess = child_process.exec(command, { 
                 maxBuffer: 1024 * Settings.settings.advancedFeatures.verificationBufferSize, 
                 cwd: Server.backendOutputDirectory 
@@ -92,7 +95,7 @@ export class ViperServerService extends BackendService {
             const expected_log_msg = new RegExp(/Writing \[level:(\w+)\] logs into journal: (.*)/);
             const serverReady = new Promise((resolve:(success: boolean) => void, reject) => {
                 this.backendProcess.stdout.on('data', (data: string) => {
-                    Log.logWithOrigin("VS", data.trim(), LogLevel.LowLevelDebug);
+                    Log.logWithOrigin("ViperServer", data.trim(), LogLevel.LowLevelDebug);
                     const res = expected_url_msg.exec(data);
                     const log = expected_log_msg.exec(data);
                     if (res != null && res.length === 3) {
@@ -100,8 +103,6 @@ export class ViperServerService extends BackendService {
                         //this._url = res[1]
                         this._url = Settings.settings.viperServerSettings.viperServerAddress;
                         this._port = parseInt(res[2]);
-                        // This is the last stdout message we expect from the server.
-                        this.removeAllListeners();
                         // Ready to start working with the server.
                         resolve(true);
                     }
@@ -111,11 +112,14 @@ export class ViperServerService extends BackendService {
                 });
             });
             this.backendProcess.stderr.on('data',(data:string) => {
-                errorReason += "\n" + data
+                Log.logWithOrigin("ViperServer STDERR", data.trim(), LogLevel.Info);
             })
-            this.backendProcess.on('exit', code => {
-                Log.log(`ViperServer has stopped with exit code ${code}.`, LogLevel.Info);
-                this.setStopped();
+            this._backendProcessExit = new Promise(resolve => {
+                this.backendProcess.on('exit', code => {
+                    Log.log(`ViperServer has stopped with exit code ${code}.`, LogLevel.Info);
+                    this.setStopped();
+                    resolve(code);
+                });
             });
             return await serverReady;
         } else {
@@ -123,28 +127,24 @@ export class ViperServerService extends BackendService {
         }
     }
 
-    public stop(): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            if (this.backendProcess) {
-                Log.log(`Sending exit request to ViperServer...`, LogLevel.Debug)
-                //clearTimeout(this.timeout)
-                this.setStopping()
-                this.backendProcess.removeAllListeners()
-                this.sendStopRequest().then(() => {
-                    this.setStopped()
-                    this.backendProcess = null
-                    this.isSessionRunning = false
-                    resolve(true)
-                }).catch((e) => {
-                    reject(e)
-                })
-
-            } else {
-                Log.log(`ViperServer has already stopped.`, LogLevel.Debug)
-                this.setStopped()
-                return resolve(true)
-            }
-        })
+    public async stop(): Promise<boolean> {
+        if (this.backendProcess) {
+            Log.log(`Sending exit request to ViperServer...`, LogLevel.Debug);
+            this.setStopping();
+            const stopResponse = await this.sendStopRequest();
+            // wait until server process has exited:
+            assert(this._backendProcessExit != null);
+            await this._backendProcessExit;
+            // do not call `this.setStopped()` as this already happens before resolving `_backendProcessExit`.
+            this.removeAllListeners();
+            this.backendProcess = null;
+            this.isSessionRunning = false;
+            return stopResponse;
+        } else {
+            Log.log(`ViperServer has already stopped.`, LogLevel.Debug);
+            this.setStopped();
+            return true;
+        }
     }
 
     public stopVerification(secondTry: boolean = false): Promise<boolean> {
@@ -193,7 +193,7 @@ export class ViperServerService extends BackendService {
         const javaArgs = Settings.settings.javaSettings.customArguments;
         const customArgs = Settings.settings.viperServerSettings.customArguments;
         const logLevel = this.logLevelToStr(Settings.settings.preferences.logLevel);
-        const logFile = Server.tempDirectory;
+        const logFile = Settings.logDirPath == null ? os.tmpdir() : Settings.logDirPath;
         let command = `${javaPath} ${javaArgs} ${customArgs} --logLevel ${logLevel} --logFile ${logFile}`;
 
         command = command.replace(/\$backendPaths\$/g, Settings.viperServerJars())
@@ -656,25 +656,31 @@ export class ViperServerService extends BackendService {
                 resolve(false)
             } else {
                 let url = this._url + ':' + this._port + '/exit'
+                Log.log(`Get request to '${url}'`, LogLevel.LowLevelDebug);
                 request.get(url).on('error', (err) => {
                     Log.log(`error while requesting ViperServer to stop.` +
                             ` Request URL: ${url}\n` +
                             ` Error message: ${err}`, LogLevel.Default)
                     reject(err)
                 }).on('data', (data) => {
-                    let response = JSON.parse(data.toString())
-                    if ( !response.msg ) {
-                        Log.log(`ViperServer did not complain about the way we requested it to exit.` + 
+                    Log.log(`Response received '${data}'`, LogLevel.LowLevelDebug);
+                    try {
+                        const response = JSON.parse(data.toString())
+                        if ( !response.msg ) {
+                            Log.log(`ViperServer did not complain about the way we requested it to exit.` + 
                                 ` However, it also did not provide the expected bye-bye message.` + 
                                 ` It said: ${data.toString}`, LogLevel.Debug)
-                        resolve(true)
-                    } else if ( response.msg !== 'shutting down...' ) {
-                        Log.log(`ViperServer responded with an unexpected bye-bye message: ${response.msg}`, 
+                            resolve(true)
+                        } else if ( response.msg !== 'shutting down...' ) {
+                            Log.log(`ViperServer responded with an unexpected bye-bye message: ${response.msg}`, 
                                 LogLevel.Debug)
-                        resolve(true)
-                    } else {
-                        Log.log(`ViperServer has exited properly.`, LogLevel.Debug)
-                        resolve(true)
+                            resolve(true)
+                        } else {
+                            Log.log(`ViperServer has exited properly.`, LogLevel.Debug)
+                            resolve(true)
+                        }
+                    } catch(err) {
+                        reject(new Error(`Parsing response to stop request has failed with error '${err}'`));
                     }
                 })
             }

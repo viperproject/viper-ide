@@ -7,11 +7,9 @@
   */
  
 'use strict'
-import { SymbolKind } from 'vscode-languageserver'
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 
 import { IPCMessageReader, IPCMessageWriter, createConnection, InitializeResult, SymbolInformation } from 'vscode-languageserver'
+const yargs = require('yargs/yargs') // LA July 5th 2021: this is the only way I could find that works together with `ncc` (see documentation for `yargs` mentioned below)
 import { Log } from './Log'
 import { Settings } from './Settings'
 import { Backend, Common, StateColors, ExecutionTrace, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams } from './ViperProtocol'
@@ -20,6 +18,28 @@ import { Statement } from './Statement'
 import { DebugServer } from './DebugServer'
 import { Server } from './ServerClass'
 import { ViperServerService } from './ViperServerService'
+
+// uses 'yargs' as recommended for use together with ncc
+// see https://github.com/yargs/yargs/blob/master/docs/bundling.md
+const argv = yargs(process.argv.slice(2))
+    .option('globalStorage', {
+        description: 'Path to the global storage folder provided by VSCode to a particular extension',
+        type: 'string',
+    })
+    .option('logDir', {
+        description: 'Path to a folder in which log files should be stored',
+        type: 'string',
+    })
+    .help() // show help if `--help` is used
+    .parse();
+// pass command line option to Settings:
+if (argv.globalStorage) {
+    Settings.globalStoragePath = argv.globalStorage;
+}
+if (argv.logDir) {
+    Settings.logDirPath = argv.logDir;
+}
+
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 Server.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
@@ -50,7 +70,8 @@ function registerHandlers() {
     Server.connection.onShutdown(() => {
         try {
             Log.log("On Shutdown", LogLevel.Debug);
-            Server.backendService.stop();
+            return Server.backendService.kill()
+                .then(res => Log.log(`Backend service has been stopped (result: ${res})`, LogLevel.Debug));
         } catch (e) {
             Log.error("Error handling shutdown: " + e);
         }
@@ -59,8 +80,8 @@ function registerHandlers() {
     Server.connection.onDidChangeConfiguration((change) => {
         try {
             Log.log('Configuration changed', LogLevel.Info);
-            let oldSettings = Settings.settings;
-            Settings.settings = <ViperSettings>change.settings.viperSettings;
+            const oldSettings = Settings.settings;
+            Settings.settings = change.settings.viperSettings as ViperSettings;
             Log.logLevel = Settings.settings.preferences.logLevel; //after this line, Logging works
             Server.refreshEndings();
             Settings.initiateBackendRestartIfNeeded(oldSettings);
@@ -214,24 +235,21 @@ function registerHandlers() {
         }
     });
 
-    Server.connection.onNotification(Commands.Verify, (data: VerifyRequest) => {
-        try { 
-            let verificationstarted = false;
+    Server.connection.onNotification(Commands.Verify, async (data: VerifyRequest) => {
+        try {
             //it does not make sense to reverify if no changes were made and the verification is already running
             if (canVerificationBeStarted(data.uri, data.manuallyTriggered)) {
                 Settings.workspace = data.workspace;
                 Log.log("start or restart verification", LogLevel.Info);
                 //stop all other verifications because the backend crashes if multiple verifications are run in parallel
-                VerificationTask.stopAllRunningVerifications().then(success => {
-                    //start verification
-                    Server.executedStages = [];
-                    verificationstarted = Server.verificationTasks.get(data.uri).verify(data.manuallyTriggered) === true;
-                    if (!verificationstarted) {
-                        Server.sendVerificationNotStartedNotification(data.uri);
-                    }
-                }, () => {
+                await VerificationTask.stopAllRunningVerifications();
+                Log.log(`other verifications have been stopped`, LogLevel.LowLevelDebug);
+                //start verification
+                Server.executedStages = [];
+                const verificationstarted = Server.verificationTasks.get(data.uri).verify(data.manuallyTriggered);
+                if (!verificationstarted) {
                     Server.sendVerificationNotStartedNotification(data.uri);
-                });
+                }
             } else {
                 Log.log("The verification cannot be started.", LogLevel.Info);
                 Server.sendVerificationNotStartedNotification(data.uri);
@@ -243,7 +261,7 @@ function registerHandlers() {
     });
 
     Server.connection.onNotification(Commands.UpdateViperTools, () => {
-        Server.updateViperTools(false);
+        Server.ensureViperTools(true);
     });
 
     Server.connection.onNotification(Commands.FlushCache, (file) => {
@@ -254,21 +272,23 @@ function registerHandlers() {
         }
     });
 
-    Server.connection.onRequest(Commands.Dispose, () => {
+    Server.connection.onRequest(Commands.StopAllVerifications, () => {
         try {
             //if there are running verifications, stop related processes
-            Server.verificationTasks.forEach(task => {
+            const tasks = Array.from(Server.verificationTasks.values());
+            const stopPromises = tasks.map(task => {
                 if (task.running) {
                     //Todo[ATG_6.10.2017]: use UIDs for logging verification tasks.
                     Log.log("stop verification of " + task.filename, LogLevel.Default);
-                    Server.backendService.stopVerification();
+                    return Server.backendService.stopVerification();
+                } else {
+                    Promise.resolve(true);
                 }
             });
-
-            console.log("dispose language server");
-            return Server.backendService.kill()
+            return Promise.all(tasks)
+                .then(results => results.every(res => res));
         } catch (e) {
-            Log.error("Error handling dispose request: " + e);
+            Log.error("Error handling stop all verifications request: " + e);
             return Promise.reject()
         }
     })
@@ -331,26 +351,23 @@ function registerHandlers() {
         });
     });
 
-    Server.connection.onRequest(Commands.StopVerification, (uri: string) => {
-        return new Promise<boolean>((resolve, reject) => {
-            try {
-                let task = Server.verificationTasks.get(uri);
-                if (task) {
-                    task.abortVerificationIfRunning().then((success) => {
-                        Server.sendStateChangeNotification({
-                            newState: VerificationState.Ready,
-                            verificationCompleted: false,
-                            verificationNeeded: false,
-                            uri: uri
-                        }, task);
-                        resolve(success);
-                    })
-                }
-            } catch (e) {
-                Log.error("Error handling stop verification request (critical): " + e);
-                resolve(false);
+    Server.connection.onRequest(Commands.StopVerification, async (uri: string) => {
+        try {
+            const task = Server.verificationTasks.get(uri);
+            if (task) {
+                await task.abortVerificationIfRunning();
+                Server.sendStateChangeNotification({
+                    newState: VerificationState.Ready,
+                    verificationCompleted: false,
+                    verificationNeeded: false,
+                    uri: uri
+                }, task);
             }
-        });
+            return true;
+        } catch (e) {
+            Log.error(`Error handling stop verification request (critical): ${e}`);
+            return false;
+        }
     });
 
     Server.connection.onNotification(Commands.StopDebugging, () => {
@@ -411,40 +428,40 @@ function canVerificationBeStarted(uri: string, manuallyTriggered: boolean): bool
     return true;
 }
 
-function checkSettingsAndStartServer(backendName: string) {
-    let backend;
-    Settings.checkSettings(false).then(() => {
-        if (Settings.valid()) {
-            backend = Settings.selectBackend(Settings.settings, backendName);
-            if (backend) {
-                changeBackendEngineIfNeeded(backend);
-                return Server.backendService.start(backend);
+async function checkSettingsAndStartServer(backendName: string): Promise<void> {
+    try {
+        await Settings.checkSettings(false);
+        const valid = Settings.valid();
+        if (!valid) {
+            return Promise.reject(new Error("backend start skipped because of invalid settings"));
+        }
+        const backend = Settings.selectBackend(Settings.settings, backendName);
+        if (backend) {
+            changeBackendEngineIfNeeded(backend);
+            const success = await Server.backendService.start(backend);
+            if (success) {
+                Server.backendService.setReady(backend);
             } else {
-                Log.error("cannot start backend " + backendName + ", no configuration found.");
-                return false;
+                Server.backendService.setStopped();
+                Log.log("The ViperServer could not be started.", LogLevel.Debug);
             }
         } else {
-            return false;
+            const errMsg = `cannot start backend ${backendName}, no configuration found.`;
+            Log.error(errMsg);
+            return Promise.reject(new Error(errMsg));
         }
-    }).then(success => {
-        if (success) {
-            Server.backendService.setReady(backend);
-        } else {
-            Server.backendService.setStopped();
-            Log.log("The ViperServer could not be started.", LogLevel.Debug);
-        }
-    }).catch(reason => {
+    } catch (reason) {
         if (reason.startsWith("startupFailed")) {
             Log.hint("The ViperServer startup failed, make sure the dependencies are not missing/conflicting.",true,true)
             Log.error("ViperServer: " + reason);
             Server.backendService.setStopped();
-            //prevent the timeout from happening
-            Server.backendService.instanceCount++;
         } else {
             Log.error("startViperServer failed: " + reason);
             Server.backendService.kill();
         }
-    });
+        // rethrow error:
+        return Promise.reject(new Error(reason));
+    }
 }
 
 function changeBackendEngineIfNeeded(backend: Backend) {

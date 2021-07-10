@@ -44,6 +44,7 @@ export class DebugServer {
         });
     }
 
+    private static DebuggerId: string = 'viperDebugger';
     static connectToDebuggerAsClient(): Thenable<boolean> {
         //connect to Debugger as client to be able to send messages
         return new Promise((resolve, reject) => {
@@ -51,7 +52,7 @@ export class DebugServer {
                 if (!this.debugClientConnected) {
                     this.debugClientConnected = true;
                     ipc.connectTo(
-                        'viperDebugger', () => {
+                        DebugServer.DebuggerId, () => {
                             ipc.of.viperDebugger.on(
                                 'connect', () => {
                                     Log.log("Language Server connected to Debugger, as client", LogLevel.Debug);
@@ -62,7 +63,7 @@ export class DebugServer {
                                 'disconnect', () => {
                                     this.debugClientConnected = false;
                                     try {
-                                        ipc.disconnect('viperDebugger');
+                                        ipc.disconnect(DebugServer.DebuggerId);
                                     } catch (e) {
                                         Log.error("Error disconnecting from Debug server, is the server already stopped? " + e);
                                     }
@@ -352,7 +353,7 @@ export class DebugServer {
                     ipc.of.viperDebugger.emit("StopDebugging");
                     Log.log("LanguageServer is telling Debugger to stop debugging", LogLevel.Debug)
                 }
-                ipc.disconnect();
+                ipc.disconnect(DebugServer.DebuggerId);
                 Log.log("LanguageServer is telling Debugger to stop debugging", LogLevel.Debug)
             } catch (e) {
                 Log.error("Error sending StopDebugging request: " + e);

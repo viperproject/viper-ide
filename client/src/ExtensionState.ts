@@ -30,7 +30,6 @@ export class State {
     public static isBackendReady: boolean;
     public static isDebugging: boolean;
     public static isVerifying: boolean;
-    private static languageServerDisposable;
     public static isWin = /^win/.test(process.platform);
     public static isLinux = /^linux/.test(process.platform);
     public static isMac = /^darwin/.test(process.platform);
@@ -170,22 +169,26 @@ export class State {
         return result;
     }
 
-    public static startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, brk: boolean) {
+    public static startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, brk: boolean): Promise<void> {
         // The server is implemented in node
-        let serverModule = State.context.asAbsolutePath(path.join('server', 'server.js'));
+        const serverModule = State.context.asAbsolutePath(path.join('server', 'index.js'));
 
         if (!fs.existsSync(serverModule)) {
             Log.log(serverModule + " does not exist. Reinstall the Extension", LogLevel.Debug);
             return;
         }
+        const args = [
+            "--globalStorage", Helper.getGlobalStoragePath(context),
+            "--logDir", Helper.getLogDir()
+        ];
         // The debug options for the server
-        let debugOptions = { execArgv: ["--nolazy", "--inspect=5443"] };
+        const debugOptions = { execArgv: ["--nolazy", "--inspect=5443"] };
 
         // If the extension is launch in debug mode the debug server options are use
         // Otherwise the run options are used
         let serverOptions: ServerOptions = {
-            run: { module: serverModule, transport: TransportKind.ipc },
-            debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions }
+            run: { module: serverModule, transport: TransportKind.ipc, args: args },
+            debug: { module: serverModule, transport: TransportKind.ipc, args: args, options: debugOptions }
         }
 
         // Options to control the language client
@@ -204,26 +207,29 @@ export class State {
 
         Log.log("Start Language Server", LogLevel.Info);
         // Create the language client and start the client.
-        this.languageServerDisposable = State.client.start();
+        const disposable = State.client.start();
+        // Push the disposable to the context's subscriptions so that the
+        // client can be deactivated on extension deactivation
+        context.subscriptions.push(disposable);
 
-        if (!State.client || !this.languageServerDisposable) {
-            Log.error("LanguageClient is undefined");
-        }
+        return State.client.onReady();
     }
 
-    public static dispose(): Promise<void> {
+    public static async dispose(): Promise<void> {
+        if (State.client == null) {
+            State.reset();
+            return;
+        }
         try {
-            return new Promise((resolve, reject) => {
-                Log.log("Ask language server to shut down.", LogLevel.Info);
-                State.client.sendRequest(Commands.Dispose, null).then(() => {
-                    Log.log("Language server has shut down, terminate the connection", LogLevel.Info);
-                    this.languageServerDisposable.dispose();
-                    resolve();
-                });
-            });
+            Log.log("Ask language server to stop all verifications.", LogLevel.Info);
+            await State.client.sendRequest(Commands.StopAllVerifications, null);
+            Log.log("Language server has stopped verifications", LogLevel.Info);
+            await State.client.stop();
+            Log.log("Language server has stopped", LogLevel.Info);
         } catch (e) {
             Log.error("Error disposing state: " + e);
         }
+        State.reset();
     }
 
     public static checkOperatingSystem() {
@@ -250,7 +256,6 @@ export interface UnitTestCallback {
     allFilesVerified: (verified: number, total: number) => void;
     ideIsIdle: () => void;
     internalErrorDetected: () => void;
-    activated: () => void;
     viperUpdateComplete: () => void;
     viperUpdateFailed: () => void;
     verificationStopped: () => void;

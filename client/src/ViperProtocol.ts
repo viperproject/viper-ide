@@ -57,8 +57,8 @@ export class Commands {
     //CLIENT TO SERVER
     //Client asks server for the list of backend names
     static RequestBackendNames = "RequestBackendNames";//void
-    //Client tells server to dispose itself
-    static Dispose = "Dispose";//void
+    //Client tells server to stop all verifications before later on shutting server down (via shutdown command)
+    static StopAllVerifications = "StopAllVerifications";//void
     //Client requests verification for a file
     static Verify = "Verify";//VerifyParams
     //Client tells server to abort the running verification
@@ -339,6 +339,7 @@ export interface ViperSettings {
     javaSettings: JavaSettings;
     //Settings for AdvancedFeatures
     advancedFeatures: AdvancedFeatureSettings;
+    buildVersion: "Stable" | "Nightly" | "Local";
 }
 
 export interface VersionedSettings { v: string; }
@@ -428,8 +429,11 @@ export interface UserPreferences extends VersionedSettings {
     // Emit sound effects, indicating reached milestones in a verification process
     enableSoundEffects: boolean; 
 
-    // The URL for downloading the ViperTools from
-    viperToolsProvider: string | PlatformDependentURL;
+    // The URL for downloading the stable ViperTools from
+    stableViperToolsProvider: string | PlatformDependentURL;
+
+    // The URL for downloading the nightly ViperTools from
+    nightlyViperToolsProvider: string | PlatformDependentURL;
 }
 
 export interface JavaSettings extends VersionedSettings {
@@ -656,7 +660,7 @@ export class Common {
         });
     }
 
-    public static sudoExecuter(command: string, name: string, callback) {
+    public static sudoExecuter(command: string, name: string): Promise<void> {
         Log.log("sudo-executer: " + command, LogLevel.Debug)
         let options = { 
             name: name,
@@ -664,13 +668,17 @@ export class Common {
             icns: '/Applications/Electron.app/Contents/Resources/Viper.icns'
             */
         }
-        sudo.exec(command, options, (error, stdout, stderr) => {
-            Log.logWithOrigin('stdout', stdout, LogLevel.LowLevelDebug);
-            Log.logWithOrigin('stderr', stderr, LogLevel.LowLevelDebug);
-            if (error) {
-                Log.error('sudo-executer error: ' + error);
-            }
-            callback();
+        return new Promise((resolve, reject) => {
+            sudo.exec(command, options, (error, stdout, stderr) => {
+                Log.logWithOrigin('stdout', stdout, LogLevel.LowLevelDebug)
+                Log.logWithOrigin('stderr', stderr, LogLevel.LowLevelDebug)
+                if (error) {
+                    Log.error('sudo-executer error: ' + error)
+                    reject(error);
+                } else {
+                    resolve();
+                }
+            })
         });
     }
 

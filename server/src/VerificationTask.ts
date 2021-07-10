@@ -894,27 +894,23 @@ export class VerificationTask {
         }
     }
 
-    public abortVerificationIfRunning(): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            try {
-                if (!this.running) {
-                    resolve(true)
-                    return
-                }
+    public async abortVerificationIfRunning(): Promise<void> {
+        if (!this.running) {
+            return;
+        }
 
-                Log.log('Abort running verification', LogLevel.Info)
-                this.aborting = true
-              
-                Server.backendService.stopVerification().then(() => { resolve(true) })
+        Log.log('Abort running verification', LogLevel.Info);
+        this.aborting = true;
 
-                this.running = false
-                this.lastSuccess = Success.Aborted
-
-            } catch (e) {
-                Log.error("Error aborting verification of " + this.filename + ": " + e)
-                resolve(false)
-            }
-        })
+        try {
+            await Server.backendService.stopVerification();
+            this.running = false;
+            this.lastSuccess = Success.Aborted;
+        } catch (e) {
+            const errMsg = `Error aborting verification of ${this.filename}: ${e}`;
+            Log.error(errMsg);
+            throw new Error(errMsg);
+        }
     }
 
     public getStepsOnLine(line: number): Statement[] {
@@ -929,7 +925,7 @@ export class VerificationTask {
 
     public loadSymbExLogFromFile() {
         try {
-            let symbExLogPath = pathHelper.join(Server.tempDirectory, "executionTreeData.js");
+            let symbExLogPath = pathHelper.join(Server.backendOutputDirectory, "executionTreeData.js");
             Log.log("Loading The symbexLog from: " + symbExLogPath, LogLevel.Debug);
             if (fs.existsSync(symbExLogPath)) {
                 let content = fs.readFileSync(symbExLogPath).toString();
@@ -953,32 +949,9 @@ export class VerificationTask {
         }
     }
 
-    public static stopAllRunningVerifications(): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            try {
-                if (Server.verificationTasks && Server.verificationTasks.size > 0) {
-                    let promises: Promise<boolean>[] = [];
-                    Server.verificationTasks.forEach(task => {
-                        if (task.running) {
-                            promises.push(new Promise((res, rej) => {
-                                task.abortVerificationIfRunning().then(() => { res(true) });
-                            }));
-                        }
-                    });
-                    if (promises.length > 0) {
-                        Log.log("Stop all running verificationTasks", LogLevel.Debug)
-                    }
-                    Promise.all(promises).then(() => {
-                        resolve(true);
-                    })
-                } else {
-                    //nothing to stop
-                    resolve(true);
-                }
-            } catch (e) {
-                Log.error("Error stopping all running verifications: " + e);
-                reject();
-            }
-        });
+    public static async stopAllRunningVerifications(): Promise<void> {
+        const tasks = Array.from(Server.verificationTasks.values());
+        const promises: Promise<void>[] = tasks.map(task => task.abortVerificationIfRunning());
+        return Promise.all(promises).then(); // the `then` is necessary to convert from `void[]` to `void`
     }
 }

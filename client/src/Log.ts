@@ -11,32 +11,28 @@
 import * as vscode from "vscode";
 import * as path from 'path';
 import * as fs from 'fs';
+import * as unusedFilename from 'unused-filename';
 import { Progress, LogLevel } from './ViperProtocol';
 import { Helper } from './Helper';
 import { State } from './ExtensionState';
-const os = require('os');
-const unusedFilename = require('unused-filename');
 
 export class Log {
-    static tempDirectory = path.join(os.tmpdir(), ".vscode");
     static logFilePath: string;
     static logFile: fs.WriteStream;
     static outputChannel = vscode.window.createOutputChannel('Viper');
-    static logLevel: LogLevel;
+    static logLevel: LogLevel = null;
     static lastProgress: { msg: string, logLevel: LogLevel };
     private static START_TIME = new Date().getTime();
 
     static logTiming = true;
 
+
     public static initialize() {
         try {
             Log.updateSettings();
-            //create logfile's directory if it wasn't created before
-            if (!fs.existsSync(this.tempDirectory)) {
-                fs.mkdirSync(this.tempDirectory);
-            }
             if (!this.logFile) {
-                this.logFilePath = unusedFilename.sync(path.join(this.tempDirectory, "viper.log"));
+                const logDirectory = Helper.getLogDir();
+                this.logFilePath = unusedFilename.sync(path.join(logDirectory, "viper.log"));
                 Log.log('The logFile is located at: "' + this.logFilePath + '"', LogLevel.Info)
                 try {
                     Log.createFile(this.logFilePath);
@@ -66,7 +62,7 @@ export class Log {
             Log.log("The ouput channel was not set up correctly, no messages can be written to the output panel.", logLevel);
             initialized = false;
         }
-        if (!this.logLevel) {
+        if (this.logLevel == null) {
             Log.log("The verbosity of the output is not set, all messages are output.", logLevel);
             initialized = false;
         }
@@ -97,13 +93,16 @@ export class Log {
         let oldLogLevel = Log.logLevel;
         Log.logLevel = Helper.getConfiguration("preferences").logLevel || LogLevel.Default;
         if (State.unitTest) {
-            Log.logLevel = LogLevel.LowLevelDebug;
+            // we want to keep output small during testing and in case log output matters,
+            // it can be looked up in the log file. Thus, there is no reason to spam the
+            // console.
+            Log.logLevel = LogLevel.None;
         }
         if (oldLogLevel != Log.logLevel) {
-            if (oldLogLevel) {
-                Log.log(`The logLevel was changed from ${LogLevel[oldLogLevel]} to ${LogLevel[Log.logLevel]}`, LogLevel.LowLevelDebug);
-            } else {
+            if (oldLogLevel == null) {
                 Log.log(`The logLevel was set to ${LogLevel[Log.logLevel]}`, LogLevel.LowLevelDebug);
+            } else {
+                Log.log(`The logLevel was changed from ${LogLevel[oldLogLevel]} to ${LogLevel[Log.logLevel]}`, LogLevel.LowLevelDebug);
             }
         }
     }
@@ -119,7 +118,7 @@ export class Log {
     private static doLog(message: string, logLevel: LogLevel) {
         let timing = this.logTiming ? this.prettyUptime() + ' ' : '';
         message = this.prefix(logLevel) + message;
-        if (!Log.logLevel || Log.logLevel >= logLevel) {
+        if (Log.logLevel == null || Log.logLevel >= logLevel) {
             console.log(timing + message);
             Log.outputChannel.append(message + "\n");
         }
@@ -158,11 +157,14 @@ export class Log {
     }
 
     public static toLogFile(message: string, logLevel: LogLevel = LogLevel.Default) {
-        if (Log.logLevel >= logLevel && Log.logFile) {
-            let timing = this.logTiming ? this.prettyUptime() + ' ' : '';
-            message = timing + message;
-            console.log(message);
-            Log.logFile.write(message + "\n");
+        const timing = this.logTiming ? this.prettyUptime() + ' ' : '';
+        const msgWithTiming = timing + message;
+        if (Log.logLevel == null || Log.logLevel >= logLevel) {
+            Log.outputChannel.append(msgWithTiming + "\n");
+            console.log(msgWithTiming);
+        }
+        if (Log.logFile) {
+            Log.logFile.write(msgWithTiming + "\n");
         }
     }
 
@@ -173,18 +175,21 @@ export class Log {
         }
         let timing = this.logTiming ? this.prettyUptime() + ' ' : '';
         message = "ERROR: " + message;
-        if (Log.logLevel >= logLevel && Log.logFile) {
-            console.error(timing + message);
-            Log.outputChannel.append(message + "\n");
-        }
+        // all errors should be printed independent of the log level
+        console.error(timing + message);
+        Log.outputChannel.append(message + "\n");
         if (Log.logFile) {
             Log.logFile.write(timing + message + "\n");
         }
     }
 
     public static dispose() {
-        Log.logFile.close();
-        Log.logFile = null;
+        if (State.unitTest) {
+            Log.log("Log: ignoring call to `dispose` because we are running in a unit test environment", LogLevel.Info);
+        } else {
+            Log.logFile.close();
+            Log.logFile = null;
+        }
     }
 
     public static hint(message: string, tag: string = "Viper", showSettingsButton = false, showViperToolsUpdateButton = false) {
