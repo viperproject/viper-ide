@@ -1,13 +1,17 @@
-This Visual Studio Code extension provides interactive IDE features for verifying programs in [Viper](http://viper.ethz.ch) (Verification Infrastructure for Permission-based Reasoning). 
+This VS Code extension provides interactive IDE features for [Viper](http://viper.ethz.ch) — the Verification Infrastructure for Permission-based Reasoning. 
 
-The extension automatically downloads and (if you give permission) installs them under the defauls directory /usr/local/Viper; please **always** refer to the official [installation instructiuons](http://viper.ethz.ch/downlo…) for more details (in particular, about defferent operation system support). 
+### Dependencies ###
+
+The extension automatically downloads and manages Viper (via publicly available links, as listed here: http://viper.ethz.ch/downloads/). 
+
+Viper IDE uses an open-source 64-bit [Java server](https://github.com/viperproject/viperserver), so you need Java installed to be able to run it. 
+
+Please **always** refer to the official [installation instructiuons](http://viper.ethz.ch/downloads) for more details (in particular, about defferent operating system support). 
 
 ### Using Viper ###
 
 If you would like to learn more about Viper, please start with our extensive [tutorial](http://viper.ethz.ch/tutorial/). 
 
-### Viper IDE dependencies status ###
+### Debugging verification failures ###
 
-[![Build Status](https://pmbuilds.inf.ethz.ch/buildStatus/icon?job=Viper%20IDE%20binary%20dependencies)](https://pmbuilds.inf.ethz.ch/job/Viper%20IDE%20binary%20dependencies)
-
-Download the dependencies here: http://viper.ethz.ch/downloads/
+[Lizard](https://github.com/viperproject/lizard) is a (visual) verification debugger prototype for Viper IDE. It aims at simplifying the understanding of verification failures by converting SMT models to counterexample diagrams that are shown next to the code. 
