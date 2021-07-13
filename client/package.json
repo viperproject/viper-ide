@@ -38,7 +38,7 @@
         "glob-to-regexp": "^0.4.1",
         "node-ipc": "^9.1.4",
         "rimraf": "^3.0.2",
-        "strip-json-comments": "3.0.1",
+        "strip-json-comments": "3.1.1",
         "sudo-prompt": "8.2.5",
         "unused-filename": "^2.1.0",
         "viz.js": "^2.1.2",
