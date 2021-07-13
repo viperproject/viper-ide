@@ -54,7 +54,7 @@
         "@types/rimraf": "^3.0.0",
         "@types/tmp": "^0.2.0",
         "@types/vscode": "^1.43.0",
-        "@typescript-eslint/eslint-plugin": "^4.26.1",
+        "@typescript-eslint/eslint-plugin": "^4.28.3",
         "@typescript-eslint/parser": "^4.26.1",
         "eslint": "^7.28.0",
         "eslint-webpack-plugin": "^2.5.4",
