@@ -44,7 +44,7 @@
         "viz.js": "^2.1.2",
         "vscode-debugadapter": "^1.34.0",
         "vscode-debugprotocol": "^1.34.0",
-        "vscode-languageclient": "^5.2.1",
+        "vscode-languageclient": "^7.0.0",
         "vscode-uri": "^3.0.2"
     },
     "devDependencies": {
