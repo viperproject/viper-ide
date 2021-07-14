@@ -670,8 +670,8 @@ export class Common {
         }
         return new Promise((resolve, reject) => {
             sudo.exec(command, options, (error, stdout, stderr) => {
-                Log.logWithOrigin('stdout', stdout, LogLevel.LowLevelDebug)
-                Log.logWithOrigin('stderr', stderr, LogLevel.LowLevelDebug)
+                Log.logWithOrigin('stdout', stdout.toString(), LogLevel.LowLevelDebug)
+                Log.logWithOrigin('stderr', stderr.toString(), LogLevel.LowLevelDebug)
                 if (error) {
                     Log.error('sudo-executer error: ' + error)
                     reject(error);
