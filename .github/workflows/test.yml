@@ -289,10 +289,26 @@ jobs:
         shell: bash
         run: echo "TAG_NAME=$(date +v-%Y-%m-%d-%H%M)" >> $GITHUB_ENV
 
+      # use the following action if nightly releases should eventually be deleted
+      # - name: Create nightly release
+      #   if: ${{ github.event.inputs.type != 'stable' }}
+      #   id: create_nightly_release
+      #   uses: viperproject/create-nightly-release@v1
+      #   env:
+      #     # This token is provided by Actions, you do not need to create your own token
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     tag_name: ${{ env.TAG_NAME }}
+      #     release_name: Nightly Release ${{ env.TAG_NAME }}
+      #     body: Based on ViperServer release ${{ github.event.inputs.viperserver_tag_name }}
+      #     keep_num: 1 # keep the previous nightly release such that there are always two
+
+      # because e.g. prusti-dev depends on the nightly releases and updates only twice a month to the
+      # latest version, nightly releases should be kept
       - name: Create nightly release
         if: ${{ github.event.inputs.type != 'stable' }}
         id: create_nightly_release
-        uses: viperproject/create-nightly-release@v1
+        uses: actions/create-release@v1
         env:
           # This token is provided by Actions, you do not need to create your own token
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -300,7 +316,8 @@ jobs:
           tag_name: ${{ env.TAG_NAME }}
           release_name: Nightly Release ${{ env.TAG_NAME }}
           body: Based on ViperServer release ${{ github.event.inputs.viperserver_tag_name }}
-          keep_num: 1 # keep the previous nightly release such that there are always two
+          draft: false
+          prerelease: true
 
       - name: Store nightly release upload URL
         if: ${{ github.event.inputs.type != 'stable' }}
