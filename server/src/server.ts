@@ -8,7 +8,7 @@
  
 'use strict'
 
-import { IPCMessageReader, IPCMessageWriter, createConnection, InitializeResult, SymbolInformation } from 'vscode-languageserver'
+import { createConnection, ProposedFeatures, InitializeParams, InitializeResult, SymbolInformation } from 'vscode-languageserver/node'
 const yargs = require('yargs/yargs') // LA July 5th 2021: this is the only way I could find that works together with `ncc` (see documentation for `yargs` mentioned below)
 import { Log } from './Log'
 import { Settings } from './Settings'
@@ -42,26 +42,27 @@ if (argv.logDir) {
 
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
-Server.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
-Server.documents.listen(Server.connection);
+Server.connection = createConnection(ProposedFeatures.all)
+Server.documents.listen(Server.connection)
 
 registerHandlers();
 
 // Listen on the connection
 Server.connection.listen();
-
+  
 function registerHandlers() {
     //starting point (executed once)
-    Server.connection.onInitialize((params): InitializeResult => {
+    Server.connection.onInitialize((params: InitializeParams) => {
         try {
             Log.log("Debug Server is initializing", LogLevel.LowLevelDebug);
             DebugServer.initialize();
-            return {
+            const result: InitializeResult = {
                 capabilities: {
                     documentSymbolProvider: true,
                     definitionProvider: true
                 }
             }
+            return result
         } catch (e) {
             Log.error("Error handling initialize request: " + e);
         }

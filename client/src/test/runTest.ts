@@ -68,9 +68,9 @@ async function getTestSuiteFilenames(): Promise<string[]> {
     );
 	// do not resolve the path to the test suites here.
 	// on Windows CI the following path would be resolved:
-	// "D:\a\viper-ide\viper-ide\client\dist\test\startup.test.js"
+	// "D:\a\viper-ide\viper-ide\client\out\test\startup.test.js"
 	// however when resolving the path in index.ts, the following path is created:
-	// "d:\a\viper-ide\viper-ide\client\dist\test\startup.test.js"
+	// "d:\a\viper-ide\viper-ide\client\out\test\startup.test.js"
 	// this does not seem to be an issue at first sight, however weird issues arise
 	// at runtime of the extension: for example, the notifier does not work because the
 	// the test suite and extension use distinct global variables in the notifier.

@@ -7,7 +7,7 @@
   */
  
 'use strict';
-import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient';
+import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -182,7 +182,7 @@ export class State {
             "--logDir", Helper.getLogDir()
         ];
         // The debug options for the server
-        const debugOptions = { execArgv: ["--nolazy", "--inspect=5443"] };
+        const debugOptions = { execArgv: ["--nolazy", "--inspect=6009"] };
 
         // If the extension is launch in debug mode the debug server options are use
         // Otherwise the run options are used

@@ -9,7 +9,8 @@
 'use strict'
 import { ViperServerService } from './ViperServerService'
 
-import { IConnection, TextDocuments, PublishDiagnosticsParams } from 'vscode-languageserver'
+import { Connection, TextDocuments, PublishDiagnosticsParams } from 'vscode-languageserver/node'
+import { TextDocument } from 'vscode-languageserver-textdocument'
 import { Common, ProgressParams, LogParams, SettingsCheckedParams, Position, Range, StepsAsDecorationOptionsResult, StateChangeParams, BackendReadyParams, Stage, Backend, Commands, LogLevel, ViperSettings } from './ViperProtocol'
 import { BackendService } from './BackendService'
 import { VerificationTask } from './VerificationTask'
@@ -25,8 +26,8 @@ export class Server {
     static backend: Backend;
     static backendOutputDirectory: string = os.tmpdir();
     static executedStages: Stage[];
-    static connection: IConnection;
-    static documents: TextDocuments = new TextDocuments();
+    static connection: Connection;
+    static documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
     static backendService: BackendService = new ViperServerService();
     static debuggedVerificationTask: VerificationTask;
     static startingOrRestarting: boolean = false;

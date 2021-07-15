@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { State } from './ExtensionState';
 import { ViperFileState } from './ViperFileState';
 import { Success } from './ViperProtocol';
-import { LanguageClient } from 'vscode-languageclient/lib/main';
+import { LanguageClient } from 'vscode-languageclient/node';
 
 export class VerificationTerminatedEvent {
     status: Success;

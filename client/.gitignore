@@ -1,5 +1,4 @@
 .DS_Store
-dist/
 server/
 node_modules/
 out/

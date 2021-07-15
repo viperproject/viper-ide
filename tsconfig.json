@@ -1,11 +1,8 @@
 {
     "compilerOptions": {
         "module": "commonjs",
-        "moduleResolution": "node",
         "target": "es6",
-        "lib": [
-            "es6"
-        ],
+        "lib": ["es6"],
         "outDir": "out",
         "rootDir": "src",
         "sourceMap": true
@@ -14,6 +11,10 @@
         "src"
     ],
     "exclude": [
-        "node_modules"
-    ]
+		"node_modules"	
+	],
+    "references": [
+		{ "path": "./client" },
+		{ "path": "./server" }
+	]
 }

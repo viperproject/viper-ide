@@ -9,8 +9,7 @@
     "version": "0.0.1",
     "publisher": "viper-admin",
     "engines": {
-        "vscode": "^1.45.0",
-        "node": "*"
+        "vscode": "^1.52.0"
     },
     "dependencies": {
         "@octokit/rest": "^18.5.3",
@@ -25,7 +24,8 @@
         "stream-json": "^1.7.1",
         "sudo-prompt": "9.2.1",
         "tree-kill": "^1.2.2",
-        "vscode-languageserver": "^5.2.1",
+        "vscode-languageserver": "^7.0.0",
+        "vscode-languageserver-textdocument": "^1.0.1",
         "vscode-uri": "^3.0.2",
         "yargs": "^17.0.1"
     },
@@ -42,8 +42,6 @@
         "typescript": "^4.2.4"
     },
     "scripts": {
-        "clean": "rimraf dist",
-        "bundle": "ncc build src/server.ts --source-map --license licenses.txt --out ../client/server",
-        "compile": "npm-run-all --sequential clean bundle"
+        "compile": "tsc -p ."
     }
 }

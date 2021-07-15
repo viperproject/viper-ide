@@ -228,7 +228,7 @@ jobs:
           name: TestLogs-${{ matrix.os }}
           path: client/logs
 
-      - name: Clean 'dist' folder (ubuntu only)
+      - name: Clean 'out' folder (ubuntu only)
         if: startsWith(matrix.os, 'ubuntu')
         run: npm run clean
         working-directory: client

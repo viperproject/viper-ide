@@ -1,0 +1,442 @@
+{
+    "name": "viper",
+    "displayName": "Viper",
+    "version": "2.3.0",
+    "publisher": "viper-admin",
+    "description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
+    "license": "SEE LICENSE IN LICENSE.txt",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/viperproject/viper-ide"
+    },
+    "bugs": "https://github.com/viperproject/viper-ide/issues",
+    "author": {
+        "name": "Programming Methodology Group, ETH Zürich",
+        "email": "viper@inf.ethz.ch",
+        "url": "https://viper.ethz.ch"
+    },
+    "main": "./client/out/extension",
+    "engines": {
+        "vscode": "^1.52.0"
+    },
+    "icon": "images/icon_bright_orange_avatar.png",
+    "categories": [
+        "Programming Languages",
+        "Education",
+        "Themes",
+        "Snippets"
+    ],
+    "keywords": [
+        "verification",
+        "specification",
+        "formal methods",
+        "separation logic",
+        "automatic deduction"
+    ],
+    "dependencies": {
+        "glob-to-regexp": "^0.4.1",
+        "node-ipc": "^9.1.4",
+        "rimraf": "^3.0.2",
+        "strip-json-comments": "3.1.1",
+        "sudo-prompt": "9.2.1",
+        "unused-filename": "^3.0.0",
+        "viz.js": "^2.1.2",
+        "vscode-debugadapter": "^1.47.0",
+        "vscode-debugprotocol": "^1.47.0",
+        "vscode-languageclient": "^7.0.0",
+        "vscode-uri": "^3.0.2"
+    },
+    "devDependencies": {
+        "@types/glob-to-regexp": "^0.4.1",
+        "@types/mocha": "^8.2.3",
+        "@types/node": "^15.6.1",
+        "@types/rimraf": "^3.0.0",
+        "@types/tmp": "^0.2.0",
+        "@types/vscode": "^1.43.0",
+        "@typescript-eslint/eslint-plugin": "^4.28.3",
+        "@typescript-eslint/parser": "^4.26.1",
+        "eslint": "^7.28.0",
+        "eslint-webpack-plugin": "^2.5.4",
+        "mocha": "^8.1.3",
+        "npm-run-all": "^4.1.5",
+        "tmp": "^0.2.1",
+        "ts-loader": "^9.2.2",
+        "typescript": "^4.2.4",
+        "vsce": "^1.88.0",
+        "vscode-test": "^1.3.0",
+        "webpack": "^5.44.0",
+        "webpack-cli": "^4.0.0"
+    },
+    "scripts": {
+        "webpack-production": "cd ./client && webpack --mode production",
+        "webpack-development": "cd ./client && webpack --mode development",
+        "webpack-development-watch": "cd ./client && webpack --mode development --watch",
+        "tsc": "tsc",
+        "clean": "rimraf ./client/out",
+        "compileServer": "cd server && npm run compile && cd ../client",
+        "compile": "npm-run-all --sequential clean compileServer webpack-development",
+        "watch": "npm-run-all --sequential clean compileServer webpack-development-watch",
+        "vscode:prepublish": "npm-run-all --sequential clean compileServer webpack-production",
+        "test-compile": "npm-run-all --sequential clean compileServer tsc",
+        "pretest": "npm run test-compile",
+        "test": "node ./out/test/runTest.js",
+        "package": "vsce package"
+    },
+    "activationEvents": [
+        "onLanguage:viper"
+    ],
+    "contributes": {
+        "commands": [
+            {
+                "command": "viper.verify",
+                "title": "verify this file",
+                "category": "Viper"
+            },
+            {
+                "command": "viper.selectBackend",
+                "title": "select verification backend",
+                "category": "Viper"
+            },
+            {
+                "command": "viper.stopVerification",
+                "title": "stop the running verification",
+                "category": "Viper"
+            },
+            {
+                "command": "viper.toggleAutoVerify",
+                "title": "toggle automatic verification",
+                "category": "Viper"
+            },
+            {
+                "command": "viper.openLogFile",
+                "title": "open current logFile",
+                "category": "Viper"
+            },
+            {
+                "command": "viper.verifyAllFilesInWorkspace",
+                "title": "verify all files in this workspace",
+                "category": "Viper"
+            },
+            {
+                "command": "viper.removeDiagnostics",
+                "title": "remove diagnostics caused by this file",
+                "category": "Viper"
+            },
+            {
+                "command": "viper.updateViperTools",
+                "title": "install or update dependencies (command line tools)",
+                "category": "Viper"
+            },
+            {
+                "command": "viper.flushCache",
+                "title": "flush the cache",
+                "category": "Viper"
+            },
+            {
+                "command": "viper.flushCacheOfActiveFile",
+                "title": "flush the cache for this file",
+                "category": "Viper"
+            },
+            {
+                "command": "viper.format",
+                "title": "auto-format Viper program",
+                "category": "Viper"
+            }
+        ],
+        "menus": {
+            "commandPalette": [
+                {
+                    "command": "viper.verify",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.selectBackend",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.stopVerification",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.toggleAutoVerify",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.openLogFile",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.verifyAllFilesInWorkspace",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.removeDiagnostics",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.updateViperTools",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.flushCache",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.flushCacheOfActiveFile",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                },
+                {
+                    "command": "viper.format",
+                    "when": "resourceLangId == viper",
+                    "group": "Viper"
+                }
+            ]
+        },
+        "grammars": [
+            {
+                "language": "viper",
+                "scopeName": "source.silver",
+                "path": "./syntaxes/Viper.tmLanguage"
+            },
+            {
+                "language": "log",
+                "scopeName": "bmcode.log",
+                "path": "./syntaxes/log.tmLanguage"
+            }
+        ],
+        "languages": [
+            {
+                "id": "viper",
+                "extensions": [
+                    ".sil",
+                    ".vpr"
+                ],
+                "aliases": [
+                    "Viper"
+                ],
+                "configuration": "./syntaxes/viper-configuration.json"
+            },
+            {
+                "id": "log",
+                "extensions": [
+                    ".log"
+                ],
+                "configuration": "./syntaxes/log-configuration.json",
+                "mimetypes": [
+                    "text/x-code-output"
+                ]
+            }
+        ],
+        "themes": [
+            {
+                "label": "Viper-Dark",
+                "uiTheme": "vs-dark",
+                "path": "./themes/Viper (Dark).tmTheme"
+            },
+            {
+                "label": "Viper-Light",
+                "uiTheme": "vs",
+                "path": "./themes/Viper (Light).tmTheme"
+            }
+        ],
+        "snippets": [
+            {
+                "language": "viper",
+                "path": "./snippets/viper.json"
+            }
+        ],
+        "keybindings": [
+            {
+                "command": "viper.selectBackend",
+                "key": "ctrl+l",
+                "mac": "cmd+l",
+                "when": "resourceLangId == viper"
+            },
+            {
+                "command": "viper.verify",
+                "key": "f5",
+                "mac": "f5",
+                "when": "resourceLangId == viper"
+            },
+            {
+                "command": "viper.stopVerification",
+                "key": "ctrl+h",
+                "mac": "cmd+h",
+                "when": "resourceLangId == viper"
+            },
+            {
+                "command": "viper.format",
+                "key": "alt+shift+f",
+                "mac": "alt+shift+f",
+                "when": "resourceLangId == viper"
+            },
+            {
+                "command": "viper.toggleAutoVerify",
+                "key": "ctrl+k ctrl+a",
+                "mac": "cmd+k cmd+a",
+                "when": "resourceLangId == viper"
+            }
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "Viper",
+            "properties": {
+                "viperSettings.viperServerSettings": {
+                    "type": "object",
+                    "default": {
+                        "v": "674a514867b1",
+                        "serverJars": {
+                            "windows": [
+                                "$viperTools$/server"
+                            ],
+                            "linux": [
+                                "$viperTools$/server"
+                            ],
+                            "mac": [
+                                "$viperTools$/server"
+                            ]
+                        },
+                        "customArguments": " $backendSpecificCache$",
+                        "backendSpecificCache": true,
+                        "disableCaching": false,
+                        "timeout": 5000,
+                        "viperServerPolicy": "create",
+                        "viperServerAddress": "http://127.0.0.1",
+                        "viperServerPort": 12345
+                    },
+                    "description": "ViperServer-related settings. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-ViperServer"
+                },
+                "viperSettings.verificationBackends": {
+                    "type": "array",
+                    "default": [
+                        {
+                            "v": "674a514867b1",
+                            "name": "silicon",
+                            "type": "silicon",
+                            "paths": [],
+                            "engine": "ViperServer",
+                            "timeout": 100000,
+                            "stages": [
+                                {
+                                    "name": "verify",
+                                    "isVerification": true,
+                                    "mainMethod": "viper.silicon.SiliconRunner",
+                                    "customArguments": "--z3Exe $z3Exe$ $disableCaching$ $fileToVerify$"
+                                }
+                            ],
+                            "stoppingTimeout": 5000
+                        },
+                        {
+                            "v": "674a514867b1",
+                            "name": "carbon",
+                            "type": "carbon",
+                            "paths": [],
+                            "engine": "ViperServer",
+                            "timeout": 100000,
+                            "stages": [
+                                {
+                                    "name": "verify",
+                                    "isVerification": true,
+                                    "mainMethod": "viper.carbon.Carbon",
+                                    "customArguments": "--z3Exe $z3Exe$ --boogieExe $boogieExe$ $disableCaching$ $fileToVerify$"
+                                }
+                            ],
+                            "stoppingTimeout": 5000
+                        }
+                    ],
+                    "description": "The list of verification backends. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Verification-Backends"
+                },
+                "viperSettings.paths": {
+                    "type": "object",
+                    "default": {
+                        "v": "674a514867b1",
+                        "viperToolsPath": {
+                            "windows": "%APPDATA%\\Viper\\",
+                            "linux": "$HOME/.config/Viper",
+                            "mac": "$HOME/Library/Application Support/Viper"
+                        },
+                        "z3Executable": {
+                            "windows": "$viperTools$/z3/bin/z3.exe",
+                            "linux": "$viperTools$/z3/bin/z3",
+                            "mac": "$viperTools$/z3/bin/z3"
+                        },
+                        "boogieExecutable": {
+                            "windows": "$viperTools$/boogie/Binaries/Boogie.exe",
+                            "linux": "$viperTools$/boogie/Binaries/Boogie",
+                            "mac": "$viperTools$/boogie/Binaries/Boogie"
+                        },
+                        "sfxPrefix": "$viperTools$/resources/sfx"
+                    },
+                    "description": "Paths to the dependencies. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Paths"
+                },
+                "viperSettings.preferences": {
+                    "type": "object",
+                    "default": {
+                        "v": "674a514867b1",
+                        "autoSave": true,
+                        "logLevel": 3,
+                        "autoVerifyAfterBackendChange": true,
+                        "showProgress": true,
+                        "enableSoundEffects": false,
+                        "stableViperToolsProvider": {
+                            "windows": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsWin.zip",
+                            "linux": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsLinux.zip",
+                            "mac": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMac.zip"
+                        },
+                        "nightlyViperToolsProvider": {
+                            "windows": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsWin.zip&include-prereleases",
+                            "linux": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsLinux.zip&include-prereleases",
+                            "mac": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMac.zip&include-prereleases"
+                        }
+                    },
+                    "description": "General user preferences. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Preferences"
+                },
+                "viperSettings.javaSettings": {
+                    "type": "object",
+                    "default": {
+                        "v": "674a514867b1",
+                        "javaBinary": "",
+                        "customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$ -server $mainMethod$"
+                    },
+                    "description": "Settings used for running Java commands. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Java-Settings"
+                },
+                "viperSettings.advancedFeatures": {
+                    "type": "object",
+                    "default": {
+                        "v": "674a514867b1",
+                        "enabled": false,
+                        "showSymbolicState": false,
+                        "simpleMode": true,
+                        "darkGraphs": true,
+                        "showOldState": true,
+                        "showPartialExecutionTree": true,
+                        "compareStates": true,
+                        "verificationBufferSize": 102400
+                    },
+                    "description": "Settings concerning the advanced features. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Advanced-Features"
+                },
+                "viperSettings.buildVersion": {
+                    "scope": "window",
+                    "type": "string",
+                    "enum": [
+                        "Stable",
+                        "Nightly",
+                        "Local"
+                    ],
+                    "default": "Stable",
+                    "description": "Select the build version of the Viper Tools. The path specified at 'viperSettings.paths.viperToolsPath' will be used for build version 'Local'"
+                }
+            }
+        }
+    }
+}

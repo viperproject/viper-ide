@@ -359,6 +359,11 @@ export class ViperServerService extends BackendService {
                 }))
             }
 
+            if ( message.msg_type === 'invalid_args_report' ) {
+                Log.error(`ViperServer complained about the command arguments: ${JSON.stringify(message.msg_body)}. Please double check the backend configuration in your settings file.`)
+                return 
+            }
+
             if ( message.msg_type === 'exception_report' ) {
 
                 if ( message.msg_body.message === 'java.lang.InterruptedException' ) {
