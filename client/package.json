@@ -298,13 +298,13 @@
                         "v": "674a514867b1",
                         "serverJars": {
                             "windows": [
-                                "$viperTools$/server"
+                                "$viperTools$/backends"
                             ],
                             "linux": [
-                                "$viperTools$/server"
+                                "$viperTools$/backends"
                             ],
                             "mac": [
-                                "$viperTools$/server"
+                                "$viperTools$/backends"
                             ]
                         },
                         "customArguments": " $backendSpecificCache$",
