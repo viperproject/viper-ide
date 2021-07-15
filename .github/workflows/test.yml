@@ -48,39 +48,27 @@ jobs:
       - name: Download Viper Tools for Windows
         run: curl --fail --silent --show-error ${{ env.WIN-TOOLS-URL}} --output ViperToolsWin.zip
       - name: Unzip Viper Tools for Windows
-        run: unzip ViperToolsWin.zip -d OrigViperToolsWin
+        run: unzip ViperToolsWin.zip -d ViperToolsWin
       - name: Download Viper Tools for Linux
         run: curl --fail --silent --show-error ${{ env.LINUX-TOOLS-URL }} --output ViperToolsLinux.zip
       - name: Unzip Viper Tools for Linux
-        run: unzip ViperToolsLinux.zip -d OrigViperToolsLinux
+        run: unzip ViperToolsLinux.zip -d ViperToolsLinux
       - name: Download Viper Tools for macOS
         run: curl --fail --silent --show-error ${{ env.MAC-TOOLS-URL }} --output ViperToolsMac.zip
       - name: Unzip Viper Tools for macOS
-        run: unzip ViperToolsMac.zip -d OrigViperToolsMac
+        run: unzip ViperToolsMac.zip -d ViperToolsMac
 
-      - name: Create a fresh Viper Tools folder per platform
+      - name: Remove JAR files from backends folder
         run: |
-          mkdir -p ViperToolsWin
-          mkdir -p ViperToolsLinux
-          mkdir -p ViperToolsMac
-
-      - name: Copy boogie from OrigViperTools to ViperTools
-        run: |
-          cp -R OrigViperToolsWin/boogie ViperToolsWin/boogie/
-          cp -R OrigViperToolsLinux/boogie ViperToolsLinux/boogie/
-          cp -R OrigViperToolsMac/boogie ViperToolsMac/boogie/
-
-      - name: Copy z3 from OrigViperTools to ViperTools
-        run: |
-          cp -R OrigViperToolsWin/z3 ViperToolsWin/z3/
-          cp -R OrigViperToolsLinux/z3 ViperToolsLinux/z3/
-          cp -R OrigViperToolsMac/z3 ViperToolsMac/z3/
+          rm ViperToolsWin/backends/*.jar
+          rm ViperToolsLinux/backends/*.jar
+          rm ViperToolsMac/backends/*.jar
 
       - name: Copy ViperServer fat JAR to ViperTools
         run: |
-          mkdir -p ViperToolsWin/server && cp viperserver.jar ViperToolsWin/server
-          mkdir -p ViperToolsLinux/server && cp viperserver.jar ViperToolsLinux/server
-          mkdir -p ViperToolsMac/server && cp viperserver.jar ViperToolsMac/server
+          cp viperserver.jar ViperToolsWin/backends
+          cp viperserver.jar ViperToolsLinux/backends
+          cp viperserver.jar ViperToolsMac/backends
 
       - name: Create folder to store all ViperTools platform zip files
         run: mkdir deploy
