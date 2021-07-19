@@ -4,11 +4,17 @@
 
 ### Changelog
 
-#### v.2.3.0
-* Major internal refactoring and stability improvements.  
-* Sound effects can now be enabled via ```viperSettings.preferences.enableSoundEffects``` (disabled by default).
+#### v.2.3.0 (part of Viper v.21.07-release)
+* Compatibility with latest versions of Silicon and Carbon incl. latest Viper features (e.g. `Map` types and anonymous axioms).
+* Mono is no longer a requirement.
+* The JAVA installation has to be version 1.8 or higher and 64-bit.
 * The IDE now shows non-critical warning messages. 
-* The syntax grammar has been updated to support the latest Viper features, e.g. ```Map``` types and anonymous axioms. 
+* Build version of Viper Tools (i.e. the dependencies) can be configured in the VSCode settings:
+  * `Stable` / `Nightly`: the latest Viper Tools in the corresponding build configuration will be used. The [Preferences](https://github.com/viperproject/viper-ide/wiki/Settings:-Preferences) specify from which URL the Viper Tools will be downloaded. The Viper Tools are not automatically updated. They only get installed when they are not present yet or when a manual update is triggered (via the command palette). The installation folder has changed for these two build versions: They always get installed to `<VSCode Installation>/User/globalStorage/viper-admin.viper` where `<VSCode Installation>` corresponds to `~/Library/Application Support/Code` (on macOS), `c:\Users\<user>\AppData\Roaming\Code` (on Windows), and `~/.config/Code` (on Linux).
+  * `Local`: uses the Viper Tools located at the path specified as `viperSettings.paths.viperToolsPath`.
+* Locating the JAVA installation has been improved. A warning appears if it cannot be uniquely identified. A fixed path to a Java installation can be provided in the settings as `viperSettings.javaSettings.javaBinary` ([more details](https://github.com/viperproject/viper-ide/wiki/Settings:-Java-Settings)).
+* Sounds for a successful or failed verification can be enabled by setting `viperSettings.preferences.enableSoundEffects` to true.
+* Minor bug fixes ([#23](https://github.com/viperproject/viperserver/issues/23))
 
 #### v.2.2.5
 * Introducing sound effects! 🔊 To disable or change the sounds, use ```viperSettings.paths.sfxPrefix```
