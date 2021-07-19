@@ -194,9 +194,10 @@ export class ViperServerService extends BackendService {
         const customArgs = Settings.settings.viperServerSettings.customArguments;
         const logLevel = this.logLevelToStr(Settings.settings.preferences.logLevel);
         const logFile = Settings.logDirPath == null ? os.tmpdir() : Settings.logDirPath;
-        let command = `${javaPath} ${javaArgs} ${customArgs} --logLevel ${logLevel} --logFile ${logFile}`;
+        // escape `javaPath` and `logFile`:
+        let command = `"${javaPath}" ${javaArgs} ${customArgs} --logLevel ${logLevel} --logFile "${logFile}"`;
 
-        command = command.replace(/\$backendPaths\$/g, Settings.viperServerJars())
+        command = command.replace(/\$backendPaths\$/g, Settings.viperServerJars()) // `viperServerJars()` already returns an escaped string
         command = command.replace(/\$backendSpecificCache\$/g, (Settings.settings.viperServerSettings.backendSpecificCache === true ? "--backendSpecificCache" : ""))
         command = command.replace(/\$mainMethod\$/g, "viper.server.ViperServerRunner")
         return command

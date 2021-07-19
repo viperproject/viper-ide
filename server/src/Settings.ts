@@ -728,11 +728,13 @@ export class Settings {
         return this.buildDependencyString(jarFiles);
     }
 
+    /* returns an escaped string */
     public static viperServerJars(): string {
         let jarFiles = this.getAllJarsInPaths(<string[]>this.settings.viperServerSettings.serverJars, false);
         return this.buildDependencyString(jarFiles);
     }
 
+    /** all paths get escaped */
     public static buildDependencyString(jarFiles: string[]): string {
         let dependencies = "";
         let concatenationSymbol = Settings.isWin ? ";" : ":";
