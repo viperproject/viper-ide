@@ -237,7 +237,12 @@ export class Server {
             }
         }
 
+        let isFirstProgressReport: boolean = true;
         function reportProgress(fraction: number, step: string) {
+            if (isFirstProgressReport) {
+                isFirstProgressReport = false;
+                Log.startProgress();
+            }
             Log.progress(step, fraction, 1, LogLevel.Debug);
         }
 

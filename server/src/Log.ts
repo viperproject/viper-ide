@@ -25,6 +25,9 @@ export class Log {
 
     private static lastProgress: number;
 
+    /**
+     * Do not forget to call `startProgress()` before the first call to `progress`
+     */
     static progress(domain: string, cur, len, logLevel: LogLevel) {
         let progress = 100.0 * cur / len
         if (Math.floor(progress) > this.lastProgress) {
