@@ -13,7 +13,7 @@ on:
   workflow_dispatch: # allow to manually trigger this workflow
     inputs:
       type:
-        description: 'Specifies whether a stable or nightly release should be triggered. Has to be "stable" or "nightly".'
+        description: 'Specifies whether a stable release, nightly release or release candidate should be triggered. Has to be "stable", "nightly" or "rc".'
         required: true
         default: 'stable'
       viperserver_tag_name:
@@ -26,6 +26,8 @@ on:
         description: 'Release title for stable release.'
         required: true
 
+# note that release-candidate builds are treated like 'stable' builds for now except that there is no deployment to the marketplaces in the end.
+# in the future, this should be changed such that release-candidates result in a prerelease (like nightly builds).
 
 jobs:
   create-viper-tools:
@@ -35,9 +37,9 @@ jobs:
       VIPERSERVER_URL: "https://github.com/viperproject/viperserver/releases/download/${{ github.event.inputs.viperserver_tag_name }}/viperserver.jar"
       # we fake a ternary operator `a ? b : c` by using `a && b || c` as mentioned here:
       # https://github.com/actions/runner/issues/409
-      WIN-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyWin.zip' || 'http://viper.ethz.ch/downloads/ViperToolsReleaseWin.zip' }}
-      LINUX-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyLinux.zip' || 'http://viper.ethz.ch/downloads/ViperToolsReleaseLinux.zip' }}
-      MAC-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyMac.zip' || 'http://viper.ethz.ch/downloads/ViperToolsReleaseMac.zip' }}
+      WIN-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyWin.zip' || (github.event.inputs.type == 'rc' && 'http://viper.ethz.ch/downloads/ViperToolsRCWin.zip' || 'http://viper.ethz.ch/downloads/ViperToolsReleaseWin.zip') }}
+      LINUX-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyLinux.zip' || (github.event.inputs.type == 'rc' && 'http://vviper.ethz.ch/downloads/ViperToolsRCLinux.zip' || 'http://viper.ethz.ch/downloads/ViperToolsReleaseLinux.zip') }}
+      MAC-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyMac.zip' || (github.event.inputs.type == 'rc' && 'http://vviper.ethz.ch/downloads/ViperToolsRCMac.zip' || 'http://viper.ethz.ch/downloads/ViperToolsReleaseMac.zip') }}
     steps:
       - name: Install prerequisites
         run: sudo apt-get install curl zip unzip
@@ -255,6 +257,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     needs: build-and-test
     runs-on: ubuntu-latest
+    env:
+      VIPERSERVER_RELEASE_URL: "https://github.com/viperproject/viperserver/releases/${{ github.event.inputs.viperserver_tag_name }}"
     steps:
       # we have to checkout the repo to read client/package.json later on:
       - name: Checkout Viper-IDE
@@ -273,13 +277,13 @@ jobs:
           path: deploy
 
       - name: Create release tag
-        if: ${{ github.event.inputs.type != 'stable' }}
+        if: ${{ github.event.inputs.type != 'stable' && github.event.inputs.type != 'rc' }}
         shell: bash
         run: echo "TAG_NAME=$(date +v-%Y-%m-%d-%H%M)" >> $GITHUB_ENV
 
       # use the following action if nightly releases should eventually be deleted
       # - name: Create nightly release
-      #   if: ${{ github.event.inputs.type != 'stable' }}
+      #   if: ${{ github.event.inputs.type != 'stable' && github.event.inputs.type != 'rc' }}
       #   id: create_nightly_release
       #   uses: viperproject/create-nightly-release@v1
       #   env:
@@ -294,7 +298,7 @@ jobs:
       # because e.g. prusti-dev depends on the nightly releases and updates only twice a month to the
       # latest version, nightly releases should be kept
       - name: Create nightly release
-        if: ${{ github.event.inputs.type != 'stable' }}
+        if: ${{ github.event.inputs.type != 'stable' && github.event.inputs.type != 'rc' }}
         id: create_nightly_release
         uses: actions/create-release@v1
         env:
@@ -303,17 +307,17 @@ jobs:
         with:
           tag_name: ${{ env.TAG_NAME }}
           release_name: Nightly Release ${{ env.TAG_NAME }}
-          body: Based on ViperServer release ${{ github.event.inputs.viperserver_tag_name }}
+          body: Based on ViperServer release [`${{ github.event.inputs.viperserver_tag_name }}`](${{ env.VIPERSERVER_RELEASE_URL }})
           draft: false
           prerelease: true
 
       - name: Store nightly release upload URL
-        if: ${{ github.event.inputs.type != 'stable' }}
+        if: ${{ github.event.inputs.type != 'stable' && github.event.inputs.type != 'rc' }}
         shell: bash
         run: echo "UPLOAD_URL=${{ steps.create_nightly_release.outputs.upload_url }}" >> $GITHUB_ENV
 
       - name: Create stable draft-release
-        if: ${{ github.event.inputs.type == 'stable' }}
+        if: ${{ github.event.inputs.type == 'stable' || github.event.inputs.type == 'rc' }}
         id: create_stable_release
         uses: actions/create-release@v1
         env:
@@ -322,12 +326,12 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag_name }}
           release_name: ${{ github.event.inputs.release_name }}
-          body: Based on ViperServer release ${{ github.event.inputs.viperserver_tag_name }}
+          body: Based on ViperServer release [`${{ github.event.inputs.viperserver_tag_name }}`](${{ env.VIPERSERVER_RELEASE_URL }})
           draft: true
           prerelease: false
 
       - name: Store stable release upload URL
-        if: ${{ github.event.inputs.type == 'stable' }}
+        if: ${{ github.event.inputs.type == 'stable' || github.event.inputs.type == 'rc' }}
         shell: bash
         run: echo "UPLOAD_URL=${{ steps.create_stable_release.outputs.upload_url }}" >> $GITHUB_ENV
 
@@ -392,9 +396,10 @@ jobs:
           echo "LAST_PUBLISHED_VERSION=$LAST_PUBLISHED_VERSION" >> $GITHUB_ENV
           echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
 
+      # only publish 'stable' releases not release-candidates
       - name: Publish the extension to Visual Studio Marketplace
         uses: HaaLeo/publish-vscode-extension@v0
-        if: env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION
+        if: ${{ github.event.inputs.type == 'stable' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
         with:
           pat: ${{ secrets.VSCE_TOKEN }}
           registryUrl: https://marketplace.visualstudio.com
@@ -403,7 +408,7 @@ jobs:
 
       - name: Publish the extension to Open VSX Registry
         uses: HaaLeo/publish-vscode-extension@v0
-        if: env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION
+        if: ${{ github.event.inputs.type == 'stable' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
         with:
           pat: ${{ secrets.OPEN_VSX_TOKEN }}
           registryUrl: https://open-vsx.org

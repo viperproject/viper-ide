@@ -25,13 +25,6 @@ export default class ViperTools {
      *                          a popup in case tools have been downloaded and installed
      */
      public static async update(context: ViperToolsContext, shouldUpdate: boolean, notificationText?: string): Promise<Location> {
-        let didReportProgress: Boolean = false;
-        const intermediateListener: ProgressListener = (fraction: number, step: string) => {
-            didReportProgress = true;
-            // forward progress:
-            context.progressListener(fraction, step);
-        }
-
         async function confirm(): Promise<void> {
             if (shouldUpdate || Helper.assumeYes()) {
                 // do not ask user
@@ -48,7 +41,7 @@ export default class ViperTools {
         const selectedChannel = Helper.getBuildChannel(context);
         const dependency = await this.getDependency(context, shouldUpdate);
         Log.log(`Installing dependencies for build channel ${selectedChannel}`, LogLevel.Debug);
-        const location: Location = await dependency.install(selectedChannel, shouldUpdate, intermediateListener, confirm)
+        const location: Location = await dependency.install(selectedChannel, shouldUpdate, context.progressListener, confirm)
             .catch(Helper.rethrow(`Downloading and unzipping the Viper Tools has failed`));
 
         if (Settings.isLinux || Settings.isMac) {
@@ -58,15 +51,8 @@ export default class ViperTools {
             fs.chmodSync(boogiePath, '755');
         }
 
-        if (didReportProgress) {
-            if (notificationText) {
-                Log.hint(notificationText);
-            } else if (shouldUpdate) {
-                Log.hint(Texts.successfulUpdatingViperTools);
-            } else {
-                Log.hint(Texts.successfulEnsuringViperTools);
-            }
-        }
+        // no information popups (via `Log.hint`) are created here as the client takes care of that itself.
+
         return location;
     }
 
@@ -185,9 +171,9 @@ class Texts {
     public static installingViperToolsConfirmationNoButton = "No";
     public static viperToolsInstallationDenied = "Installation of the required Viper tools has been denied. Restart Visual Studio Code and allow their installation.";
     public static updatingViperTools = "Updating Viper tools";
-    public static ensuringViperTools = "Ensuring Viper tools";
+    public static installingViperTools = "Installing Viper tools";
     public static successfulUpdatingViperTools = "Successfully updated Viper tools. Please restart the IDE.";
-    public static successfulEnsuringViperTools = "Successfully ensured Viper tools.";
+    public static successfulInstallingViperTools = "Successfully installed Viper tools.";
     public static changedBuildChannel = "Changed the build channel of Viper tools. Please restart the IDE.";
 }
 

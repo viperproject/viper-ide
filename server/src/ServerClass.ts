@@ -237,7 +237,12 @@ export class Server {
             }
         }
 
+        let isFirstProgressReport: boolean = true;
         function reportProgress(fraction: number, step: string) {
+            if (isFirstProgressReport) {
+                isFirstProgressReport = false;
+                Log.startProgress();
+            }
             Log.progress(step, fraction, 1, LogLevel.Debug);
         }
 
@@ -311,15 +316,10 @@ export class Server {
 
     private static confirmViperToolsUpdate(): Promise<boolean> {
         // note that `confirm` is unfortunately not available in the server environment.
-        // as a hack to make users aware of Viper IDE installing something, we use execute "echo" as sudo.
+        // after security concerns raised during beta testing, we do not run "echo" as sudo to trigger
+        // a popup but instead we directly accept it.
         // after switching to the LSP frontend of ViperServer, the update routine will be triggered by the client and thus
         // we will have access to the vscode API and can show a proper confirmation dialog.
-        const command = "echo"
-        return Common.sudoExecuter(command, "ViperTools Installer")
-            .then(() => true)
-            .catch(() => {
-                Log.log(`Administrator permissions have not been granted to Viper IDE for installing Viper tools.`, LogLevel.Info);
-                return false;
-            });
+        return Promise.resolve(true);
     }
 }
