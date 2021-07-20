@@ -11,7 +11,6 @@
 import { URI } from 'vscode-uri';
 import * as child_process from 'child_process';
 import { Log } from './Log';
-import * as sudo from 'sudo-prompt';
 
 //Global interfaces:
 
@@ -657,28 +656,6 @@ export class Common {
                 Log.error('executer error: ' + error);
             }
             callback();
-        });
-    }
-
-    public static sudoExecuter(command: string, name: string): Promise<void> {
-        Log.log("sudo-executer: " + command, LogLevel.Debug)
-        let options = { 
-            name: name,
-            /* TODO: add Viper icon
-            icns: '/Applications/Electron.app/Contents/Resources/Viper.icns'
-            */
-        }
-        return new Promise((resolve, reject) => {
-            sudo.exec(command, options, (error, stdout, stderr) => {
-                Log.logWithOrigin('stdout', stdout.toString(), LogLevel.LowLevelDebug)
-                Log.logWithOrigin('stderr', stderr.toString(), LogLevel.LowLevelDebug)
-                if (error) {
-                    Log.error('sudo-executer error: ' + error)
-                    reject(error);
-                } else {
-                    resolve();
-                }
-            })
         });
     }
 
