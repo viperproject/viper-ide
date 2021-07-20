@@ -38,8 +38,8 @@ jobs:
       # we fake a ternary operator `a ? b : c` by using `a && b || c` as mentioned here:
       # https://github.com/actions/runner/issues/409
       WIN-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyWin.zip' || (github.event.inputs.type == 'rc' && 'http://viper.ethz.ch/downloads/ViperToolsRCWin.zip' || 'http://viper.ethz.ch/downloads/ViperToolsReleaseWin.zip') }}
-      LINUX-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyLinux.zip' || (github.event.inputs.type == 'rc' && 'http://vviper.ethz.ch/downloads/ViperToolsRCLinux.zip' || 'http://viper.ethz.ch/downloads/ViperToolsReleaseLinux.zip') }}
-      MAC-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyMac.zip' || (github.event.inputs.type == 'rc' && 'http://vviper.ethz.ch/downloads/ViperToolsRCMac.zip' || 'http://viper.ethz.ch/downloads/ViperToolsReleaseMac.zip') }}
+      LINUX-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyLinux.zip' || (github.event.inputs.type == 'rc' && 'http://viper.ethz.ch/downloads/ViperToolsRCLinux.zip' || 'http://viper.ethz.ch/downloads/ViperToolsReleaseLinux.zip') }}
+      MAC-TOOLS-URL: ${{ github.event.inputs.type == 'nightly' && 'http://viper.ethz.ch/downloads/ViperToolsNightlyMac.zip' || (github.event.inputs.type == 'rc' && 'http://viper.ethz.ch/downloads/ViperToolsRCMac.zip' || 'http://viper.ethz.ch/downloads/ViperToolsReleaseMac.zip') }}
     steps:
       - name: Install prerequisites
         run: sudo apt-get install curl zip unzip
