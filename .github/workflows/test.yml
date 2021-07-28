@@ -48,9 +48,9 @@ jobs:
       MAC_Z3_URL: "https://github.com/Z3Prover/z3/releases/download/z3-${{ github.event.inputs.z3_version }}/z3-${{ github.event.inputs.z3_version }}-x64-osx-10.14.6.zip"
       # we fake a ternary operator `a ? b : c` by using `a && b || c` as mentioned here:
       # https://github.com/actions/runner/issues/409
-      WIN_BOOGIE_URL: ${{ github.event.inputs.boogie_tag_name == 'latest' && "https://github.com/viperproject/boogie-builder/releases/latest/download/boogie-win.zip" || "https://github.com/viperproject/boogie-builder/releases/download/${{ github.event.inputs.boogie_tag_name }}/boogie-win.zip" }}
-      LINUX_BOOGIE_URL: ${{ github.event.inputs.boogie_tag_name == 'latest' && "https://github.com/viperproject/boogie-builder/releases/latest/download/boogie-linux.zip" || "https://github.com/viperproject/boogie-builder/releases/download/${{ github.event.inputs.boogie_tag_name }}/boogie-linux.zip" }}
-      MAC_BOOGIE_URL: ${{ github.event.inputs.boogie_tag_name == 'latest' && "https://github.com/viperproject/boogie-builder/releases/latest/download/boogie-osx.zip" || "https://github.com/viperproject/boogie-builder/releases/download/${{ github.event.inputs.boogie_tag_name }}/boogie-osx.zip" }}
+      WIN_BOOGIE_URL: ${{ github.event.inputs.boogie_tag_name == 'latest' && 'https://github.com/viperproject/boogie-builder/releases/latest/download/boogie-win.zip' || 'https://github.com/viperproject/boogie-builder/releases/download/${{ github.event.inputs.boogie_tag_name }}/boogie-win.zip' }}
+      LINUX_BOOGIE_URL: ${{ github.event.inputs.boogie_tag_name == 'latest' && 'https://github.com/viperproject/boogie-builder/releases/latest/download/boogie-linux.zip' || 'https://github.com/viperproject/boogie-builder/releases/download/${{ github.event.inputs.boogie_tag_name }}/boogie-linux.zip' }}
+      MAC_BOOGIE_URL: ${{ github.event.inputs.boogie_tag_name == 'latest' && 'https://github.com/viperproject/boogie-builder/releases/latest/download/boogie-osx.zip' || 'https://github.com/viperproject/boogie-builder/releases/download/${{ github.event.inputs.boogie_tag_name }}/boogie-osx.zip' }}
       VIPER_IDE_DEPS_REF: "master"
     steps:
       - name: Install prerequisites
