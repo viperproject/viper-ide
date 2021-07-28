@@ -302,6 +302,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VIPERSERVER_RELEASE_URL: "https://github.com/viperproject/viperserver/releases/${{ github.event.inputs.viperserver_tag_name }}"
+      Z3_RELEASE_URL: "https://github.com/Z3Prover/z3/releases/z3-${{ github.event.inputs.z3_version }}"
+      BOOGIE_RELEASE_URL: ${{ github.event.inputs.boogie_tag_name == 'latest' && 'https://github.com/viperproject/boogie-builder/releases' || format('https://github.com/viperproject/boogie-builder/releases/{0}', github.event.inputs.boogie_tag_name) }}
     steps:
       # we have to checkout the repo to read client/package.json later on:
       - name: Checkout Viper-IDE
@@ -350,7 +352,11 @@ jobs:
         with:
           tag_name: ${{ env.TAG_NAME }}
           release_name: Nightly Release ${{ env.TAG_NAME }}
-          body: Based on ViperServer release [`${{ github.event.inputs.viperserver_tag_name }}`](${{ env.VIPERSERVER_RELEASE_URL }})
+          body: |
+            Based on
+            - ViperServer release [`${{ github.event.inputs.viperserver_tag_name }}`](${{ env.VIPERSERVER_RELEASE_URL }})
+            - [Z3 `${{ github.event.inputs.z3_version }}`](${{ env.Z3_RELEASE_URL }})
+            - [Boogie release `${{ github.event.inputs.boogie_tag_name }}`](${{ env.BOOGIE_RELEASE_URL }})
           draft: false
           prerelease: true
 
@@ -369,7 +375,11 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag_name }}
           release_name: ${{ github.event.inputs.release_name }}
-          body: Based on ViperServer release [`${{ github.event.inputs.viperserver_tag_name }}`](${{ env.VIPERSERVER_RELEASE_URL }})
+          body: |
+            Based on
+            - ViperServer release [`${{ github.event.inputs.viperserver_tag_name }}`](${{ env.VIPERSERVER_RELEASE_URL }})
+            - [Z3 `${{ github.event.inputs.z3_version }}`](${{ env.Z3_RELEASE_URL }})
+            - [Boogie release `${{ github.event.inputs.boogie_tag_name }}`](${{ env.BOOGIE_RELEASE_URL }})
           draft: true
           prerelease: false
 
