@@ -96,9 +96,9 @@ jobs:
           unzip z3-win.zip -d z3-win
           unzip z3-linux.zip -d z3-linux
           unzip z3-mac.zip -d z3-mac
-          mkdir -p ViperToolsWin/z3/bin && cp $(find z3-win/**/z3* -executable) ViperToolsWin/z3/bin
-          mkdir -p ViperToolsLinux/z3/bin && cp $(find z3-win/**/z3* -executable) ViperToolsLinux/z3/bin
-          mkdir -p ViperToolsMac/z3/bin && cp $(find z3-win/**/z3* -executable) ViperToolsMac/z3/bin
+          mkdir -p ViperToolsWin/z3/bin && cp $(find z3-win/**/z3.exe) ViperToolsWin/z3/bin
+          mkdir -p ViperToolsLinux/z3/bin && cp $(find z3-linux/**/z3) ViperToolsLinux/z3/bin
+          mkdir -p ViperToolsMac/z3/bin && cp $(find z3-mac/**/z3) ViperToolsMac/z3/bin
 
       - name: Download Boogie
         run: |
