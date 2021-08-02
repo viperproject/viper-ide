@@ -4,6 +4,9 @@
 
 ### Changelog
 
+#### v.2.3.1
+* Bumps version number to clearly differentiate it from any release candidate. Besides that, it is equivalent to v.2.3.0.
+
 #### v.2.3.0 (part of Viper v.21.07-release)
 * Compatibility with latest versions of Silicon and Carbon incl. latest Viper features (e.g. `Map` types and anonymous axioms).
 * Mono is no longer a requirement.
