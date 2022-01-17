@@ -59,8 +59,6 @@ export default class TestHelper {
         // all log output is suppressed while unit testing:
         console.info(`Log file is stored at '${Log.logFilePath}'`);
         Log.dispose();
-
-        await new Promise(resolve => setTimeout(resolve, 5000));
     }
 
     public static log(msg: string) {
