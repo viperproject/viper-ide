@@ -44,10 +44,19 @@ async function main() {
 	const testSuiteFilenames = await getTestSuiteFilenames();
 	assert(testSuiteFilenames.length > 0, "There are no test suites to test");
 
+	let firstIteration = true;
 	for (const settings_file of settings_list) {
 		console.info(`Testing with settings '${settings_file}'...`);
 		const settings_path = path.join(DATA_ROOT, "settings", settings_file);
 		for (const testSuiteFilename of testSuiteFilenames) {
+			if (!firstIteration) {
+				// workaround for a weird "exit code 55" error that happens on
+				// macOS when starting a new vscode instance immediately after
+				// closing an old one. (by fpoli)
+				await new Promise(resolve => setTimeout(resolve, 5000));
+			}
+			firstIteration = false;
+			
 			await runTestSuite(vscode_version, settings_path, testSuiteFilename);
 		}
 	}
