@@ -29,7 +29,7 @@
         "yargs": "^17.0.1"
     },
     "devDependencies": {
-        "@types/mocha": "^8.0.3",
+        "@types/mocha": "^9.0.0",
         "@types/node": "^15.6.1",
         "@types/node-ipc": "^9.1.4",
         "@types/stream-json": "^1.5.1",
