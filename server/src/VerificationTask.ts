@@ -7,7 +7,7 @@
   */
 
 'use strict';
-import { SymbolInformation, SymbolKind } from 'vscode-languageserver'
+import { DiagnosticSeverity, SymbolInformation, SymbolKind } from 'vscode-languageserver'
 
 import * as language_server from 'vscode-languageserver';
 import { Settings } from './Settings'
@@ -400,12 +400,14 @@ export class VerificationTask {
                 }
 
                 //notify client about outcome of verification
+                const nOfErrors = this.diagnostics.filter(diag => diag.severity == DiagnosticSeverity.Error).length
                 Server.sendStateChangeNotification({
                     newState: VerificationState.Ready,
                     success: success,
                     manuallyTriggered: this.manuallyTriggered,
                     filename: this.filename,
-                    nofErrors: this.diagnostics.length,
+                    nofErrors: nOfErrors,
+                    nofWarnings: this.diagnostics.length - nOfErrors,
                     time: this.time,
                     verificationCompleted: true,
                     uri: this.fileUri,
@@ -423,6 +425,7 @@ export class VerificationTask {
                     manuallyTriggered: this.manuallyTriggered,
                     filename: this.filename,
                     nofErrors: 0,
+                    nofWarnings: 0,
                     time: this.time,
                     verificationCompleted: false,
                     uri: this.fileUri,
