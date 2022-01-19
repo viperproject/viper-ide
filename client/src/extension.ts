@@ -14,7 +14,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import stripJsonComments from 'strip-json-comments';
+import * as stripJSONComments from 'strip-json-comments';
 import * as rimraf from 'rimraf';
 import { Timer } from './Timer';
 import { State } from './ExtensionState';
@@ -695,7 +695,7 @@ function checkSettingsFile(path: string): SettingsError[] {
     let errors: SettingsError[] = [];
     let content = fs.readFileSync(path).toString();
     if (content) {
-        let json = JSON.parse(stripJsonComments(content));
+        let json = JSON.parse(stripJSONComments(content));
         if (json) {
             //check objects
             settings.forEach(viperSetting => {
