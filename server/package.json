@@ -12,6 +12,7 @@
         "vscode": "^1.45.0",
         "node": "*"
     },
+    "dependencies": {},
     "devDependencies": {
         "@octokit/rest": "^18.12.0",
         "@types/mocha": "^9.0.0",
