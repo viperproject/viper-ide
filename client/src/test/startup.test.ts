@@ -12,7 +12,7 @@ suite('Extension Startup', () => {
     });
 
     test("Language Detection, and Silcon Backend Startup test.", async function() {
-        this.timeout(40000);
+        this.timeout(60000);
         const started = TestHelper.waitForBackendStarted(SILICON);
         await TestHelper.openFile(SIMPLE);
         await started;
