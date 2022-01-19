@@ -15,7 +15,7 @@ suite('Viper Tools Update Test', () => {
     });
 
     test("Viper Tools Update Test & test abort of first verification", async function() {
-        this.timeout(60000);
+        this.timeout(80000);
         TestHelper.resetErrors();
 
         const updateDone = TestHelper.waitForViperToolsUpdate();
