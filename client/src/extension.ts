@@ -14,7 +14,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import * as stripJSONComments from 'strip-json-comments';
+import stripJSONComments from 'strip-json-comments';
 import * as rimraf from 'rimraf';
 import { Timer } from './Timer';
 import { State } from './ExtensionState';
