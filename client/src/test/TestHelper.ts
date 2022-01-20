@@ -98,6 +98,7 @@ export default class TestHelper {
         // ... send verification command to server...
         TestHelper.log("openAndVerify: file is open, now executing the verify command");
         await TestHelper.verify();
+        TestHelper.log("openAndVerify: file is open, verify command has been executed");
         // ... and wait for result notification from server
         await verified;
         TestHelper.log("openAndVerify: file is verified");
