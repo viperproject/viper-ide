@@ -158,6 +158,7 @@ export default class TestHelper {
         }
     }
 
+    /** not that the returned promise seems to complete only after verification has completed */
     public static async verify(): Promise<void> {
         await TestHelper.executeCommand('viper.verify');
     }
@@ -226,6 +227,26 @@ export default class TestHelper {
             TestHelper.callbacks.verificationStopped = () => {
                 TestHelper.log("verification stopped");
                 resolve();
+            }
+        });
+    }
+
+    public static waitForVerificationOrAbort(): Promise<void> {
+        let resolved = false
+        return new Promise(resolve => {
+            TestHelper.callbacks.verificationComplete = (b, f) => {
+                TestHelper.log(`Verification Completed: file: ${f}, backend: ${b}`);
+                if (!resolved) {
+                    resolved = true;
+                    resolve();
+                }
+            }
+            TestHelper.callbacks.verificationStopped = () => {
+                TestHelper.log("verification stopped");
+                if (!resolved) {
+                    resolved = true;
+                    resolve();
+                }
             }
         });
     }

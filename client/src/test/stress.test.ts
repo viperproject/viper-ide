@@ -54,7 +54,7 @@ suite('ViperIDE Stress Tests', () => {
         TestHelper.resetErrors();
 
         await TestHelper.openFile(SIMPLE);
-        await TestHelper.verify();
+        TestHelper.verify(); // no awaiting to stop it right afterwards:
         await TestHelper.stopVerification();
         const verified = TestHelper.waitForVerification(SIMPLE);
         await TestHelper.verify();

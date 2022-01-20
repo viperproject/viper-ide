@@ -22,8 +22,8 @@ suite('ViperIDE Tests', () => {
         TestHelper.resetErrors();
 
         await TestHelper.openAndVerify(LONG);
-        // reverify:
-        await TestHelper.verify();
+        // reverify (without awaiting because we want to stop):
+        TestHelper.verify();
         // stop the verification after 1s
         setTimeout(() => {
             TestHelper.stopVerification()
