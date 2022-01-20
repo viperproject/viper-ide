@@ -26,6 +26,7 @@ suite('ViperIDE Tests', () => {
         TestHelper.verify();
         // stop the verification after 1s
         setTimeout(() => {
+            TestHelper.log("timeout triggered: stopping verification");
             TestHelper.stopVerification()
         }, 1000);
 
