@@ -22,14 +22,14 @@ suite('ViperIDE Tests', () => {
         TestHelper.resetErrors();
 
         await TestHelper.openAndVerify(LONG);
-        // reverify:
         await TestHelper.verify();
-        // stop the verification after 300ms
+        // stop the verification after 0.3s because it will be fast due to caching
         setTimeout(() => {
+            TestHelper.log("timeout triggered: stopping verification");
             TestHelper.stopVerification()
         }, 300);
 
-        await TestHelper.waitForAbort();
+        await TestHelper.waitForVerificationOrAbort();
         await TestHelper.checkForRunningProcesses(false, true, true);
         await TestHelper.openAndVerify(LONG);
         assert (!TestHelper.hasObservedInternalError());

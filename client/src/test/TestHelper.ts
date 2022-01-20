@@ -98,6 +98,7 @@ export default class TestHelper {
         // ... send verification command to server...
         TestHelper.log("openAndVerify: file is open, now executing the verify command");
         await TestHelper.verify();
+        TestHelper.log("openAndVerify: file is open, verify command has been executed");
         // ... and wait for result notification from server
         await verified;
         TestHelper.log("openAndVerify: file is verified");
@@ -158,6 +159,7 @@ export default class TestHelper {
         }
     }
 
+    /** the returned promise completes when the command has been sent (i.e. not when verification has finished) */
     public static async verify(): Promise<void> {
         await TestHelper.executeCommand('viper.verify');
     }
@@ -226,6 +228,26 @@ export default class TestHelper {
             TestHelper.callbacks.verificationStopped = () => {
                 TestHelper.log("verification stopped");
                 resolve();
+            }
+        });
+    }
+
+    public static waitForVerificationOrAbort(): Promise<void> {
+        let resolved = false
+        return new Promise(resolve => {
+            TestHelper.callbacks.verificationComplete = (b, f) => {
+                TestHelper.log(`Verification Completed: file: ${f}, backend: ${b}`);
+                if (!resolved) {
+                    resolved = true;
+                    resolve();
+                }
+            }
+            TestHelper.callbacks.verificationStopped = () => {
+                TestHelper.log("verification stopped");
+                if (!resolved) {
+                    resolved = true;
+                    resolve();
+                }
             }
         });
     }

@@ -14,8 +14,8 @@ import { Log } from './Log';
 import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, SettingsErrorType, SettingsError, Commands, Success, ViperSettings, Stage, Backend, LogLevel, Common } from './ViperProtocol';
 import { Server } from './ServerClass';
 import { ViperServerService } from './ViperServerService';
-import * as locate_java_home from 'locate-java-home';
-import { IJavaHomeInfo } from 'locate-java-home/js/es5/lib/interfaces';
+import * as locate_java_home from '@viperproject/locate-java-home';
+import { IJavaHomeInfo } from '@viperproject/locate-java-home/js/es5/lib/interfaces';
 import * as os from 'os';
 
 
