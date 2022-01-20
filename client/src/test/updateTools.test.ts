@@ -15,7 +15,7 @@ suite('Viper Tools Update Test', () => {
     });
 
     test("Viper Tools Update Test & test abort of first verification", async function() {
-        this.timeout(80000);
+        this.timeout(60000);
         TestHelper.resetErrors();
 
         const updateDone = TestHelper.waitForViperToolsUpdate();
@@ -36,7 +36,7 @@ suite('Viper Tools Update Test', () => {
         setTimeout(() => {
             TestHelper.log("timeout triggered: stopping verification");
             TestHelper.stopVerification()
-        }, 2000);
+        }, 1000);
 
         // wait until verification is aborted:
         await aborted;

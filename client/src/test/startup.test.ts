@@ -12,10 +12,15 @@ suite('Extension Startup', () => {
     });
 
     test("Language Detection, and Silicon Backend Startup test.", async function() {
-        this.timeout(60000);
-        const verified = TestHelper.waitForVerification(SIMPLE, SILICON);
+        this.timeout(40000);
+        const started = TestHelper.waitForBackendStarted(SILICON);
         await TestHelper.openFile(SIMPLE);
-        await verified;
+        await started;
+    });
+
+    test("Test simple verification with Silicon", async function(){
+        this.timeout(40000);
+        await TestHelper.openAndVerify(SIMPLE);
     });
 
     test("Test simple verification with Silicon and a different file", async function(){

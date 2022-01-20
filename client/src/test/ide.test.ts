@@ -24,10 +24,10 @@ suite('ViperIDE Tests', () => {
         await TestHelper.openAndVerify(LONG);
         // reverify:
         await TestHelper.verify();
-        // stop the verification after 300ms
+        // stop the verification after 1s
         setTimeout(() => {
             TestHelper.stopVerification()
-        }, 300);
+        }, 1000);
 
         await TestHelper.waitForAbort();
         await TestHelper.checkForRunningProcesses(false, true, true);
