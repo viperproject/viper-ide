@@ -36,7 +36,7 @@ suite('Viper Tools Update Test', () => {
         setTimeout(() => {
             TestHelper.log("timeout triggered: stopping verification");
             TestHelper.stopVerification()
-        }, 1000);
+        }, 2000);
 
         // wait until verification is aborted:
         await aborted;
