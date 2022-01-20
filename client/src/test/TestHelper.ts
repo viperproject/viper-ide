@@ -159,7 +159,7 @@ export default class TestHelper {
         }
     }
 
-    /** not that the returned promise seems to complete only after verification has completed */
+    /** the returned promise completes when the command has been sent (i.e. not when verification has finished) */
     public static async verify(): Promise<void> {
         await TestHelper.executeCommand('viper.verify');
     }
