@@ -21,7 +21,7 @@
         "@types/vscode": "^1.45.0",
         "@types/yargs": "^17.0.8",
         "@vercel/ncc": "^0.33.1",
-        "@viperproject/locate-java-home": "^1.1.5",
+        "@viperproject/locate-java-home": "^1.1.7",
         "extract-zip": "^2.0.1",
         "fs-extra": "^10.0.0",
         "glob-to-regexp": "^0.4.1",
