@@ -709,12 +709,14 @@ export class VerificationController {
                     Log.log("AutoVerify after backend change", LogLevel.Info);
                     State.addToWorklist(new Task({ type: TaskType.Verify, uri: Helper.getActiveFileUri(), manuallyTriggered: false }));
                 }
-                if (State.unitTest) State.unitTest.backendStarted(params.name);
             }
             Log.log("Backend ready: " + params.name, LogLevel.Info);
             State.addToWorklist(new Task({ type: TaskType.BackendStarted, backend: params.name, manuallyTriggered: true }));
             State.isBackendReady = true;
             State.isActiveViperEngine = params.isViperServer;
+            if (State.unitTest) {
+                State.unitTest.backendStarted(params.name);
+            }
         } catch (e) {
             Log.error("Error handling backend started notification: " + e);
         }

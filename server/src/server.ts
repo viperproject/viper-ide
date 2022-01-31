@@ -9,7 +9,7 @@
 'use strict'
 
 import { IPCMessageReader, IPCMessageWriter, createConnection, InitializeResult, SymbolInformation } from 'vscode-languageserver'
-const yargs = require('yargs/yargs') // LA July 5th 2021: this is the only way I could find that works together with `ncc` (see documentation for `yargs` mentioned below)
+import * as yargs from 'yargs';
 import { Log } from './Log'
 import { Settings } from './Settings'
 import { Backend, Common, StateColors, ExecutionTrace, ViperSettings, Commands, VerificationState, VerifyRequest, LogLevel, ShowHeapParams } from './ViperProtocol'
@@ -19,36 +19,41 @@ import { DebugServer } from './DebugServer'
 import { Server } from './ServerClass'
 import { ViperServerService } from './ViperServerService'
 
-// uses 'yargs' as recommended for use together with ncc
-// see https://github.com/yargs/yargs/blob/master/docs/bundling.md
-const argv = yargs(process.argv.slice(2))
-    .option('globalStorage', {
-        description: 'Path to the global storage folder provided by VSCode to a particular extension',
-        type: 'string',
-    })
-    .option('logDir', {
-        description: 'Path to a folder in which log files should be stored',
-        type: 'string',
-    })
-    .help() // show help if `--help` is used
-    .parse();
-// pass command line option to Settings:
-if (argv.globalStorage) {
-    Settings.globalStoragePath = argv.globalStorage;
+main().catch((err) => {
+	console.error(`main function has ended with an error: ${err}`);
+	process.exit(1);
+});
+
+async function main() {
+    const argv = await yargs(process.argv.slice(2))
+        .option('globalStorage', {
+            description: 'Path to the global storage folder provided by VSCode to a particular extension',
+            type: 'string',
+        })
+        .option('logDir', {
+            description: 'Path to a folder in which log files should be stored',
+            type: 'string',
+        })
+        .help() // show help if `--help` is used
+        .parse();
+    // pass command line option to Settings:
+    if (argv.globalStorage) {
+        Settings.globalStoragePath = argv.globalStorage;
+    }
+    if (argv.logDir) {
+        Settings.logDirPath = argv.logDir;
+    }
+
+
+    // Create a connection for the server. The connection uses Node's IPC as a transport
+    Server.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
+    Server.documents.listen(Server.connection);
+
+    registerHandlers();
+
+    // Listen on the connection
+    Server.connection.listen();
 }
-if (argv.logDir) {
-    Settings.logDirPath = argv.logDir;
-}
-
-
-// Create a connection for the server. The connection uses Node's IPC as a transport
-Server.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
-Server.documents.listen(Server.connection);
-
-registerHandlers();
-
-// Listen on the connection
-Server.connection.listen();
 
 function registerHandlers() {
     //starting point (executed once)
