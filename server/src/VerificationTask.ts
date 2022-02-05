@@ -7,7 +7,7 @@
   */
 
 'use strict';
-import { SymbolInformation, SymbolKind } from 'vscode-languageserver'
+import { DiagnosticSeverity, SymbolInformation, SymbolKind } from 'vscode-languageserver'
 
 import * as language_server from 'vscode-languageserver';
 import { Settings } from './Settings'
@@ -326,6 +326,16 @@ export class VerificationTask {
     //     }
     // }
 
+    private numberOfErrors(): number {
+        const errors = this.diagnostics.filter(diag => diag.severity == DiagnosticSeverity.Error);
+        return errors.length;
+    }
+
+    private numberOfWarnings(): number {
+        // we define the number of warnings as the number of non-error diagnostics
+        return this.diagnostics.length - this.numberOfErrors();
+    }
+
     private completionHandler(code) {
         try {
             Log.log(`completionHandler is called with code ${code}`, LogLevel.Debug);
@@ -405,7 +415,8 @@ export class VerificationTask {
                     success: success,
                     manuallyTriggered: this.manuallyTriggered,
                     filename: this.filename,
-                    nofErrors: this.diagnostics.length,
+                    nofErrors: this.numberOfErrors(),
+                    nofWarnings: this.numberOfWarnings(),
                     time: this.time,
                     verificationCompleted: true,
                     uri: this.fileUri,
@@ -423,6 +434,7 @@ export class VerificationTask {
                     manuallyTriggered: this.manuallyTriggered,
                     filename: this.filename,
                     nofErrors: 0,
+                    nofWarnings: 0,
                     time: this.time,
                     verificationCompleted: false,
                     uri: this.fileUri,
@@ -443,9 +455,9 @@ export class VerificationTask {
 
     private determineSuccess(code: number): Success {
         let result: Success = Success.None;
-        if (this.diagnostics.length == 0 && code == 0) {
+        if (this.numberOfErrors() == 0 && code == 0) {
             result = Success.Success;
-        } else if (this.diagnostics.length > 0) {
+        } else if (this.numberOfErrors() > 0) {
             //use tag and backend trace as indicators for completed parsing
             if (!this.parsingCompleted && this.steps.length == 0) {
                 result = Success.ParsingFailed;
@@ -632,7 +644,8 @@ export class VerificationTask {
                         Server.sendStateChangeNotification({
                             newState: VerificationState.VerificationReporting,
                             filename: this.filename,
-                            nofErrors: this.diagnostics.length,
+                            nofErrors: this.numberOfErrors(),
+                            nofWarnings: this.numberOfWarnings(),
                             uri: this.fileUri,
                             diagnostics: JSON.stringify( this.diagnostics )
                         }, this)
@@ -693,7 +706,8 @@ export class VerificationTask {
                                 Server.sendStateChangeNotification({
                                     newState: VerificationState.VerificationRunning,
                                     filename: this.filename,
-                                    nofErrors: this.diagnostics.length,
+                                    nofErrors: this.numberOfErrors(),
+                                    nofWarnings: this.numberOfWarnings(),
                                     uri: this.fileUri,
                                     diagnostics: JSON.stringify( this.diagnostics )
                                 }, this);

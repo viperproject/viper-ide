@@ -790,27 +790,36 @@ export class VerificationController {
                         }
 
                         let msg: string = "";
+
+                        function warningsMsg(separator: string): string {
+                            if (params.nofWarnings == 0) {
+                                return ``;
+                            } else {
+                                return`${separator} ${params.nofWarnings} warning${params.nofWarnings == 1 ? "" : "s"}`;
+                            }
+                        }
+    
                         switch (params.success) {
                             case Success.Success:
-                                msg = `Successfully verified ${params.filename} in ${Helper.formatSeconds(params.time)}`;
+                                msg = `Successfully verified ${params.filename} in ${Helper.formatSeconds(params.time)} ${warningsMsg("with")}`;
                                 Log.log(msg, LogLevel.Default);
-                                State.statusBarItem.update("$(check) " + msg, Color.SUCCESS);
+                                State.statusBarItem.update("$(check) " + msg, params.nofWarnings == 0 ? Color.SUCCESS : Color.WARNING);
                                 if (params.manuallyTriggered) Log.hint(msg);
                                 break;
                             case Success.ParsingFailed:
-                                msg = `Parsing ${params.filename} failed after ${Helper.formatSeconds(params.time)}`;
+                                msg = `Parsing ${params.filename} failed after ${Helper.formatSeconds(params.time)} ${warningsMsg("with")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(x) " + msg, Color.ERROR);
                                 break;
                             case Success.TypecheckingFailed:
-                                msg = `Type checking ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
+                                msg = `Type checking ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${params.nofErrors} error${params.nofErrors == 1 ? "" : "s"} ${warningsMsg("and")}`;
                                 Log.log(msg, LogLevel.Default);
-                                State.statusBarItem.update("$(x) " + msg, Color.ERROR);
+                                State.statusBarItem.update("$(x) " + msg, params.nofErrors == 0 ? Color.WARNING : Color.ERROR);
                                 break;
                             case Success.VerificationFailed:
-                                msg = `Verifying ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${params.nofErrors} error${params.nofErrors == 1 ? "s" : ""}`;
+                                msg = `Verifying ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${params.nofErrors} error${params.nofErrors == 1 ? "" : "s"} ${warningsMsg("and")}`;
                                 Log.log(msg, LogLevel.Default);
-                                State.statusBarItem.update("$(x) " + msg, Color.ERROR);
+                                State.statusBarItem.update("$(x) " + msg, params.nofErrors == 0 ? Color.WARNING : Color.ERROR);
                                 break;
                             case Success.Aborted:
                                 State.statusBarItem.update("Verification aborted", Color.WARNING);
