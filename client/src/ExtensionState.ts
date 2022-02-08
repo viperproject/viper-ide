@@ -91,6 +91,7 @@ export class State {
         this.hideProgress();
 
         this.backendStatusBar = new StatusBar(12, context);
+        this.backendStatusBar.setCommand("viper.selectBackend");
         this.backendStatusBar.show();
 
         
