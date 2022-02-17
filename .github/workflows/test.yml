@@ -77,7 +77,7 @@ jobs:
           cp -r template/* ViperToolsMac
 
       - name: Download ViperServer fat JAR
-        run: curl -L ${{ env.VIPERSERVER_URL }} --output viperserver.jar
+        run: curl -L --silent --show-error --fail ${{ env.VIPERSERVER_URL }} --output viperserver.jar
 
       - name: Copy ViperServer fat JAR to ViperTools
         run: |
