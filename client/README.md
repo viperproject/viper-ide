@@ -4,6 +4,9 @@
 
 ### Changelog
 
+#### v.2.4.0 (Viper v.22.02-release)
+* Viper IDE cache can be stored to a file.
+
 #### v.2.3.1
 * Bumps version number to clearly differentiate it from any release candidate. Besides that, it is equivalent to v.2.3.0.
 
