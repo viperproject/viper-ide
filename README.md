@@ -9,7 +9,7 @@ The extension automatically downloads and manages Viper (via publicly available 
 
 Viper IDE uses an open-source 64-bit [Java server](https://github.com/viperproject/viperserver), so you need Java installed to be able to run it. 
 
-Please **always** refer to the official [installation instructiuons](http://viper.ethz.ch/downloads) for more details (in particular, about defferent operating system support). 
+Please **always** refer to the official [installation instructions](http://viper.ethz.ch/downloads) for more details (in particular, about defferent operating system support). 
 
 ### Using Viper ###
 
