@@ -4,6 +4,10 @@
 
 ### Changelog
 
+#### v.2.4.1
+* Compatibility with the latest VSCode release (1.66.1)
+* Fixes discovery of Java installations to only look for 64-bit versions having version 11 or higher.
+
 #### v.2.4.0 (Viper v.22.02-release)
 * Viper IDE cache can be stored to a file.
 
