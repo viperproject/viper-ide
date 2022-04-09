@@ -705,7 +705,7 @@ export class Settings {
         return new Promise((resolve, reject) => {
           try {
             const options = {
-              version: ">=1.8",
+              version: ">=11",
               mustBe64Bit: true
             };
             locate_java_home.default(options, (err, javaHomes) => {
