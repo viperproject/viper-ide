@@ -19,7 +19,7 @@
         "@types/node-ipc": "^9.2.0",
         "@types/stream-json": "^1.7.2",
         "@types/vscode": "^1.45.0",
-        "@types/yargs": "^17.0.8",
+        "@types/yargs": "^17.0.10",
         "@vercel/ncc": "^0.33.3",
         "@viperproject/locate-java-home": "^1.1.7",
         "extract-zip": "^2.0.1",
