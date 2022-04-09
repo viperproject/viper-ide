@@ -46,37 +46,35 @@ export class Server {
         else return null;
     }
 
-    static refreshEndings(): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            Server.connection.sendRequest(Commands.GetViperFileEndings).then((endings: string[]) => {
-                this.viperFileEndings = endings;
-                resolve(true);
-            }, err => {
-                Log.error("GetViperFileEndings request was rejected by the client: " + err);
-            });
-        });
+    static async refreshEndings(): Promise<boolean> {
+        try {
+            const endings: string[] = await Server.connection.sendRequest(Commands.GetViperFileEndings);
+            this.viperFileEndings = endings;
+            return true;
+        } catch (err) {
+            const msg = `GetViperFileEndings request was rejected by the client: ${err}`;
+            Log.error(msg);
+            // rethrow error:
+            throw new Error(msg);
+        }
     }
 
-    static isViperSourceFile(uri: string, firstTry: boolean = true): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            if (!this.viperFileEndings) {
-                if (firstTry) {
-                    Log.log("Refresh the viper file endings.", LogLevel.Debug);
-                    this.refreshEndings().then(() => {
-                        this.isViperSourceFile(uri, false).then(success => {
-                            resolve(success)
-                        });
-                    })
-                } else {
-                    resolve(false);
-                }
+    static async isViperSourceFile(uri: string, firstTry: boolean = true): Promise<boolean> {
+        if (!this.viperFileEndings) {
+            if (firstTry) {
+                Log.log("Refresh the viper file endings.", LogLevel.Debug);
+                await this.refreshEndings();
+                const success = await this.isViperSourceFile(uri, false);
+                return success;
             } else {
-                resolve(this.viperFileEndings.some(globPattern => {
-                    let regex = globToRexep(globPattern);
-                    return regex.test(uri);
-                }));
+                return false;
             }
-        });
+        } else {
+            return this.viperFileEndings.some(globPattern => {
+                const regex = globToRexep(globPattern);
+                return regex.test(uri);
+            });
+        }
     }
 
     static showHeap(task: VerificationTask, clientIndex: number, isHeapNeeded: boolean) {
@@ -275,11 +273,10 @@ export class Server {
         // ensureViperTools is not already ongoing, start it:
         cachedPromise = this.internalEnsureViperTools(shouldUpdate);
         this.cacheInternalEnsureViperTools = cachedPromise;
+        const loc = await cachedPromise;
         // reset cache when operation is done:
-        return cachedPromise.then(loc => {
-            this.cacheInternalEnsureViperTools = null;
-            return loc;
-        });
+        this.cacheInternalEnsureViperTools = null;
+        return loc;
     }
 
     private static async internalEnsureViperTools(shouldUpdate: boolean): Promise<Location> {
@@ -310,7 +307,8 @@ export class Server {
             const errMsg = `Error installing Viper tools: ${e}`;
             Log.error(errMsg);
             Server.connection.sendNotification(Commands.ViperUpdateComplete, false); //update failed
-            return Promise.reject(errMsg);
+            // rethrow error:
+            throw new Error(errMsg);
         }
     }
 
