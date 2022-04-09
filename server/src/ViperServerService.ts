@@ -335,7 +335,7 @@ export class ViperServerService extends BackendService {
             }
 
             if ( message.msg_type.includes('warning') && message.msg_body.length > 0 ) {
-                Log.error(`ViperServer reports the following warning: ${message.msg_body.message}`, LogLevel.Default)
+                Log.log(`ViperServer reports the following warning: ${JSON.stringify(message.msg_body)}`, LogLevel.Default)
                 let label = message.msg_type.includes('internal') 
                     ? 'internal' 
                     : message.msg_type.includes('parser') 

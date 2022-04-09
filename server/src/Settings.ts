@@ -177,9 +177,8 @@ export class Settings {
         return Settings.settings.verificationBackends.find(b => { return b.name == backendName });
     }
 
-    public static valid(): boolean {
-        Server.sendSettingsCheckedNotification({ ok: this._valid, errors: this._errors, settings: this.settings });
-        return this._valid;
+    public static getErrors(): SettingsError[] {
+        return this._errors;
     }
 
     public static upToDate(): boolean {
@@ -208,9 +207,9 @@ export class Settings {
 
     //tries to restart backend, 
     public static async initiateBackendRestartIfNeeded(oldSettings?: ViperSettings, selectedBackend?: string, viperToolsUpdated: boolean = false): Promise<void> {
-        await Settings.checkSettings(viperToolsUpdated);
-        if (Settings.valid()) {
-            let newBackend = Settings.selectBackend(Settings.settings, selectedBackend);
+        const valid = await Settings.checkSettings(viperToolsUpdated);
+        if (valid) {
+            const newBackend = Settings.selectBackend(Settings.settings, selectedBackend);
 
             if (newBackend) {
                 //only restart the backend after settings changed if the active backend was affected
@@ -239,7 +238,7 @@ export class Settings {
                 Log.error("No backend, even though the setting check succeeded.");
             }
         } else {
-            Server.backendService.stop();
+            await Server.backendService.stop();
         }
     }
 
@@ -328,10 +327,10 @@ export class Settings {
             if (!resolvedPath.exists) {
                 if (!viperToolsUpdated) {
                     //Automatically install the Viper tools
-                    Server.ensureViperTools(false);
+                    await Server.ensureViperTools(false);
                     // in this case we do not want to continue restarting the backend,
-                    //the backend will be restarted after the update
-                    return Promise.reject();
+                    // the backend will be restarted after the update
+                    return true;
                 } else {
                     // we have just updated Viper tools but the resolved path still does not exist
                     return false;
@@ -407,6 +406,11 @@ export class Settings {
             Log.error("Error checking settings: " + e);
             return false;
         }
+    }
+
+    /** requires that `checkSettings` has recently been executed */
+    public static sendErrorsToClient(): void {
+        Server.sendSettingsCheckedNotification({ ok: this._valid, errors: this._errors, settings: this.settings });
     }
 
     private static mergeBackend(custom: Backend, def: Backend) {

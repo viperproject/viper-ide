@@ -55,7 +55,7 @@ async function main() {
     Server.connection.listen();
 }
 
-function registerHandlers() {
+function registerHandlers(): void {
     //starting point (executed once)
     Server.connection.onInitialize((params): InitializeResult => {
         try {
@@ -72,26 +72,32 @@ function registerHandlers() {
         }
     });
 
-    Server.connection.onShutdown(() => {
+    Server.connection.onShutdown(async () => {
         try {
             Log.log("On Shutdown", LogLevel.Debug);
-            return Server.backendService.kill()
-                .then(res => Log.log(`Backend service has been stopped (result: ${res})`, LogLevel.Debug));
+            const res = await Server.backendService.kill()
+            Log.log(`Backend service has been stopped (result: ${res})`, LogLevel.Debug);
         } catch (e) {
-            Log.error("Error handling shutdown: " + e);
+            const msg = `Error handling shutdown: ${e}`;
+            Log.error(msg);
+            // rethrow error:
+            throw new Error(msg);
         }
     })
 
-    Server.connection.onDidChangeConfiguration((change) => {
+    Server.connection.onDidChangeConfiguration(async (change) => {
         try {
             Log.log('Configuration changed', LogLevel.Info);
             const oldSettings = Settings.settings;
             Settings.settings = change.settings.viperSettings as ViperSettings;
             Log.logLevel = Settings.settings.preferences.logLevel; //after this line, Logging works
-            Server.refreshEndings();
-            Settings.initiateBackendRestartIfNeeded(oldSettings);
+            await Server.refreshEndings();
+            await Settings.initiateBackendRestartIfNeeded(oldSettings);
         } catch (e) {
-            Log.error("Error handling configuration change: " + e);
+            const msg = `Error handling configuration change: ${e}`;
+            Log.error(msg);
+            // rethrow error:
+            throw new Error(msg);
         }
     });
 
@@ -108,68 +114,70 @@ function registerHandlers() {
      * https://github.com/Microsoft/language-server-protocol/blob/master/versions/protocol-2-x.md#document-symbols-request
      */
     Server.connection.onRequest('textDocument/documentSymbol', (args) => {
-        return new Promise<SymbolInformation[]>((resolve, reject) => {
-            let task = Server.verificationTasks.get(args.textDocument.uri.toString())
-            if (task) {
-                resolve(task.symbolInformation)
-            } else {
-                // No task found - maybe the task has not been created yet. 
-                resolve([])
-            }
-        })
+        const task = Server.verificationTasks.get(args.textDocument.uri.toString())
+        if (task) {
+            return task.symbolInformation;
+        } else {
+            // No task found - maybe the task has not been created yet. 
+            return [];
+        }
     });
 
     /**
      * Relevant bit of documentation: 
      * https://github.com/Microsoft/language-server-protocol/blob/master/versions/protocol-2-x.md#goto-definition-request
      */
-    Server.connection.onRequest('textDocument/definition', (args) => {
-        Log.log(`Handling definitions request for args: ` + JSON.stringify(args), LogLevel.Debug)
-        return new Promise<any>((resolve, reject) => {
-            let document = args.textDocument
-            let pos = args.position
-            let task = Server.verificationTasks.get(document.uri.toString());
-            if (task) {
-                Log.log(`Found verification task for URI ` + document.uri, LogLevel.LowLevelDebug)
-                Server.connection.sendRequest(Commands.GetIdentifier, pos).then((word: string) => {
-                    Log.log(`Got word: ` + word, LogLevel.LowLevelDebug)
-                    if (task.definitions) task.definitions.forEach(def => {
-                        if (def.scope == null //global scope
-                            || (Common.comparePosition(def.scope.start, pos) <= 0 && Common.comparePosition(def.scope.end, pos) >= 0)) // in scope
-                        {
-                            if (word == def.name) {
-                                resolve({ uri: document.uri.toString(), range: def.location })
-                            }
+    Server.connection.onRequest('textDocument/definition', async (args) => {
+        Log.log(`Handling definitions request for args: ` + JSON.stringify(args), LogLevel.Debug);
+        const document = args.textDocument
+        const pos = args.position
+        const task = Server.verificationTasks.get(document.uri.toString());
+        if (task) {
+            Log.log(`Found verification task for URI ` + document.uri, LogLevel.LowLevelDebug)
+            const word = await Server.connection.sendRequest(Commands.GetIdentifier, pos);
+            Log.log(`Got word: ` + word, LogLevel.LowLevelDebug);
+            if (task.definitions) {
+                task.definitions.forEach(def => {
+                    if (def.scope == null // global scope or in scope:
+                        || (Common.comparePosition(def.scope.start, pos) <= 0 && Common.comparePosition(def.scope.end, pos) >= 0)) {
+                        if (word == def.name) {
+                            return { uri: document.uri.toString(), range: def.location }
                         }
-                    })
-                    // No definition found - maybe it's a keyword.
-                    resolve([])
-                })
-            } else {
-                let e = `Verification task not found for URI (` + document.uri + `)`
-                Log.error(e)
-                reject(e)
+                    }
+                });
             }
-        })
+            // No definition found - maybe it's a keyword.
+            return [];
+        } else {
+            const e = `Verification task not found for URI (` + document.uri + `)`
+            Log.error(e);
+            throw new Error(e);
+        }
     });
 
-    Server.connection.onNotification(Commands.StartBackend, (selectedBackend: string) => {
+    Server.connection.onNotification(Commands.StartBackend, async (selectedBackend: string) => {
         try {
             if (!selectedBackend || selectedBackend.length == 0) {
                 Log.log("No backend was chosen, don't restart backend", LogLevel.Debug);
             } else {
-                checkSettingsAndStartServer(selectedBackend);
+                await checkSettingsAndStartServer(selectedBackend);
             }
         } catch (e) {
-            Log.error("Error handling select backend request: " + e);
+            const msg = `Error handling select backend request: ${e}`;
+            Log.error(msg);
+            // rethrow error:
+            throw new Error(msg);
         }
     });
 
-    Server.connection.onNotification(Commands.StopBackend, () => {
+    Server.connection.onNotification(Commands.StopBackend, async () => {
         try {
-            Server.backendService.stop();
+           await Server.backendService.stop();
         } catch (e) {
-            Log.error("Error handling stop backend request: " + e);
+            const msg = `Error handling stop backend request: ${e}`;
+            Log.error(msg);
+            // rethrow error:
+            throw new Error(msg);
         }
     });
 
@@ -177,64 +185,72 @@ function registerHandlers() {
         try {
             Server.backendService.swapBackend(Settings.getBackend(backendName));
         } catch (e) {
-            Log.error("Error handling swap backend request: " + e);
+            const msg = `Error handling swap backend request: ${e}`;
+            Log.error(msg);
+            // rethrow error:
+            throw new Error(msg);
         }
     });
 
     //returns the a list of all backend names
-    Server.connection.onRequest(Commands.RequestBackendNames, () => {
-        return new Promise<string[]>((resolve, reject) => {
-            try {
-                let backendNames: string[] = Settings.getBackendNames(Settings.settings);
-                if (!backendNames) {
-                    reject("No backend found");
-                }
-                else {
-                    resolve(backendNames);
-                }
-            } catch (e) {
-                reject("Error handling backend names request: " + e);
-            }
-        });
-    });
-
-    Server.connection.onDidOpenTextDocument((params) => {
+    Server.connection.onRequest(Commands.RequestBackendNames, async () => {
         try {
-            Server.isViperSourceFile(params.textDocument.uri).then(res => {
-                if (res) {
-                    let uri = params.textDocument.uri;
-                    //notify client;
-                    Server.sendFileOpenedNotification(params.textDocument.uri);
-                    if (!Server.verificationTasks.has(uri)) {
-                        //create new task for opened file
-                        let task = new VerificationTask(uri);
-                        Server.verificationTasks.set(uri, task);
-                    }
-                }
-            });
+            const backendNames: string[] = Settings.getBackendNames(Settings.settings);
+            if (!backendNames) {
+                throw new Error("No backend found");
+            }
+            else {
+                return backendNames;
+            }
         } catch (e) {
-            Log.error("Error handling TextDocument openend");
+            const msg = `Error handling backend names request: ${e}`;
+            Log.error(msg);
+            // rethrow error:
+            throw new Error(msg);
         }
     });
 
-    Server.connection.onDidCloseTextDocument((params) => {
+    Server.connection.onDidOpenTextDocument(async (params) => {
         try {
-            let uri = params.textDocument.uri;
-            Server.isViperSourceFile(uri).then(isViperFile => {
-                if (isViperFile) {
-                    //notify client;
-                    Server.sendFileClosedNotification(uri);
+            const res = await Server.isViperSourceFile(params.textDocument.uri);
+            if (res) {
+                const uri = params.textDocument.uri;
+                //notify client:
+                Server.sendFileOpenedNotification(params.textDocument.uri);
+                if (!Server.verificationTasks.has(uri)) {
+                    //create new task for opened file
+                    const task = new VerificationTask(uri);
+                    Server.verificationTasks.set(uri, task);
                 }
-            });
+            }
         } catch (e) {
-            Log.error("Error handling TextDocument closed");
+            const msg = `Error handling TextDocument openend: ${e}`;
+            Log.error(msg);
+            // rethrow error:
+            throw new Error(msg);
+        }
+    });
+
+    Server.connection.onDidCloseTextDocument(async (params) => {
+        try {
+            const uri = params.textDocument.uri;
+            const isViperFile = await Server.isViperSourceFile(uri);
+            if (isViperFile) {
+                //notify client;
+                Server.sendFileClosedNotification(uri);
+            }
+        } catch (e) {
+            const msg = `Error handling TextDocument closed: ${e}`;
+            Log.error(msg);
+            // rethrow error:
+            throw new Error(msg);
         }
     });
 
     Server.connection.onNotification(Commands.FileClosed, (uri) => {
         if (Server.verificationTasks.has(uri)) {
             //remove no longer needed task
-            let task = Server.verificationTasks.get(uri);
+            const task = Server.verificationTasks.get(uri);
             task.resetDiagnostics();
             Server.verificationTasks.delete(uri);
         }
@@ -260,24 +276,31 @@ function registerHandlers() {
                 Server.sendVerificationNotStartedNotification(data.uri);
             }
         } catch (e) {
-            Log.error("Error handling verify request: " + e);
+            const msg = `Error handling verify request: ${e}`;
+            Log.error(msg);
+            // the error is not rethrown but we send a notification:
             Server.sendVerificationNotStartedNotification(data.uri);
         }
     });
 
-    Server.connection.onNotification(Commands.UpdateViperTools, () => {
-        Server.ensureViperTools(true);
+    Server.connection.onNotification(Commands.UpdateViperTools, async () => {
+        await Server.ensureViperTools(true);
     });
 
-    Server.connection.onNotification(Commands.FlushCache, (file) => {
-        if (Server.backendService.isViperServerService) {
-            (<ViperServerService>Server.backendService).flushCache(file).catch((e) => {
-                Log.error("Error flushing cache: " + e);
-            })
+    Server.connection.onNotification(Commands.FlushCache, async (file) => {
+        try {
+            if (Server.backendService.isViperServerService) {
+                await (<ViperServerService>Server.backendService).flushCache(file);
+            }
+        } catch (e) {
+            const msg = `Error flushing cache: ${e}`;
+            Log.error(msg);
+            // rethrow error:
+            throw new Error(msg);
         }
     });
 
-    Server.connection.onRequest(Commands.StopAllVerifications, () => {
+    Server.connection.onRequest(Commands.StopAllVerifications, async () => {
         try {
             //if there are running verifications, stop related processes
             const tasks = Array.from(Server.verificationTasks.values());
@@ -290,70 +313,73 @@ function registerHandlers() {
                     Promise.resolve(true);
                 }
             });
-            return Promise.all(tasks)
-                .then(results => results.every(res => res));
+            await Promise.all(stopPromises);
+            return tasks.every(res => res);
         } catch (e) {
-            Log.error("Error handling stop all verifications request: " + e);
-            return Promise.reject()
+            const msg = `Error handling stop all verifications request: ${e}`;
+            Log.error(msg);
+            // rethrow error:
+            throw new Error(msg);
         }
     })
 
-    Server.connection.onRequest(Commands.GetExecutionTrace, (params: { uri: string, clientState: number }) => {
+    Server.connection.onRequest(Commands.GetExecutionTrace, async (params: { uri: string, clientState: number }) => {
         Log.log("Generate execution trace for client state " + params.clientState, LogLevel.Debug);
-        return new Promise<ExecutionTrace[]>((resolve, reject) => {
-            let result: ExecutionTrace[] = [];
-            try {
-                let task = Server.verificationTasks.get(params.uri);
-                let serverState = task.clientStepIndexToServerStep[params.clientState];
-                let maxDepth = serverState.depthLevel();
-                let dark = Settings.settings.advancedFeatures.darkGraphs === true;
+        let result: ExecutionTrace[] = [];
+        try {
+            const task = Server.verificationTasks.get(params.uri);
+            let serverState = task.clientStepIndexToServerStep[params.clientState];
+            let maxDepth = serverState.depthLevel();
+            const dark = Settings.settings.advancedFeatures.darkGraphs === true;
 
-                if (!Settings.settings.advancedFeatures.simpleMode) {
-                    //ADVANCED MODE ONLY
-                    //get stateExpansion states
-                    serverState.verifiable.forAllExpansionStatesWithDecoration(serverState, (child: Statement) => {
-                        result.push({
-                            state: child.decorationOptions.index,
-                            color: StateColors.uninterestingState(dark),
-                            showNumber: true
-                        });
+            if (!Settings.settings.advancedFeatures.simpleMode) {
+                //ADVANCED MODE ONLY
+                //get stateExpansion states
+                serverState.verifiable.forAllExpansionStatesWithDecoration(serverState, (child: Statement) => {
+                    result.push({
+                        state: child.decorationOptions.index,
+                        color: StateColors.uninterestingState(dark),
+                        showNumber: true
                     });
-                    //get top level statements
-                    serverState.verifiable.getTopLevelStatesWithDecoration().forEach(child => {
-                        result.push({
-                            state: child.decorationOptions.index,
-                            color: StateColors.uninterestingState(dark),
-                            showNumber: true
-                        });
+                });
+                //get top level statements
+                serverState.verifiable.getTopLevelStatesWithDecoration().forEach(child => {
+                    result.push({
+                        state: child.decorationOptions.index,
+                        color: StateColors.uninterestingState(dark),
+                        showNumber: true
                     });
-                }
-                //BOTH SIMPLE AND ANVANCED MODE
-                //get executionTrace of serverState
-                while (true) {
-                    let depth = serverState.depthLevel();
-                    if (serverState.canBeShownAsDecoration && depth <= maxDepth) {
-                        maxDepth = depth;
-                        result.push({
-                            state: serverState.decorationOptions.index,
-                            color: StateColors.interestingState(dark),
-                            showNumber: true
-                        })//push client state
-                    }
-                    if (serverState.isBranch()) {
-                        serverState = serverState.parent;
-                    } else if (!serverState.parent) {
-                        break;
-                    } else {
-                        serverState = task.steps[serverState.index - 1];
-                    }
-                    task.shownExecutionTrace = result;
-                }
-                resolve(result);
-            } catch (e) {
-                Log.error("Error handling Execution Trace Request: " + e);
-                resolve(result);
+                });
             }
-        });
+            
+            //BOTH SIMPLE AND ANVANCED MODE
+            //get executionTrace of serverState
+            while (true) {
+                const depth = serverState.depthLevel();
+                if (serverState.canBeShownAsDecoration && depth <= maxDepth) {
+                    maxDepth = depth;
+                    result.push({
+                        state: serverState.decorationOptions.index,
+                        color: StateColors.interestingState(dark),
+                        showNumber: true
+                    })//push client state
+                }
+                if (serverState.isBranch()) {
+                    serverState = serverState.parent;
+                } else if (!serverState.parent) {
+                    break;
+                } else {
+                    serverState = task.steps[serverState.index - 1];
+                }
+                task.shownExecutionTrace = result;
+            }
+            return result;
+        } catch (e) {
+            const msg = `Error handling Execution Trace Request: ${e}`;
+            Log.error(msg);
+            // rethrow error:
+            throw new Error(msg);
+        }
     });
 
     Server.connection.onRequest(Commands.StopVerification, async (uri: string) => {
@@ -370,8 +396,10 @@ function registerHandlers() {
             }
             return true;
         } catch (e) {
-            Log.error(`Error handling stop verification request (critical): ${e}`);
-            return false;
+            const msg = `Error handling stop verification request (critical): ${e}`;
+            Log.error(msg);
+            // rethrow error:
+            throw new Error(msg);
         }
     });
 
@@ -379,7 +407,10 @@ function registerHandlers() {
         try {
             DebugServer.stopDebugging();
         } catch (e) {
-            Log.error("Error handling stop debugging request: " + e);
+            const msg = `Error handling stop debugging request: ${e}`;
+            Log.error(msg);
+            // rethrow error:
+            throw new Error(msg);
         }
     })
 
@@ -392,36 +423,36 @@ function registerHandlers() {
             }
             Server.showHeap(task, params.clientIndex, params.isHeapNeeded);
         } catch (e) {
-            Log.error("Error showing heap: " + e);
+            const msg = `Error showing heap: ${e}`;
+            Log.error(msg);
+            // rethrow error:
+            throw new Error(msg);
         }
     });
 
     Server.connection.onRequest(Commands.RemoveDiagnostics, (uri: string) => {
-        //Log.log("Trying to remove diagnostics from "+ uri);
-        return new Promise<boolean>((resolve, reject) => {
-            if (Server.verificationTasks.has(uri)) {
-                Server.verificationTasks.get(uri).resetDiagnostics();
-                resolve(true);
-            } else {
-                resolve(false);
-            }
-        });
+        if (Server.verificationTasks.has(uri)) {
+            Server.verificationTasks.get(uri).resetDiagnostics();
+            return true;
+        } else {
+            return false;
+        }
     });
 
     Server.connection.onRequest("GetViperServerUrl", () => {
-        return new Promise<any>((resolve, reject) => {
-            if (Server.backendService instanceof ViperServerService) {
-                resolve(Server.backendService.getAddress())
-            } else {
-                reject("Not running with ViperServer backend");
-            }
-        });
+        if (Server.backendService instanceof ViperServerService) {
+            return Server.backendService.getAddress();
+        } else {
+            const msg = `Not running with ViperServer backend, cannot return its address`;
+            Log.error(msg);
+            throw new Error(msg);
+        }
     });
 }
 
 function canVerificationBeStarted(uri: string, manuallyTriggered: boolean): boolean {
     //check if there is already a verification task for that file
-    let task = Server.verificationTasks.get(uri);
+    const task = Server.verificationTasks.get(uri);
     if (!task) {
         Log.error("No verification task found for file: " + uri);
         return false;
@@ -435,10 +466,11 @@ function canVerificationBeStarted(uri: string, manuallyTriggered: boolean): bool
 
 async function checkSettingsAndStartServer(backendName: string): Promise<void> {
     try {
-        await Settings.checkSettings(false);
-        const valid = Settings.valid();
+        const valid = await Settings.checkSettings(false);
+        Settings.sendErrorsToClient();
         if (!valid) {
-            return Promise.reject(new Error("backend start skipped because of invalid settings"));
+            const errs = Settings.getErrors();
+            return Promise.reject(new Error(`backend start skipped because of invalid settings: ${errs}`));
         }
         const backend = Settings.selectBackend(Settings.settings, backendName);
         if (backend) {
@@ -462,14 +494,14 @@ async function checkSettingsAndStartServer(backendName: string): Promise<void> {
             Server.backendService.setStopped();
         } else {
             Log.error("startViperServer failed: " + reason);
-            Server.backendService.kill();
+            await Server.backendService.kill();
         }
         // rethrow error:
         return Promise.reject(new Error(reason));
     }
 }
 
-function changeBackendEngineIfNeeded(backend: Backend) {
+function changeBackendEngineIfNeeded(backend: Backend): void {
     if (Settings.useViperServer(backend) && (!Server.backendService || !Server.backendService.isViperServerService)) {
         Log.log("Start new ViperServerService", LogLevel.LowLevelDebug)
         if (Server.backendService.isSessionRunning) {

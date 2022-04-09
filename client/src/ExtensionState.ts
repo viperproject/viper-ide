@@ -204,7 +204,7 @@ export class State {
             }
         }
 
-        State.client = new LanguageClient('languageServer', 'Language Server', serverOptions, clientOptions, brk);
+        State.client = new LanguageClient('languageServer', 'Viper Language Server', serverOptions, clientOptions, brk);
 
         Log.log("Start Language Server", LogLevel.Info);
         // Create the language client and start the client.
