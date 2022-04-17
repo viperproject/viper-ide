@@ -4,6 +4,10 @@
 
 ### Changelog
 
+#### v.2.4.2
+ETH Zurich condemns the acts of war in Ukraine ([read more](https://ethz.ch/services/en/news-and-events/solidarity-with-ukraine.html)).
+* Downgrades `node-ipc` to stop it from creating unexpected files.
+
 #### v.2.4.1
 * Compatibility with the latest VSCode release (1.66.1)
 * Fixes discovery of Java installations to only look for 64-bit versions having version 11 or higher.
