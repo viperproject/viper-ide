@@ -38,7 +38,7 @@
     "devDependencies": {
         "@types/glob-to-regexp": "^0.4.1",
         "@types/mocha": "^9.0.0",
-        "@types/node": "^17.0.13",
+        "@types/node": "^17.0.39",
         "@types/rimraf": "^3.0.2",
         "@types/tmp": "^0.2.3",
         "@types/vscode": "^1.45.0",
@@ -224,7 +224,11 @@
                 "aliases": [
                     "Viper"
                 ],
-                "configuration": "./syntaxes/viper-configuration.json"
+                "configuration": "./syntaxes/viper-configuration.json",
+                "icon": {
+                  "light": "./images/viper_file.png",
+                  "dark": "./images/viper_file.png"
+                }
             },
             {
                 "id": "log",
