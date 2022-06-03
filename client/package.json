@@ -224,7 +224,11 @@
                 "aliases": [
                     "Viper"
                 ],
-                "configuration": "./syntaxes/viper-configuration.json"
+                "configuration": "./syntaxes/viper-configuration.json",
+                "icon": {
+                  "light": "./images/viper_file.png",
+                  "dark": "./images/viper_file.png"
+                }
             },
             {
                 "id": "log",
