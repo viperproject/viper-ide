@@ -287,6 +287,11 @@
                 "when": "resourceLangId == viper"
             }
         ],
+        "configurationDefaults": {
+            "[viper]": {
+                "editor.semanticHighlighting.enabled": true
+            }
+        },
         "configuration": {
             "type": "object",
             "title": "Viper",

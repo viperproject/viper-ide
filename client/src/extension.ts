@@ -72,6 +72,7 @@ export async function activate(context: vscode.ExtensionContext) {
     startAutoSaver();
     State.initializeStatusBar(context);
     registerFormatter();
+    context.subscriptions.push(registerSemanticTokens());
     if (vscode.window.activeTextEditor) {
         let uri = vscode.window.activeTextEditor.document.uri;
         State.setLastActiveFile(uri, vscode.window.activeTextEditor);
@@ -141,6 +142,32 @@ export async function deactivate(): Promise<void> {
 
 function registerFormatter() {
     formatter = new ViperFormatter();
+}
+
+function registerSemanticTokens(): vscode.Disposable {
+    // See https://github.com/microsoft/vscode-extension-samples/blob/main/semantic-tokens-sample/src/extension.ts for a better example
+
+    const tokenTypes = ['keyword'];
+    const tokenModifiers = [];
+    const legend = new vscode.SemanticTokensLegend(tokenTypes, tokenModifiers);
+
+    const provider: vscode.DocumentSemanticTokensProvider = {
+        provideDocumentSemanticTokens(
+            document: vscode.TextDocument
+        ): vscode.ProviderResult<vscode.SemanticTokens> {
+            // analyze the document and return semantic tokens
+
+            const tokensBuilder = new vscode.SemanticTokensBuilder(legend);
+            // on line 1, characters 1-5 are a keyword
+            tokensBuilder.push(
+            new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 5)),
+            'keyword', []
+            );
+            return tokensBuilder.build();
+        }
+    };
+
+    return vscode.languages.registerDocumentSemanticTokensProvider({ language: 'viper' }, provider, legend)
 }
 
 function toggleAutoVerify() {
