@@ -37,9 +37,16 @@ const config = {
         devtoolModuleFilenameTemplate: '../[resource-path]'
     },
     devtool: 'source-map',
-    externals: {
+    externals: [{
         vscode: 'commonjs vscode' // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'edv-> https://webpack.js.org/configuration/externals/
-    },
+    }, function({ context, request }, callback) {
+        if (/^node:/.test(request)) {
+            request = request.replace(/^node:/, "");
+            return callback(null, `commonjs ${request}`);
+        }
+        // Continue without externalizing the import
+        callback();
+    }],
     resolve: {
         // support reading TypeScript and JavaScript files -> https://github.com/TypeStrong/ts-loader
         extensions: ['.ts', '.js']
