@@ -17,8 +17,8 @@
     },
     "main": "./dist/extension",
     "engines": {
-        "vscode": "^1.45.0",
-        "node": "*"
+        "vscode": "^1.46.0",
+        "node": "^12.8.1"
     },
     "icon": "images/icon_bright_orange_avatar.png",
     "categories": [

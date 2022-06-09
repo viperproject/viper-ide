@@ -23,10 +23,11 @@
 'use strict';
 
 const path = require('path');
+const webpack = require('webpack');
 
 /**@type {import('webpack').Configuration}*/
 const config = {
-    target: 'node', // vscode extensions run in a Node.js-context -> https://webpack.js.org/configuration/node/
+    target: 'node12.8', // vscode extensions run in a Node.js-context -> https://webpack.js.org/configuration/node/
     entry: './src/server.ts', // the entry point of this extension -> https://webpack.js.org/configuration/entry-context/
     output: {
         // the bundle is stored in '../client/server' folder (check package.json) -> https://webpack.js.org/configuration/output/
@@ -36,9 +37,16 @@ const config = {
         devtoolModuleFilenameTemplate: '../[resource-path]'
     },
     devtool: 'source-map',
-    externals: {
+    externals: [{
         vscode: 'commonjs vscode' // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'edv-> https://webpack.js.org/configuration/externals/
-    },
+    }, function({ context, request }, callback) {
+        if (/^node:/.test(request)) {
+            request = request.replace(/^node:/, "");
+            return callback(null, `commonjs ${request}`);
+        }
+        // Continue without externalizing the import
+        callback();
+    }],
     resolve: {
         // support reading TypeScript and JavaScript files -> https://github.com/TypeStrong/ts-loader
         extensions: ['.ts', '.js']
