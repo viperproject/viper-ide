@@ -53,7 +53,7 @@ async function main() {
 				// workaround for a weird "exit code 55" error that happens on
 				// macOS when starting a new vscode instance immediately after
 				// closing an old one. (by fpoli)
-				await new Promise(resolve => setTimeout(resolve, 5000));
+				await new Promise(resolve => setTimeout(resolve, 10000));
 			}
 			firstIteration = false;
 			
