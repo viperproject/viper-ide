@@ -17,8 +17,8 @@
     },
     "main": "./dist/extension",
     "engines": {
-        "vscode": "^1.45.0",
-        "node": "*"
+        "vscode": "^1.46.0",
+        "node": "^12.8.1"
     },
     "icon": "images/icon_bright_orange_avatar.png",
     "categories": [
@@ -38,7 +38,7 @@
     "devDependencies": {
         "@types/glob-to-regexp": "^0.4.1",
         "@types/mocha": "^9.0.0",
-        "@types/node": "^17.0.13",
+        "@types/node": "^18.0.1",
         "@types/rimraf": "^3.0.2",
         "@types/tmp": "^0.2.3",
         "@types/vscode": "^1.45.0",
