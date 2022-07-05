@@ -466,11 +466,10 @@ function canVerificationBeStarted(uri: string, manuallyTriggered: boolean): bool
 
 async function checkSettingsAndStartServer(backendName: string): Promise<void> {
     try {
-        const valid = await Settings.checkSettings(false);
-        Settings.sendErrorsToClient();
+        const valid = Settings.upToDateAndValid();
         if (!valid) {
             const errs = Settings.getErrors();
-            return Promise.reject(new Error(`backend start skipped because of invalid settings: ${errs}`));
+            return Promise.reject(new Error(`backend start skipped because of invalid or out-dated settings: ${errs}`));
         }
         const backend = Settings.selectBackend(Settings.settings, backendName);
         if (backend) {

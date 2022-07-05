@@ -181,6 +181,10 @@ export class Settings {
         return this._errors;
     }
 
+    public static upToDateAndValid(): boolean {
+        return this._upToDate && this._valid;
+    }
+
     public static upToDate(): boolean {
         return this._upToDate;
     }
@@ -208,6 +212,7 @@ export class Settings {
     //tries to restart backend, 
     public static async initiateBackendRestartIfNeeded(oldSettings?: ViperSettings, selectedBackend?: string, viperToolsUpdated: boolean = false): Promise<void> {
         const valid = await Settings.checkSettings(viperToolsUpdated);
+        Settings.sendErrorsToClient();
         if (valid) {
             const newBackend = Settings.selectBackend(Settings.settings, selectedBackend);
 
@@ -704,8 +709,9 @@ export class Settings {
     private static getJavaHomes(): Promise<IJavaHomeInfo[]> {
         return new Promise((resolve, reject) => {
           try {
+            const minJavaVersion = 11
             const options = {
-              version: ">=11",
+              version: `>=${minJavaVersion}`,
               mustBe64Bit: true
             };
             locate_java_home.default(options, (err, javaHomes) => {
@@ -713,7 +719,7 @@ export class Settings {
                 reject(err.message);
               } else {
                 if (!Array.isArray(javaHomes) || javaHomes.length === 0) {
-                  const msg = "Could not find a 64-bit Java installation with at least version 1.8. "
+                  const msg = `Could not find a 64-bit Java installation with at least version ${minJavaVersion}. `
                     + "Please install one and/or manually specify it in the Viper-IDE settings.";
                   reject(msg);
                 } else {
