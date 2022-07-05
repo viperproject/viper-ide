@@ -22,7 +22,8 @@ export class Helper {
 
     public static loadViperFileExtensions() {
         this.viperFileEndings = ["*.vpr", "*.sil"];
-        let fileAssociations = vscode.workspace.getConfiguration("files").get("associations", []);
+        const fileAssociations = vscode.workspace.getConfiguration("files").get("associations", []);
+        Log.log(`VSCode has returned the following file associations: ${JSON.stringify(fileAssociations)}`, LogLevel.LowLevelDebug);
         for (var pattern in fileAssociations) {
             let language = fileAssociations[pattern];
             if (language == 'viper') {

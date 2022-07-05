@@ -87,11 +87,14 @@ function registerHandlers(): void {
 
     Server.connection.onDidChangeConfiguration(async (change) => {
         try {
-            Log.log('Configuration changed', LogLevel.Info);
+            Log.log(`Configuration changed ${JSON.stringify(change)}`, LogLevel.Info);
+            // block until a ViperTools update is done if one is currently going on:
+            await Server.waitForViperToolsUpdateToBeDone();
+            Log.log(`Configuration changed notification has now been unblocked`, LogLevel.LowLevelDebug);
             const oldSettings = Settings.settings;
             Settings.settings = change.settings.viperSettings as ViperSettings;
             Log.logLevel = Settings.settings.preferences.logLevel; //after this line, Logging works
-            await Server.refreshEndings();
+            Server.resetViperFileEndings();
             await Settings.initiateBackendRestartIfNeeded(oldSettings);
         } catch (e) {
             const msg = `Error handling configuration change: ${e}`;

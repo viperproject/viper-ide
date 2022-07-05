@@ -307,7 +307,9 @@ function registerHandlers() {
             return checkIfSettingsVersionsSpecified();
         });
         State.client.onRequest(Commands.GetViperFileEndings, () => {
+            Log.log(`Server requests Viper file endings`, LogLevel.LowLevelDebug);
             Helper.loadViperFileExtensions();
+            Log.log(`Viper file endings are ${Helper.viperFileEndings}`, LogLevel.LowLevelDebug);
             return Helper.viperFileEndings;
         });
         State.context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {

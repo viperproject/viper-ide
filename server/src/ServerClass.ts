@@ -30,7 +30,7 @@ export class Server {
     static backendService: BackendService = new ViperServerService();
     static debuggedVerificationTask: VerificationTask;
     static startingOrRestarting: boolean = false;
-    static viperFileEndings: string[];
+    private static viperFileEndings: string[] | undefined = undefined;
 
     /** do not access this field directly. Instead, use the getter `verificationTasks`; non-null */
     private static _verificationTasks: Map<string, VerificationTask> = new Map();
@@ -57,6 +57,12 @@ export class Server {
             // rethrow error:
             throw new Error(msg);
         }
+    }
+
+    /** forces a reload of the file endings on next use */
+    static resetViperFileEndings(): void {
+        this.viperFileEndings = undefined;
+        Log.log("Viper file endings have been reset.", LogLevel.Debug);
     }
 
     static async isViperSourceFile(uri: string, firstTry: boolean = true): Promise<boolean> {
@@ -277,6 +283,17 @@ export class Server {
         // reset cache when operation is done:
         this.cacheInternalEnsureViperTools = null;
         return loc;
+    }
+
+    /**
+     * blocks until ViperTools update is done if one is currently on-going. Otherwise, the returned promise is immediately resolved.
+     */
+    public static async waitForViperToolsUpdateToBeDone(): Promise<void> {
+        const cachedPromise: Promise<Location> = this.cacheInternalEnsureViperTools;
+        if (cachedPromise == null) {
+            return Promise.resolve();
+        }
+        return cachedPromise.then();
     }
 
     private static async internalEnsureViperTools(shouldUpdate: boolean): Promise<Location> {
