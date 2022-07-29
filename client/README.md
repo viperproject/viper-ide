@@ -4,6 +4,9 @@
 
 ### Changelog
 
+#### v.2.5.0 (Viper v.22.07-release)
+* Default extension for Viper files is now `.vpr`.
+
 #### v.2.4.2
 ETH Zurich condemns the acts of war in Ukraine ([read more](https://ethz.ch/services/en/news-and-events/solidarity-with-ukraine.html)).
 * Downgrades `node-ipc` to stop it from creating unexpected files.
