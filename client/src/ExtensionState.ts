@@ -10,9 +10,10 @@
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind, StreamInfo } from 'vscode-languageclient';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import * as path from 'path';
 import * as net from 'net';
 import * as child_process from "child_process";
+import * as readline from 'readline';
+import { Location } from 'vs-verification-toolbox';
 import { Commands, LogLevel, ViperSettings } from './ViperProtocol';
 import { Log } from './Log';
 import { ViperFileState } from './ViperFileState';
@@ -162,49 +163,18 @@ export class State {
         return result;
     }
 
-    public static startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, brk: boolean) {
-        function startViperServer(): Promise<StreamInfo> {
-            return new Promise((resolve, reject) => {
-                let server = net.createServer((socket) => {
-                    console.log("Creating server");
-                    resolve({
-                        reader: socket,
-                        writer: socket
-                    });
-        
-                    socket.on('end', () => console.log("Disconnected"));
-                }).on('error', (err) => {
-                    // handle errors here
-                    throw err;
-                });
-                // grab a random port.
-                server.listen(() => {
-                    // Start the child java process
-                    // TODO: Replace null with path to a viper.jar here:
-                    let serverJar = null
-                    let args = [
-                        '-cp',
-                        serverJar,
-                        'LanguageServerRunner',
-                        (server.address() as net.AddressInfo).port.toString()
-                    ]
-        
-                    let process = child_process.spawn("java", args);
-    
-                    // Send raw output to a file
-                    let logFile = context.asAbsolutePath('languageServerExample.log');
-                    let logStream = fs.createWriteStream(logFile, { flags: 'w' });
-        
-                    process.stdout.pipe(logStream);
-                    process.stderr.pipe(logStream);
-        
-                    console.log(`Storing log in '${logFile}'`);
-                });
-            });
+    public static async startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, location: Location, brk: boolean): Promise<void> {
+        await State.checkDependenciesAndGetJavaPath(location);
+        const policy = Helper.getServerPolicy();
+        let serverOptions: ServerOptions;
+        if (policy.create) {
+            serverOptions = () => State.startServerProcess(context, location);
+        } else {
+            serverOptions = () => State.connectToServer(policy.address, policy.port);
         }
-        
+
         // Options to control the language client
-        let clientOptions: LanguageClientOptions = {
+        const clientOptions: LanguageClientOptions = {
             // Register the server for plain text documents
             documentSelector: [{ scheme: 'file', language: 'viper' }],
             synchronize: {
@@ -215,7 +185,7 @@ export class State {
             }
         }
 
-        State.client = new LanguageClient('languageServer', 'Viper Server', startViperServer, clientOptions, brk);
+        State.client = new LanguageClient('viperserver', 'Viper Server', serverOptions, clientOptions, brk);
 
         Log.log("Start Viper Server", LogLevel.Info);
         // Create the language client and start the client.
@@ -225,6 +195,83 @@ export class State {
         context.subscriptions.push(disposable);
 
         return State.client.onReady();
+    }
+
+    // creates a server for the given server binary
+    private static async startServerProcess(context: vscode.ExtensionContext, location: Location): Promise<StreamInfo> {
+        const javaPath = await State.checkDependenciesAndGetJavaPath(location);
+        const cwd = await Helper.getJavaCwd();
+        const processArgs = await Helper.getServerProcessArgs(location, "viper.server.ViperServerRunner");
+
+        // spawn ViperServer and get port number on which it is reachable:
+        const portNr = await new Promise((resolve:(port: number) => void, reject) => {
+            const portRegex = /<ViperServerPort:(\d+)>/;
+            let portFound: boolean = false;
+            function stdOutLineHandler(line: string): void {
+                // check whether `line` contains the port number
+                if (!portFound) {
+                    const match = line.match(portRegex);
+                    if (match != null && match[1] != null) {
+                        const port = Number(match[1]);
+                        if (port != NaN) {
+                            portFound = true;
+                            resolve(port);
+                        }
+                    }
+                }
+            }
+  
+            const command = `"${javaPath}" ${processArgs} --serverMode LSP`; // processArgs is already escaped but escape javaPath as well.
+            Log.log(`Spawning ViperServer with ${command}`, LogLevel.Verbose);
+            const serverProcess = child_process.spawn(command, [], { shell: true, cwd: cwd });
+            // redirect stdout to readline which nicely combines and splits lines
+            const rl = readline.createInterface({ input: serverProcess.stdout });
+            rl.on('line', stdOutLineHandler);
+            serverProcess.stdout.on('data', (data) => Log.log(data, LogLevel.Verbose));
+            serverProcess.stderr.on('data', (data) => Log.log(data, LogLevel.Verbose));
+            serverProcess.on('close', (code) => {
+                Log.log(`ViperServer process has ended with return code ${code}`, LogLevel.Info);
+            });
+            serverProcess.on('error', (err) => {
+                const msg = `ViperServer process has encountered an error: ${err}`
+                Log.log(msg, LogLevel.Info);
+                reject(msg);
+            });
+        });
+
+        // connect to server
+        return State.connectToServer('localhost', portNr);
+    }
+
+    private static async connectToServer(host: string, port: number): Promise<StreamInfo> {
+        return new Promise((resolve: (info: StreamInfo) => void, reject) => {
+            const clientSocket = new net.Socket();
+            clientSocket.connect(port, host, () => {
+                Log.log(`Connected to ViperServer`, LogLevel.Info);
+                resolve({
+                    reader: clientSocket,
+                    writer: clientSocket
+                });
+            });
+            clientSocket.on('error', (err) => {
+                Log.log(`Error occurred on connection to ViperServer: ${err}`, LogLevel.Info);
+                reject(err);
+            });
+        });
+    }
+
+    private static async checkDependenciesAndGetJavaPath(location: Location): Promise<string> {
+        // test whether java and z3 binaries can be used:
+        Log.log("Checking Java...", LogLevel.Verbose);
+        const javaPath = await Helper.getJavaPath();
+        await Helper.spawn(javaPath, ["-version"]);
+        Log.log("Checking Z3...", LogLevel.Verbose);
+        const z3Path = await Helper.getZ3Path(location);
+        await Helper.spawn(z3Path, ["--version"]);
+        Log.log("Checking Boogie...", LogLevel.Verbose);
+        const boogiePath = await Helper.getBoogiePath(location);
+        await Helper.spawn(boogiePath, ["-version"]);
+        return javaPath;
     }
 
     public static async dispose(): Promise<void> {
@@ -240,22 +287,6 @@ export class State {
             Log.error("Error disposing state: " + e);
         }
         State.reset();
-    }
-
-    public static checkOperatingSystem() {
-        if ((this.isWin ? 1 : 0) + (this.isMac ? 1 : 0) + (this.isLinux ? 1 : 0) != 1) {
-            Log.error("Cannot detect OS")
-            return;
-        }
-        if (this.isWin) {
-            Log.log("OS: Windows", LogLevel.Debug);
-        }
-        else if (this.isMac) {
-            Log.log("OS: OsX", LogLevel.Debug);
-        }
-        else if (this.isLinux) {
-            Log.log("OS: Linux", LogLevel.Debug);
-        }
     }
 }
 

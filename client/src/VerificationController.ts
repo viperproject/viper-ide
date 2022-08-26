@@ -727,7 +727,7 @@ export class VerificationController {
     public handleStateChange(params: StateChangeParams) {
         Log.log("Received state change.", LogLevel.Info)
         try {
-            Log.log('Changed FROM ' + VerificationState[this.lastState] + " TO: " +VerificationState[params.newState], LogLevel.Info);
+            Log.log('Changed FROM ' + VerificationState[this.lastState] + " TO: " + VerificationState[params.newState], LogLevel.Info);
             this.lastState = params.newState;
             if (params.progress <= 0)
                 Log.log("The new state is: " + VerificationState[params.newState], LogLevel.Debug);
@@ -745,8 +745,10 @@ export class VerificationController {
                         this.addTiming(params.filename, params.progress, Color.ACTIVE);
                     }
                     if (params.diagnostics) {
-                        let diagnostics: vscode.Diagnostic[] = params.diagnostics;                        
-
+                        const diagnostics: vscode.Diagnostic[] = params.diagnostics
+                            // for mysterious reasons, LSP defines DiagnosticSeverity levels 1 - 4 while
+                            // vscode uses 0 - 3. Thus convert them:
+                            .map(this.translateLsp2VsCodeDiagnosticSeverity);
                         State.diagnosticCollection.set(vscode.Uri.parse(params.uri, false), diagnostics);
                     }
                     break;
@@ -767,10 +769,12 @@ export class VerificationController {
                     });
                     State.isVerifying = false;
 
-                    if (params.verificationCompleted >= 0) {
+                    if (params.verificationCompleted < 0 || params.verificationCompleted > 1) {
+                        Log.log(`Unexpected value for field 'verificationCompleted' in state change 'ready' message. Expected 0 or 1 but got ${params.verificationCompleted}.`, LogLevel.Info);
+                    } else if (params.verificationCompleted == 0) {
+                        // the server indicates that there is a follow-up stage after verification
                         State.statusBarItem.update("ready", Color.READY);
-                    }
-                    else {
+                    } else {
                         let uri = vscode.Uri.parse(params.uri);
 
                         //since at most one file can be verified at a time, set all to non-verified before potentially setting one to verified 
@@ -788,21 +792,27 @@ export class VerificationController {
                             verifiedFile.stateVisualizer.addTimingInformationToFileState({ total: params.time, timings: this.timings });
                         }
 
-                        let msg: string = "";
+                        const diagnostics = params.diagnostics
+                            .map(this.translateLsp2VsCodeDiagnosticSeverity);
+                        const nofErrors = diagnostics
+                            .filter(diag => diag.severity == vscode.DiagnosticSeverity.Error)
+                            .length;
+                        const nofWarnings = diagnostics.length - nofErrors;
 
                         function warningsMsg(separator: string): string {
-                            if (params.nofWarnings == 0) {
+                            if (nofWarnings == 0) {
                                 return ``;
                             } else {
-                                return`${separator} ${params.nofWarnings} warning${params.nofWarnings == 1 ? "" : "s"}`;
+                                return`${separator} ${nofWarnings} warning${nofWarnings == 1 ? "" : "s"}`;
                             }
                         }
     
+                        let msg: string = "";
                         switch (params.success) {
                             case Success.Success:
                                 msg = `Successfully verified ${params.filename} in ${Helper.formatSeconds(params.time)} ${warningsMsg("with")}`;
                                 Log.log(msg, LogLevel.Default);
-                                State.statusBarItem.update("$(check) " + msg, params.nofWarnings == 0 ? Color.SUCCESS : Color.WARNING);
+                                State.statusBarItem.update("$(check) " + msg, nofWarnings == 0 ? Color.SUCCESS : Color.WARNING);
                                 if (params.manuallyTriggered > 0) Log.hint(msg);
                                 break;
                             case Success.ParsingFailed:
@@ -811,14 +821,14 @@ export class VerificationController {
                                 State.statusBarItem.update("$(x) " + msg, Color.ERROR);
                                 break;
                             case Success.TypecheckingFailed:
-                                msg = `Type checking ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${params.nofErrors} error${params.nofErrors == 1 ? "" : "s"} ${warningsMsg("and")}`;
+                                msg = `Type checking ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${nofErrors} error${nofErrors == 1 ? "" : "s"} ${warningsMsg("and")}`;
                                 Log.log(msg, LogLevel.Default);
-                                State.statusBarItem.update("$(x) " + msg, params.nofErrors == 0 ? Color.WARNING : Color.ERROR);
+                                State.statusBarItem.update("$(x) " + msg, nofErrors == 0 ? Color.WARNING : Color.ERROR);
                                 break;
                             case Success.VerificationFailed:
-                                msg = `Verifying ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${params.nofErrors} error${params.nofErrors == 1 ? "" : "s"} ${warningsMsg("and")}`;
+                                msg = `Verifying ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${nofErrors} error${nofErrors == 1 ? "" : "s"} ${warningsMsg("and")}`;
                                 Log.log(msg, LogLevel.Default);
-                                State.statusBarItem.update("$(x) " + msg, params.nofErrors == 0 ? Color.WARNING : Color.ERROR);
+                                State.statusBarItem.update("$(x) " + msg, nofErrors == 0 ? Color.WARNING : Color.ERROR);
                                 break;
                             case Success.Aborted:
                                 State.statusBarItem.update("Verification aborted", Color.WARNING);
@@ -871,6 +881,24 @@ export class VerificationController {
         } catch (e) {
             Log.error("Error handling state change (critical): " + e);
         }
+    }
+
+    private translateLsp2VsCodeDiagnosticSeverity(diagnostic: vscode.Diagnostic): vscode.Diagnostic {
+        switch (diagnostic.severity.valueOf()) {
+            case LspDiagnosticSeverity.Error.valueOf():
+                diagnostic.severity = vscode.DiagnosticSeverity.Error;
+                break;
+            case LspDiagnosticSeverity.Warning.valueOf():
+                diagnostic.severity = vscode.DiagnosticSeverity.Warning;
+                break;
+            case LspDiagnosticSeverity.Information.valueOf():
+                diagnostic.severity = vscode.DiagnosticSeverity.Information;
+                break;
+            case LspDiagnosticSeverity.Hint.valueOf():
+                diagnostic.severity = vscode.DiagnosticSeverity.Hint;
+                break;
+        }
+        return diagnostic;
     }
 
     //for unittest
@@ -955,4 +983,11 @@ export class VerificationController {
             this.printAllVerificationResults();
         }
     }
+}
+
+enum LspDiagnosticSeverity {
+    Error = 1,
+    Warning = 2,
+    Information = 3,
+    Hint = 4
 }

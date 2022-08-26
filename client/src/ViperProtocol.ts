@@ -181,8 +181,6 @@ export interface StateChangeParams {
     filename?: string;
     backendName?: string;
     time?: number;
-    nofErrors?: number;
-    nofWarnings?: number;
     verificationNeeded?: number;
     uri?: string;
     stage?: string;

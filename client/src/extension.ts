@@ -35,6 +35,7 @@ import { StateVisualizer } from './StateVisualizer';
 import { Helper } from './Helper';
 import { ViperFormatter } from './ViperFormatter';
 import { ViperFileState } from './ViperFileState';
+import { locateViperTools } from './ViperTools';
 import { Color } from './StatusBar';
 import { VerificationController, TaskType, Task } from './VerificationController';
 import { ViperApi } from './ViperApi';
@@ -69,12 +70,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
     Log.initialize();
     Log.log('Viper-Client is now active.', LogLevel.Info);
-    State.checkOperatingSystem();
     State.context = context;
     await cleanViperToolsIfRequested(context);
     State.verificationController = new VerificationController();
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/{' + Helper.viperFileEndings.join(",") + "}");
-    await State.startLanguageServer(context, fileSystemWatcher, false);
+    const location = await locateViperTools(context);
+    await State.startLanguageServer(context, fileSystemWatcher, location, false);
     State.viperApi = new ViperApi(State.client);
     registerHandlers();
     Notifier.notifyExtensionActivation();
@@ -291,9 +292,9 @@ function registerHandlers() {
         // unexpected message may have been destined for them.
         State.client.onNotification(
             Commands.UnhandledViperServerMessageType,
-            (message: any) => { 
-                Log.log(`Received non-standard ViperServer message of type ${message.msg_type}.`, LogLevel.Default);
-                State.viperApi.notifyServerMessage(message.msg_type, message); 
+            (msgType: string, message: string) => { 
+                Log.log(`Received non-standard ViperServer message of type ${msgType}.`, LogLevel.Default);
+                State.viperApi.notifyServerMessage(msgType, message);
             }
         );
 
