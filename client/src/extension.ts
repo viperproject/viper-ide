@@ -127,8 +127,12 @@ export async function deactivate(): Promise<void> {
     }
 }
 
-export async function reload(): Promise<void> {
+/** deactivates and disposes extension and returns the extension context */
+async function shutdown(): Promise<vscode.ExtensionContext> {
     const context = State.context;
+    // remove diagnostics as otherwise VSCode will show diagnostics of the extension's
+    // current and next run
+    removeDiagnostics(false);
     await deactivate();
     for (const sub of context.subscriptions) {
 		try {
@@ -137,6 +141,11 @@ export async function reload(): Promise<void> {
 			console.error(e);
 		}
 	}
+    return context;
+}
+
+export async function restart(): Promise<void> {
+    const context = await shutdown();
     await activate(context);
 }
 
@@ -240,23 +249,7 @@ function registerHandlers() {
         State.client.onNotification(Commands.Progress, (data: Progress, logLevel: LogLevel) => {
             Log.progress(data, logLevel);
         });
-        /*
-        State.client.onNotification(Commands.ViperUpdateComplete, (success) => {
-            if (success) {
-                Log.hint("The ViperTools update is complete.");
-                State.statusBarItem.update("ViperTools update completed", Color.SUCCESS);
-                if (State.unitTest) State.unitTest.viperUpdateComplete();
 
-            } else {
-                Log.hint("The ViperTools update failed. Missing permission: change the ViperTools path in the Settings or manually install the ViperTools.");
-                State.statusBarItem.update("ViperTools update failed", Color.ERROR);
-                if (State.unitTest) State.unitTest.viperUpdateFailed();
-
-            }
-            State.addToWorklist(new Task({ type: TaskType.ViperToolsUpdateComplete, uri: null, manuallyTriggered: false }));
-            State.hideProgress();
-        });
-        */
         State.client.onNotification(Commands.FileOpened, (uri: string) => {
             try {
                 Log.log("File openend: " + uri, LogLevel.Info);
@@ -328,20 +321,11 @@ function registerHandlers() {
             // only `advancedFeatures` might be fine to ignore but we simply restart ViperServer
             // for every configuration change:
             if (event.affectsConfiguration("viperSettings")) {
-                const context = State.context;
-                Log.log(`Viper settings have been changed -> restarting ViperServer now`, LogLevel.Info);
                 State.verificationController.stopDebuggingOnServer();
                 State.verificationController.stopDebuggingLocally();
-                await deactivate();
-                for (const sub of context.subscriptions) {
-                    try {
-                        sub.dispose();
-                    } catch (e) {
-                        console.error(e);
-                    }
-                }
                 Log.updateSettings();
-                await activate(context);
+                Log.log(`Viper settings have been changed -> schedule an extension restart`, LogLevel.Info);
+                State.addToWorklist(new Task({ type: TaskType.RestartExtension, uri: null, manuallyTriggered: false }));
             }
         }));
 
@@ -570,13 +554,11 @@ function registerHandlers() {
         State.context.subscriptions.push(vscode.commands.registerCommand('viper.openLogFile', () => openLogFile()));
 
         //remove diagnostics of open file
-        State.context.subscriptions.push(vscode.commands.registerCommand('viper.removeDiagnostics', () => removeDiagnostics()));
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.removeDiagnostics', () => removeDiagnostics(true)));
 
         //automatic installation and updating of viper tools
-        State.context.subscriptions.push(vscode.commands.registerCommand('viper.updateViperTools', () => {
-            throw new Error("not implemented");
-            // TODO
-            // State.addToWorklist(new Task({ type: TaskType.UpdateViperTools, uri: null, manuallyTriggered: false }));
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.updateViperTools', async () => {
+            State.addToWorklist(new Task({ type: TaskType.UpdateViperTools, uri: null, manuallyTriggered: true }));
         }));
     });
 }
@@ -636,7 +618,6 @@ function considerStartingBackend(backendName: string) {
     }
 }
 
-
 function showStates(callback) {
     try {
         if (Settings.areAdvancedFeaturesEnabled()) {
@@ -658,18 +639,16 @@ function showStates(callback) {
     }
 }
 
-function removeDiagnostics() {
-    if (vscode.window.activeTextEditor) {
-        let uri = vscode.window.activeTextEditor.document.uri
-        let file = uri.toString();
-        State.diagnosticCollection.delete(uri);
-        /*State.client.sendRequest(Commands.RemoveDiagnostics, file).then(success => {
-            if (success) {
-                Log.log("Diagnostics successfully removed", LogLevel.Debug);
-            } else {
-                Log.log("Removing diagnostics failed", LogLevel.Debug);
-            }
-        })*/
+function removeDiagnostics(activeFileOnly: boolean) {
+    if (activeFileOnly) {
+        if (vscode.window.activeTextEditor) {
+            const uri = vscode.window.activeTextEditor.document.uri;
+            State.diagnosticCollection.delete(uri);
+            Log.log(`Diagnostics successfully removed for file ${uri}`, LogLevel.Debug);
+        }
+    } else {
+        State.diagnosticCollection.clear();
+        Log.log(`All diagnostics successfully removed`, LogLevel.Debug);
     }
 }
 

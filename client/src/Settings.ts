@@ -284,11 +284,6 @@ export class Settings {
      * Get path to location at which Viper tools have been manually installed (build channel "Local").
      */
     public static async getLocalViperToolsPath(): Promise<string> {
-        const isBuildChannelLocal = (Settings.getBuildChannel() === BuildChannel.Local);
-        if (!isBuildChannelLocal) {
-            throw new Error(`'getViperToolsPath' expects build channel 'local' but is ${Settings.getBuildChannel()}`);
-        }
-
         const resolvedPath = await Settings.checkViperToolsPath(null, BuildChannel.Local);
         return toRight(resolvedPath);
     }

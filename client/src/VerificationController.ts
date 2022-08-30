@@ -22,6 +22,8 @@ import { Color } from './StatusBar';
 import { Settings } from './Settings';
 import { Timer } from './Timer';
 import { Location } from 'vs-verification-toolbox';
+import { updateViperTools } from './ViperTools';
+import { restart } from './extension';
 
 export interface ITask {
     type: TaskType;
@@ -73,9 +75,10 @@ export class Task implements ITask {
 
 export enum TaskType {
     NoOp = 0, Clear = 1,
-    Save = 2, Verify = 3, StopVerification = 4, StartBackend = 6, StopBackend = 7, FileClosed = 8,
-    Verifying = 30, StopVerifying = 40, StartingBackend = 60, StoppingBackend = 70,
-    VerificationComplete = 300, VerificationFailed = 301, VerificationStopped = 400, BackendStarted = 600, BackendStopped = 700
+    Save = 2, Verify = 3, StopVerification = 4, UpdateViperTools = 5, StartBackend = 6, StopBackend = 7, FileClosed = 8,
+    Verifying = 30, StopVerifying = 40, StartingBackend = 50, StoppingBackend = 60,
+    VerificationComplete = 300, VerificationFailed = 301, VerificationStopped = 400, BackendStarted = 600, BackendStopped = 700,
+    RestartExtension = 800,
 }
 
 export interface CheckResult {
@@ -152,6 +155,12 @@ export class VerificationController {
                         this.workList[i].type = NoOp;
                     }
                     switch (cur) {
+                        case TaskType.UpdateViperTools:
+                            clear = true;
+                            break;
+                        case TaskType.RestartExtension:
+                            clear = true;
+                            break;
                         case TaskType.Verify:
                             if (!this.workList[i].manuallyTriggered && !State.autoVerify) {
                                 this.workList[i].type = NoOp;
@@ -328,6 +337,21 @@ export class VerificationController {
                                 State.viperFiles.delete(uri);
                             }
                             task.type = NoOp;
+                            break;
+                        case TaskType.UpdateViperTools:
+                            if (State.isBackendReady) {
+                                this.workList.unshift(new Task({ type: TaskType.StopBackend, manuallyTriggered: task.manuallyTriggered }))
+                            } else {
+                                Log.logWithOrigin("workList", "Updating Viper Tools now", LogLevel.LowLevelDebug);
+                                await updateViperTools(State.context);
+                                task.markStarted(TaskType.RestartExtension);
+                                Log.logWithOrigin("workList", "RestartExtension", LogLevel.LowLevelDebug);
+                            }
+                            break;
+                        case TaskType.RestartExtension:
+                            // note that restarting the extension will kill the timer
+                            // that schedules the tasks.
+                            await restart();
                             break;
                         case TaskType.Save:
                             task.type = NoOp;
