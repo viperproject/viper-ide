@@ -14,9 +14,9 @@ import * as child_process from 'child_process';
 import { Log } from './Log';
 import { GetExecutionTraceParams, ExecutionTrace, TimingInfo, ShowHeapParams, StepsAsDecorationOptionsResult, MyProtocolDecorationOptions, StateColors, Position, HeapGraph, Commands, LogLevel } from './ViperProtocol';
 import { HeapProvider } from './HeapProvider';
-import { Helper } from './Helper';
 import { State } from './ExtensionState';
 import { ViperFileState } from './ViperFileState';
+import { Settings } from './Settings';
 
 export interface MyDecorationOptions extends vscode.DecorationOptions {
     numberToDisplay: number;
@@ -144,7 +144,7 @@ export class StateVisualizer {
     }
 
     public pushState(heapGraph: HeapGraph) {
-        if (Helper.getConfiguration("advancedFeatures").compareStates === true) {
+        if (Settings.isCompareStatesEnabled()) {
             //update heap preview
             let currHeapIndex = this.nextHeapIndex
             this.nextHeapIndex = 1 - this.nextHeapIndex;
@@ -163,7 +163,7 @@ export class StateVisualizer {
 
     public setState(heapGraph: HeapGraph) {
         let currentIndex = 0;
-        if (Helper.getConfiguration("advancedFeatures").compareStates === true) {
+        if (Settings.isCompareStatesEnabled()) {
             currentIndex = this.provider.nofHeapGraphs() > 0 ? 1 : 0;
         }
         if (this.currentState != heapGraph.state) {
@@ -270,7 +270,7 @@ export class StateVisualizer {
                 let currentMethodIdx = selectedOption.methodIndex;
                 this.debuggedMethodName = debuggedMethodName
 
-                let darkGraphs = <boolean>Helper.getConfiguration("advancedFeatures").darkGraphs === true;
+                let darkGraphs = Settings.areDarkGraphsEnabled();
 
                 let isCurrentStateErrorState = false;
                 //color labels
@@ -300,7 +300,7 @@ export class StateVisualizer {
                 if (StateVisualizer.showStates) {
                     //mark execution trace that led to the current state
                     Log.log("Request Execution Trace", LogLevel.Info);
-                    let simpleMode = Helper.getConfiguration("advancedFeatures").simpleMode;
+                    let simpleMode = Settings.isSimpleModeEnabled();
                     if (!this.executionTrace || simpleMode !== true || (simpleMode === true && isCurrentStateErrorState)) {
                         let params: GetExecutionTraceParams = { uri: this.uri.toString(), clientState: this.currentState };
                         State.client.sendRequest(Commands.GetExecutionTrace, params).then((trace: ExecutionTrace[]) => {
@@ -353,7 +353,7 @@ export class StateVisualizer {
                 let decoration = this.decorationOptionsByPosition.get(key);
                 let selectedState = decoration.index;
 
-                if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
+                if (Settings.isSimpleModeEnabled()) {
                     //Simple Mode
                     if (decoration.renderOptions.before.contentText && decoration.renderOptions.before.contentText.length > 0) {
                         //the selected element is visible and thus, lies on the execution path to the current state
@@ -383,7 +383,7 @@ export class StateVisualizer {
         try {
             if (StateVisualizer.showStates && this.decorationOptions) {
                 Log.log("Showing all state markers", LogLevel.Info)
-                let darkGraphs = <boolean>Helper.getConfiguration("advancedFeatures").darkGraphs === true;
+                let darkGraphs = Settings.areDarkGraphsEnabled();
                 for (var i = 0; i < this.decorationOptions.length; i++) {
                     let option = this.decorationOptions[i];
 
@@ -454,7 +454,7 @@ export class StateVisualizer {
         if (this.areSpecialCharsBeingModified("Don't add timing to file, its being modified")) return;
         try {
             let editor: vscode.TextEditor = this.viperFile.editor;
-            if (Helper.getConfiguration("preferences").showProgress && this.viperFile.open && editor) {
+            if (Settings.showProgress() && this.viperFile.open && editor) {
                 //strangely editor is null here, even though I just checked
                 let uri = editor.document.uri.toString();
                 let viperFile: ViperFileState = State.viperFiles.get(uri);
@@ -490,7 +490,7 @@ export class StateVisualizer {
         if (this.areSpecialCharsBeingModified("Don't add timing to file, its being modified")) return;
         try {
             let editor = this.viperFile.editor;
-            if (Helper.getConfiguration("preferences").showProgress && this.viperFile.open && editor) {
+            if (Settings.showProgress() && this.viperFile.open && editor) {
                 this.addingTimingInformation = true;
                 let openDoc = editor.document;
                 let edit = new vscode.WorkspaceEdit();

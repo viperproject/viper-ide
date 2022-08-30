@@ -23,19 +23,11 @@ import { Log } from './Log';
 
 export class Commands {
     //SERVER TO CLIENT
-    //Server notifies client about the result of the settings check
-    static SettingsChecked = "SettingsChecked";//SettingsCheckedParams
-    //The language server requests what version is required for the settings
-    static RequestRequiredVersion = "RequestRequiredVersion";//void -> requiredVersions: Versions
     //Server notifies client about a state change
     static StateChange = "StateChange";//StateChangeParams
     //LOGGING
     //Log a message to the output
     static Log = "Log";//LogParams
-    //Log an error message to the output
-    static Error = "Error";//LogParams
-    //Log a message to the log file
-    static ToLogFile = "ToLogFile";//LogParams
     //Server tells client to show an information message to the user
     static Hint = "Hint";//message: string
     //Server tells client to show progress
@@ -63,8 +55,6 @@ export class Commands {
     //CLIENT TO SERVER
     //Client asks server for the list of backend names
     static RequestBackendNames = "RequestBackendNames";//void
-    //Client tells server to stop all verifications before later on shutting server down (via shutdown command)
-    static StopAllVerifications = "StopAllVerifications";//void
     //Client requests verification for a file
     static Verify = "Verify";//VerifyParams
     //Client tells server to abort the running verification
@@ -82,14 +72,8 @@ export class Commands {
     //remove the diagnostics in the file specified by uri
     static RemoveDiagnostics = "RemoveDiagnostics";
 
-    //update the viper tools
-    static UpdateViperTools = "UpdateViperTools";
     //The server requests the custom file endings specified in the configuration
     static GetViperFileEndings = "GetViperFileEndings";
-    //The server notifies the client about the completed update
-    static ViperUpdateComplete = "ViperUpdateComplete";
-    //the server requests a check of the settings.json files from the client
-    static CheckIfSettingsVersionsSpecified = "CheckIfSettingsVersionsSpecified";
     //The client requests the cache in the viperserver to be flushed, (either completely or for a file)
     static FlushCache = "FlushCache";
     //The server requests the identifier at some location in the current file to answer the gotoDefinition request
@@ -519,9 +503,9 @@ export interface Progress {
 
 export interface Versions {
     viperServerSettingsVersion: string;
-    backendSettingsVersion: string;
-    pathSettingsVersion: string;
-    userPreferencesVersion: string;
+    verificationBackendsVersion: string;
+    pathsVersion: string;
+    preferencesVersion: string;
     javaSettingsVersion: string;
     advancedFeaturesVersion: string;
     defaultSettings: any;

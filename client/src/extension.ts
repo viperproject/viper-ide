@@ -40,47 +40,38 @@ import { Color } from './StatusBar';
 import { VerificationController, TaskType, Task } from './VerificationController';
 import { ViperApi } from './ViperApi';
 import * as Notifier from './Notifier';
+import { Either, isRight, Level, Messages, Settings } from './Settings';
 
 let autoSaver: Timer;
 
 let fileSystemWatcher: vscode.FileSystemWatcher;
 let formatter: ViperFormatter;
 
-let lastVersionWithSettingsChange: Versions;
-
 // this method is called when your extension is activated
-export async function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext): Promise<ViperApi> {
+    // try {
     Helper.loadViperFileExtensions();
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
 
     let ownPackageJson = vscode.extensions.getExtension("viper-admin.viper").packageJSON;
-    let defaultConfiguration = ownPackageJson.contributes.configuration.properties;
-    Log.log('The current version of ' + ownPackageJson.displayName + ' is: v.' + ownPackageJson.version, LogLevel.Info);
-
-    lastVersionWithSettingsChange = {
-        viperServerSettingsVersion: "1.0.4",
-        backendSettingsVersion: "1.0.2",
-        pathSettingsVersion: "1.0.1",
-        userPreferencesVersion: "0.6.1",
-        javaSettingsVersion: "0.6.1",
-        advancedFeaturesVersion: "0.6.1",
-        defaultSettings: defaultConfiguration,
-        extensionVersion: ownPackageJson.version
-    }
+    Log.log(`The current version of ${ownPackageJson.displayName} is: v.${ownPackageJson.version}`, LogLevel.Info);
 
     Log.initialize();
     Log.log('Viper-Client is now active.', LogLevel.Info);
     State.context = context;
+    State.initializeStatusBar(context);
     await cleanViperToolsIfRequested(context);
-    State.verificationController = new VerificationController();
-    fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/{' + Helper.viperFileEndings.join(",") + "}");
     const location = await locateViperTools(context);
+    // check whether settings are correct and expected files exist:
+    const settingsResult = await Settings.checkAndGetSettings(location);
+    await handleSettingsCheckResult(settingsResult);
+    State.verificationController = new VerificationController(location);
+    fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/{' + Helper.viperFileEndings.join(",") + "}");
     await State.startLanguageServer(context, fileSystemWatcher, location, false);
     State.viperApi = new ViperApi(State.client);
     registerHandlers();
     Notifier.notifyExtensionActivation();
     startAutoSaver();
-    State.initializeStatusBar(context);
     registerFormatter();
     if (vscode.window.activeTextEditor) {
         let uri = vscode.window.activeTextEditor.document.uri;
@@ -88,7 +79,11 @@ export async function activate(context: vscode.ExtensionContext) {
     } else {
         Log.log("No active text editor found", LogLevel.Info);
     }
-    
+    /*} catch (e) {
+        console.log(`Error occurred: ${e}`);
+        Log.log(`Error occurred: ${e}`, LogLevel.Info);
+        Helper.rethrow(e);
+    }*/
     return State.viperApi;
 }
 
@@ -120,15 +115,6 @@ async function cleanViperToolsIfRequested(context: vscode.ExtensionContext): Pro
 	}
 }
 
-function getRequiredVersion(): Versions {
-    try {
-        return lastVersionWithSettingsChange;
-    } catch (e) {
-        Log.error("Error checking settings version: " + e)
-        return null;
-    }
-}
-
 export async function deactivate(): Promise<void> {
     try {
         Log.log("deactivate", LogLevel.Info);
@@ -149,6 +135,19 @@ export async function deactivate(): Promise<void> {
     }
 }
 
+export async function reload(): Promise<void> {
+    const context = State.context;
+    await deactivate();
+    for (const sub of context.subscriptions) {
+		try {
+			sub.dispose();
+		} catch (e) {
+			console.error(e);
+		}
+	}
+    await activate(context);
+}
+
 function registerFormatter() {
     formatter = new ViperFormatter();
 }
@@ -163,7 +162,7 @@ function startAutoSaver() {
     autoSaver = new Timer(() => {
         //only save viper files
         if (vscode.window.activeTextEditor != null && vscode.window.activeTextEditor.document.languageId == 'viper') {
-            if (Helper.getConfiguration('preferences').autoSave === true) {
+            if (Settings.isAutoSaveEnabled()) {
                 vscode.window.activeTextEditor.document.save();
             }
         }
@@ -185,40 +184,51 @@ function resetAutoSaver() {
     autoSaver.reset();
 }
 
-function handleSettingsCheckResult(params: SettingsCheckedParams) {
-    State.checkedSettings = params.settings;
-    if (params.errors && params.errors.length > 0) {
-        let nofErrors = 0;
-        let nofWarnings = 0;
-        let message = "";
-        params.errors.forEach(error => {
-            switch (error.type) {
-                case SettingsErrorType.Error:
-                    nofErrors++;
-                    Log.error("Settings Error: " + error.msg, LogLevel.Default);
-                    break;
-                case SettingsErrorType.Warning:
-                    nofWarnings++;
-                    Log.log("Settings Warning: " + error.msg, LogLevel.Info);
-                    break;
-            }
-            message = error.msg;
-        })
+async function handleSettingsCheckResult(res: Either<Messages, {}>): Promise<void> {
+    if (isRight(res)) {
+        return; // success, i.e. no warnings and no errors
+    }
 
-        let errorCounts = ((nofErrors > 0 ? ("" + nofErrors + " Error" + (nofErrors > 1 ? "s" : "")) : "") + (nofWarnings > 0 ? (" " + nofWarnings + " Warning" + (nofWarnings > 1 ? "s" : "")) : "")).trim();
-
-        //update status bar
-        Log.log(errorCounts + " detected.", LogLevel.Default);
-        let text = errorCounts;
-        if (nofErrors > 0) {
-            State.statusBarItem.update(text, Color.ERROR);
-        } else if (nofWarnings > 0) {
-            State.statusBarItem.update(text, Color.WARNING);
+    const msgs = res.left;
+    let nofErrors = 0;
+    let nofWarnings = 0;
+    let message = "";
+    msgs.forEach(msg => {
+        switch (msg.level) {
+            case Level.Error:
+                nofErrors++;
+                Log.error(`Settings Error: ${msg.msg}`, LogLevel.Info);
+                break;
+            case Level.Warning:
+                nofWarnings++;
+                Log.log(`Settings Warning: ${msg.msg}`, LogLevel.Info);
+                break;
+            default:
+                nofErrors++; // we simply count it as an error
+                Log.log(`Settings Warning or Error with unknown level '${msg.level}': ${msg.msg}`, LogLevel.Info);
+                break;
         }
+        message = msg.msg;
+    })
 
-        if (nofErrors + nofWarnings > 1)
-            message = "see View->Output->Viper";
-        Log.hint(errorCounts + ": " + message, "Viper Settings", true, true);
+    const countDescription = ((nofErrors > 0 ? ("" + nofErrors + " Error" + (nofErrors > 1 ? "s" : "")) : "") + (nofWarnings > 0 ? (" " + nofWarnings + " Warning" + (nofWarnings > 1 ? "s" : "")) : "")).trim();
+
+    // update status bar
+    Log.log(`${countDescription} detected.`, LogLevel.Info);
+    if (nofErrors > 0) {
+        State.statusBarItem.update(countDescription, Color.ERROR);
+    } else if (nofWarnings > 0) {
+        State.statusBarItem.update(countDescription, Color.WARNING);
+    }
+
+    // we can display one message, if there are more we redirect users to the output view:
+    if (nofErrors + nofWarnings > 1) {
+        message = "see View->Output->Viper";
+    }
+    Log.hint(`${countDescription}: ${message}`, `Viper Settings`, true, true);
+    if (nofErrors > 0) {
+        // abort only in the case of errors
+        throw new Error(`Problems in Viper Settings detected`);
     }
 }
 
@@ -226,8 +236,6 @@ function registerHandlers() {
     State.client.onReady().then(ready => {
 
         State.client.onNotification(Commands.StateChange, (params: StateChangeParams) => State.verificationController.handleStateChange(params));
-        
-        State.client.onNotification(Commands.SettingsChecked, (data: SettingsCheckedParams) => handleSettingsCheckResult(data));
         
         State.client.onNotification(Commands.Hint, (data: HintMessage) => {
             Log.hint(data.message, "Viper", data.showSettingsButton, data.showViperToolsUpdateButton);
@@ -240,7 +248,7 @@ function registerHandlers() {
         State.client.onNotification(Commands.Progress, (data: Progress, logLevel: LogLevel) => {
             Log.progress(data, logLevel);
         });
-
+        /*
         State.client.onNotification(Commands.ViperUpdateComplete, (success) => {
             if (success) {
                 Log.hint("The ViperTools update is complete.");
@@ -256,7 +264,7 @@ function registerHandlers() {
             State.addToWorklist(new Task({ type: TaskType.ViperToolsUpdateComplete, uri: null, manuallyTriggered: false }));
             State.hideProgress();
         });
-        
+        */
         State.client.onNotification(Commands.FileOpened, (uri: string) => {
             try {
                 Log.log("File openend: " + uri, LogLevel.Info);
@@ -298,10 +306,6 @@ function registerHandlers() {
             }
         );
 
-        State.client.onRequest(Commands.RequestRequiredVersion, () => {
-            return getRequiredVersion();
-        });
-
         State.client.onRequest(Commands.GetIdentifier, (position) => {
             try {
                 let range = vscode.window.activeTextEditor.document.getWordRangeAtPosition(new vscode.Position(position.line, position.character))
@@ -313,10 +317,6 @@ function registerHandlers() {
                 Log.error("Error getting indentifier: " + e);
                 return null;
             }
-        });
-
-        State.client.onRequest(Commands.CheckIfSettingsVersionsSpecified, () => {
-            return checkIfSettingsVersionsSpecified();
         });
 
         State.client.onRequest(Commands.GetViperFileEndings, () => {
@@ -331,19 +331,25 @@ function registerHandlers() {
                 Log.error("Error handling saved document: " + e);
             }
         }));
-        State.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
-            try {
-                Log.updateSettings();
+        State.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(async (event) => {
+            // basically all settings have some effect on ViperServer
+            // only `advancedFeatures` might be fine to ignore but we simply restart ViperServer
+            // for every configuration change:
+            if (event.affectsConfiguration("viperSettings")) {
+                const context = State.context;
+                Log.log(`Viper settings have been changed -> restarting ViperServer now`, LogLevel.Info);
                 State.verificationController.stopDebuggingOnServer();
                 State.verificationController.stopDebuggingLocally();
-            } catch (e) {
-                Log.error("Error handling configuration change: " + e);
-            }
-            if (event.affectsConfiguration("viperSettings.buildVersion")) {
-                Log.log(`buildVersion has been changed in the settings`, LogLevel.Info);
-                // IDE should be reopened such that changes take effect:
-                vscode.window.showInformationMessage(
-                    "Changed the build version of Viper Tools. Please restart the IDE.");
+                await deactivate();
+                for (const sub of context.subscriptions) {
+                    try {
+                        sub.dispose();
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+                Log.updateSettings();
+                await activate(context);
             }
         }));
 
@@ -402,10 +408,10 @@ function registerHandlers() {
         State.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
             try {
                 if (!heapGraph) return;
-                if (Helper.areAdvancedFeaturesEnabled()) {
+                if (Settings.areAdvancedFeaturesEnabled()) {
                     let visualizer = State.getVisualizer(heapGraph.fileUri);
                     let state = visualizer.decorationOptions[heapGraph.state];
-                    if (Helper.getConfiguration("advancedFeatures").simpleMode === true) {
+                    if (Settings.isSimpleModeEnabled()) {
                         //Simple Mode
                         if (state.isErrorState) {
                             //replace the error state
@@ -512,7 +518,7 @@ function registerHandlers() {
         State.context.subscriptions.push(vscode.commands.registerCommand('viper.showAllStates', () => {
             if (State.isDebugging) {
                 let viperFile = State.getLastActiveFile();
-                if ((!Helper.getConfiguration("advancedFeatures").simpleMode === true) && viperFile) {
+                if ((!Settings.isSimpleModeEnabled()) && viperFile) {
                     viperFile.stateVisualizer.showAllDecorations();
                 }
             }
@@ -576,7 +582,9 @@ function registerHandlers() {
 
         //automatic installation and updating of viper tools
         State.context.subscriptions.push(vscode.commands.registerCommand('viper.updateViperTools', () => {
-            State.addToWorklist(new Task({ type: TaskType.UpdateViperTools, uri: null, manuallyTriggered: false }));
+            throw new Error("not implemented");
+            // TODO
+            // State.addToWorklist(new Task({ type: TaskType.UpdateViperTools, uri: null, manuallyTriggered: false }));
         }));
     });
 }
@@ -639,7 +647,7 @@ function considerStartingBackend(backendName: string) {
 
 function showStates(callback) {
     try {
-        if (Helper.areAdvancedFeaturesEnabled()) {
+        if (Settings.areAdvancedFeaturesEnabled()) {
             if (!StateVisualizer.showStates) {
                 StateVisualizer.showStates = true;
                 let visualizer = State.getLastActiveFile().stateVisualizer;
@@ -671,29 +679,6 @@ function removeDiagnostics() {
             }
         })*/
     }
-}
-
-function checkIfSettingsVersionsSpecified(): Thenable<SettingsError[]> {
-    return new Promise((resolve, reject) => {
-        try {
-            //userSettings
-            let userSettingsPath = getUserSettingsPath();
-            let errors = checkSettingsFile(userSettingsPath);
-            //workspaceSettings
-            let workspaceSettingsPath = getWorkspaceSettingsPath();
-            if (workspaceSettingsPath && fs.existsSync(workspaceSettingsPath)) {
-                errors = errors.concat(checkSettingsFile(workspaceSettingsPath));
-            }
-            if (errors.length > 0) {
-                resolve(errors);
-            } else {
-                resolve(null);
-            }
-        } catch (e) {
-            Log.error("Error checking Settings files: " + e);
-            resolve(null);
-        }
-    })
 }
 
 const settings = [

@@ -10,19 +10,18 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { Timer } from './Timer';
 import * as vscode from 'vscode';
-import { State } from './ExtensionState';
-import { Common, Progress, HintMessage, Versions, VerifyParams, TimingInfo, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, VerificationState, Commands, StateChangeParams, LogLevel, Success } from './ViperProtocol';
 import { URI } from 'vscode-uri';
+import { State } from './ExtensionState';
+import { Common, VerifyParams, TimingInfo, BackendReadyParams, VerificationState, Commands, StateChangeParams, LogLevel, Success } from './ViperProtocol';
 import { Log } from './Log';
-import { StateVisualizer, MyDecorationOptions } from './StateVisualizer';
+import { StateVisualizer } from './StateVisualizer';
 import { Helper } from './Helper';
-import { ViperFormatter } from './ViperFormatter';
 import { ViperFileState } from './ViperFileState';
-import { StatusBar, Color } from './StatusBar';
-import { VerificationTerminatedEvent } from './ViperApi';
-import { ENOTSOCK } from 'constants';
+import { Color } from './StatusBar';
+import { Settings } from './Settings';
+import { Timer } from './Timer';
+import { Location } from 'vs-verification-toolbox';
 
 export interface ITask {
     type: TaskType;
@@ -74,9 +73,9 @@ export class Task implements ITask {
 
 export enum TaskType {
     NoOp = 0, Clear = 1,
-    Save = 2, Verify = 3, StopVerification = 4, UpdateViperTools = 5, StartBackend = 6, StopBackend = 7, FileClosed = 8,
-    Verifying = 30, StopVerifying = 40, UpdatingViperTools = 50, StartingBackend = 60, StoppingBackend = 70,
-    VerificationComplete = 300, VerificationFailed = 301, VerificationStopped = 400, ViperToolsUpdateComplete = 500, BackendStarted = 600, BackendStopped = 700
+    Save = 2, Verify = 3, StopVerification = 4, StartBackend = 6, StopBackend = 7, FileClosed = 8,
+    Verifying = 30, StopVerifying = 40, StartingBackend = 60, StoppingBackend = 70,
+    VerificationComplete = 300, VerificationFailed = 301, VerificationStopped = 400, BackendStarted = 600, BackendStopped = 700
 }
 
 export interface CheckResult {
@@ -119,17 +118,17 @@ export class VerificationController {
     }
 
     private isActive(type: TaskType) {
-        return type == TaskType.Verifying || type == TaskType.StopVerifying || type == TaskType.UpdatingViperTools || type == TaskType.StartingBackend || type == TaskType.StoppingBackend;
+        return type == TaskType.Verifying || type == TaskType.StopVerifying || type == TaskType.StartingBackend || type == TaskType.StoppingBackend;
     }
 
     private isImportant(type: TaskType) {
         return type == TaskType.StopBackend || type == TaskType.StartBackend || type == TaskType.StopVerification;
     }
 
-    constructor() {
+    constructor(location: Location) {
         this.workList = [];
         let verificationTimeout = 100;//ms
-        this.controller = new Timer(() => {
+        this.controller = new Timer(async () => {
             try {
                 //only keep most recent verify request
                 let verifyFound = false;
@@ -141,8 +140,6 @@ export class VerificationController {
                 let verificationFailed = false;
                 let completedOrFailedFileUri: vscode.Uri;
                 let uriOfFoundVerfy: vscode.Uri;
-                let viperToolsUpdateFound = false;
-                let viperToolsUpdateComplete = false;
                 let backendStarted = false;
                 let backendStopped = false;
                 let stopBackendFound = false;
@@ -155,14 +152,6 @@ export class VerificationController {
                         this.workList[i].type = NoOp;
                     }
                     switch (cur) {
-                        case TaskType.UpdateViperTools:
-                            clear = true;
-                            //cancel multiple update requests
-                            if (this.workList[0].type == TaskType.UpdatingViperTools) {
-                                this.workList[i].type = NoOp;
-                            }
-                            viperToolsUpdateFound = true;
-                            break;
                         case TaskType.Verify:
                             if (!this.workList[i].manuallyTriggered && !State.autoVerify) {
                                 this.workList[i].type = NoOp;
@@ -207,10 +196,6 @@ export class VerificationController {
                             this.workList[i].type = NoOp;
                             verificationFailed = true;
                             completedOrFailedFileUri = this.workList[i].uri;
-                            break;
-                        case TaskType.ViperToolsUpdateComplete:
-                            this.workList[i].type = NoOp;
-                            viperToolsUpdateComplete = true;
                             break;
                         case TaskType.StartBackend:
                             //remove duplicated start backend commands
@@ -265,7 +250,7 @@ export class VerificationController {
                                     Log.logWithOrigin("workList", "Verifying", LogLevel.LowLevelDebug);
                                     if (State.unitTest) State.unitTest.verificationStarted(State.activeBackend, path.basename(task.uri.toString()));
                                     task.markStarted(TaskType.Verifying);
-                                    task.timeout = State.getTimeoutOfActiveBackend();
+                                    task.timeout = await Settings.getTimeoutOfActiveBackend(location, State.activeBackend);
                                     this.verify(fileState, task.manuallyTriggered);
                                 } else if (canVerify.reason && (canVerify.reason != this.lastCanStartVerificationReason || (task.uri && !Helper.uriEquals(task.uri, this.lastCanStartVerificationUri)))) {
                                     Log.log(canVerify.reason, LogLevel.Info);
@@ -287,7 +272,6 @@ export class VerificationController {
                                 //should the verification be aborted?
                                 if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri))//if another verification is requested, the current one must be stopped
                                     || stopFound
-                                    || viperToolsUpdateFound
                                     || startBackendFound
                                     || stopBackendFound
                                     || timedOut) {
@@ -344,23 +328,6 @@ export class VerificationController {
                                 State.viperFiles.delete(uri);
                             }
                             task.type = NoOp;
-                            break;
-                        case TaskType.UpdateViperTools:
-                            if (State.isBackendReady) {
-                                this.workList.unshift(new Task({ type: TaskType.StopBackend, manuallyTriggered: task.manuallyTriggered }))
-                            } else {
-                                task.markStarted(TaskType.UpdatingViperTools);
-                                Log.logWithOrigin("workList", "UpdatingViperTools", LogLevel.LowLevelDebug);
-                                State.client.sendNotification(Commands.UpdateViperTools);
-                                State.statusBarProgress.updateProgressBar(0).show();
-                            }
-                            break;
-                        case TaskType.UpdatingViperTools:
-                            //block until verification is stoped;
-                            if (viperToolsUpdateComplete) {
-                                task.type = NoOp;
-                                Log.logWithOrigin("workList", "ViperToolsUpdateComplete", LogLevel.LowLevelDebug);
-                            }
                             break;
                         case TaskType.Save:
                             task.type = NoOp;
@@ -427,7 +394,7 @@ export class VerificationController {
                 }
                 if (State.unitTest && this.workList.length == 0) State.unitTest.ideIsIdle();
             } catch (e) {
-                Log.error("Error in verification controller (critical): " + e);
+                Log.error(`Error in verification controller (critical): ${e}`);
                 this.workList.shift();
             }
         }, verificationTimeout);
@@ -638,7 +605,7 @@ export class VerificationController {
 
     private hideStates(callback, visualizer: StateVisualizer) {
         try {
-            if (Helper.areAdvancedFeaturesEnabled()) {
+            if (Settings.areAdvancedFeaturesEnabled()) {
                 let editor = visualizer.viperFile.editor;
                 vscode.commands.executeCommand('workbench.action.focusFirstEditorGroup').then(success => { }, error => {
                     Log.error("Error changing the focus to the first editorGroup");
@@ -707,7 +674,7 @@ export class VerificationController {
                 //no file is verifying
                 State.resetViperFiles()
                 State.addToWorklist(new Task({ type: TaskType.Clear, uri: Helper.getActiveFileUri(), manuallyTriggered: false }));
-                if (Helper.getConfiguration('preferences').autoVerifyAfterBackendChange === true) {
+                if (Settings.isAutoVerifyAfterBackendChangeEnabled()) {
                     Log.log("AutoVerify after backend change", LogLevel.Info);
                     State.addToWorklist(new Task({ type: TaskType.Verify, uri: Helper.getActiveFileUri(), manuallyTriggered: false }));
                 }
@@ -788,7 +755,7 @@ export class VerificationController {
 
                         //complete the timing measurement
                         this.addTiming(params.filename, 100, Color.ACTIVE);
-                        if (Helper.getConfiguration("preferences").showProgress === true) {
+                        if (Settings.showProgress()) {
                             verifiedFile.stateVisualizer.addTimingInformationToFileState({ total: params.time, timings: this.timings });
                         }
 

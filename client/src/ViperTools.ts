@@ -8,15 +8,16 @@
 
  import * as fs from 'fs';
 import * as vscode from 'vscode';
-import { ConfirmResult, Dependency, DependencyInstaller, GitHubReleaseAsset, GitHubZipExtractor, InstallResult, LocalReference, Location, ProgressListener, RemoteZipExtractor, Success, withProgressInWindow } from "vs-verification-toolbox";
-import { BuildChannel, Helper } from './Helper';
+import { ConfirmResult, Dependency, DependencyInstaller, GitHubReleaseAsset, GitHubZipExtractor, InstallResult, LocalReference, Location, RemoteZipExtractor, Success, withProgressInWindow } from "vs-verification-toolbox";
 import { Log } from './Log';
 import { LogLevel } from './ViperProtocol';
+import { BuildChannel, Settings } from './Settings';
+import { Helper } from './Helper';
 
 const buildChannelSubfolderName: string = "ViperTools";
 
 export async function locateViperTools(context: vscode.ExtensionContext): Promise<Location> {
-    const selectedChannel = Helper.getBuildChannel();
+    const selectedChannel = Settings.getBuildChannel();
     const dependency = await getDependency(context);
     Log.log(`Locating dependencies for build channel ${selectedChannel}`, LogLevel.Debug);
 
@@ -64,8 +65,8 @@ export async function locateViperTools(context: vscode.ExtensionContext): Promis
 
     async function setPermissions(location: Location): Promise<Location> {
         if (Helper.isLinux || Helper.isMac) {
-            const boogiePath = await Helper.getBoogiePath(location);
-            const z3Path = await Helper.getZ3Path(location);
+            const boogiePath = await Settings.getBoogiePath(location);
+            const z3Path = await Settings.getZ3Path(location);
             fs.chmodSync(z3Path, '755');
             fs.chmodSync(boogiePath, '755');
         }
@@ -84,7 +85,7 @@ export async function updateViperTools(context: vscode.ExtensionContext): Promis
     }
     
     
-    const selectedChannel = Helper.getBuildChannel();
+    const selectedChannel = Settings.getBuildChannel();
     const dependency = await getDependency(context);
     Log.log(`Updating dependencies for build channel ${selectedChannel}`, LogLevel.Debug);
     const { result: installationResult, didReportProgress } = await withProgressInWindow(
@@ -124,11 +125,12 @@ function getDependencyInstaller(buildChannel: BuildChannel): Promise<DependencyI
 }
 
 async function getLocalDependencyInstaller(): Promise<DependencyInstaller> {
-    return new LocalReference(Helper.getLocalViperToolsPath());
+    const toolsPath = await Settings.getLocalViperToolsPath()
+    return new LocalReference(toolsPath);
 }
 
 async function getRemoteDependencyInstaller(buildChannel: BuildChannel): Promise<DependencyInstaller> {
-    const viperToolsRawProviderUrl = Helper.getViperToolsProvider(buildChannel);
+    const viperToolsRawProviderUrl = await Settings.getViperToolsProvider(buildChannel);
     // note that `viperToolsProvider` might be one of the "special" URLs as specified in the README (i.e. to a GitHub releases asset):
     const viperToolsProvider = parseGitHubAssetURL(viperToolsRawProviderUrl);
 

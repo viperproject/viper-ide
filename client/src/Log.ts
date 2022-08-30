@@ -15,6 +15,7 @@ import * as unusedFilename from 'unused-filename';
 import { Progress, LogLevel } from './ViperProtocol';
 import { Helper } from './Helper';
 import { State } from './ExtensionState';
+import { Settings } from "./Settings";
 
 export class Log {
     static logFilePath: string;
@@ -91,7 +92,7 @@ export class Log {
 
     public static updateSettings() {
         let oldLogLevel = Log.logLevel;
-        Log.logLevel = Helper.getConfiguration("preferences").logLevel || LogLevel.Default;
+        Log.logLevel = Settings.getLogLevel();
         if (State.unitTest) {
             // we want to keep output small during testing and in case log output matters,
             // it can be looked up in the log file. Thus, there is no reason to spam the

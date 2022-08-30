@@ -8,11 +8,10 @@
  
 'use strict'
 
-import {LogLevel, Success,TimingInfo} from './ViperProtocol';
 import * as vscode from 'vscode';
-import {StateVisualizer} from './StateVisualizer';
-import {Log} from './Log';
 import * as path from 'path';
+import { StateVisualizer } from './StateVisualizer';
+import { Success,TimingInfo } from './ViperProtocol';
 
 export class ViperFileState {
 

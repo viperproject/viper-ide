@@ -9,11 +9,8 @@
 'use strict';
 
 import * as vscode from "vscode";
-import * as path from 'path';
-import * as fs from 'fs';
-import { Progress, LogLevel } from './ViperProtocol';
 import { Helper } from './Helper';
-import { Log } from './Log';
+import { Settings } from "./Settings";
 
 export class StatusBar {
 
@@ -44,7 +41,7 @@ export class StatusBar {
     }
 
     public show() {
-        if (Helper.getConfiguration('preferences').showProgress === true) {
+        if (Settings.showProgress()) {
             this.elem.show();
         }
         return this;
