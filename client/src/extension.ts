@@ -49,13 +49,10 @@ let formatter: ViperFormatter;
 
 // this method is called when your extension is activated
 export async function activate(context: vscode.ExtensionContext): Promise<ViperApi> {
-    // try {
     Helper.loadViperFileExtensions();
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
-
     let ownPackageJson = vscode.extensions.getExtension("viper-admin.viper").packageJSON;
     Log.log(`The current version of ${ownPackageJson.displayName} is: v.${ownPackageJson.version}`, LogLevel.Info);
-
     Log.initialize();
     Log.log('Viper-Client is now active.', LogLevel.Info);
     State.context = context;
@@ -79,11 +76,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<ViperA
     } else {
         Log.log("No active text editor found", LogLevel.Info);
     }
-    /*} catch (e) {
-        console.log(`Error occurred: ${e}`);
-        Log.log(`Error occurred: ${e}`, LogLevel.Info);
-        Helper.rethrow(e);
-    }*/
     return State.viperApi;
 }
 

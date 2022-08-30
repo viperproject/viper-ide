@@ -34,13 +34,11 @@ export class Settings {
         extensionVersion: Settings.ownPackageJson.version
     };
 
-    // public static settings: ViperSettings;
     public static isWin = /^win/.test(process.platform);
     public static isLinux = /^linux/.test(process.platform);
     public static isMac = /^darwin/.test(process.platform);
 
    
-
     private static getConfiguration(setting: string): any {
         return vscode.workspace.getConfiguration("viperSettings").get(setting);
     }
@@ -114,12 +112,6 @@ export class Settings {
             Settings.checkZ3Path(location),
             Settings.checkBoogiePath(location),
             Settings.checkSfxPath(location),
-            // check z3 executable
-            // Settings.checkPath(settings.paths.z3Executable, `Z3 Executable:`, true, true, true),
-            // check boogie executable
-            // Settings.checkPath(settings.paths.boogieExecutable, `Boogie Executable (if you don't need Boogie, set it to ""):`, true, true, true),
-            // check sfx prefix
-            // Settings.checkPath(settings.paths.sfxPrefix, `The sound effect resources (if you don't want sounds, set it to ""):`, false, true, true, true),
         ];
         return Promise.all(checks)
             .then(combineMessages)
@@ -270,6 +262,8 @@ export class Settings {
     /** 
      * `location` is only needed if build channel is different from 'Local'.
      * In the case that the build channel is 'Local', `null` can be passed.
+     * Note that the provided `buildChannel` is used to perform all checks, we
+     * can be independent of the user configued build channel.
      */
     private static async checkViperToolsPath(location: Location | null, buildChannel: BuildChannel): Promise<Either<Messages, string>> {
         const settingName = "paths";
@@ -281,35 +275,9 @@ export class Settings {
         } else {
             const path = location.basePath;
             resolvedPath = await Settings.checkPath(location, path, `ViperTools for build channel ${buildChannel}:`, false, true, true);
-            /*
-            if (isRight(resolvedPath)) {
-                if (resolvedPath.right.exists) {
-                    return newRight(resolvedPath.right.path);
-                } else {
-                    return newEitherError(`The path configured as '${settingName}.viperToolsPath' does not exist`);
-                }
-            }
-            */
         }
         // not that `checkPath` already makes sure that the path exists
         return transformRight(resolvedPath, p => p.path);
-        /*
-        if (!isBuildChannelLocal) {
-            // the path is only used if build channel local is used.
-            // thus, we do not perform any checks if a different build channel is used:
-            return newRight(configuredPath);
-        }
-        // check viperToolsPath
-        const resolvedPath = await Settings.checkPath(configuredPath, `${settingName}.viperToolsPath`, false, true, true);
-        if (isRight(resolvedPath)) {
-            if (resolvedPath.right.exists) {
-                return newRight(resolvedPath.right.path);
-            } else {
-                return newEitherError(`The path configured as '${settingName}.viperToolsPath' does not exist`);
-            }
-        }
-        return resolvedPath;
-        */
     }
 
     /**
@@ -331,41 +299,16 @@ export class Settings {
      public static async getViperToolsPath(location: Location): Promise<string> {
         const viperTools = await Settings.checkViperToolsPath(location, Settings.getBuildChannel());
         return toRight(viperTools);
-        /*
-        const isBuildChannelLocal = (Settings.getBuildChannel() === BuildChannel.Local);
-        if (isBuildChannelLocal) {
-            return Settings.getLocalViperToolsPath();
-        } else {
-            return location.basePath;
-        }
-        */
     }
 
     /* returns an escaped string */
     private static async checkViperServerJars(location: Location): Promise<Either<Messages, string>> {
         const settingName = "viperServerSettings";
         const isBuildChannelLocal = (Settings.getBuildChannel() === BuildChannel.Local);
-        /*
-        if (!isBuildChannelLocal) {
-            // the configured server JARs are only used if build channel local is used.
-            // thus, we do not perform any checks if a different build channel is used:
-            return newRight(configuredServerJars);
-        }
-        const resolvedPaths = await Settings.checkPaths(configuredServerJars, `${settingName}.serverJars`);
-        if (isLeft(resolvedPaths)) {
-            return resolvedPaths;
-        }
-        */
         let resolvedPaths: Either<Messages, string[]>;
         if (isBuildChannelLocal) {
             const configuredServerJars = Settings.getConfiguration(settingName).serverJars;
             resolvedPaths = await Settings.checkPaths(location, configuredServerJars, `${settingName}.serverJars`);
-            /*
-            if (isLeft(resolvedPaths)) {
-                return resolvedPaths;
-            }
-            paths = resolvedPaths.right;
-            */
         } else {
             const paths = [pathHelper.join(location.basePath, "backends")];
             resolvedPaths = await Settings.checkPaths(location, paths, `ViperServer JARs for build channel ${Settings.getBuildChannel()}:`);
@@ -379,36 +322,10 @@ export class Settings {
             }
             return newRight(s.trim());
         });
-        /*
-        const jarFiles = await Settings.getAllJarsInPaths(paths, false);
-        const s = Settings.buildDependencyString(jarFiles);
-        if (s.trim().length === 0) {
-            return newEitherError(`zero JAR files for ViperServer found`);
-        }
-        return newRight(s.trim());
-        */
     }
 
     /* returns an escaped string */
     private static async getViperServerJars(location: Location): Promise<string> {
-        /*
-        if (Settings.getBuildChannel() === BuildChannel.Local) {
-            const serverJars = await Settings.checkViperServerJars();
-            if (isLeft(serverJars)) {
-                throw new Error(serverJars.left.toString());
-            }
-            return serverJars.right;
-        }
-
-        // ignore `viperToolsPaths`:
-        const paths = [pathHelper.join(location.basePath, "backends")];
-        const jarFiles = await Settings.getAllJarsInPaths(paths, false);
-        const s = Settings.buildDependencyString(jarFiles);
-        if (s.trim().length === 0) {
-            throw new Error(`zero JAR files for ViperServer found`);
-        }
-        return s.trim();
-        */
         const resolvedJars = await Settings.checkViperServerJars(location);
         return toRight(resolvedJars);
     }
@@ -419,17 +336,8 @@ export class Settings {
         if (Settings.getBuildChannel() == BuildChannel.Local) {
             const boogiePaths = Settings.getConfiguration(settingName).boogieExecutable;
             resolvedPath = await Settings.checkPath(location, boogiePaths, `Boogie Executable (if you don't need Boogie, set '${settingName}.boogieExecutable' to ""):`, true, true, true);
-            /*
-            if (isRight(resolvedPath)) {
-                return resolvedPath.right.path;
-            } else {
-                throw new Error(resolvedPath.left.toString());
-            }
-            */
         } else {
             // ignore `paths`:
-            // const binaryName = Settings.isWin ? "Boogie.exe" : "Boogie";
-            // const path = pathHelper.join(location.basePath, "boogie", "Binaries", binaryName);
             const path = pathHelper.join(location.basePath, "boogie", "Binaries", "Boogie");
             resolvedPath = await Settings.checkPath(location, path, `Boogie Executable for build channel ${Settings.getBuildChannel()}:`, true, true, true);
         }
@@ -438,26 +346,6 @@ export class Settings {
     }
 
     public static async getBoogiePath(location: Location): Promise<string> {
-        /*
-        let resolvedPath: Either<Messages, ResolvedPath>;
-        if (Settings.getBuildChannel() == BuildChannel.Local) {
-            const boogiePaths = Settings.getConfiguration("paths").boogieExecutable;
-            resolvedPath = await Settings.checkPath(boogiePaths, `Boogie Executable (if you don't need Boogie, set it to ""):`, true, true, true);
-            *//*
-            if (isRight(resolvedPath)) {
-                return resolvedPath.right.path;
-            } else {
-                throw new Error(resolvedPath.left.toString());
-            }
-            *//*
-        } else {
-            // ignore `paths`:
-            // const binaryName = Settings.isWin ? "Boogie.exe" : "Boogie";
-            // const path = pathHelper.join(location.basePath, "boogie", "Binaries", binaryName);
-            const path = pathHelper.join(location.basePath, "boogie", "Binaries", "Boogie");
-            resolvedPath = await Settings.checkPath(path, `Boogie Executable for build channel ${Settings.getBuildChannel()}:`, true, true, true);
-        }
-        */
        const res = await Settings.checkBoogiePath(location);
        return toRight(res);
     }
@@ -468,17 +356,8 @@ export class Settings {
         if (Settings.getBuildChannel() == BuildChannel.Local) {
             const z3Paths = Settings.getConfiguration(settingName).z3Executable;
             resolvedPath = await Settings.checkPath(location, z3Paths, `Z3 Executable (from '${settingName}.z3Executable'):`, true, true, true);
-            /*
-            if (isRight(resolvedPath)) {
-                return resolvedPath.right.path;
-            } else {
-                throw new Error(resolvedPath.left.toString());
-            }
-            */
         } else {
             // ignore `paths`:
-            // const binaryName = Settings.isWin ? "z3.exe" : "z3";
-            // return pathHelper.join(location.basePath, "z3", "bin", binaryName);
             const path = pathHelper.join(location.basePath, "z3", "bin", "z3");
             resolvedPath = await Settings.checkPath(location, path, `Z3 Executable for build channel ${Settings.getBuildChannel()}:`, true, true, true);
         }
@@ -487,21 +366,6 @@ export class Settings {
     }
 
     public static async getZ3Path(location: Location): Promise<string> {
-        /*
-        if (Settings.getBuildChannel() == BuildChannel.Local) {
-            const z3Paths = Settings.getConfiguration("paths").z3Executable;
-            const resolvedPath = await Settings.checkPath(z3Paths, `Z3 Executable:`, true, true, true);
-            if (isRight(resolvedPath)) {
-                return resolvedPath.right.path;
-            } else {
-                throw new Error(resolvedPath.left.toString());
-            }
-        } else {
-            // ignore `paths`:
-            const binaryName = Settings.isWin ? "z3.exe" : "z3";
-            return pathHelper.join(location.basePath, "z3", "bin", binaryName);
-        }
-        */
         const res = await Settings.checkZ3Path(location);
         return toRight(res);
     }
@@ -526,22 +390,6 @@ export class Settings {
         return toRight(res);
     }
 
-    private static getPlatformPath(p: string | PlatformDependentPath): string {
-        if (typeof p === "string") return p;
-        if (Settings.isWin && p.windows) return p.windows;
-        if (Settings.isLinux && p.linux) return p.linux;
-        if (Settings.isMac && p.mac) return p.mac;
-        return "";
-    }
-
-    private static getPlatformPaths(paths: string[] | PlatformDependentListOfPaths): string[] {
-        if (paths instanceof Array) return paths;
-        if (Settings.isWin && paths.windows) return paths.windows;
-        if (Settings.isLinux && paths.linux) return paths.linux;
-        if (Settings.isMac && paths.mac) return paths.mac;
-        return [];
-    }
-
     public static getStage(backend: Backend, name: string): Stage {
         if (!name) return null;
         for (let i = 0; i < backend.stages.length; i++) {
@@ -564,26 +412,7 @@ export class Settings {
         }
         return null;
     }
-    /*
-    public static backendEquals(a: Backend, b: Backend) {
-        if (!a || !b) {
-            return false;
-        }
-        let same = a.stages.length === b.stages.length;
-        same = same && a.name === b.name;
-        same = same && a.type === b.type;
-        same = same && a.timeout === b.timeout;
-        same = same && this.resolveEngine(a.engine) === this.resolveEngine(b.engine);
-        a.stages.forEach((element, i) => {
-            same = same && this.stageEquals(element, b.stages[i]);
-        });
-        same = same && a.paths.length === b.paths.length;
-        for (let i = 0; i < a.paths.length; i++) {
-            same = same && a.paths[i] === b.paths[i];
-        }
-        return same;
-    }
-    */
+
     private static resolveEngine(engine: string) {
         if (engine && (engine.toLowerCase() == "viperserver")) {
             return engine;
@@ -596,52 +425,6 @@ export class Settings {
         if (!backend || !backend.engine) return false;
         return backend.engine.toLowerCase() == "viperserver";
     }
-    /*
-    private static stageEquals(a: Stage, b: Stage): boolean {
-        let same = a.customArguments == b.customArguments;
-        same = same && a.mainMethod == b.mainMethod;
-        same = same && a.name == b.name;
-        same = same && a.isVerification == b.isVerification;
-        same = same && a.onParsingError == b.onParsingError;
-        same = same && a.onTypeCheckingError == b.onTypeCheckingError;
-        same = same && a.onVerificationError == b.onVerificationError;
-        same = same && a.onSuccess == b.onSuccess;
-        return same;
-    }
-    */
-    /*
-    public static selectBackend(settings: ViperSettings, selectedBackend: string): Backend {
-        if (selectedBackend) {
-            Settings.selectedBackend = selectedBackend;
-        }
-        if (!settings || !settings.verificationBackends || settings.verificationBackends.length == 0) {
-            this.selectedBackend = null;
-            return null;
-        }
-        if (this.selectedBackend) {
-            for (let i = 0; i < settings.verificationBackends.length; i++) {
-                let backend = settings.verificationBackends[i];
-                if (backend.name === this.selectedBackend) {
-                    return backend;
-                }
-            }
-        }
-        this.selectedBackend = settings.verificationBackends[0].name;
-        return settings.verificationBackends[0];
-    }
-
-    public static getBackendNames(settings: ViperSettings): string[] {
-        let backendNames = [];
-        settings.verificationBackends.forEach((backend) => {
-            backendNames.push(backend.name);
-        })
-        return backendNames;
-    }
-
-    public static getBackend(backendName: string): Backend {
-        return Settings.settings.verificationBackends.find(b => { return b.name == backendName });
-    }
-    */
 
     private static mergeBackend(custom: Backend, def: Backend): Backend {
         if (!custom || !def || custom.name != def.name) return custom;
@@ -784,65 +567,12 @@ export class Settings {
             return newRight({ path: stringPath, exists: false });
         }
         const resolvedPath = await Settings.resolvePath(location, stringPath, executable);
-        /*
-        if (resolvedPath.error != null) {
-            return newEitherError(`${prefix} resolving path resulted in the following error: ${resolvedPath.error}`);
-        }
-        */
         if (!resolvedPath.exists && !allowMissingPath) {
-            // return newEitherError(`${prefix} path not found: '${stringPath}' ${(resolvedPath.path != stringPath ? ` which expands to '${resolvedPath.path}'` : "")} ${(resolvedPath.error || "")}`);
             return newEitherError(`${prefix} path not found: '${stringPath}' ${(resolvedPath.path != stringPath ? ` which expands to '${resolvedPath.path}'` : "")}`);
         }
         return newRight(resolvedPath);
     }
-    /*
-    private static async checkPath(path: (string | PlatformDependentPath), 
-                             prefix: string, 
-                             executable: boolean, 
-                             allowPlatformDependentPath: boolean, 
-                             allowStringPath: boolean = true, 
-                             allowMissingPath = false): ResolvedPath {
-        if (!path) {
-            if (!allowMissingPath) this.addError(prefix + " path is missing");
-            return { path: null, exists: false };
-        }
-        let stringPath: string;
-        if (typeof path === "string") {
-            if (!allowStringPath) {
-                this.addError(prefix + ' path has wrong type: expected: {windows:string, mac:string, linux:string}, found: ' + typeof path);
-                return { path: stringPath, exists: false };
-            }
-            stringPath = <string>path;
-        } else {
-            if (!allowPlatformDependentPath) {
-                this.addError(prefix + ' path has wrong type: expected: string, found: ' + typeof path + " at path: " + JSON.stringify(path));
-                return { path: null, exists: false };
-            }
-            let platformDependentPath: PlatformDependentPath = <PlatformDependentPath>path;
-            if (Settings.isLinux) {
-                stringPath = platformDependentPath.linux;
-            } else if (Settings.isMac) {
-                stringPath = platformDependentPath.mac;
-            } else if (Settings.isWin) {
-                stringPath = platformDependentPath.windows;
-            } else {
-                Log.error("Operation System detection failed, it's not Mac, Windows, or Linux");
-            }
-        }
 
-        if (!stringPath || stringPath.length == 0) {
-            if (!allowMissingPath) {
-                this.addError(prefix + ' path has wrong type: expected: string' + (executable ? ' or {windows:string, mac:string, linux:string}' : "") + ', found: ' + typeof path + " at path: " + JSON.stringify(path));
-            }
-            return { path: stringPath, exists: false };
-        }
-        let resolvedPath = Settings.resolvePath(stringPath, executable);
-        if (!resolvedPath.exists && !allowMissingPath) {
-            this.addError(prefix + ' path not found: "' + stringPath + '"' + (resolvedPath.path != stringPath ? ' which expands to "' + resolvedPath.path + '"' : "") + (" " + (resolvedPath.error || "")));
-        }
-        return resolvedPath;
-    }
-    */
     private static async checkBackends(location: Location, backends: Backend[]): Promise<Either<Messages, Backend[]>> {
         const settingName = "verificationBackends";
         Log.log("Checking backends...", LogLevel.LowLevelDebug);
@@ -1162,46 +892,6 @@ export class Settings {
     }
 
     private static async resolvePath(location: Location, path: string, executable: boolean): Promise<ResolvedPath> {
-        /*
-        try {
-            if (!path) {
-                return { path: path, exists: false };
-            }
-            path = path.trim();
-
-            //expand internal variables
-            const expandedPath = Settings.expandViperToolsPath(path);
-            //expand environmental variables
-            const resolvedPath = await Settings.extractEnvVars(expandedPath);
-
-            //handle files in Path env var
-            if (resolvedPath.indexOf("/") < 0 && resolvedPath.indexOf("\\") < 0) {
-                //its only a filename, try to find it in the path
-                const pathEnvVar: string = process.env.PATH;
-                if (pathEnvVar) {
-                    const pathList: string[] = pathEnvVar.split(Settings.isWin ? ";" : ":");
-                    for (let i = 0; i < pathList.length; i++) {
-                        const pathElement = pathList[i];
-                        const combinedPath = Settings.toAbsolute(pathHelper.join(pathElement, resolvedPath));
-                        const exists = Settings.exists(combinedPath, executable);
-                        if (exists.exists) return exists;
-                    }
-                }
-                return { path: resolvedPath, exists: false };
-            } else {
-                //handle absolute and relative paths
-                let homeExpandedPath = resolvedPath;
-                const home = os.homedir();
-                if (home) {
-                    homeExpandedPath = resolvedPath.replace(/^~($|\/|\\)/, `${home}$1`);
-                }
-                const absolutePath = Settings.toAbsolute(homeExpandedPath);
-                return Settings.exists(absolutePath, executable);
-            }
-        } catch (e) {
-            return { path: path, exists: false, error: e };
-        }
-        */
         if (!path) {
             return { path: path, exists: false };
         }
@@ -1329,7 +1019,7 @@ class Version {
         try {
             if (version) {
                 if (/\d+(\.\d+)+/.test(version)) {
-                    return new Version(version.split(".").map(x => Number.parseInt(x)))
+                    return new Version(version.split(".").map(x => Number.parseInt(x)));
                 }
             }
         } catch (e) {
@@ -1341,8 +1031,7 @@ class Version {
     public static createFromHash(hash: string): Version {
         try {
             if (hash) {
-                let version = this.decrypt(hash, Version.Key);
-                //Log.log("hash: " + hash + " decrypted version: " + version, LogLevel.LowLevelDebug);
+                const version = this.decrypt(hash, Version.Key);
                 return this.createFromVersion(version);
             }
         } catch (e) {
@@ -1352,46 +1041,39 @@ class Version {
     }
 
     private static encrypt(msg: string, key: string): string {
-        let res: string = ""
+        let res: string = "";
         let parity: number = 0;
         for (let i = 0; i < msg.length; i++) {
-            let keyChar: number = key.charCodeAt(i % key.length);
-            //Log.log("keyChar " + key.charAt(i % key.length),LogLevel.LowLevelDebug);
-            let char: number = msg.charCodeAt(i);
-            //Log.log("char " + msg.charAt(i) + " charCode: " + char,LogLevel.LowLevelDebug);
-            let cypher: number = (char ^ keyChar)
+            const keyChar: number = key.charCodeAt(i % key.length);
+            const char: number = msg.charCodeAt(i);
+            const cypher: number = (char ^ keyChar);
             parity = (parity + cypher % (16 * 16)) % (16 * 16);
-            //Log.log("cypher " + (char ^ keyChar).toString() + " hex: "+ cypher,LogLevel.LowLevelDebug);
             res += this.pad(cypher);
         }
         return res + this.pad(parity);
     }
 
     private static pad(n: number): string {
-        let s = n.toString(16);
+        const s = n.toString(16);
         return (s.length == 1 ? "0" : "") + s;
     }
 
     private static decrypt(cypher: string, key: string): string {
-        //Log.log("decrypt",LogLevel.LowLevelDebug);
-        let res: string = ""
+        let res: string = "";
         let parity: number = 0;
         if (!cypher || cypher.length < 2 || cypher.length % 2 != 0) {
             return "";
         }
         for (let i = 0; i < cypher.length - 2; i += 2) {
-            let keyChar: number = key.charCodeAt((i / 2) % key.length);
-            //Log.log("keyChar " + key.charAt(i % key.length),LogLevel.LowLevelDebug);
-            let char: number = (16 * parseInt(cypher.charAt(i), 16)) + parseInt(cypher.charAt(i + 1), 16)
+            const keyChar: number = key.charCodeAt((i / 2) % key.length);
+            const char: number = (16 * parseInt(cypher.charAt(i), 16)) + parseInt(cypher.charAt(i + 1), 16);
             parity = (parity + char % (16 * 16)) % (16 * 16);
-            //Log.log("char " + char,LogLevel.LowLevelDebug);
-            //Log.log("encChar " + String.fromCharCode(char ^ keyChar) + " charCode: "+(char ^ keyChar),LogLevel.LowLevelDebug);
-            res += String.fromCharCode(char ^ keyChar)
+            res += String.fromCharCode(char ^ keyChar);
         }
         if (parity != (16 * parseInt(cypher.charAt(cypher.length - 2), 16)) + parseInt(cypher.charAt(cypher.length - 1), 16)) {
-            return ""
+            return "";
         } else {
-            return res
+            return res;
         }
     }
 
@@ -1403,13 +1085,11 @@ class Version {
         let s = "1.0.0";
         let en = this.encrypt(s, Version.Key);
         let de = this.decrypt(en, Version.Key);
-        Log.log("Hash Test: " + s + " -> " + en + " -> " + de, LogLevel.LowLevelDebug)
+        Log.log("Hash Test: " + s + " -> " + en + " -> " + de, LogLevel.LowLevelDebug);
     }
 
     public static hash(version: string): string {
-        let hash = this.encrypt(version, Version.Key);
-        //Log.log("version: " + version + " hash: " + hash, LogLevel.LowLevelDebug);
-        return hash;
+        return this.encrypt(version, Version.Key);
     }
 
     //1: this is larger, -1 other is larger
@@ -1425,13 +1105,7 @@ class Version {
 
 export interface ResolvedPath {
     path: string,
-    exists: boolean,
-    // error?: string
-}
-
-export interface ResolvedPaths {
-    paths: string[],
-    error?: string
+    exists: boolean
 }
 
 export enum BuildChannel {
