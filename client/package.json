@@ -43,7 +43,7 @@
         "@types/tmp": "^0.2.3",
         "@types/vscode": "^1.45.0",
         "@typescript-eslint/eslint-plugin": "^5.23.0",
-        "@typescript-eslint/parser": "^5.18.0",
+        "@typescript-eslint/parser": "^5.36.1",
         "eslint": "^8.15.0",
         "eslint-webpack-plugin": "^3.1.1",
         "mocha": "^10.0.0",
