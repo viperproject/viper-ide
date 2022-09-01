@@ -143,10 +143,10 @@ jobs:
       # tests should not be stopped when they fail on one of the OSes:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest] # [macos-latest, ubuntu-latest, windows-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
         include:
-          # - os: macos-latest
-          #   viper-tools-zip-file: "ViperToolsMac.zip"
+          - os: macos-latest
+            viper-tools-zip-file: "ViperToolsMac.zip"
           - os: ubuntu-latest
             viper-tools-zip-file: "ViperToolsLinux.zip"
           - os: windows-latest
