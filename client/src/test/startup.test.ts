@@ -5,6 +5,8 @@ suite('Extension Startup', () => {
     suiteSetup(async function() {
         this.timeout(SETUP_TIMEOUT);
         await TestHelper.setup();
+        // we do not await until a backend has been started as the first test case
+        // will check this
     });
 
     suiteTeardown(async function() {

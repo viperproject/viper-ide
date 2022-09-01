@@ -109,8 +109,8 @@ export class Settings {
         const checks: Promise<Either<Messages, any>>[] = [
             Settings.checkVersion<ViperServerSettings>(settings, settingName),
             Settings.checkViperToolsPath(location, Settings.getBuildChannel()),
-            Settings.checkZ3Path(location),
-            Settings.checkBoogiePath(location),
+            Settings.checkZ3Path(location, true),
+            Settings.checkBoogiePath(location, true),
             Settings.checkSfxPath(location),
         ];
         return Promise.all(checks)
@@ -325,7 +325,7 @@ export class Settings {
         return toRight(resolvedJars);
     }
 
-    public static async checkBoogiePath(location: Location): Promise<Either<Messages, string>> {
+    public static async checkBoogiePath(location: Location, execute: boolean = false): Promise<Either<Messages, string>> {
         const settingName = "paths";
         let resolvedPath: Either<Messages, ResolvedPath>;
         if (Settings.getBuildChannel() == BuildChannel.Local) {
@@ -337,6 +337,15 @@ export class Settings {
             resolvedPath = await Settings.checkPath(location, path, `Boogie Executable for build channel ${Settings.getBuildChannel()}:`, true, true, true);
         }
 
+        if (isRight(resolvedPath) && execute) {
+            const boogiePath = resolvedPath.right.path;
+            try {
+                await Common.spawn(boogiePath, ["-version"]);
+            } catch (e) {
+                return newEitherError(`Executing Boogie '${boogiePath}' with '-version' has failed: ${e}.`);
+            }
+        }
+
         return transformRight(resolvedPath, p => p.path);
     }
 
@@ -345,7 +354,7 @@ export class Settings {
        return toRight(res);
     }
 
-    public static async checkZ3Path(location: Location): Promise<Either<Messages, string>> {
+    public static async checkZ3Path(location: Location, execute: boolean = false): Promise<Either<Messages, string>> {
         const settingName = "paths";
         let resolvedPath: Either<Messages, ResolvedPath>
         if (Settings.getBuildChannel() == BuildChannel.Local) {
@@ -355,6 +364,15 @@ export class Settings {
             // ignore `paths`:
             const path = pathHelper.join(location.basePath, "z3", "bin", "z3");
             resolvedPath = await Settings.checkPath(location, path, `Z3 Executable for build channel ${Settings.getBuildChannel()}:`, true, true, true);
+        }
+
+        if (isRight(resolvedPath) && execute) {
+            const z3Path = resolvedPath.right.path;
+            try {
+                await Common.spawn(z3Path, ["--version"]);
+            } catch (e) {
+                return newEitherError(`Executing Z3 '${z3Path}' with '--version' has failed: ${e}.`);
+            }
         }
 
         return transformRight(resolvedPath, p => p.path);
@@ -713,7 +731,7 @@ export class Settings {
      * Promise is resolved with the path to the Java executable that should be used.
      * Otherwise, promise is rejected with an error message (as string) in case something went wrong
      */
-    public static async getJavaPath(): Promise<{path: string, isAmbiguous: boolean}> {
+    public static async getJavaPath(): Promise<{ path: string, isAmbiguous: boolean }> {
         const configuredJavaBinary = Settings.getConfiguration("javaSettings").javaBinary;
         const searchForJavaHome = configuredJavaBinary == null || configuredJavaBinary == "";
         let javaPath: string;
@@ -729,38 +747,34 @@ export class Settings {
             javaPath = configuredJavaBinary;
             isAmbiguous = false;
         }
-
-        // try to execute `java -version`:
-        try {
-            const javaVersionOutput = await Common.spawn(javaPath, ["-version"]);
-            const javaVersion = javaVersionOutput.stdout.concat(javaVersionOutput.stderr);
-            Log.log(`Java home found: ${javaPath}. It's version is: ${javaVersion}`, LogLevel.Verbose);
-            return { path: javaPath, isAmbiguous: isAmbiguous };
-        } catch (err) {
-            let errorMsg: string
-            if (searchForJavaHome) {
-                errorMsg = `A Java home was found at '${javaPath}' but executing it with '-version' has failed: ${err}.`;
-            } else {
-                errorMsg = `The Java home is in the settings configured to be '${javaPath}' but executing it with '-version' has failed: ${err}.`;
-            }
-            // rethrow error
-            throw new Error(errorMsg);
-        }
+        return { path: javaPath, isAmbiguous: isAmbiguous };
     }
 
     private static async checkJavaPath(): Promise<Either<Messages, string>> {
+        const javaPathInfo = await Settings.getJavaPath();
         try {
-            const javaPathInfo = await Settings.getJavaPath();
-            if (javaPathInfo.isAmbiguous) {
-                return newEitherWarning(`Multiple Java installations have been discovered. '${javaPathInfo.path}' will be used. ` +
-                    `You can manually provide a path to a Java installation by specifying ` +
-                    `'"viper.javaSettings.javaBinary": "<path>"' in your settings file.`);
+            // try to execute `java -version`:
+            const javaVersionOutput = await Common.spawn(javaPathInfo.path, ["-version"]);
+            const javaVersion = javaVersionOutput.stdout.concat(javaVersionOutput.stderr);
+            Log.log(`Java home found: ${javaPathInfo.path}. It's version is: ${javaVersion}`, LogLevel.Verbose);
+        } catch (err) {
+            let errorMsg: string
+            const configuredJavaBinary = Settings.getConfiguration("javaSettings").javaBinary;
+            const searchForJavaHome = configuredJavaBinary == null || configuredJavaBinary == "";
+            if (searchForJavaHome) {
+                errorMsg = `A Java home was found at '${javaPathInfo.path}' but executing it with '-version' has failed: ${err}.`;
             } else {
-                return newRight(javaPathInfo.path);
+                errorMsg = `The Java home is in the settings configured to be '${javaPathInfo.path}' but executing it with '-version' has failed: ${err}.`;
             }
-        } catch (e) {
-            // if something goes wrong, getJavaPath will provide the error description, which we can simply forward:
-            return newEitherErrorFromError(e);
+            return newEitherError(errorMsg);
+        }
+
+        if (javaPathInfo.isAmbiguous) {
+            return newEitherWarning(`Multiple Java installations have been discovered. '${javaPathInfo.path}' will be used. ` +
+                `You can manually provide a path to a Java installation by specifying ` +
+                `'"viper.javaSettings.javaBinary": "<path>"' in your settings file.`);
+        } else {
+            return newRight(javaPathInfo.path);
         }
     }
 

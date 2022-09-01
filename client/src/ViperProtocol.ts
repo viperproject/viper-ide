@@ -626,10 +626,33 @@ export class Common {
         return platformIndependentPath;
     }
 
+    public static uriToString(uri: string | vscode.Uri): string {
+        if (!uri) return null;
+        if (typeof uri === "string") {
+            return uri;
+        } else {
+            return uri.toString();
+        }
+    }
+
+    public static uriToObject(uri: string | vscode.Uri): vscode.Uri {
+        if (!uri) return null;
+        if (typeof uri === "string") {
+            return vscode.Uri.parse(uri);
+        } else {
+            return uri;
+        }
+    }
+
     public static pathToUri(path: string): string {
         let uriObject: URI = URI.file(path);
         let platformIndependentUri = uriObject.toString();
         return platformIndependentUri;
+    }
+
+    public static uriEquals(a: string | vscode.Uri, b: string | vscode.Uri) {
+        if (!a || !b) return false;
+        return this.uriToString(a) == this.uriToString(b);
     }
 
     //Helper methods for child processes

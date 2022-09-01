@@ -29,7 +29,7 @@ import * as vscode from 'vscode';
 import { URI } from 'vscode-uri';
 import { Timer } from './Timer';
 import { State } from './ExtensionState';
-import { SettingsError, Progress, HintMessage, Versions, SettingsCheckedParams, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, Commands, StateChangeParams, LogLevel, BackendStartedParams } from './ViperProtocol';
+import { SettingsError, Progress, HintMessage, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, Commands, StateChangeParams, LogLevel, BackendStartedParams } from './ViperProtocol';
 import { Log } from './Log';
 import { StateVisualizer } from './StateVisualizer';
 import { Helper } from './Helper';
@@ -47,8 +47,14 @@ let autoSaver: Timer;
 let fileSystemWatcher: vscode.FileSystemWatcher;
 let formatter: ViperFormatter;
 
+let activated: boolean = false;
+
 // this method is called when your extension is activated
 export async function activate(context: vscode.ExtensionContext): Promise<ViperApi> {
+    if (activated) {
+        throw new Error(`Viper-IDE extension is already activated`);
+    }
+    
     Helper.loadViperFileExtensions();
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
     let ownPackageJson = vscode.extensions.getExtension("viper-admin.viper").packageJSON;
@@ -76,6 +82,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<ViperA
     } else {
         Log.log("No active text editor found", LogLevel.Info);
     }
+    activated = true;
     return State.viperApi;
 }
 
@@ -108,6 +115,12 @@ async function cleanViperToolsIfRequested(context: vscode.ExtensionContext): Pro
 }
 
 export async function deactivate(): Promise<void> {
+    if (!activated) {
+        // extension is either not activated or has already been deactivated
+        return;
+    }
+    activated = false;
+
     try {
         Log.log("deactivate", LogLevel.Info);
         await State.dispose();
@@ -128,19 +141,22 @@ export async function deactivate(): Promise<void> {
 }
 
 /** deactivates and disposes extension and returns the extension context */
-async function shutdown(): Promise<vscode.ExtensionContext> {
+export async function shutdown(): Promise<vscode.ExtensionContext> {
     const context = State.context;
     // remove diagnostics as otherwise VSCode will show diagnostics of the extension's
     // current and next run
     removeDiagnostics(false);
     await deactivate();
-    for (const sub of context.subscriptions) {
-		try {
-			sub.dispose();
+    while (context.subscriptions.length > 0) {
+        // remove first element (this avoid that we might dispose a subscription multiple times):
+        const sub = context.subscriptions.shift();
+        try {
+            // note that everything can be awaited in JS / TS:
+            await sub.dispose();
 		} catch (e) {
 			console.error(e);
 		}
-	}
+    }
     return context;
 }
 
@@ -243,7 +259,7 @@ function registerHandlers() {
         });
         
         State.client.onNotification(Commands.Log, (data, logLevel) => {
-            Log.log(`Server: ${data}`, logLevel);
+            Log.log(data, logLevel, true);
         });
         
         State.client.onNotification(Commands.Progress, (data: Progress, logLevel: LogLevel) => {
@@ -506,15 +522,26 @@ function registerHandlers() {
 
         //selectBackend
         State.context.subscriptions.push(vscode.commands.registerCommand('viper.selectBackend', (selectBackend) => {
+            const selectedBackendName = selectBackend ? selectBackend.toLowerCase() : null;
             try {
                 if (!State.client) {
                     Log.hint("Extension not ready yet.");
                 } else {
                     State.client.sendRequest(Commands.RequestBackendNames, null).then((backendNames: string[]) => {
                         if (backendNames.length > 1) {
-                            if (selectBackend && backendNames.some(x => x == selectBackend)) {
-                                considerStartingBackend(selectBackend);
+                            let askUser: boolean = false;
+                            if (selectedBackendName) {
+                                const match = backendNames.find(x => x.toLowerCase() === selectedBackendName);
+                                if (match == null) {
+                                    // chosen backend not found
+                                    askUser = true;
+                                } else {
+                                    considerStartingBackend(match);
+                                }
                             } else {
+                                askUser = true;
+                            }
+                            if (askUser) {
                                 vscode.window.showQuickPick(backendNames).then(selectedBackend => {
                                     if (selectedBackend && selectedBackend.length > 0) {
                                         considerStartingBackend(selectedBackend);

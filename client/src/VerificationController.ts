@@ -97,7 +97,7 @@ export class VerificationController {
     private lastCanStartVerificationReason: string;
     private lastCanStartVerificationUri: vscode.Uri;
 
-    private controller: Timer;
+    private controller: AwaitTimer;
     private workList: Task[];
 
     //for timing:
@@ -131,7 +131,7 @@ export class VerificationController {
     constructor(location: Location) {
         this.workList = [];
         let verificationTimeout = 100;//ms
-        this.controller = new Timer(async () => {
+        this.controller = new AwaitTimer(async () => {
             try {
                 //only keep most recent verify request
                 let verifyFound = false;
@@ -172,7 +172,7 @@ export class VerificationController {
                                     verifyFound = true;
                                     uriOfFoundVerfy = this.workList[i].uri;
                                 }
-                                if ((verificationComplete || verificationFailed) && Helper.uriEquals(completedOrFailedFileUri, this.workList[i].uri)) {
+                                if ((verificationComplete || verificationFailed) && Common.uriEquals(completedOrFailedFileUri, this.workList[i].uri)) {
                                     //remove verification requests of just verified file
                                     this.workList[i].type = NoOp;
                                 }
@@ -261,7 +261,7 @@ export class VerificationController {
                                     task.markStarted(TaskType.Verifying);
                                     task.timeout = await Settings.getTimeoutOfActiveBackend(location, State.activeBackend);
                                     this.verify(fileState, task.manuallyTriggered);
-                                } else if (canVerify.reason && (canVerify.reason != this.lastCanStartVerificationReason || (task.uri && !Helper.uriEquals(task.uri, this.lastCanStartVerificationUri)))) {
+                                } else if (canVerify.reason && (canVerify.reason != this.lastCanStartVerificationReason || (task.uri && !Common.uriEquals(task.uri, this.lastCanStartVerificationUri)))) {
                                     Log.log(canVerify.reason, LogLevel.Info);
                                     this.lastCanStartVerificationReason = canVerify.reason;
                                     if (canVerify.removeRequest) {
@@ -279,7 +279,7 @@ export class VerificationController {
                             } else {
                                 let timedOut = task.hasTimedOut();
                                 //should the verification be aborted?
-                                if ((verifyFound && !Helper.uriEquals(uriOfFoundVerfy, task.uri))//if another verification is requested, the current one must be stopped
+                                if ((verifyFound && !Common.uriEquals(uriOfFoundVerfy, task.uri))//if another verification is requested, the current one must be stopped
                                     || stopFound
                                     || startBackendFound
                                     || stopBackendFound
@@ -295,7 +295,7 @@ export class VerificationController {
                                 }
                                 //block until verification is complete or failed
                                 if (verificationComplete || verificationFailed) {
-                                    if (!Helper.uriEquals(completedOrFailedFileUri, task.uri)) {
+                                    if (!Common.uriEquals(completedOrFailedFileUri, task.uri)) {
                                         Log.error("WARNING: the " + (verificationComplete ? "completed" : "failed") + " verification uri does not correspond to the uri of the started verification.");
                                     }
                                     task.type = NoOp;
@@ -344,6 +344,7 @@ export class VerificationController {
                             } else {
                                 Log.logWithOrigin("workList", "Updating Viper Tools now", LogLevel.LowLevelDebug);
                                 await updateViperTools(State.context);
+                                if (State.unitTest) State.unitTest.viperUpdateComplete();
                                 task.markStarted(TaskType.RestartExtension);
                                 Log.logWithOrigin("workList", "RestartExtension", LogLevel.LowLevelDebug);
                             }
@@ -352,6 +353,7 @@ export class VerificationController {
                             // note that restarting the extension will kill the timer
                             // that schedules the tasks.
                             await restart();
+                            if (State.unitTest) State.unitTest.extensionRestarted();
                             break;
                         case TaskType.Save:
                             task.type = NoOp;
@@ -940,7 +942,7 @@ export class VerificationController {
                 files.forEach(file => {
                     let filePath = path.join(folder, file);
                     if (Helper.isViperSourceFile(filePath)) {
-                        result.push(Helper.uriToObject(Common.pathToUri(filePath)));
+                        result.push(Common.uriToObject(Common.pathToUri(filePath)));
                     }
                 });
                 resolve(result);
@@ -981,4 +983,27 @@ enum LspDiagnosticSeverity {
     Warning = 2,
     Information = 3,
     Hint = 4
+}
+
+/** similar to Timer but awaits the function and only then sets up a new interval */
+class AwaitTimer {
+    private running: Boolean = true;
+
+    constructor(fn: () => Promise<void>, intervalMs: number) {
+        const self = this;
+        (async function loop() {
+            await fn();
+            if (self.running) {
+                setTimeout(loop, intervalMs);
+            }
+        })();
+    }
+
+    stop(): void {
+        this.running = false;
+    }
+
+    dispose(): void {
+        this.stop();
+    }
 }

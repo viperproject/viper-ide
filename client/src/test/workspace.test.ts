@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { Helper } from '../Helper';
+import { Common } from '../ViperProtocol';
 import TestHelper, { DATA_ROOT, SETUP_TIMEOUT } from './TestHelper';
 
 suite('Workspace Tests', () => {
@@ -19,7 +19,7 @@ suite('Workspace Tests', () => {
 
         await TestHelper.executeCommand('workbench.action.closeAllEditors');
         await TestHelper.waitForIdle();
-        await TestHelper.executeCommand('viper.verifyAllFilesInWorkspace', Helper.uriToString(DATA_ROOT));
+        await TestHelper.executeCommand('viper.verifyAllFilesInWorkspace', Common.uriToString(DATA_ROOT));
         const result = await TestHelper.waitForVerificationOfAllFilesInWorkspace();
         assert(result.verified == result.total, `partially verified workspace: (${result.verified}/${result.total})`);
     });

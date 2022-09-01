@@ -21,6 +21,7 @@ export class Log {
     static logFilePath: string;
     static logFile: fs.WriteStream;
     static outputChannel = vscode.window.createOutputChannel('Viper');
+    static serverOutputChannel = vscode.window.createOutputChannel('ViperServer');
     static logLevel: LogLevel = null;
     static lastProgress: { msg: string, logLevel: LogLevel };
     private static START_TIME = new Date().getTime();
@@ -61,6 +62,10 @@ export class Log {
         }
         if (!this.outputChannel) {
             Log.log("The ouput channel was not set up correctly, no messages can be written to the output panel.", logLevel);
+            initialized = false;
+        }
+        if (!this.serverOutputChannel) {
+            Log.log("The server ouput channel was not set up correctly, no messages can be written to the output panel.", logLevel);
             initialized = false;
         }
         if (this.logLevel == null) {
@@ -108,23 +113,29 @@ export class Log {
         }
     }
 
-    public static log(message: string, logLevel: LogLevel) {
+    public static log(message: string, logLevel: LogLevel, fromServer: boolean = false) {
         if (this.lastProgress) {
-            this.doLog(this.lastProgress.msg, this.lastProgress.logLevel);
+            this.doLog(this.lastProgress.msg, this.lastProgress.logLevel, fromServer);
             this.lastProgress = null;
         }
-        this.doLog(message, logLevel);
+        this.doLog(message, logLevel, fromServer);
     }
 
-    private static doLog(message: string, logLevel: LogLevel) {
-        let timing = this.logTiming ? this.prettyUptime() + ' ' : '';
-        message = this.prefix(logLevel) + message;
-        if (!Log.logLevel || Log.logLevel >= logLevel) {
-            console.log(timing + message);
-            Log.outputChannel.append(message + "\n");
+    private static doLog(message: string, logLevel: LogLevel, fromServer: boolean) {
+        const timing = this.logTiming ? this.prettyUptime() + ' ' : '';
+        const messageWithLogLevel = this.prefix(logLevel) + message;
+        const messageWithTiming = timing + messageWithLogLevel;
+        const serverPrefix = fromServer ? "Server: " : "";
+        if (Log.logLevel == null || Log.logLevel >= logLevel) {
+            console.log(serverPrefix + messageWithTiming);
+            if (fromServer) {
+                Log.serverOutputChannel.append(messageWithTiming + "\n");
+            } else {
+                Log.outputChannel.append(messageWithTiming + "\n");
+            }
         }
         if (Log.logFile) {
-            Log.logFile.write(timing + message + "\n");
+            Log.logFile.write(serverPrefix + messageWithTiming + "\n");
         }
     }
 

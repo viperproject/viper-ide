@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import { Helper } from '../Helper';
+import { Common } from '../ViperProtocol';
 import TestHelper, { EMPTY_TXT, LONG, SETUP_TIMEOUT, SIMPLE } from './TestHelper';
 
 suite('ViperIDE Tests', () => {
@@ -99,7 +100,7 @@ suite('ViperIDE Tests', () => {
         checkAssert(Helper.isViperSourceFile("/folder/file.vpr"), true, "isViperSourceFile unix path");
         checkAssert(Helper.isViperSourceFile("..\\.\\folder\\file.sil"), true, "isViperSourceFile relavive windows path");
         checkAssert(!Helper.isViperSourceFile("C:\\absolute\\path\\file.ts"), true, "isViperSourceFile absolute windows path");
-        checkAssert(path.basename(Helper.uriToString(Helper.getActiveFileUri())), SIMPLE, "active file");
+        checkAssert(path.basename(Common.uriToString(Helper.getActiveFileUri())), SIMPLE, "active file");
     });
         
     test("Test opening logFile", async function() {

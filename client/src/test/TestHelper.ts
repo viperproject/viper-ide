@@ -12,7 +12,6 @@ import * as myExtension from '../extension';
 import { State, UnitTestCallback } from '../ExtensionState';
 import { Log } from '../Log';
 import { Common, LogLevel, Output } from '../ViperProtocol';
-import * as Notifier from '../Notifier';
 
 export const PROJECT_ROOT = path.join(__dirname, "..", "..");
 export const DATA_ROOT = path.join(PROJECT_ROOT, "src", "test", "data");
@@ -30,6 +29,7 @@ export const LONG = 'longDuration.vpr';
 
 export default class TestHelper {
     private static callbacks: UnitTestCallbackImpl = null;
+    private static context: vscode.ExtensionContext = null;
 
     public static async setup() {
         // setup callbacks:
@@ -44,12 +44,19 @@ export default class TestHelper {
         // https://github.com/microsoft/vscode/issues/45774#issuecomment-373423895
         // However, we solve it by executing each test suite individually. This is controlled by `runTest.ts`
         // that calls `index.ts` with a particular test suite.
+        if (this.context != null) {
+            // VScode does not automatically start the extension when reopening a
+            // Viper file if we have manually terminated the extension before
+            await myExtension.activate(this.context);
+        }
     }
 
     public static async teardown() {
         assert(this.callbacks != null);
         this.callbacks = null;
-        await myExtension.deactivate();
+        this.context = await myExtension.shutdown();
+        // wait shortly (1s) to ensure that the OS reports the (killed) processes correctly:
+        // await new Promise(resolve => setTimeout(resolve, 1000));
         await this.checkForRunningProcesses(true, true, true);
 
         // at the very end, set `unitTest` to false and dispose log because `Log.dispose()` as part of `deactivate`
@@ -185,7 +192,7 @@ export default class TestHelper {
         return new Promise(resolve => {
             TestHelper.callbacks.backendStarted = (b) => {
                 TestHelper.log("Backend " + b + " started");
-                if (!backend || b === backend) {
+                if (!backend || b.toLowerCase() === backend.toLowerCase()) {
                     resolve();
                 }
             }
@@ -196,7 +203,7 @@ export default class TestHelper {
         return new Promise(resolve => {
             TestHelper.callbacks.verificationStarted = (b, f) => {
                 TestHelper.log(`Verification Started: file: ${f}, backend: ${b}`);
-                if ((!backend || b === backend) && f === fileName) {
+                if ((!backend || b.toLowerCase() === backend.toLowerCase()) && f === fileName) {
                     resolve();
                 }
             }
@@ -207,7 +214,7 @@ export default class TestHelper {
         return new Promise(resolve => {
             TestHelper.callbacks.verificationComplete = (b, f) => {
                 TestHelper.log(`Verification Completed: file: ${f}, backend: ${b}`);
-                if ((!backend || b === backend) && f === fileName) {
+                if ((!backend || b.toLowerCase() === backend.toLowerCase()) && f === fileName) {
                     resolve();
                 }
             }
@@ -277,11 +284,17 @@ export default class TestHelper {
         });
     }
 
+    public static waitForExtensionRestart(): Promise<void> {
+        return new Promise(resolve => {
+            TestHelper.callbacks.extensionRestarted = () => { resolve(); }
+        });
+    }
+
     /**
      * Promise is resolved with true if timeout is hit, otherwise if event happens before timeout returned promise is resolved with false
      */
     public static waitForTimeout(timeoutMs, event: Promise<any>): Promise<boolean> {
-        return new Promise((resolve, reject) => {
+        return new Promise(resolve => {
             setTimeout(() => {
                 resolve(true);
             }, timeoutMs);
@@ -321,4 +334,5 @@ class UnitTestCallbackImpl implements UnitTestCallback {
     viperUpdateFailed = () => { };
     verificationStopped = () => { };
     verificationStarted = (backend: string, filename: string) => { };
+    extensionRestarted = () => { };
 }

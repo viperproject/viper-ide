@@ -8,20 +8,15 @@
  
 'use strict';
 
-import * as child_process from 'child_process';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as globToRexep from 'glob-to-regexp';
 import * as path from 'path';
 import * as os from 'os';
 import { Log } from './Log';
-import { LogLevel } from './ViperProtocol';
+import { Common, LogLevel } from './ViperProtocol';
 
 export class Helper {
-    public static isWin = /^win/.test(process.platform);
-    public static isLinux = /^linux/.test(process.platform);
-    public static isMac = /^darwin/.test(process.platform);
-
     public static viperFileEndings: string[];
 
     public static loadViperFileExtensions() {
@@ -36,48 +31,13 @@ export class Helper {
         }
     }
 
-    //unused
-    public static makeSureFileExists(fileName: string) {
-        try {
-            if (!fs.existsSync(fileName)) {
-                fs.createWriteStream(fileName).close();
-            }
-            fs.accessSync(fileName);
-        } catch (e) {
-            Log.error("Error making sure " + fileName + " exists. Are you missing access permission? " + e);
-        }
-    }
-
     public static isViperSourceFile(uri: string | vscode.Uri): boolean {
         if (!uri) return false;
-        let uriString = this.uriToString(uri);
+        let uriString = Common.uriToString(uri);
         return this.viperFileEndings.some(globPattern => {
             let regex = globToRexep(globPattern);
             return regex.test(uriString);
         });
-    }
-
-    public static uriEquals(a: string | vscode.Uri, b: string | vscode.Uri) {
-        if (!a || !b) return false;
-        return this.uriToString(a) == this.uriToString(b);
-    }
-
-    public static uriToString(uri: string | vscode.Uri): string {
-        if (!uri) return null;
-        if (typeof uri === "string") {
-            return uri;
-        } else {
-            return uri.toString();
-        }
-    }
-
-    public static uriToObject(uri: string | vscode.Uri): vscode.Uri {
-        if (!uri) return null;
-        if (typeof uri === "string") {
-            return vscode.Uri.parse(uri);
-        } else {
-            return uri;
-        }
     }
 
     ///might be null
@@ -144,42 +104,6 @@ export class Helper {
         const value = process.env["VIPER_IDE_ASSUME_YES"];
         return value != null && 
             (value == "1" || value.toUpperCase() == "TRUE");
-    }
-
-    public static spawn(
-        cmd: string, 
-        args?: string[] | undefined, 
-        options?: child_process.SpawnOptionsWithoutStdio | undefined
-    ): Promise<Output> {
-        Log.log(`Viper-IDE: Running '${cmd} ${args ? args.join(' ') : ''}'`, LogLevel.Verbose);
-        return new Promise((resolve, reject) => {
-            let stdout = '';
-            let stderr = '';
-    
-            const proc = child_process.spawn(cmd, args, options);
-    
-            proc.stdout.on('data', (data) => stdout += data);
-            proc.stderr.on('data', (data) => stderr += data);
-            proc.on('close', (code) => {
-                Log.log("┌──── Begin stdout ────┐", LogLevel.Verbose);
-                Log.log(stdout, LogLevel.Verbose);
-                Log.log("└──── End stdout ──────┘", LogLevel.Verbose);
-                Log.log("┌──── Begin stderr ────┐", LogLevel.Verbose);
-                Log.log(stderr, LogLevel.Verbose);
-                Log.log("└──── End stderr ──────┘", LogLevel.Verbose);
-                resolve({ stdout, stderr, code });
-            });
-            proc.on('error', (err) => {
-                Log.log("┌──── Begin stdout ────┐", LogLevel.Info);
-                Log.log(stdout, LogLevel.Info);
-                Log.log("└──── End stdout ──────┘", LogLevel.Info);
-                Log.log("┌──── Begin stderr ────┐", LogLevel.Info);
-                Log.log(stderr, LogLevel.Info);
-                Log.log("└──── End stderr ──────┘", LogLevel.Info);
-                Log.log(`Error: ${err}`, LogLevel.Info);
-                reject(err);
-            });
-        });
     }
 
     public static rethrow(msg: string): (originalReason: any) => PromiseLike<never> {

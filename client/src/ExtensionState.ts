@@ -13,7 +13,7 @@ import * as net from 'net';
 import * as child_process from "child_process";
 import * as readline from 'readline';
 import { Location } from 'vs-verification-toolbox';
-import { LogLevel, ViperSettings } from './ViperProtocol';
+import { Common, LogLevel } from './ViperProtocol';
 import { Log } from './Log';
 import { ViperFileState } from './ViperFileState';
 import { URI } from 'vscode-uri';
@@ -44,8 +44,7 @@ export class State {
 
     public static unitTest: UnitTestCallback;
 
-    // Set to false for debuggin. Should eventually be changed back to true.
-    public static autoVerify: boolean = false;
+    public static autoVerify: boolean = true;
 
     //status bar
     public static statusBarItem: StatusBar;
@@ -137,8 +136,8 @@ export class State {
     // retrieves the requested file, creating it when needed
     public static getFileState(uri: URI | string | vscode.Uri): ViperFileState {
         if (!uri) return null;
-        let uriObject: vscode.Uri = Helper.uriToObject(uri);
-        let uriString: string = Helper.uriToString(uri);
+        let uriObject: vscode.Uri = Common.uriToObject(uri);
+        let uriString: string = Common.uriToString(uri);
 
         if (!Helper.isViperSourceFile(uriString)) {
             return null;
@@ -154,12 +153,11 @@ export class State {
     }
 
     public static async startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, location: Location, brk: boolean): Promise<void> {
-        await State.checkDependenciesAndGetJavaPath(location);
         const policy = Settings.getServerPolicy();
         let serverOptions: ServerOptions;
-        let serverDisposable: vscode.Disposable;
+        let serverDisposable: Disposable;
         if (policy.create) {
-            const {streamInfo, disposable} = await State.startServerProcess(context, location);
+            const { streamInfo, disposable } = await State.startServerProcess(location);
             serverDisposable = disposable;
             serverOptions = () => Promise.resolve(streamInfo);
         } else {
@@ -192,18 +190,50 @@ export class State {
     }
 
     /**creates a server for the given server binary; the disposable object kills the server process */
-    private static async startServerProcess(context: vscode.ExtensionContext, location: Location): Promise<{streamInfo: StreamInfo, disposable: vscode.Disposable}> {
-        const javaPath = await State.checkDependenciesAndGetJavaPath(location);
+    private static async startServerProcess(location: Location): Promise<{ streamInfo: StreamInfo, disposable: Disposable }> {
+        const javaPath = (await Settings.getJavaPath()).path;
         const cwd = await Settings.getJavaCwd();
         const processArgs = await Settings.getServerProcessArgs(location, "viper.server.ViperServerRunner");
+        const logLevelString = (() => {
+            // translate LogLevel to the command-line parameter that ViperServer understands:
+            switch(Settings.getLogLevel()) {
+                case LogLevel.None:
+                    return "OFF";
+                case LogLevel.Default:
+                    return "ERROR";
+                case LogLevel.Info:
+                    return "INFO";
+                case LogLevel.Verbose:
+                    return "DEBUG";
+                case LogLevel.Debug:
+                    return "TRACE";
+                case LogLevel.LowLevelDebug:
+                    return "ALL";
+            }
+        })();
 
         // spawn ViperServer and get port number on which it is reachable:
-        const {port: portNr, disposable: disposable} = await new Promise((resolve:(res: {port: number, disposable: vscode.Disposable}) => void, reject) => {
-            const command = `"${javaPath}" ${processArgs} --serverMode LSP`; // processArgs is already escaped but escape javaPath as well.
+        const { port: portNr, disposable: disposable } = await new Promise((resolve:(res: { port: number, disposable: Disposable }) => void, reject) => {
+            const command = `"${javaPath}" ${processArgs} --logLevel ${logLevelString} --serverMode LSP`; // processArgs is already escaped but escape javaPath as well.
             Log.log(`Spawning ViperServer with ${command}`, LogLevel.Verbose);
             const serverProcess = child_process.spawn(command, [], { shell: true, cwd: cwd });
             Log.log(`ViperServer has been spawned and has PID ${serverProcess.pid}`, LogLevel.Verbose);
-            const disposable = new vscode.Disposable(() => serverProcess.kill('SIGINT'));
+            /** this function should be invoked when the ViperServer process has ended */
+            let viperServerProcessHasEnded: () => void;
+            const onCloseViperServerProcess = new Promise<void>(resolve => { viperServerProcessHasEnded = resolve; });
+            // note: do not use construct an object of type `vscode.Disposable` (using its constructor)
+            // since the resulting disposable does not seem to be awaitable.
+            const disposable = { dispose: async () => {
+                const success = serverProcess.kill('SIGINT');
+                // `kill` only signals the process to exit. Thus, wait until process has indeed terminated:
+                Log.log(`Awaiting termination of the ViperServer process`, LogLevel.Debug);
+                await onCloseViperServerProcess;
+                if (success) {
+                    Log.log(`Killing ViperServer (PID ${serverProcess.pid}) has succeeded`, LogLevel.Verbose);
+                } else {
+                    Log.log(`Killing ViperServer (PID ${serverProcess.pid}) has failed`, LogLevel.Info);
+                }
+            }};
 
             const portRegex = /<ViperServerPort:(\d+)>/;
             let portFound: boolean = false;
@@ -215,7 +245,7 @@ export class State {
                         const port = Number(match[1]);
                         if (port != NaN) {
                             portFound = true;
-                            resolve({port, disposable});
+                            resolve({ port, disposable });
                         }
                     }
                 }
@@ -224,14 +254,21 @@ export class State {
             // redirect stdout to readline which nicely combines and splits lines
             const rl = readline.createInterface({ input: serverProcess.stdout });
             rl.on('line', stdOutLineHandler);
-            serverProcess.stdout.on('data', (data) => Log.log(data, LogLevel.Verbose));
-            serverProcess.stderr.on('data', (data) => Log.log(data, LogLevel.Verbose));
+            serverProcess.stdout.on('data', (data) => Log.log(data, LogLevel.Verbose, true));
+            serverProcess.stderr.on('data', (data) => Log.log(data, LogLevel.Verbose, true));
             serverProcess.on('close', (code) => {
-                Log.log(`ViperServer process has ended with return code ${code}`, LogLevel.Info);
+                const msg = `ViperServer process has ended with return code ${code}`;
+                Log.log(msg, LogLevel.Info, true);
+                // reject the promise (this covers the case where ViperServer crashes during startup
+                // and thus the promise has not been resolved yet. In case the promise has already
+                // been resolved, this call to reject is simply ignored.)
+                reject(new Error(msg));
+                viperServerProcessHasEnded();
             });
             serverProcess.on('error', (err) => {
-                const msg = `ViperServer process has encountered an error: ${err}`
-                Log.log(msg, LogLevel.Info);
+                const msg = `ViperServer process has encountered an error: ${err}`;
+                Log.log(msg, LogLevel.Info); // TODO: remove
+                Log.log(msg, LogLevel.Info, true);
                 reject(msg);
             });
         });
@@ -257,20 +294,6 @@ export class State {
                 reject(err);
             });
         });
-    }
-
-    private static async checkDependenciesAndGetJavaPath(location: Location): Promise<string> {
-        // test whether java and z3 binaries can be used:
-        Log.log("Checking Java...", LogLevel.Verbose);
-        const javaPath = await Settings.getJavaPath().then(p => p.path);
-        await Helper.spawn(javaPath, ["-version"]);
-        Log.log("Checking Z3...", LogLevel.Verbose);
-        const z3Path = await Settings.getZ3Path(location);
-        await Helper.spawn(z3Path, ["--version"]);
-        Log.log("Checking Boogie...", LogLevel.Verbose);
-        const boogiePath = await Settings.getBoogiePath(location);
-        await Helper.spawn(boogiePath, ["-version"]);
-        return javaPath;
     }
 
     public static async dispose(): Promise<void> {
@@ -300,4 +323,7 @@ export interface UnitTestCallback {
     viperUpdateFailed: () => void;
     verificationStopped: () => void;
     verificationStarted: (backend: string, filename: string) => void;
+    extensionRestarted: () => void;
 }
+
+type Disposable = { dispose(): any };

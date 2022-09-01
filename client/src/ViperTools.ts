@@ -64,7 +64,7 @@ export async function locateViperTools(context: vscode.ExtensionContext): Promis
     }
 
     async function setPermissions(location: Location): Promise<Location> {
-        if (Helper.isLinux || Helper.isMac) {
+        if (Settings.isLinux || Settings.isMac) {
             const boogiePath = await Settings.getBoogiePath(location);
             const z3Path = await Settings.getZ3Path(location);
             fs.chmodSync(z3Path, '755');
