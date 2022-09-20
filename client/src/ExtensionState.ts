@@ -7,11 +7,13 @@
   */
  
 'use strict';
+import * as child_process from "child_process";
 import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient';
 import * as vscode from 'vscode';
 import * as net from 'net';
-import * as child_process from "child_process";
+import * as path from 'path';
 import * as readline from 'readline';
+import * as unusedFilename from 'unused-filename';
 import { Location } from 'vs-verification-toolbox';
 import { Common, LogLevel } from './ViperProtocol';
 import { Log } from './Log';
@@ -211,10 +213,12 @@ export class State {
                     return "ALL";
             }
         })();
+        const logDirectory = Helper.getLogDir();
+        const serverLogFile = unusedFilename.sync(path.join(logDirectory, "viperserver.log"));
 
         // spawn ViperServer and get port number on which it is reachable:
         const { port: portNr, disposable: disposable } = await new Promise((resolve:(res: { port: number, disposable: Disposable }) => void, reject) => {
-            const command = `"${javaPath}" ${processArgs} --logLevel ${logLevelString} --serverMode LSP`; // processArgs is already escaped but escape javaPath as well.
+            const command = `"${javaPath}" ${processArgs} --logLevel ${logLevelString} --logFile ${serverLogFile} --serverMode LSP`; // processArgs is already escaped but escape javaPath as well.
             Log.log(`Spawning ViperServer with ${command}`, LogLevel.Verbose);
             const serverProcess = child_process.spawn(command, [], { shell: true, cwd: cwd });
             Log.log(`ViperServer has been spawned and has PID ${serverProcess.pid}`, LogLevel.Verbose);
