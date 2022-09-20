@@ -446,7 +446,7 @@ jobs:
           echo "LAST_PUBLISHED_VERSION=$LAST_PUBLISHED_VERSION" >> $GITHUB_ENV
           echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
 
-      # only publish 'stable' releases not release-candidates
+      # publish 'stable' releases (release-candidates will be released as pre-releases below)
       - name: Publish the extension to Visual Studio Marketplace
         uses: HaaLeo/publish-vscode-extension@v0
         if: ${{ github.event.inputs.type == 'stable' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
@@ -464,3 +464,14 @@ jobs:
           registryUrl: https://open-vsx.org
           extensionFile: client/viper-ide.vsix
           packagePath: ''
+
+      # publish 'rc' releases as pre-releases
+      - name: Publish the extension to Visual Studio Marketplace (as pre-release)
+        uses: HaaLeo/publish-vscode-extension@v0
+        if: ${{ github.event.inputs.type == 'rc' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
+        with:
+          pat: ${{ secrets.VSCE_TOKEN }}
+          registryUrl: https://marketplace.visualstudio.com
+          extensionFile: client/viper-ide.vsix
+          packagePath: ''
+          preRelease: true
