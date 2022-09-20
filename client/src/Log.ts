@@ -134,6 +134,7 @@ export class Log {
                 Log.outputChannel.append(messageWithTiming + "\n");
             }
         }
+        // write all output to the log file (independent of the configured log level):
         if (Log.logFile) {
             Log.logFile.write(serverPrefix + messageWithTiming + "\n");
         }

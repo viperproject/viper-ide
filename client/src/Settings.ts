@@ -276,7 +276,7 @@ export class Settings {
             const path = location.basePath;
             resolvedPath = await Settings.checkPath(location, path, `ViperTools for build channel ${buildChannel}:`, false, true, true);
         }
-        // not that `checkPath` already makes sure that the path exists
+        // note that `checkPath` already makes sure that the path exists
         return transformRight(resolvedPath, p => p.path);
     }
 
@@ -906,14 +906,14 @@ export class Settings {
         }
         path = path.trim();
 
-        //expand internal variables
+        // expand internal variables
         const expandedPath = await Settings.expandViperToolsPath(location, path);
-        //expand environmental variables
+        // expand environmental variables
         const resolvedPath = await Settings.extractEnvVars(expandedPath);
 
-        //handle files in Path env var
+        // handle files in Path env var
         if (resolvedPath.indexOf("/") < 0 && resolvedPath.indexOf("\\") < 0) {
-            //its only a filename, try to find it in the path
+            // its only a filename, try to find it in the path
             const pathEnvVar: string = process.env.PATH;
             if (pathEnvVar) {
                 const pathList: string[] = pathEnvVar.split(Settings.isWin ? ";" : ":");
@@ -926,7 +926,7 @@ export class Settings {
             }
             return { path: resolvedPath, exists: false };
         } else {
-            //handle absolute and relative paths
+            // handle absolute and relative paths
             let homeExpandedPath = resolvedPath;
             const home = os.homedir();
             if (home) {
@@ -954,6 +954,7 @@ export class Settings {
         return path.replace(/\$viperTools\$/g, toolsPath);    
     }
 
+    // does not check whether the extracted path exists or not
     private static async extractEnvVars(path: string): Promise<string> {
         if (path && path.length > 2) {
             while (Settings.isWin && path.indexOf("%") >= 0) {
@@ -989,11 +990,7 @@ export class Settings {
                 path = path.substring(0, index_of_dollar) + envValue + path.substring(index_of_closing_slash, path.length)
             }
         }
-        if (fs.existsSync(path)) {
-            return path;
-        } else {
-            throw new Error(`Expected path ${path} does not exist`);
-        }
+        return path;
     }
 
     private static exists(path: string, executable: boolean): ResolvedPath {
