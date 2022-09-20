@@ -154,7 +154,7 @@ export class State {
         return result;
     }
 
-    public static async startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, location: Location, brk: boolean): Promise<void> {
+    public static async startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, location: Location): Promise<void> {
         const policy = Settings.getServerPolicy();
         let serverOptions: ServerOptions;
         let serverDisposable: Disposable;
@@ -166,6 +166,21 @@ export class State {
             serverOptions = () => State.connectToServer(policy.address, policy.port);
         }
 
+        const traceOutputForCi: vscode.OutputChannel = {
+            name: "Output Channel forwarding to log file",
+            append: function (value: string): void {
+                Log.logWithOrigin("LSP trace", value, LogLevel.LowLevelDebug);
+            },
+            appendLine: function (value: string): void {
+                Log.logWithOrigin("LSP trace", value, LogLevel.LowLevelDebug);
+            },
+            replace: function (value: string): void {},
+            clear: function (): void {},
+            show: function (param: any): void {},
+            hide: function (): void {},
+            dispose: function (): void {}
+        };
+
         // Options to control the language client
         const clientOptions: LanguageClientOptions = {
             // Register the server for plain text documents
@@ -175,11 +190,16 @@ export class State {
                 configurationSection: 'viperSettings',
                 // Notify the server about file changes to .sil or .vpr files contain in the workspace
                 fileEvents: fileSystemWatcher
-            }
+            },
+            // redirect output while unit testing to the log file as no UI is available:
+            traceOutputChannel: State.unitTest ? traceOutputForCi : undefined
         }
 
         // the ID `viperserver` has to match the first part of `viperserver.trace.server` controlling the amount of tracing
-        State.client = new LanguageClient('viperserver', 'Viper Server', serverOptions, clientOptions, brk);
+        State.client = new LanguageClient('viperserver', 'Viper IDE - ViperServer Communication', serverOptions, clientOptions);
+        State.client.onDidChangeState(event => {
+            Log.log(`LanguageClient changed state from ${event.oldState} to ${event.newState}`, LogLevel.LowLevelDebug);
+        });
 
         // Create the language client and start the client.
         const disposable = State.client.start();

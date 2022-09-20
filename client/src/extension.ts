@@ -75,7 +75,7 @@ async function internalActivate(context: vscode.ExtensionContext): Promise<Viper
     await handleSettingsCheckResult(settingsResult);
     State.verificationController = new VerificationController(location);
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/{' + Helper.viperFileEndings.join(",") + "}");
-    await State.startLanguageServer(context, fileSystemWatcher, location, false);
+    await State.startLanguageServer(context, fileSystemWatcher, location);
     State.viperApi = new ViperApi(State.client);
     registerHandlers();
     Notifier.notifyExtensionActivation();
