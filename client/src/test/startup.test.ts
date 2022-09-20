@@ -9,8 +9,12 @@ suite('Extension Startup', () => {
         // will check this
     });
 
+    let verified: boolean = false;
     suiteTeardown(async function() {
-        await TestHelper.teardown();
+        if (verified) {
+            // otherwise the unit test has failed anyways
+            await TestHelper.teardown();
+        }
     });
 
     test("Language Detection, and Silicon Backend Startup test.", async function() {
@@ -23,8 +27,9 @@ suite('Extension Startup', () => {
     test("Test simple verification with Silicon", async function(){
         this.timeout(40000);
         await TestHelper.openAndVerify(SIMPLE);
+        verified = true;
     });
-
+    /*
     test("Test simple verification with Silicon and a different file", async function(){
         this.timeout(40000);
         await TestHelper.openAndVerify(EMPTY);
@@ -45,4 +50,5 @@ suite('Extension Startup', () => {
         // TestHelper will make sure that the extension is properly restarted for the
         // next test suite.
     });
+    */
 });
