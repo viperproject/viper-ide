@@ -264,27 +264,30 @@ export class Settings {
      * In the case that the build channel is 'Local', `null` can be passed.
      * Note that the provided `buildChannel` is used to perform all checks, we
      * can be independent of the user configued build channel.
+     * if `allowMissingPath` is set to false, the promise will be resolved even if the path does
+     * not (yet) exist
      */
-    private static async checkViperToolsPath(location: Location | null, buildChannel: BuildChannel): Promise<Either<Messages, string>> {
+    private static async checkViperToolsPath(location: Location | null, buildChannel: BuildChannel, allowMissingPath: boolean = false): Promise<Either<Messages, string>> {
         const settingName = "paths";
         const isBuildChannelLocal = (buildChannel === BuildChannel.Local);
         let resolvedPath: Either<Messages, ResolvedPath>;
         if (isBuildChannelLocal) {
             const configuredPath = Settings.getConfiguration(settingName).viperToolsPath;
-            resolvedPath = await Settings.checkPath(location, configuredPath, `${settingName}.viperToolsPath`, false, true, true);
+            resolvedPath = await Settings.checkPath(location, configuredPath, `${settingName}.viperToolsPath`, false, true, true, allowMissingPath);
         } else {
             const path = location.basePath;
-            resolvedPath = await Settings.checkPath(location, path, `ViperTools for build channel ${buildChannel}:`, false, true, true);
+            resolvedPath = await Settings.checkPath(location, path, `ViperTools for build channel ${buildChannel}:`, false, true, true, allowMissingPath);
         }
         // note that `checkPath` already makes sure that the path exists
         return transformRight(resolvedPath, p => p.path);
     }
 
     /**
-     * Get path to location at which Viper tools have been manually installed (build channel "Local").
+     * Get path to location at which Viper tools should be / have been manually installed (build channel "Local").
+     * `allowMissingPath` configures whether promise should be resolved even if the path does not exist.
      */
-    public static async getLocalViperToolsPath(): Promise<string> {
-        const resolvedPath = await Settings.checkViperToolsPath(null, BuildChannel.Local);
+    public static async getLocalViperToolsPath(allowMissingPath: boolean = false): Promise<string> {
+        const resolvedPath = await Settings.checkViperToolsPath(null, BuildChannel.Local, allowMissingPath);
         return toRight(resolvedPath);
     }
 
@@ -525,7 +528,6 @@ export class Settings {
         const resolvePromises = stringPaths.map(async stringPath => {
             const resolvedPath = await Settings.resolvePath(location, stringPath, false);
             if (!resolvedPath.exists) {
-                // return newEitherError<string>(`${prefix} path not found: '${stringPath}' ${(resolvedPath.path != stringPath ? " which expands to '${resolvedPath.path}'" : "")} ${resolvedPath.error || ""}`);
                 return newEitherError<string>(`${prefix} path not found: '${stringPath}' ${(resolvedPath.path != stringPath ? " which expands to '${resolvedPath.path}'" : "")}`);
             }
             return newRight(resolvedPath.path);

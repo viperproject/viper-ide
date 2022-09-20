@@ -125,7 +125,7 @@ function getDependencyInstaller(buildChannel: BuildChannel): Promise<DependencyI
 }
 
 async function getLocalDependencyInstaller(): Promise<DependencyInstaller> {
-    const toolsPath = await Settings.getLocalViperToolsPath()
+    const toolsPath = await Settings.getLocalViperToolsPath(true);
     return new LocalReference(toolsPath);
 }
 
