@@ -31,16 +31,14 @@ export default class TestHelper {
     private static callbacks: UnitTestCallbackImpl = null;
     private static context: vscode.ExtensionContext = null;
 
-    public static async setup() {
+    public static async setup(): Promise<void> {
         // setup callbacks:
         assert(this.callbacks == null);
         this.callbacks = new UnitTestCallbackImpl();
         State.unitTest = this.callbacks;
         // call `Log.updateSettings()` as early as possible after setting `State.unitTest` such that 
         // the appropriate log level for tests is set:
-        Log.log(`before updating settings`, LogLevel.LowLevelDebug);
         Log.updateSettings();
-        Log.log(`after updating settings`, LogLevel.LowLevelDebug);
 
         // The following comment explains how an extension could be restarted in between test suites:
         // https://github.com/microsoft/vscode/issues/45774#issuecomment-373423895
@@ -49,9 +47,7 @@ export default class TestHelper {
         if (this.context != null) {
             // VScode does not automatically start the extension when reopening a
             // Viper file if we have manually terminated the extension before
-            Log.log(`before activating extension`, LogLevel.LowLevelDebug);
             await myExtension.activate(this.context);
-            Log.log(`after activating extension`, LogLevel.LowLevelDebug);
         }
     }
 

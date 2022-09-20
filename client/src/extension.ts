@@ -52,7 +52,7 @@ let activated: boolean = false;
 // this method is called when your extension is activated
 export async function activate(context: vscode.ExtensionContext): Promise<ViperApi> {
     return internalActivate(context)
-        .then(Helper.rethrow(`Activating the Viper-IDE extension has failed`));
+        .catch(Helper.rethrow(`Activating the Viper-IDE extension has failed`));
 }
 
 async function internalActivate(context: vscode.ExtensionContext): Promise<ViperApi> {
@@ -121,7 +121,7 @@ async function cleanViperToolsIfRequested(context: vscode.ExtensionContext): Pro
 
 export async function deactivate(): Promise<void> {
     return internalDeactivate()
-        .then(Helper.rethrow(`Deactivating the Viper-IDE extension has failed`));
+        .catch(Helper.rethrow(`Deactivating the Viper-IDE extension has failed`));
 }
 
 async function internalDeactivate(): Promise<void> {
@@ -153,7 +153,7 @@ async function internalDeactivate(): Promise<void> {
 /** deactivates and disposes extension and returns the extension context */
 export async function shutdown(): Promise<vscode.ExtensionContext> {
     return internalShutdown()
-        .then(Helper.rethrow(`Shutting down the Viper-IDE extension has failed`));
+        .catch(Helper.rethrow(`Shutting down the Viper-IDE extension has failed`));
 }
 
 async function internalShutdown(): Promise<vscode.ExtensionContext> {
@@ -177,7 +177,7 @@ async function internalShutdown(): Promise<vscode.ExtensionContext> {
 
 export async function restart(): Promise<void> {
     return internalRestart()
-        .then(Helper.rethrow(`Restarting the Viper-IDE extension has failed`));
+        .catch(Helper.rethrow(`Restarting the Viper-IDE extension has failed`));
 }
 
 async function internalRestart(): Promise<void> {
