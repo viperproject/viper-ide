@@ -126,8 +126,9 @@ export class Log {
         const messageWithLogLevel = this.prefix(logLevel) + message;
         const messageWithTiming = timing + messageWithLogLevel;
         const serverPrefix = fromServer ? "Server: " : "";
+        const messageWithTimingAndServerPrefix = timing + serverPrefix + messageWithLogLevel;
         if (Log.logLevel == null || Log.logLevel >= logLevel) {
-            console.log(serverPrefix + messageWithTiming);
+            console.log(messageWithTimingAndServerPrefix);
             if (fromServer) {
                 Log.serverOutputChannel.append(messageWithTiming + "\n");
             } else {
@@ -136,7 +137,7 @@ export class Log {
         }
         // write all output to the log file (independent of the configured log level):
         if (Log.logFile) {
-            Log.logFile.write(serverPrefix + messageWithTiming + "\n");
+            Log.logFile.write(messageWithTimingAndServerPrefix + "\n");
         }
     }
 

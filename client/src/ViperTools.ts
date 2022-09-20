@@ -34,7 +34,7 @@ export async function locateViperTools(context: vscode.ExtensionContext): Promis
         return installationResult.value;
     }
     
-    async function install(locateError): Promise<Location> {
+    async function install(locateError: Error): Promise<Location> {
         async function confirm(): Promise<ConfirmResult> {
             if (Helper.assumeYes()) {
                 // do not ask user
@@ -53,13 +53,14 @@ export async function locateViperTools(context: vscode.ExtensionContext): Promis
             }
         }
 
-        Log.log(`Viper tools have not been found (resulted in ${locateError})`, LogLevel.Info);
-        const { result: installationResult, didReportProgress } = await withProgressInWindow(
+        Log.log(`Viper tools have not been found, thus they get installed now (resulted in ${locateError})`, LogLevel.Info);
+        const { result: installationResult } = await withProgressInWindow(
             Texts.updatingViperTools,
             listener => dependency.install(selectedChannel, true, listener, confirm));
         if (!(installationResult instanceof Success)) {
             throw new Error(Texts.viperToolsInstallationDenied);
         }
+        Log.log(`Viper tools have been successfully installed`, LogLevel.Info);
         return installationResult.value;
     }
 
