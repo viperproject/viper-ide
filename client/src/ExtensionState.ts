@@ -178,9 +178,9 @@ export class State {
             }
         }
 
+        // the ID `viperserver` has to match the first part of `viperserver.trace.server` controlling the amount of tracing
         State.client = new LanguageClient('viperserver', 'Viper Server', serverOptions, clientOptions, brk);
 
-        Log.log("Start Viper Server", LogLevel.Info);
         // Create the language client and start the client.
         const disposable = State.client.start();
         // Push the disposable to the context's subscriptions so that the
@@ -218,7 +218,7 @@ export class State {
 
         // spawn ViperServer and get port number on which it is reachable:
         const { port: portNr, disposable: disposable } = await new Promise((resolve:(res: { port: number, disposable: Disposable }) => void, reject) => {
-            const command = `"${javaPath}" ${processArgs} --logLevel ${logLevelString} --logFile ${serverLogFile} --serverMode LSP`; // processArgs is already escaped but escape javaPath as well.
+            const command = `"${javaPath}" ${processArgs} --logLevel ${logLevelString} --logFile "${serverLogFile}" --serverMode LSP`; // processArgs is already escaped but escape javaPath as well.
             Log.log(`Spawning ViperServer with ${command}`, LogLevel.Verbose);
             const serverProcess = child_process.spawn(command, [], { shell: true, cwd: cwd });
             Log.log(`ViperServer has been spawned and has PID ${serverProcess.pid}`, LogLevel.Verbose);

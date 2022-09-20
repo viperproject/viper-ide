@@ -61,7 +61,7 @@
 		"viz.js": "^2.1.2",
 		"vs-verification-toolbox": "git+https://github.com/viperproject/vs-verification-toolbox.git",
 		"vsce": "^2.6.7",
-		"vscode-languageclient": "^5.2.1",
+		"vscode-languageclient": "^6.1.3",
 		"vscode-uri": "^3.0.3",
 		"webpack": "^5.72.1",
 		"webpack-cli": "^4.9.1"
@@ -438,6 +438,17 @@
 					],
 					"default": "Stable",
 					"description": "Select the build version of the Viper Tools. The path specified at 'viperSettings.paths.viperToolsPath' will be used for build version 'Local'"
+				},
+				"viperserver.trace.server": {
+					"scope": "window",
+					"type": "string",
+					"enum": [
+					  "off",
+					  "messages",
+					  "verbose"
+					],
+					"default": "off",
+					"description": "Traces the communication between VS Code and the ViperServer language server."
 				}
 			}
 		}
