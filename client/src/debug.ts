@@ -11,8 +11,8 @@
 import {basename} from 'path';
 import {readFileSync} from 'fs';
 import * as ipc from 'node-ipc';
-import {DebugSession, InitializedEvent, TerminatedEvent, StoppedEvent, Thread, StackFrame, Scope, Source, Handles} from 'vscode-debugadapter';
-import {DebugProtocol} from 'vscode-debugprotocol';
+import {DebugSession, InitializedEvent, TerminatedEvent, StoppedEvent, Thread, StackFrame, Scope, Source, Handles} from '@vscode/debugadapter';
+import {DebugProtocol} from '@vscode/debugprotocol';
 import {StepType} from './ViperProtocol'
 
 /**

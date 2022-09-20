@@ -14,5 +14,5 @@
     //workplace settings
     "typescript.implementationsCodeLens.enabled": true, 
     "typescript.tsc.autoDetect": "off",
-    "window.title": "${dirty}${activeEditorShort}${separator}$Viper IDE [Client]$"
+    "window.title": "${dirty}${activeEditorShort}${separator}$Viper IDE$"
 }

@@ -7,9 +7,11 @@
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": [
-                "--extensionDevelopmentPath=${workspaceRoot}"
+                "--extensionDevelopmentPath=${workspaceRoot}" /*,
+                "--profile-temp",
+                "--disable-extensions",
+                "${workspaceRoot}/src/test/data" */
             ],
-            "stopOnEntry": false,
             "sourceMaps": true,
             "outFiles": ["${workspaceRoot}/dist/**/*.js"],
             "preLaunchTask": {
