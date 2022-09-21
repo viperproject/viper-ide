@@ -238,7 +238,7 @@ export class State {
 
         // spawn ViperServer and get port number on which it is reachable:
         const { port: portNr, disposable: disposable } = await new Promise((resolve:(res: { port: number, disposable: Disposable }) => void, reject) => {
-            const command = `"${javaPath}" ${processArgs} --logLevel ${logLevelString} --logFile "${serverLogFile}" --serverMode LSP`; // processArgs is already escaped but escape javaPath as well.
+            const command = `"${javaPath}" ${processArgs} --logLevel ${logLevelString} --logFile "${serverLogFile}" --serverMode LSP --singleClient`; // processArgs is already escaped but escape javaPath as well.
             Log.log(`Spawning ViperServer with ${command}`, LogLevel.Verbose);
             const serverProcess = child_process.spawn(command, [], { shell: true, cwd: cwd });
             Log.log(`ViperServer has been spawned and has PID ${serverProcess.pid}`, LogLevel.Verbose);
