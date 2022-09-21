@@ -233,7 +233,8 @@ jobs:
                 "linux": "${{ env.EXTRACTED_TOOLS_PATH }}",
                 "mac": "${{ env.EXTRACTED_TOOLS_PATH }}"
               }
-            }
+            },
+            "viperserver.trace.server": "verbose"
           }' > client/src/test/data/settings/ci_local.json
         shell: bash
 
