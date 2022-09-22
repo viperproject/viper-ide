@@ -197,13 +197,25 @@ jobs:
           name: ViperTools
           path: client/ViperTools
 
+      - name: Download ViperTools to test against
+        if: ${{ !contains(needs.create-viper-tools.result, 'success') }}
+        run: curl --fail --silent --show-error https://github.com/viperproject/viper-ide/releases/download/v-2022-09-21-1611/${{ matrix.viper-tools-zip-file }} --output ${{ matrix.viper-tools-zip-file }}
+        working-directory: client/ViperTools
+
       - name: Unzip ViperTools (non-windows)
-        if: ${{ !startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        # if: ${{ !startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ !startsWith(matrix.os, 'windows') }}
         run: unzip ${{ matrix.viper-tools-zip-file }} -d ExtractedTools
         working-directory: client/ViperTools
 
+      - name: Download ViperServer JAR
+        if: ${{ !contains(needs.create-viper-tools.result, 'success') }}
+        run: curl --fail --silent --show-error https://polybox.ethz.ch/index.php/s/54sDcqHDJHelKBY/download --output viperserver.jar
+        working-directory: client/ViperTools/ExtractedTools/backends
+
       - name: Unzip ViperTools (windows)
-        if: ${{ startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        # if: ${{ startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ startsWith(matrix.os, 'windows') }}
         run: powershell Expand-Archive -LiteralPath ${{ matrix.viper-tools-zip-file }} -DestinationPath ExtractedTools
         working-directory: client/ViperTools
 
