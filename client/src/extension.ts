@@ -287,6 +287,7 @@ function registerHandlers() {
         });
 
         State.client.onNotification(Commands.FileOpened, (uri: string) => {
+            /*
             try {
                 Log.log("File openend: " + uri, LogLevel.Info);
                 let uriObject: URI = URI.parse(uri);
@@ -299,6 +300,7 @@ function registerHandlers() {
             } catch (e) {
                 Log.error("Error handling file opened notification: " + e);
             }
+            */
         });
         
         State.client.onNotification(Commands.FileClosed, (uri: string) => {
