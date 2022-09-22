@@ -102,7 +102,7 @@ export class Log {
             // we want to keep output small during testing and in case log output matters,
             // it can be looked up in the log file. Thus, there is no reason to spam the
             // console.
-            Log.logLevel = LogLevel.LowLevelDebug;
+            Log.logLevel = LogLevel.None;
         }
         if (oldLogLevel != Log.logLevel) {
             if (oldLogLevel == null) {
