@@ -37,6 +37,16 @@ on:
 # note that release-candidate builds are treated like 'stable' builds for now except that there is no deployment to the marketplaces in the end.
 # in the future, this should be changed such that release-candidates result in a prerelease (like nightly builds).
 
+# the following env variables configure the behavior of this workflow
+# in particular, they control whether Viper-IDE is tested against certain ViperTools and a ViperServer JAR on push and pull requests
+# this is particularly useful during debugging / testing as a new Viper-IDE release is not necessary for every change to the ViperServer JAR
+env:
+  TEST_LOCAL_ON_PUSH_PR: true
+  # note that the following URL is extended with `/${{ matrix.viper-tools-zip-file }}` in the 'build-and-test' job:
+  TEST_LOCAL_ON_PUSH_PR_VIPERTOOLS_URL: https://github.com/viperproject/viper-ide/releases/download/v-2022-09-21-1611
+  # the following  URL is not extended and downloading the destination is expected to return the viperserver.jar:
+  TEST_LOCAL_ON_PUSH_PR_VIPERSERVER_URL: https://polybox.ethz.ch/index.php/s/54sDcqHDJHelKBY/download
+
 jobs:
   create-viper-tools:
     if: github.event_name == 'workflow_dispatch'
@@ -197,39 +207,38 @@ jobs:
           name: ViperTools
           path: client/ViperTools
 
-      - if: ${{ !contains(needs.create-viper-tools.result, 'success') }}
+      - name: Setup ViperTools folder
+        if: ${{ env.TEST_LOCAL_ON_PUSH_PR && !contains(needs.create-viper-tools.result, 'success') }}
         run: mkdir -p client/ViperTools
 
       - name: Download ViperTools to test against
-        if: ${{ !contains(needs.create-viper-tools.result, 'success') }}
-        run: curl --fail --silent --show-error -L https://github.com/viperproject/viper-ide/releases/download/v-2022-09-21-1611/${{ matrix.viper-tools-zip-file }} --output ${{ matrix.viper-tools-zip-file }}
+        if: ${{ env.TEST_LOCAL_ON_PUSH_PR && !contains(needs.create-viper-tools.result, 'success') }}
+        run: curl --fail --silent --show-error -L ${{ env.TEST_LOCAL_ON_PUSH_PR_VIPERTOOLS_URL }}/${{ matrix.viper-tools-zip-file }} --output ${{ matrix.viper-tools-zip-file }}
         working-directory: client/ViperTools
 
       - name: Unzip ViperTools (non-windows)
-        # if: ${{ !startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
-        if: ${{ !startsWith(matrix.os, 'windows') }}
+        if: ${{ !startsWith(matrix.os, 'windows') && (env.TEST_LOCAL_ON_PUSH_PR || contains(needs.create-viper-tools.result, 'success')) }}
         run: unzip ${{ matrix.viper-tools-zip-file }} -d ExtractedTools
         working-directory: client/ViperTools
 
-      - name: Download ViperServer JAR
-        if: ${{ !contains(needs.create-viper-tools.result, 'success') }}
-        run: curl --fail --silent --show-error -L https://polybox.ethz.ch/index.php/s/54sDcqHDJHelKBY/download --output viperserver.jar
-        working-directory: client/ViperTools/ExtractedTools/backends
-
       - name: Unzip ViperTools (windows)
-        # if: ${{ startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
-        if: ${{ startsWith(matrix.os, 'windows') }}
+        if: ${{ startsWith(matrix.os, 'windows') && (env.TEST_LOCAL_ON_PUSH_PR || contains(needs.create-viper-tools.result, 'success')) }}
         run: powershell Expand-Archive -LiteralPath ${{ matrix.viper-tools-zip-file }} -DestinationPath ExtractedTools
         working-directory: client/ViperTools
 
+      - name: Download ViperServer JAR
+        if: ${{ env.TEST_LOCAL_ON_PUSH_PR && !contains(needs.create-viper-tools.result, 'success') }}
+        run: curl --fail --silent --show-error -L ${{ env.TEST_LOCAL_ON_PUSH_PR_VIPERSERVER_URL }} --output viperserver.jar
+        working-directory: client/ViperTools/ExtractedTools/backends
+
       - name: Create path to extracted tools (non-windows)
-        if: ${{ !startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ !startsWith(matrix.os, 'windows') && (env.TEST_LOCAL_ON_PUSH_PR || contains(needs.create-viper-tools.result, 'success')) }}
         run: |
           echo "EXTRACTED_TOOLS_PATH=${{ github.workspace }}/client/ViperTools/ExtractedTools" >> $GITHUB_ENV
         shell: bash
 
       - name: Create path to extracted tools (windows)
-        if: ${{ startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ startsWith(matrix.os, 'windows') && (env.TEST_LOCAL_ON_PUSH_PR || contains(needs.create-viper-tools.result, 'success')) }}
         # replace all backslashes by double backslashes to properly escape them in the resulting JSON
         run: |
           PATH='EXTRACTED_TOOLS_PATH=${{ github.workspace }}\client\ViperTools\ExtractedTools'
@@ -237,7 +246,7 @@ jobs:
         shell: bash
 
       - name: Create an additional test config
-        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ env.TEST_LOCAL_ON_PUSH_PR || contains(needs.create-viper-tools.result, 'success') }}
         run: |
           echo '{ 
             "viperSettings.buildVersion": "Local",
@@ -254,7 +263,7 @@ jobs:
         shell: bash
 
       - name: Get config content
-        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ env.TEST_LOCAL_ON_PUSH_PR || contains(needs.create-viper-tools.result, 'success') }}
         run: cat client/src/test/data/settings/ci_local.json
         shell: bash
 
