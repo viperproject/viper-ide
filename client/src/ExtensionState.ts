@@ -248,7 +248,7 @@ export class State {
             // note: do not use construct an object of type `vscode.Disposable` (using its constructor)
             // since the resulting disposable does not seem to be awaitable.
             const disposable = { dispose: async () => {
-                const success = serverProcess.kill('SIGINT');
+                const success = serverProcess.kill('SIGTERM');
                 // `kill` only signals the process to exit. Thus, wait until process has indeed terminated:
                 Log.log(`Awaiting termination of the ViperServer process`, LogLevel.Debug);
                 await onCloseViperServerProcess;
