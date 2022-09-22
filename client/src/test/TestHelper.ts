@@ -49,9 +49,6 @@ export default class TestHelper {
             // Viper file if we have manually terminated the extension before
             await myExtension.activate(this.context);
         }
-
-        // close active editor to start in a clean state:
-        await TestHelper.executeCommand('workbench.action.closeActiveEditor');
     }
 
     public static async teardown() {
@@ -61,6 +58,9 @@ export default class TestHelper {
         // wait shortly (1s) to ensure that the OS reports the (killed) processes correctly:
         // await new Promise(resolve => setTimeout(resolve, 1000));
         await TestHelper.checkForRunningProcesses(true, true, true);
+
+        // close active editor to start in a clean state:
+        await TestHelper.executeCommand('workbench.action.closeActiveEditor');
 
         // at the very end, set `unitTest` to false and dispose log because `Log.dispose()` as part of `deactivate`
         // has been ignored if `unitTest` is non-null:
@@ -89,6 +89,8 @@ export default class TestHelper {
     public static async openFile(fileName: string): Promise<vscode.TextDocument> {
         const filePath = TestHelper.getTestDataPath(fileName);
         TestHelper.log("Open " + filePath);
+        // close previous file (if one is open):
+        await TestHelper.executeCommand('workbench.action.closeActiveEditor');
         const document = await vscode.workspace.openTextDocument(filePath);
         await vscode.window.showTextDocument(document);
         return document;
