@@ -307,15 +307,11 @@ export class State {
         return new Promise((resolve: (res: StreamInfo) => void, reject) => {
             const clientSocket = new net.Socket();
             clientSocket.connect(port, host, () => {
-                Log.log(`Connected to ViperServer - waiting 5sec`, LogLevel.Info);
-                setTimeout(() => resolve({
-                    reader: clientSocket,
-                    writer: clientSocket
-                }), 5000); /*
+                Log.log(`Connected to ViperServer`, LogLevel.Info);
                 resolve({
                     reader: clientSocket,
                     writer: clientSocket
-                });*/
+                });
             });
             clientSocket.on('error', (err) => {
                 Log.log(`Error occurred on connection to ViperServer: ${err}`, LogLevel.Info);
