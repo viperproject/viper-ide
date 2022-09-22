@@ -17,7 +17,7 @@ suite('Workspace Tests', () => {
     test("Test Verification of all files in folder", async function() {
         this.timeout(200000);
 
-        await TestHelper.executeCommand('workbench.action.closeAllEditors');
+        await TestHelper.closeAllFiles();
         await TestHelper.waitForIdle();
         await TestHelper.executeCommand('viper.verifyAllFilesInWorkspace', Common.uriToString(DATA_ROOT));
         const result = await TestHelper.waitForVerificationOfAllFilesInWorkspace();

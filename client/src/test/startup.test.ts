@@ -29,7 +29,7 @@ suite('Extension Startup', () => {
         await TestHelper.openAndVerify(SIMPLE);
         verified = true;
     });
-    /*
+
     test("Test simple verification with Silicon and a different file", async function(){
         this.timeout(40000);
         await TestHelper.openAndVerify(EMPTY);
@@ -50,5 +50,4 @@ suite('Extension Startup', () => {
         // TestHelper will make sure that the extension is properly restarted for the
         // next test suite.
     });
-    */
 });

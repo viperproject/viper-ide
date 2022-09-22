@@ -109,7 +109,7 @@ suite('ViperIDE Tests', () => {
         const opened = TestHelper.waitForLogFile();
         await TestHelper.executeCommand('viper.openLogFile');
         await opened;
-        await TestHelper.executeCommand('workbench.action.closeActiveEditor');
+        await TestHelper.closeFile();
         await TestHelper.wait(500);
     });
 });

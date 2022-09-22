@@ -80,9 +80,9 @@ export default class TestHelper {
 
     public static async startExtension(): Promise<void> {
         const fileName = EMPTY;
-        const verified = TestHelper.waitForVerification(fileName);
+        const started = TestHelper.waitForBackendStarted();
         await TestHelper.openFile(fileName);
-        await verified;
+        await started;
     }
 
     public static async openFile(fileName: string): Promise<vscode.TextDocument> {
