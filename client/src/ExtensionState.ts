@@ -238,6 +238,7 @@ export class State {
 
         // spawn ViperServer and get port number on which it is reachable:
         const { port: portNr, disposable: disposable } = await new Promise((resolve:(res: { port: number, disposable: Disposable }) => void, reject) => {
+            // we use `--singleClient` such that the server correctly terminates if the client sends the exit notification:
             const command = `"${javaPath}" ${processArgs} --logLevel ${logLevelString} --logFile "${serverLogFile}" --serverMode LSP --singleClient`; // processArgs is already escaped but escape javaPath as well.
             Log.log(`Spawning ViperServer with ${command}`, LogLevel.Verbose);
             const serverProcess = child_process.spawn(command, [], { shell: true, cwd: cwd });

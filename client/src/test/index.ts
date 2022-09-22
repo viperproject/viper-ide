@@ -79,7 +79,7 @@ async function runTests(): Promise<void> {
 async function getTestSuiteFilenames(): Promise<string[]> {
 	return new Promise((resolve, reject) =>
         glob(
-            "**/startup.test.js",
+            "**/*.test.js",
             {
                 cwd: TESTS_ROOT,
             },
