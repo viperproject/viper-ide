@@ -40,9 +40,6 @@ export default class TestHelper {
         // the appropriate log level for tests is set:
         Log.updateSettings();
 
-        // close active editor to start in a clean state:
-        await TestHelper.executeCommand('workbench.action.closeActiveEditor');
-
         // The following comment explains how an extension could be restarted in between test suites:
         // https://github.com/microsoft/vscode/issues/45774#issuecomment-373423895
         // However, we solve it by executing each test suite individually. This is controlled by `runTest.ts`
@@ -52,6 +49,9 @@ export default class TestHelper {
             // Viper file if we have manually terminated the extension before
             await myExtension.activate(this.context);
         }
+
+        // close active editor to start in a clean state:
+        await TestHelper.executeCommand('workbench.action.closeActiveEditor');
     }
 
     public static async teardown() {
