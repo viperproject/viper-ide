@@ -37,6 +37,7 @@ suite('Viper Tools Update Test', () => {
 
         await backendStarted;
         TestHelper.log("backend started");
+        await TestHelper.verify();
 
         // stop the verification after 1s
         setTimeout(() => {
