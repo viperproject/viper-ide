@@ -60,7 +60,7 @@ async function runTests(): Promise<void> {
 	const mocha = new Mocha({
 		ui: 'tdd',
 		// Installing and starting Viper might take some minutes
-        timeout: 600_000, // ms
+        timeout: 300_000, // ms
         color: true,
 	});
 
