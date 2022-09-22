@@ -218,7 +218,7 @@ export class State {
         const processArgs = await Settings.getServerProcessArgs(location, "viper.server.ViperServerRunner");
         const logLevelString = (() => {
             // translate LogLevel to the command-line parameter that ViperServer understands:
-            switch(Settings.getLogLevel()) {
+            switch(Log.logLevel) { // we use `Log.logLevel` here as that one might differ from the one in the settings during unit tests
                 case LogLevel.None:
                     return "OFF";
                 case LogLevel.Default:

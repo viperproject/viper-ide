@@ -226,7 +226,7 @@ jobs:
         run: powershell Expand-Archive -LiteralPath ${{ matrix.viper-tools-zip-file }} -DestinationPath ExtractedTools
         working-directory: client/ViperTools
 
-      - name: Download ViperServer JAR
+      - name: Download ViperServer JAR (only downloading ViperTools for PUSH and PR operations if configured accordingly)
         if: ${{ env.TEST_LOCAL_ON_PUSH_PR && !contains(needs.create-viper-tools.result, 'success') }}
         run: curl --fail --silent --show-error -L ${{ env.TEST_LOCAL_ON_PUSH_PR_VIPERSERVER_URL }} --output viperserver.jar
         working-directory: client/ViperTools/ExtractedTools/backends
