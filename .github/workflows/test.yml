@@ -200,7 +200,7 @@ jobs:
       #   nightly ViperTool releases. Any change to the Viper-IDE have ensure compatability
       # - before releasing Viper-IDE together with some ViperTools, Viper-IDE has to be tested against the latest stable and
       #   nightly ViperTool releases AND the ViperTools that should be released.
-      - name: Download ViperTools to test against
+      - name: Download ViperTools to test against (only downloading previously created ViperTools)
         if: ${{ contains(needs.create-viper-tools.result, 'success') }}
         uses: actions/download-artifact@v2
         with:
@@ -211,7 +211,7 @@ jobs:
         if: ${{ env.TEST_LOCAL_ON_PUSH_PR && !contains(needs.create-viper-tools.result, 'success') }}
         run: mkdir -p client/ViperTools
 
-      - name: Download ViperTools to test against
+      - name: Download ViperTools to test against (only downloading ViperTools for PUSH and PR operations if configured accordingly)
         if: ${{ env.TEST_LOCAL_ON_PUSH_PR && !contains(needs.create-viper-tools.result, 'success') }}
         run: curl --fail --silent --show-error -L ${{ env.TEST_LOCAL_ON_PUSH_PR_VIPERTOOLS_URL }}/${{ matrix.viper-tools-zip-file }} --output ${{ matrix.viper-tools-zip-file }}
         working-directory: client/ViperTools
@@ -248,6 +248,7 @@ jobs:
       - name: Create an additional test config
         if: ${{ env.TEST_LOCAL_ON_PUSH_PR || contains(needs.create-viper-tools.result, 'success') }}
         run: |
+          mkdir -p client/src/test/data/settings
           echo '{ 
             "viperSettings.buildVersion": "Local",
             "viperSettings.paths": {
