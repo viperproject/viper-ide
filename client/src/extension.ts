@@ -387,12 +387,12 @@ function registerHandlers() {
                         let fileState = State.setLastActiveFile(uri, editor);
                         if (fileState) {
                             if (!fileState.verified) {
-                                //Log.log("The active text editor changed, consider reverification of " + fileState.name(), LogLevel.Debug);
-                                State.addToWorklist(new Task({ type: TaskType.Verify, uri: uri, manuallyTriggered: false }))
+                                Log.log("The active text editor changed, consider reverification of " + fileState.name(), LogLevel.Debug);
+                                State.addToWorklist(new Task({ type: TaskType.Verify, uri: uri, manuallyTriggered: false }));
                             } else {
-                                //Log.log("Don't reverify, the file is already verified", LogLevel.Debug);
+                                Log.log("Don't reverify, the file is already verified", LogLevel.Debug);
                             }
-                            //Log.log("Active viper file changed to " + fileState.name(), LogLevel.Info);
+                            Log.log("Active viper file changed to " + fileState.name(), LogLevel.Info);
                         }
                     }
                 }
