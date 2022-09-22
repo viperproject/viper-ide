@@ -197,6 +197,9 @@ jobs:
           name: ViperTools
           path: client/ViperTools
 
+      - if: ${{ !contains(needs.create-viper-tools.result, 'success') }}
+        run: mkdir -p client/ViperTools
+
       - name: Download ViperTools to test against
         if: ${{ !contains(needs.create-viper-tools.result, 'success') }}
         run: curl --fail --silent --show-error https://github.com/viperproject/viper-ide/releases/download/v-2022-09-21-1611/${{ matrix.viper-tools-zip-file }} --output ${{ matrix.viper-tools-zip-file }}
