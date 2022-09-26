@@ -80,9 +80,9 @@ export default class TestHelper {
 
     public static async startExtension(): Promise<void> {
         const fileName = EMPTY;
-        const started = TestHelper.waitForBackendStarted();
+        const activated = TestHelper.waitForExtensionActivation();
         await TestHelper.openFile(fileName);
-        await started;
+        await activated;
     }
 
     public static async openFile(fileName: string): Promise<vscode.TextDocument> {
@@ -195,11 +195,25 @@ export default class TestHelper {
         return vscode.commands.executeCommand(command, args);
     }
 
+    public static waitForExtensionActivation(): Promise<void> {
+        return new Promise(resolve => {
+            TestHelper.callbacks.extensionActivated = () => {
+                resolve();
+            }
+        });
+    }
+
+    public static waitForExtensionRestart(): Promise<void> {
+        return new Promise(resolve => {
+            TestHelper.callbacks.extensionRestarted = () => { resolve(); }
+        });
+    }
+
     public static waitForBackendStarted(backend?: string): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.backendStarted = (b) => {
-                TestHelper.log("Backend " + b + " started");
-                if (!backend || b.toLowerCase() === backend.toLowerCase()) {
+            TestHelper.callbacks.backendStarted = (b: string) => {
+                TestHelper.log(`Backend ${b} started`);
+                if (!backend || b === backend) {
                     resolve();
                 }
             }
@@ -238,17 +252,21 @@ export default class TestHelper {
     }
 
     public static waitForAbort(): Promise<void> {
-        return new Promise(resolve => {
-            TestHelper.callbacks.verificationStopped = () => {
-                TestHelper.log("verification stopped");
-                resolve();
+        return new Promise((resolve, reject) => {
+            TestHelper.callbacks.verificationStopped = (success: boolean) => {
+                TestHelper.log(`verification stopped ${success ? "successfully" : "unsuccessfully"}`);
+                if (success) {
+                    resolve();
+                } else {
+                    reject();
+                }
             }
         });
     }
 
     public static waitForVerificationOrAbort(): Promise<void> {
         let resolved = false
-        return new Promise(resolve => {
+        return new Promise((resolve, reject) => {
             TestHelper.callbacks.verificationComplete = (b, f) => {
                 TestHelper.log(`Verification Completed: file: ${f}, backend: ${b}`);
                 if (!resolved) {
@@ -256,11 +274,15 @@ export default class TestHelper {
                     resolve();
                 }
             }
-            TestHelper.callbacks.verificationStopped = () => {
-                TestHelper.log("verification stopped");
+            TestHelper.callbacks.verificationStopped = (success: boolean) => {
+                TestHelper.log(`verification stopped ${success ? "successfully" : "unsuccessfully"}`);
                 if (!resolved) {
                     resolved = true;
-                    resolve();
+                    if (success) {
+                        resolve();
+                    } else {
+                        reject();
+                    }
                 }
             }
         });
@@ -284,16 +306,9 @@ export default class TestHelper {
         });
     }
 
-    public static waitForViperToolsUpdate(): Promise<boolean> {
+    public static waitForViperToolsUpdate(): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.viperUpdateComplete = () => { resolve(true); }
-            TestHelper.callbacks.viperUpdateFailed = () => { resolve(false); }
-        });
-    }
-
-    public static waitForExtensionRestart(): Promise<void> {
-        return new Promise(resolve => {
-            TestHelper.callbacks.extensionRestarted = () => { resolve(); }
+            TestHelper.callbacks.viperUpdateComplete = () => { resolve(); }
         });
     }
 
@@ -331,6 +346,8 @@ class UnitTestCallbackImpl implements UnitTestCallback {
         this.errorDetected = false;
     }
 
+    extensionActivated = () => { };
+    extensionRestarted = () => { };
     backendStarted = (backend: string) => { };
     verificationComplete = (backend: string, filename: string) => { };
     logFileOpened = () => { };
@@ -338,8 +355,6 @@ class UnitTestCallbackImpl implements UnitTestCallback {
     ideIsIdle = () => { };
     internalErrorDetected = () => { this.errorDetected = true; }
     viperUpdateComplete = () => { };
-    viperUpdateFailed = () => { };
-    verificationStopped = () => { };
+    verificationStopped = (success: boolean) => { };
     verificationStarted = (backend: string, filename: string) => { };
-    extensionRestarted = () => { };
 }

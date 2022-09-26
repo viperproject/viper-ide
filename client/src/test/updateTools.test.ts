@@ -20,11 +20,10 @@ suite('Viper Tools Update Test', () => {
 
         const updateDone = TestHelper.waitForViperToolsUpdate();
         const restarted = TestHelper.waitForExtensionRestart();
-        const backendStarted = TestHelper.waitForBackendStarted();
+        const activated = TestHelper.waitForExtensionActivation();
         await TestHelper.startViperToolsUpdate();
 
-        const success = await updateDone;
-        assert(success, "Viper Tools Update failed");
+        await updateDone;
         TestHelper.log("Viper Tools Update done");
         await restarted;
         TestHelper.log("Extension has been restarted after performing Viper Tools update");
@@ -35,8 +34,8 @@ suite('Viper Tools Update Test', () => {
         const aborted = TestHelper.waitForAbort();
         await TestHelper.openFile(LONG);
 
-        await backendStarted;
-        TestHelper.log("backend started");
+        await activated;
+        TestHelper.log("extension has activated");
         await TestHelper.verify();
 
         // stop the verification after 1s
@@ -60,14 +59,13 @@ suite('Viper Tools Update Test', () => {
         TestHelper.resetErrors();
 
         const updateDone = TestHelper.waitForViperToolsUpdate();
-        const backendStarted = TestHelper.waitForBackendStarted();
+        const activated = TestHelper.waitForExtensionActivation();
         await TestHelper.startViperToolsUpdate();
 
-        const success = await updateDone;
-        assert(success, "Viper Tools Update failed")
+        await updateDone;
         TestHelper.log("Viper Tools Update done");
-        await backendStarted;
-        TestHelper.log("backend started");
+        await activated;
+        TestHelper.log("extension has activated");
 
         assert (!TestHelper.hasObservedInternalError());
     });

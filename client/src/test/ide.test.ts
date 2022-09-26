@@ -68,12 +68,12 @@ suite('ViperIDE Tests', () => {
     test("Test zooming", async function() {
         this.timeout(20000);
 
-        const started = TestHelper.waitForBackendStarted();
+        const activated = TestHelper.waitForExtensionActivation();
         await TestHelper.executeCommand("workbench.action.zoomIn")
         await TestHelper.wait(5000);
         await TestHelper.executeCommand("workbench.action.zoomOut");
-        const timeoutHit = await TestHelper.waitForTimeout(9000, started);
-        assert(timeoutHit, "backend was restarted, but it should not be");
+        const timeoutHit = await TestHelper.waitForTimeout(9000, activated);
+        assert(timeoutHit, "Viper IDE was activated, but it should not be");
     });
         
     test("Test autoVerify", async function() {

@@ -75,7 +75,7 @@ export class Task implements ITask {
 export enum TaskType {
     NoOp = 0, Clear = 1,
     Save = 2, Verify = 3, StopVerification = 4, UpdateViperTools = 5, StartBackend = 6, FileClosed = 8,
-    Verifying = 30, StopVerifying = 40,
+    Verifying = 30,
     VerificationComplete = 300, VerificationFailed = 301,
     RestartExtension = 800,
 }
@@ -121,7 +121,7 @@ export class VerificationController {
     }
 
     private isActive(type: TaskType): boolean {
-        return type == TaskType.Verifying || type == TaskType.StopVerifying;
+        return type == TaskType.Verifying;
     }
 
     private isImportant(type: TaskType): boolean {
@@ -140,19 +140,16 @@ export class VerificationController {
                 let isStopManuallyTriggered = false;
                 let clear = false;
                 let verificationComplete = false;
-                let verificationStopped = false;
                 let verificationFailed = false;
                 let completedOrFailedFileUri: vscode.Uri;
                 let uriOfFoundVerfy: vscode.Uri;
-                let backendStarted = false;
-                let backendStopped = false;
                 let stopBackendFound = false;
                 let startBackendFound = false;
 
                 for (let i = this.workList.length - 1; i >= 0; i--) {
                     let cur: TaskType = this.workList[i].type;
                     if (clear && !this.isActive(cur) && !this.isImportant(cur)) {
-                        //clear the this.workList
+                        // clear the this.workList
                         this.workList[i].type = NoOp;
                     }
                     switch (cur) {
@@ -268,10 +265,9 @@ export class VerificationController {
                                     if (timedOut) {
                                         Log.hint("Verification of " + path.basename(task.uri.fsPath) + " timed out after " + task.timeout + "ms");
                                     }
-                                    Log.logWithOrigin("workList", "StopVerifying", LogLevel.LowLevelDebug);
-                                    task.markStarted(TaskType.StopVerifying, this.getStoppingTimeout());
                                     Log.log("Stop the running verification of " + path.basename(task.uri.fsPath), LogLevel.Debug);
-                                    await this.stopVerification(task.uri.toString(), isStopManuallyTriggered);
+                                    const success = await this.stopVerification(task.uri.toString(), isStopManuallyTriggered);
+                                    if (State.unitTest) State.unitTest.verificationStopped(success);
                                     State.hideProgress();
                                 }
                                 //block until verification is complete or failed
@@ -285,27 +281,6 @@ export class VerificationController {
                                     let succ = verificationComplete && !verificationFailed ? "succeded" : "failed"
                                     // TODO: Should we somehow notify something via the ViperApi here?
                                     State.hideProgress();
-                                }
-                            }
-                            break;
-                        case TaskType.StopVerifying:
-                            let timedOut = task.hasTimedOut();
-                            if (timedOut) {
-                                Log.error("stopping timed out");
-                                task.type = NoOp;
-                                this.addToWorklist(new Task({
-                                    type: TaskType.StartBackend,
-                                    backend: State.activeBackend,
-                                    manuallyTriggered: false,
-                                    isViperServerEngine: State.isActiveViperEngine,
-                                    forceRestart: true
-                                }));
-                            } else {
-                                //block until verification is stoped;
-                                if (verificationStopped) {
-                                    Log.logWithOrigin("workList", "VerificationStopped", LogLevel.LowLevelDebug);
-                                    task.type = NoOp;
-                                    if (State.unitTest) State.unitTest.verificationStopped();
                                 }
                             }
                             break;
@@ -343,6 +318,7 @@ export class VerificationController {
                             State.backendStatusBar.update(task.backend.name, Color.READY);
                             // there is no remote task we need to execute on the server and can thus directly set the ready flag:
                             State.isBackendReady = true;
+                            if (State.unitTest) State.unitTest.backendStarted(task.backend.name);
                             // reverify the currently open file with the new backend:
                             const fileUri = Helper.getActiveFileUri();
                             if (fileUri) {
@@ -519,7 +495,8 @@ export class VerificationController {
         }
     }
 
-    private async stopVerification(uriToStop: string, manuallyTriggered: boolean) {
+    /** the boolean success indicates whether stopping was successful */
+    private async stopVerification(uriToStop: string, manuallyTriggered: boolean): Promise<boolean> {
         if (this.verifyingAllFiles) {
             this.printAllVerificationResults();
             this.verifyingAllFiles = false;
@@ -530,7 +507,8 @@ export class VerificationController {
                 Log.log("Verification stop request", LogLevel.Debug);
                 State.hideProgress();
                 State.statusBarItem.update("aborting", Color.WARNING);
-                await State.client.sendRequest(Commands.StopVerification, uriToStop);
+                const success = await State.client.sendRequest(Commands.StopVerification, uriToStop);
+                return success;
             } else {
                 let msg = "Cannot stop the verification, no verification is running.";
                 if (manuallyTriggered) {
@@ -538,6 +516,8 @@ export class VerificationController {
                 } else {
                     Log.log(msg, LogLevel.Debug);
                 }
+                // we treat this case as succcess:
+                return true;
             }
         } else {
             let msg = "Cannot stop the verification, the extension not ready yet.";
@@ -546,6 +526,7 @@ export class VerificationController {
             } else {
                 Log.log(msg, LogLevel.Debug);
             }
+            return false;
         }
     }
 

@@ -1,4 +1,4 @@
-import TestHelper, { CARBON, EMPTY, SETUP_TIMEOUT, SILICON, SIMPLE } from './TestHelper';
+import TestHelper, { CARBON, EMPTY, LONG, SETUP_TIMEOUT, SILICON, SIMPLE } from './TestHelper';
 
 suite('Extension Startup', () => {
 
@@ -19,8 +19,9 @@ suite('Extension Startup', () => {
 
     test("Language Detection, and Silicon Backend Startup test.", async function() {
         this.timeout(40000);
+        // this checks that silicon is the default backend
         const started = TestHelper.waitForBackendStarted(SILICON);
-        await TestHelper.openFile(SIMPLE);
+        await TestHelper.openFile(EMPTY);
         await started;
     });
 
@@ -43,9 +44,9 @@ suite('Extension Startup', () => {
         await started;
     });
 
-    test("Test simple verification with Carbon", async function(){
+    test("Test verification with Carbon", async function(){
         this.timeout(25000);
-        await TestHelper.openAndVerify(SIMPLE);
+        await TestHelper.openAndVerify(LONG);
         // no need to switch backend back as this is the last test case of this suite.
         // TestHelper will make sure that the extension is properly restarted for the
         // next test suite.

@@ -317,6 +317,8 @@ export class State {
 }
 
 export interface UnitTestCallback {
+    extensionActivated: () => void;
+    extensionRestarted: () => void;
     backendStarted: (backend: string) => void;
     verificationComplete: (backend: string, filename: string) => void;
     logFileOpened: () => void;
@@ -324,10 +326,8 @@ export interface UnitTestCallback {
     ideIsIdle: () => void;
     internalErrorDetected: () => void;
     viperUpdateComplete: () => void;
-    viperUpdateFailed: () => void;
-    verificationStopped: () => void;
+    verificationStopped: (success: boolean) => void;
     verificationStarted: (backend: string, filename: string) => void;
-    extensionRestarted: () => void;
 }
 
 type Disposable = { dispose(): any };

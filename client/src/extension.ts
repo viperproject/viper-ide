@@ -39,7 +39,6 @@ import { locateViperTools } from './ViperTools';
 import { Color } from './StatusBar';
 import { VerificationController, TaskType, Task } from './VerificationController';
 import { ViperApi } from './ViperApi';
-import * as Notifier from './Notifier';
 import { Either, isRight, Level, Messages, Settings } from './Settings';
 import { Location } from 'vs-verification-toolbox';
 
@@ -81,7 +80,7 @@ async function internalActivate(context: vscode.ExtensionContext): Promise<Viper
     startAutoSaver();
     registerFormatter();
     await initializeState(location);
-    Notifier.notifyExtensionActivation();
+    if (State.unitTest) State.unitTest.extensionActivated();
     activated = true;
     Log.log('Viper IDE is now active.', LogLevel.Info);
     return State.viperApi;
@@ -525,7 +524,14 @@ function registerHandlers(location: Location) {
                 selectedBackend = backends[0]; // there is no choice
             } else {
                 // ask the user
-                const selectedBackendName = await vscode.window.showQuickPick(backends.map(backend => backend.name));
+                let selectedBackendName: string;
+                if (selectBackend) {
+                    // the user has provided a backend name already so don't ask again
+                    selectedBackendName = selectBackend;
+                } else {
+                    // no argument provided and thus ask:
+                    selectedBackendName = await vscode.window.showQuickPick(backends.map(backend => backend.name));
+                }
                 if (selectedBackendName) {
                     // user has choosen a backend
                     selectedBackend = backends.find(backend => backend.name === selectedBackendName);
