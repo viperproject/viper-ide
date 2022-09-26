@@ -664,6 +664,11 @@ export class Settings {
                 if (stage.onSuccess && stage.onSuccess.length > 0 && !stages.has(stage.onSuccess))
                     return newEitherError(`${backendMissingStage}'s onSuccess stage ${stage.onSuccess}`);
             }
+            // there has to be exactly 1 isVerification stage:
+            const verificationStages = backend.stages.filter(stage => stage.isVerification);
+            if (verificationStages.length != 1) {
+                return newEitherError(`There has to be exactly one stage with 'isVerification' set to true for backend ${backend.name}`);
+            }
 
             // check paths
             if (!backend.paths || backend.paths.length == 0) {
@@ -699,25 +704,47 @@ export class Settings {
         return newRight(retrievedBackends);
     }
 
+    public static async getVerificationBackends(location: Location): Promise<Backend[]> {
+        const res = await Settings.checkAndGetVerificationBackends(location);
+        return toRight(res);
+    }
+
     private static isSupportedType(type: string) {
         if (!type) return false;
         return Settings.supportedTypes.includes(type.toLowerCase());
     }
 
-    private static supportedTypes: string[] = ["carbon", "silicon", "other"];
-
-    public static async getTimeoutOfActiveBackend(location: Location, activeBackend: string): Promise<number> {
+    private static supportedTypes: string[] = ["silicon", "carbon", "other"];
+    /*
+    private static async getBackendByName(location: Location, backend: string): Promise<Backend> {
         const backendRes = await Settings.checkAndGetVerificationBackends(location);
-        const timeoutEither = flatMap<Messages, Backend[], number>(backendRes, backends => {
-            const backend = backends.find(b => b.name == activeBackend.toLowerCase());
-            if (!backend) {
-                return newEitherError(`Backend '${activeBackend.toLowerCase()}' not found`);
+        const timeoutEither = flatMap<Messages, Backend[], Backend>(backendRes, backends => {
+            const foundBackend = backends.find(b => b.name == backend.toLowerCase());
+            if (!foundBackend) {
+                return newEitherError(`Backend '${backend.toLowerCase()}' not found`);
             }
-            return newRight(backend.timeout);
+            return newRight(foundBackend);
         });
         return toRight(timeoutEither);
     }
-    
+    */
+    public static async getTimeoutForBackend(backend: Backend): Promise<number> {
+        return backend.timeout;
+    }
+
+    public static async getCustomArgsForBackend(location: Location, backend: Backend, fileUri: vscode.Uri): Promise<string> {
+        // while checking the stages, we make sure that there is exactly one stage with `isVerification` set to true:
+        const verificationStage = backend.stages.filter(stage => stage.isVerification)[0];
+        const z3Path = await Settings.getZ3Path(location);
+        const boogiePath = await Settings.getBoogiePath(location);
+        const disableCaching = Settings.getConfiguration("viperServerSettings").disableCaching === true;
+        return verificationStage.customArguments
+            .replace("$z3Exe$", z3Path)
+            .replace("$boogieExe$", boogiePath)
+            .replace("$disableCaching$", disableCaching ? "--disableCaching" : "")
+            .replace("$fileToVerify$", fileUri.fsPath);
+    }
+
     private static async checkTimeout(timeout: number, prefix: string): Promise<Either<Messages, number | null>> {
         if (!timeout || (timeout && timeout <= 0)) {
             if (timeout && timeout < 0) {
@@ -834,13 +861,11 @@ export class Settings {
         return configuredCwd;
     }
 
-    public static async getServerProcessArgs(location: Location, mainMethod: string): Promise<string> {
+    public static async getServerJavaArgs(location: Location, mainMethod: string): Promise<string> {
         const configuredArgString = Settings.getConfiguration("javaSettings").customArguments;
         const serverJars = await Settings.getViperServerJars(location); // `viperServerJars()` already returns an escaped string
-        const useBackendSpecificCache = Settings.getConfiguration("viperServerSettings").backendSpecificCache === true;
         return configuredArgString
             .replace("$backendPaths$", serverJars)
-            .replace("$backendSpecificCache$", useBackendSpecificCache ? "--backendSpecificCache" : "")
             .replace("$mainMethod$", mainMethod);
     }
 
@@ -851,6 +876,33 @@ export class Settings {
         } else {
             return {create: true};
         }
+    }
+
+    public static async getServerArgs(logLevel: LogLevel, logFile: string): Promise<string> {
+        function convertLogLevel(logLevel: LogLevel): string {
+            // translate LogLevel to the command-line parameter that ViperServer understands:
+            switch(logLevel) { // we use `Log.logLevel` here as that one might differ from the one in the settings during unit tests
+                case LogLevel.None:
+                    return "OFF";
+                case LogLevel.Default:
+                    return "ERROR";
+                case LogLevel.Info:
+                    return "INFO";
+                case LogLevel.Verbose:
+                    return "DEBUG";
+                case LogLevel.Debug:
+                    return "TRACE";
+                case LogLevel.LowLevelDebug:
+                    return "ALL";
+            }
+        }
+
+        const configuredArgString = Settings.getConfiguration("viperServerSettings").customArguments;
+        const useBackendSpecificCache = Settings.getConfiguration("viperServerSettings").backendSpecificCache === true;
+        return configuredArgString
+            .replace("$backendSpecificCache$", useBackendSpecificCache ? "--backendSpecificCache" : "")
+            .replace("$logLevel$", convertLogLevel(logLevel))
+            .replace("$logFile$", `"${logFile}"`); // escape logFile
     }
 
     /** all paths get escaped */

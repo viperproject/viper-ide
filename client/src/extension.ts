@@ -29,7 +29,7 @@ import * as vscode from 'vscode';
 import { URI } from 'vscode-uri';
 import { Timer } from './Timer';
 import { State } from './ExtensionState';
-import { SettingsError, Progress, HintMessage, SettingsErrorType, BackendReadyParams, StepsAsDecorationOptionsResult, HeapGraph, Commands, StateChangeParams, LogLevel, BackendStartedParams } from './ViperProtocol';
+import { SettingsError, HintMessage, SettingsErrorType, Commands, StateChangeParams, LogLevel, LogParams, ProgressParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend } from './ViperProtocol';
 import { Log } from './Log';
 import { StateVisualizer } from './StateVisualizer';
 import { Helper } from './Helper';
@@ -41,6 +41,7 @@ import { VerificationController, TaskType, Task } from './VerificationController
 import { ViperApi } from './ViperApi';
 import * as Notifier from './Notifier';
 import { Either, isRight, Level, Messages, Settings } from './Settings';
+import { Location } from 'vs-verification-toolbox';
 
 let autoSaver: Timer;
 
@@ -65,7 +66,6 @@ async function internalActivate(context: vscode.ExtensionContext): Promise<Viper
     let ownPackageJson = vscode.extensions.getExtension("viper-admin.viper").packageJSON;
     Log.log(`The current version of ${ownPackageJson.displayName} is: v.${ownPackageJson.version}`, LogLevel.Info);
     Log.initialize();
-    Log.log('Viper-Client is now active.', LogLevel.Info);
     State.context = context;
     State.initializeStatusBar(context);
     await cleanViperToolsIfRequested(context);
@@ -77,17 +77,13 @@ async function internalActivate(context: vscode.ExtensionContext): Promise<Viper
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/{' + Helper.viperFileEndings.join(",") + "}");
     await State.startLanguageServer(context, fileSystemWatcher, location);
     State.viperApi = new ViperApi(State.client);
-    registerHandlers();
-    Notifier.notifyExtensionActivation();
+    registerHandlers(location);
     startAutoSaver();
     registerFormatter();
-    if (vscode.window.activeTextEditor) {
-        let uri = vscode.window.activeTextEditor.document.uri;
-        State.setLastActiveFile(uri, vscode.window.activeTextEditor);
-    } else {
-        Log.log("No active text editor found", LogLevel.Info);
-    }
+    await initializeState(location);
+    Notifier.notifyExtensionActivation();
     activated = true;
+    Log.log('Viper IDE is now active.', LogLevel.Info);
     return State.viperApi;
 }
 
@@ -221,6 +217,27 @@ function resetAutoSaver() {
     autoSaver.reset();
 }
 
+async function initializeState(location: Location): Promise<void> {
+    // set currently open file
+    if (vscode.window.activeTextEditor) {
+        const uri = vscode.window.activeTextEditor.document.uri;
+        State.setLastActiveFile(uri, vscode.window.activeTextEditor);
+        // this file is automatically verified as soo as the backend got started
+    } else {
+        Log.log("No active text editor found", LogLevel.Info);
+    }
+    
+    // get backends from configuration and pick first one as the 'default' backend:
+    const backends = await Settings.getVerificationBackends(location);
+    if (backends.length === 0) {
+        throw new Error("no verification backends configured in the settings");
+    }
+    considerStartingBackend(backends[0]);
+
+    // visually indicate that the IDE is now ready:
+    State.statusBarItem.update("ready", Color.READY);
+}
+
 async function handleSettingsCheckResult(res: Either<Messages, {}>): Promise<void> {
     if (isRight(res)) {
         return; // success, i.e. no warnings and no errors
@@ -269,7 +286,7 @@ async function handleSettingsCheckResult(res: Either<Messages, {}>): Promise<voi
     }
 }
 
-function registerHandlers() {
+function registerHandlers(location: Location) {
     State.client.onReady().then(ready => {
 
         State.client.onNotification(Commands.StateChange, (params: StateChangeParams) => State.verificationController.handleStateChange(params));
@@ -278,54 +295,21 @@ function registerHandlers() {
             Log.hint(data.message, "Viper", data.showSettingsButton, data.showViperToolsUpdateButton);
         });
         
-        State.client.onNotification(Commands.Log, (data, logLevel) => {
-            Log.log(data, logLevel, true);
+        State.client.onNotification(Commands.Log, (params: LogParams) => {
+            Log.log(params.data, params.logLevel, true);
         });
         
-        State.client.onNotification(Commands.Progress, (data: Progress, logLevel: LogLevel) => {
-            Log.progress(data, logLevel);
-        });
-
-        State.client.onNotification(Commands.FileOpened, (uri: string) => {
-            /*
-            try {
-                Log.log("File openend: " + uri, LogLevel.Info);
-                let uriObject: URI = URI.parse(uri);
-                let fileState = State.getFileState(uri);
-                if (fileState) {
-                    fileState.open = true;
-                    fileState.verifying = false;
-                    State.addToWorklist(new Task({ type: TaskType.Verify, uri: uriObject, manuallyTriggered: false }));
-                }
-            } catch (e) {
-                Log.error("Error handling file opened notification: " + e);
-            }
-            */
-        });
-        
-        State.client.onNotification(Commands.FileClosed, (uri: string) => {
-            try {
-                let uriObject: URI = URI.parse(uri);
-                Log.log("File closed: " + path.basename(uriObject.path), LogLevel.Info);
-                let fileState = State.getFileState(uri);
-                if (fileState) {
-                    fileState.open = false;
-                    fileState.verified = false;
-                }
-                fileState.stateVisualizer.removeSpecialCharsFromClosedDocument(() => { });
-                State.addToWorklist(new Task({ type: TaskType.FileClosed, uri: fileState.uri }));
-            } catch (e) {
-                Log.error("Error handling file closed notification: " + e);
-            }
+        State.client.onNotification(Commands.Progress, (params: ProgressParams) => {
+            Log.progress(params.data, params.logLevel);
         });
 
         // When we don't know how to handle a message, we send it to whoever may be using the ViperApi, because this
         // unexpected message may have been destined for them.
         State.client.onNotification(
             Commands.UnhandledViperServerMessageType,
-            (msgType: string, message: string) => { 
-                Log.log(`Received non-standard ViperServer message of type ${msgType}.`, LogLevel.Default);
-                State.viperApi.notifyServerMessage(msgType, message);
+            (params: UnhandledViperServerMessageTypeParams) => { 
+                Log.log(`Received non-standard ViperServer message of type ${params.msgType}.`, LogLevel.Default);
+                State.viperApi.notifyServerMessage(params.msgType, params.msg);
             }
         );
 
@@ -402,9 +386,7 @@ function registerHandlers() {
                 Log.error("Error handling active text editor change: " + e);
             }
         }));
-
-        State.client.onNotification(Commands.BackendReady, (params: BackendReadyParams) => State.verificationController.handleBackendReadyNotification(params));
-
+        /*
         //Heap visualization
         State.client.onNotification(Commands.StepsAsDecorationOptions, params => {
             try {
@@ -447,7 +429,7 @@ function registerHandlers() {
                 Log.error("Error displaying HeapGraph: " + e);
             }
         });
-
+        */
         vscode.window.onDidChangeTextEditorSelection((change) => {
             try {
                 if (!change.textEditor.document) {
@@ -491,23 +473,11 @@ function registerHandlers() {
                 Log.error("Error handling verification not started request: " + e);
             }
         });
-
+        /*
         State.client.onNotification(Commands.StopDebugging, () => {
             State.verificationController.stopDebuggingLocally();
         });
-
-        State.client.onNotification(Commands.BackendStarted, (data: BackendStartedParams )=> {
-            State.addToWorklist(new Task({
-                type: TaskType.StartBackend,
-                backend: data.name,
-                forceRestart: data.forceRestart,
-                manuallyTriggered: false,
-                isViperServerEngine: data.isViperServer
-            }));
-            State.activeBackend = data.name;
-            State.backendStatusBar.update(data.name, Color.READY);
-            State.hideProgress();
-        });
+        */
 
         //Command Handlers
         //verify
@@ -538,50 +508,34 @@ function registerHandlers() {
             }
         }));
 
-        State.context.subscriptions.push(vscode.commands.registerCommand('viper.flushCache', () => flushCache(true)));
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.flushCache', async () => flushCache(true)));
 
-        State.context.subscriptions.push(vscode.commands.registerCommand('viper.flushCacheOfActiveFile', () => flushCache(false)));
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.flushCacheOfActiveFile', async () => flushCache(false)));
 
         //selectBackend
-        State.context.subscriptions.push(vscode.commands.registerCommand('viper.selectBackend', (selectBackend) => {
-            const selectedBackendName = selectBackend ? selectBackend.toLowerCase() : null;
-            try {
-                if (!State.client) {
-                    Log.hint("Extension not ready yet.");
-                } else {
-                    State.client.sendRequest(Commands.RequestBackendNames, null).then((backendNames: string[]) => {
-                        if (backendNames.length > 1) {
-                            let askUser: boolean = false;
-                            if (selectedBackendName) {
-                                const match = backendNames.find(x => x.toLowerCase() === selectedBackendName);
-                                if (match == null) {
-                                    // chosen backend not found
-                                    askUser = true;
-                                } else {
-                                    considerStartingBackend(match);
-                                }
-                            } else {
-                                askUser = true;
-                            }
-                            if (askUser) {
-                                vscode.window.showQuickPick(backendNames).then(selectedBackend => {
-                                    if (selectedBackend && selectedBackend.length > 0) {
-                                        considerStartingBackend(selectedBackend);
-                                    } else {
-                                        Log.log("No backend was selected, don't change the backend", LogLevel.Info);
-                                    }
-                                });
-                            }
-                        } else {
-                            Log.log("No need to ask user, since there is only one backend.", LogLevel.Debug);
-                            considerStartingBackend(backendNames[0]);
-                        }
-                    }, (reason) => {
-                        Log.error("Backend change request was rejected: reason: " + reason.toString());
-                    });
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.selectBackend', async (selectBackend) => {
+            // get all backends from configuration:
+            const backends = await Settings.getVerificationBackends(location);
+            // user only needs to be asked if there is any choice:
+            let selectedBackend: Backend = null;
+            if (backends.length === 0) {
+                // this path should not be possible because we check during startup that at least 1 backend is configured
+                throw new Error(`0 verification backends are configured`);
+            } else if (backends.length === 1) {
+                selectedBackend = backends[0]; // there is no choice
+            } else {
+                // ask the user
+                const selectedBackendName = await vscode.window.showQuickPick(backends.map(backend => backend.name));
+                if (selectedBackendName) {
+                    // user has choosen a backend
+                    selectedBackend = backends.find(backend => backend.name === selectedBackendName);
                 }
-            } catch (e) {
-                Log.error("Error selecting backend: " + e);
+            }
+
+            if (selectedBackend) {
+                considerStartingBackend(selectedBackend);
+            } else {
+                Log.log("No backend was selected, don't change the backend", LogLevel.Info);
             }
         }));
 
@@ -600,70 +554,77 @@ function registerHandlers() {
         }));
 
         //open logFile
-        State.context.subscriptions.push(vscode.commands.registerCommand('viper.openLogFile', () => openLogFile()));
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.openLogFile', openLogFile));
 
         //remove diagnostics of open file
         State.context.subscriptions.push(vscode.commands.registerCommand('viper.removeDiagnostics', () => removeDiagnostics(true)));
 
         //automatic installation and updating of viper tools
-        State.context.subscriptions.push(vscode.commands.registerCommand('viper.updateViperTools', async () => {
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.updateViperTools', () => {
             State.addToWorklist(new Task({ type: TaskType.UpdateViperTools, uri: null, manuallyTriggered: true }));
+        }));
+
+        // show currently active (Viper) settings
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.showSettings', async () => {
+            const settings = vscode.workspace.getConfiguration("viperSettings");
+            const document = await vscode.workspace.openTextDocument({ language: 'json', content: JSON.stringify(settings, null, 2) });
+            await vscode.window.showTextDocument(document, vscode.ViewColumn.Two);
         }));
     });
 }
 
-function flushCache(allFiles: boolean) {
-    if (!State.isActiveViperEngine) {
-        Log.log("Cannot flush cache, the active backend-engine is not the ViperServer", LogLevel.Info);
+async function flushCache(allFiles: boolean) {
+    const backend = State.activeBackend;
+    if (!backend) {
+        Log.hint("Cannot flush cache, no backend is active");
         return;
     }
-
     if (!allFiles) {
-        let fileUri = Helper.getActiveFileUri();
+        const fileUri = Helper.getActiveFileUri();
         if (!fileUri) {
-            Log.log("Cannot flush cache, no active viper file found", LogLevel.Info);
-        } else {
-            Log.log("Request to flush the cache of " + path.basename(fileUri.fsPath), LogLevel.Info);
-            State.client.sendNotification(Commands.FlushCache, fileUri.fsPath);
+            Log.hint("Cannot flush cache, no active viper file found");
+            return;
         }
+        Log.log(`Request to flush the cache of ${path.basename(fileUri.fsPath)} and backend ${backend}`, LogLevel.Info);
+        const params: FlushCacheParams = { uri: fileUri.fsPath, backend: backend.name };
+        await State.client.sendRequest(Commands.FlushCache, params);
     } else {
-        Log.log("Request to flush the entire cache", LogLevel.Info);
-        State.client.sendNotification(Commands.FlushCache, null);
+        Log.log(`Request to flush the entire cache for backend ${backend}`, LogLevel.Info);
+        const params: FlushCacheParams = { uri: null, backend: backend.name };
+        await State.client.sendRequest(Commands.FlushCache, params);
     }
 }
 
-function openLogFile() {
-    try {
-        Log.log("Open logFile located at: " + Log.logFilePath, LogLevel.Info);
-        vscode.workspace.openTextDocument(Log.logFilePath).then(textDocument => {
-            if (!textDocument) {
-                Log.hint("Cannot open the logFile, it is too large to be opened within VSCode.");
-            } else {
-                vscode.window.showTextDocument(textDocument, vscode.ViewColumn.Two).then(() => {
-                    Log.log("Showing logfile succeeded", LogLevel.Debug);
-                    if (State.unitTest) State.unitTest.logFileOpened();
-                }, error => {
-                    Log.error("vscode.window.showTextDocument call failed while opening the logfile: " + error);
-                });
-            }
-        }, error => {
-            Log.error("vscode.window.openTextDocument command failed while opening the logfile: " + error);
-        });
-    } catch (e) {
-        Log.error("Error opening logFile: " + e);
+async function openLogFile(): Promise<void> {
+    Log.log("Open logFile located at: " + Log.logFilePath, LogLevel.Info);
+    const textDocument = await vscode.workspace.openTextDocument(Log.logFilePath)
+        .then(identity, Helper.rethrow(`Error opening logFile`));
+    if (!textDocument) {
+        Log.hint("Cannot open the logFile, it is too large to be opened within VSCode.");
+    } else {
+        await vscode.window.showTextDocument(textDocument, vscode.ViewColumn.Two)
+            .then(identity, Helper.rethrow(`vscode.window.showTextDocument call failed while opening the logfile`));
+        Log.log("Showing logfile succeeded", LogLevel.Debug);
+        if (State.unitTest) {
+            State.unitTest.logFileOpened();
+        }
     }
 }
 
-function considerStartingBackend(backendName: string) {
-    if (backendName && (!State.isBackendReady || State.activeBackend != backendName)) {
+function identity<T>(param: T): T {
+    return param;
+}
+
+function considerStartingBackend(newBackend: Backend): void {
+    if (newBackend && (!State.isBackendReady || State.activeBackend.name != newBackend.name)) {
         State.addToWorklist(new Task({
             type: TaskType.StartBackend,
-            backend: backendName,
+            backend: newBackend,
             manuallyTriggered: true,
             forceRestart: false,
         }));
     } else {
-        Log.log("No need to restart backend " + backendName, LogLevel.Info);
+        Log.log("No need to restart backend " + newBackend.name, LogLevel.Info);
     }
 }
 

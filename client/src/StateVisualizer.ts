@@ -303,10 +303,11 @@ export class StateVisualizer {
                     let simpleMode = Settings.isSimpleModeEnabled();
                     if (!this.executionTrace || simpleMode !== true || (simpleMode === true && isCurrentStateErrorState)) {
                         let params: GetExecutionTraceParams = { uri: this.uri.toString(), clientState: this.currentState };
-                        State.client.sendRequest(Commands.GetExecutionTrace, params).then((trace: ExecutionTrace[]) => {
-                            this.executionTrace = trace;
-                            this.markExecutionTrace(darkGraphs);
-                        });
+                        throw new Error("GetExecutionTrace not implemented");
+                        // State.client.sendRequest(Commands.GetExecutionTrace, params).then((trace: ExecutionTrace[]) => {
+                        //     this.executionTrace = trace;
+                        //     this.markExecutionTrace(darkGraphs);
+                        // });
                     } else {
                         this.markExecutionTrace(darkGraphs);
                     }
@@ -341,7 +342,8 @@ export class StateVisualizer {
             clientIndex: state,
             isHeapNeeded: isHeapNeeded
         }
-        State.client.sendRequest(Commands.ShowHeap, params);
+        throw new Error("ShowHeap not implemented");
+        // State.client.sendRequest(Commands.ShowHeap, params);
     }
 
     //handle both selection change, or debugger movement notification

@@ -139,6 +139,11 @@
 				"command": "viper.format",
 				"title": "auto-format Viper program",
 				"category": "Viper"
+			},
+			{
+				"command": "viper.showSettings",
+				"title": "display settings effectively used by Viper-IDE",
+				"category": "Viper"
 			}
 		],
 		"menus": {
@@ -308,7 +313,7 @@
 								"$viperTools$/backends"
 							]
 						},
-						"customArguments": " $backendSpecificCache$",
+						"customArguments": "--serverMode LSP --singleClient $backendSpecificCache$ --logLevel $logLevel$ --logFile $logFile$",
 						"backendSpecificCache": true,
 						"disableCaching": false,
 						"timeout": 5000,

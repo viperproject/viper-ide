@@ -15,7 +15,7 @@ import * as path from 'path';
 import * as readline from 'readline';
 import * as unusedFilename from 'unused-filename';
 import { Location } from 'vs-verification-toolbox';
-import { Common, LogLevel } from './ViperProtocol';
+import { Backend, Common, LogLevel } from './ViperProtocol';
 import { Log } from './Log';
 import { ViperFileState } from './ViperFileState';
 import { URI } from 'vscode-uri';
@@ -41,7 +41,7 @@ export class State {
     private static lastActiveFileUri: string;
     public static verificationController: VerificationController;
 
-    public static activeBackend: string;
+    public static activeBackend: Backend;
     public static isActiveViperEngine: boolean = true;
 
     public static unitTest: UnitTestCallback;
@@ -55,8 +55,6 @@ export class State {
     public static abortButton: StatusBar;
     
     public static diagnosticCollection: vscode.DiagnosticCollection;
-
-    // public static checkedSettings:ViperSettings;
 
     public static viperApi: ViperApi;
 
@@ -197,9 +195,6 @@ export class State {
 
         // the ID `viperserver` has to match the first part of `viperserver.trace.server` controlling the amount of tracing
         State.client = new LanguageClient('viperserver', 'Viper IDE - ViperServer Communication', serverOptions, clientOptions);
-        State.client.onDidChangeState(event => {
-            Log.log(`LanguageClient changed state from ${event.oldState} to ${event.newState}`, LogLevel.LowLevelDebug);
-        });
 
         // Create the language client and start the client.
         const disposable = State.client.start();
@@ -215,31 +210,15 @@ export class State {
     private static async startServerProcess(location: Location): Promise<{ streamInfo: StreamInfo, disposable: Disposable }> {
         const javaPath = (await Settings.getJavaPath()).path;
         const cwd = await Settings.getJavaCwd();
-        const processArgs = await Settings.getServerProcessArgs(location, "viper.server.ViperServerRunner");
-        const logLevelString = (() => {
-            // translate LogLevel to the command-line parameter that ViperServer understands:
-            switch(Log.logLevel) { // we use `Log.logLevel` here as that one might differ from the one in the settings during unit tests
-                case LogLevel.None:
-                    return "OFF";
-                case LogLevel.Default:
-                    return "ERROR";
-                case LogLevel.Info:
-                    return "INFO";
-                case LogLevel.Verbose:
-                    return "DEBUG";
-                case LogLevel.Debug:
-                    return "TRACE";
-                case LogLevel.LowLevelDebug:
-                    return "ALL";
-            }
-        })();
         const logDirectory = Helper.getLogDir();
         const serverLogFile = unusedFilename.sync(path.join(logDirectory, "viperserver.log"));
+        const processArgs = await Settings.getServerJavaArgs(location, "viper.server.ViperServerRunner");
+        const serverArgs = await Settings.getServerArgs(Log.logLevel, serverLogFile);
 
         // spawn ViperServer and get port number on which it is reachable:
         const { port: portNr, disposable: disposable } = await new Promise((resolve:(res: { port: number, disposable: Disposable }) => void, reject) => {
             // we use `--singleClient` such that the server correctly terminates if the client sends the exit notification:
-            const command = `"${javaPath}" ${processArgs} --logLevel ${logLevelString} --logFile "${serverLogFile}" --serverMode LSP --singleClient`; // processArgs is already escaped but escape javaPath as well.
+            const command = `"${javaPath}" ${processArgs} ${serverArgs}`; // processArgs & serverArgs are already escaped but escape javaPath as well.
             Log.log(`Spawning ViperServer with ${command}`, LogLevel.Verbose);
             const serverProcess = child_process.spawn(command, [], { shell: true, cwd: cwd });
             Log.log(`ViperServer has been spawned and has PID ${serverProcess.pid}`, LogLevel.Verbose);

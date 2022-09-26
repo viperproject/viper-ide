@@ -13,14 +13,13 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { URI } from 'vscode-uri';
 import { State } from './ExtensionState';
-import { Common, VerifyParams, TimingInfo, BackendReadyParams, VerificationState, Commands, StateChangeParams, LogLevel, Success } from './ViperProtocol';
+import { Common, VerifyParams, TimingInfo, VerificationState, Commands, StateChangeParams, LogLevel, Success, Backend } from './ViperProtocol';
 import { Log } from './Log';
 import { StateVisualizer } from './StateVisualizer';
 import { Helper } from './Helper';
 import { ViperFileState } from './ViperFileState';
 import { Color } from './StatusBar';
 import { Settings } from './Settings';
-import { Timer } from './Timer';
 import { Location } from 'vs-verification-toolbox';
 import { updateViperTools } from './ViperTools';
 import { restart } from './extension';
@@ -28,7 +27,7 @@ import { restart } from './extension';
 export interface ITask {
     type: TaskType;
     uri?: vscode.Uri;
-    backend?: string;
+    backend?: Backend;
     manuallyTriggered?: boolean;
     success?: Success;
     isViperServerEngine?: boolean;
@@ -39,7 +38,7 @@ export interface ITask {
 export class Task implements ITask {
     type: TaskType;
     uri?: vscode.Uri;
-    backend?: string;
+    backend?: Backend;
     manuallyTriggered?: boolean;
     success?: Success;
     isViperServerEngine?: boolean;
@@ -75,9 +74,9 @@ export class Task implements ITask {
 
 export enum TaskType {
     NoOp = 0, Clear = 1,
-    Save = 2, Verify = 3, StopVerification = 4, UpdateViperTools = 5, StartBackend = 6, StopBackend = 7, FileClosed = 8,
-    Verifying = 30, StopVerifying = 40, StartingBackend = 50, StoppingBackend = 60,
-    VerificationComplete = 300, VerificationFailed = 301, VerificationStopped = 400, BackendStarted = 600, BackendStopped = 700,
+    Save = 2, Verify = 3, StopVerification = 4, UpdateViperTools = 5, StartBackend = 6, FileClosed = 8,
+    Verifying = 30, StopVerifying = 40,
+    VerificationComplete = 300, VerificationFailed = 301,
     RestartExtension = 800,
 }
 
@@ -97,6 +96,7 @@ export class VerificationController {
     private lastCanStartVerificationReason: string;
     private lastCanStartVerificationUri: vscode.Uri;
 
+    private location: Location;
     private controller: AwaitTimer;
     private workList: Task[];
 
@@ -116,19 +116,20 @@ export class VerificationController {
     private autoVerificationResults: string[];
     private autoVerificationStartTime: number;
 
-    public addToWorklist(task: Task) {
+    public addToWorklist(task: Task): void {
         this.workList.push(task);
     }
 
-    private isActive(type: TaskType) {
-        return type == TaskType.Verifying || type == TaskType.StopVerifying || type == TaskType.StartingBackend || type == TaskType.StoppingBackend;
+    private isActive(type: TaskType): boolean {
+        return type == TaskType.Verifying || type == TaskType.StopVerifying;
     }
 
-    private isImportant(type: TaskType) {
-        return type == TaskType.StopBackend || type == TaskType.StartBackend || type == TaskType.StopVerification;
+    private isImportant(type: TaskType): boolean {
+        return type == TaskType.StartBackend || type == TaskType.StopVerification;
     }
 
     constructor(location: Location) {
+        this.location = location;
         this.workList = [];
         let verificationTimeout = 100;//ms
         this.controller = new AwaitTimer(async () => {
@@ -197,10 +198,6 @@ export class VerificationController {
                             verificationComplete = true;
                             completedOrFailedFileUri = this.workList[i].uri;
                             break;
-                        case TaskType.VerificationStopped:
-                            this.workList[i].type = NoOp;
-                            verificationStopped = true;
-                            break;
                         case TaskType.VerificationFailed:
                             this.workList[i].type = NoOp;
                             verificationFailed = true;
@@ -213,22 +210,6 @@ export class VerificationController {
                             }
                             startBackendFound = true;
                             clear = true;
-                            break;
-                        case TaskType.StopBackend:
-                            //remove duplicated stop backend commands
-                            if (stopBackendFound) {
-                                this.workList[i].type = NoOp;
-                            }
-                            stopBackendFound = true;
-                            clear = true;
-                            break;
-                        case TaskType.BackendStarted:
-                            this.workList[i].type = NoOp;
-                            backendStarted = true;
-                            break;
-                        case TaskType.BackendStopped:
-                            this.workList[i].type = NoOp;
-                            backendStopped = true;
                             break;
                         case TaskType.Save:
                             if (this.workList[0].type == TaskType.Verifying) {
@@ -257,10 +238,10 @@ export class VerificationController {
                                 let canVerify = this.canStartVerification(task);
                                 if (canVerify.result) {
                                     Log.logWithOrigin("workList", "Verifying", LogLevel.LowLevelDebug);
-                                    if (State.unitTest) State.unitTest.verificationStarted(State.activeBackend, path.basename(task.uri.toString()));
+                                    if (State.unitTest) State.unitTest.verificationStarted(State.activeBackend.name, path.basename(task.uri.toString()));
                                     task.markStarted(TaskType.Verifying);
-                                    task.timeout = await Settings.getTimeoutOfActiveBackend(location, State.activeBackend);
-                                    this.verify(fileState, task.manuallyTriggered);
+                                    task.timeout = await Settings.getTimeoutForBackend(State.activeBackend);
+                                    await this.verify(fileState, task.manuallyTriggered);
                                 } else if (canVerify.reason && (canVerify.reason != this.lastCanStartVerificationReason || (task.uri && !Common.uriEquals(task.uri, this.lastCanStartVerificationUri)))) {
                                     Log.log(canVerify.reason, LogLevel.Info);
                                     this.lastCanStartVerificationReason = canVerify.reason;
@@ -290,7 +271,7 @@ export class VerificationController {
                                     Log.logWithOrigin("workList", "StopVerifying", LogLevel.LowLevelDebug);
                                     task.markStarted(TaskType.StopVerifying, this.getStoppingTimeout());
                                     Log.log("Stop the running verification of " + path.basename(task.uri.fsPath), LogLevel.Debug);
-                                    this.stopVerification(task.uri.toString(), isStopManuallyTriggered);
+                                    await this.stopVerification(task.uri.toString(), isStopManuallyTriggered);
                                     State.hideProgress();
                                 }
                                 //block until verification is complete or failed
@@ -332,22 +313,16 @@ export class VerificationController {
                             let uri = task.uri.toString();
                             if (!fileState.open) {
                                 //if the file has not been reopened in the meantime:
-                                //let server and client forget about the file
-                                State.client.sendNotification(Commands.FileClosed, uri);
                                 State.viperFiles.delete(uri);
                             }
                             task.type = NoOp;
                             break;
                         case TaskType.UpdateViperTools:
-                            if (State.isBackendReady) {
-                                this.workList.unshift(new Task({ type: TaskType.StopBackend, manuallyTriggered: task.manuallyTriggered }))
-                            } else {
-                                Log.logWithOrigin("workList", "Updating Viper Tools now", LogLevel.LowLevelDebug);
-                                await updateViperTools(State.context);
-                                if (State.unitTest) State.unitTest.viperUpdateComplete();
-                                task.markStarted(TaskType.RestartExtension);
-                                Log.logWithOrigin("workList", "RestartExtension", LogLevel.LowLevelDebug);
-                            }
+                            Log.logWithOrigin("workList", "Updating Viper Tools now", LogLevel.LowLevelDebug);
+                            await updateViperTools(State.context);
+                            if (State.unitTest) State.unitTest.viperUpdateComplete();
+                            task.markStarted(TaskType.RestartExtension);
+                            Log.logWithOrigin("workList", "RestartExtension", LogLevel.LowLevelDebug);
                             break;
                         case TaskType.RestartExtension:
                             // note that restarting the extension will kill the timer
@@ -362,50 +337,17 @@ export class VerificationController {
                             }
                             break;
                         case TaskType.StartBackend:
-                            let stoppingNeeded = State.isBackendReady && task.forceRestart;
-                            let startingNeeded = !State.isBackendReady || stoppingNeeded;
-
-                            //no need to restart when switching between backends
-                            if (stoppingNeeded) {
-                                this.workList.unshift(new Task({ type: TaskType.StopBackend, manuallyTriggered: task.manuallyTriggered }))
+                            State.activeBackend = task.backend;
+                            // set all files to be not-verified:
+                            State.viperFiles.forEach(file => file.verified = false);
+                            State.backendStatusBar.update(task.backend.name, Color.READY);
+                            // there is no remote task we need to execute on the server and can thus directly set the ready flag:
+                            State.isBackendReady = true;
+                            // reverify the currently open file with the new backend:
+                            const fileUri = Helper.getActiveFileUri();
+                            if (fileUri) {
+                                this.addToWorklist(new Task({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: false }));
                             }
-                            else if (startingNeeded) {
-                                Log.logWithOrigin("workList", "Start Backend", LogLevel.LowLevelDebug);
-                                task.markStarted(TaskType.StartingBackend);
-                                State.client.sendNotification(Commands.StartBackend, task.backend);
-                            } else {
-                                //swap backend without restarting it
-                                State.client.sendNotification(Commands.SwapBackend, task.backend);
-                                task.markStarted(TaskType.StartingBackend);
-                            }
-                            break;
-                        case TaskType.StartingBackend:
-                            //block until backend change complete;
-                            if (backendStarted) {
-                                task.type = NoOp;
-                                Log.logWithOrigin("workList", "Backend started", LogLevel.LowLevelDebug);
-                                State.backendStatusBar.update(task.backend, Color.READY);
-                                State.activeBackend = task.backend;
-                            }
-                            if (backendStopped) {
-                                task.type = NoOp;
-                                Log.logWithOrigin("workList", "BackendStartFailed BackendStopped", LogLevel.LowLevelDebug);
-                                State.statusBarItem.update("Backend start failed", Color.ERROR);
-                            }
-                            break;
-                        case TaskType.StopBackend:
-                            task.markStarted(TaskType.StoppingBackend);
-                            Log.logWithOrigin("workList", "Stop Backend", LogLevel.LowLevelDebug);
-                            State.reset()
-                            State.client.sendNotification(Commands.StopBackend);
-                            break;
-                        case TaskType.StoppingBackend:
-                            //block until backend change complete;
-                            if (backendStopped) {
-                                Log.logWithOrigin("workList", "Backend stopped", LogLevel.LowLevelDebug);
-                                task.type = NoOp;
-                            }
-                            break;
                         default:
                             //in case a completion event reaches the bottom of the this.workList, ignore it.
                             task.type = NoOp;
@@ -509,7 +451,7 @@ export class VerificationController {
         }
     }
 
-    private verify(fileState: ViperFileState, manuallyTriggered: boolean) {
+    private async verify(fileState: ViperFileState, manuallyTriggered: boolean): Promise<void> {
         try {
             //reset timing;
             this.verificationStartTime = Date.now();
@@ -523,45 +465,46 @@ export class VerificationController {
                 this.oldTimings = expectedTimings;
             }
 
-            let uri = fileState.uri.toString();  // toString keeps the file scheme
+            const uri = fileState.uri;
             if (Helper.isViperSourceFile(uri)) {
                 if (!State.client) {
                     Log.hint("Extension not ready yet.");
                 } else {
                     let visualizer = State.getVisualizer(uri);
                     visualizer.completeReset();
-                    this.hideStates(() => {
-                        //delete old SymbExLog:
-                        //Log.deleteFile(Log.getSymbExLogPath());
+                    await this.hideStates(visualizer);
+                    //delete old SymbExLog:
+                    //Log.deleteFile(Log.getSymbExLogPath());
 
-                        //change fileState
-                        fileState.changed = false;
-                        fileState.verified = false;
-                        fileState.verifying = true;
+                    //change fileState
+                    fileState.changed = false;
+                    fileState.verified = false;
+                    fileState.verifying = true;
 
-                        //clear all diagnostics
-                        State.diagnosticCollection.clear();
+                    //clear all diagnostics
+                    State.diagnosticCollection.clear();
 
-                        //start progress updater
-                        clearInterval(this.progressUpdater);
-                        let progress_lambda = () => {
-                            let progress = this.getProgress(this.lastProgress)
-                            let totalProgress = this.getTotalProgress();
-                            Log.progress({ domain: "Verification of " + fileState.name(), progress: progress, postfix: totalProgress }, LogLevel.Debug);
-                        }
-                        progress_lambda()
-                        this.progressUpdater = setInterval(progress_lambda, 333);
-                        State.statusBarProgress.updateProgressBar(0).show();
-                        
-                        Log.log("Request verification for " + path.basename(uri), LogLevel.Verbose);
+                    //start progress updater
+                    clearInterval(this.progressUpdater);
+                    let progress_lambda = () => {
+                        let progress = this.getProgress(this.lastProgress)
+                        let totalProgress = this.getTotalProgress();
+                        Log.progress({ domain: "Verification of " + fileState.name(), progress: progress, postfix: totalProgress }, LogLevel.Debug);
+                    }
+                    progress_lambda()
+                    this.progressUpdater = setInterval(progress_lambda, 333);
+                    State.statusBarProgress.updateProgressBar(0).show();
+                    
+                    Log.log("Request verification for " + path.basename(uri.toString()), LogLevel.Verbose);
 
-                        let workspace = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri.fsPath : path.dirname(fileState.uri.fsPath);
-                        let params: VerifyParams = { uri: uri, manuallyTriggered: manuallyTriggered, workspace: workspace };
-                        //request verification from Server
-                        State.client.sendNotification(Commands.Verify, params);
+                    const workspace = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri.fsPath : path.dirname(fileState.uri.fsPath);
+                    const backend = State.activeBackend;
+                    const customArgs = await Settings.getCustomArgsForBackend(this.location, backend, uri);
+                    const params: VerifyParams = { uri: uri.toString(), manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.name, customArgs: customArgs };
+                    //request verification from Server
+                    State.client.sendNotification(Commands.Verify, params);
 
-                        State.isVerifying = true;
-                    }, visualizer);
+                    State.isVerifying = true;
                 }
                 //in case a debugging session is still running, stop it
                 this.stopDebuggingOnServer();
@@ -576,7 +519,7 @@ export class VerificationController {
         }
     }
 
-    private stopVerification(uriToStop: string, manuallyTriggered: boolean) {
+    private async stopVerification(uriToStop: string, manuallyTriggered: boolean) {
         if (this.verifyingAllFiles) {
             this.printAllVerificationResults();
             this.verifyingAllFiles = false;
@@ -587,9 +530,7 @@ export class VerificationController {
                 Log.log("Verification stop request", LogLevel.Debug);
                 State.hideProgress();
                 State.statusBarItem.update("aborting", Color.WARNING);
-                State.client.sendRequest(Commands.StopVerification, uriToStop).then((success) => {
-                    State.addToWorklist(new Task({ type: TaskType.VerificationStopped, uri: null, manuallyTriggered: false }));
-                });
+                await State.client.sendRequest(Commands.StopVerification, uriToStop);
             } else {
                 let msg = "Cannot stop the verification, no verification is running.";
                 if (manuallyTriggered) {
@@ -597,7 +538,6 @@ export class VerificationController {
                 } else {
                     Log.log(msg, LogLevel.Debug);
                 }
-                State.addToWorklist(new Task({ type: TaskType.VerificationStopped, uri: null, manuallyTriggered: false }));
             }
         } else {
             let msg = "Cannot stop the verification, the extension not ready yet.";
@@ -606,14 +546,14 @@ export class VerificationController {
             } else {
                 Log.log(msg, LogLevel.Debug);
             }
-            State.addToWorklist(new Task({ type: TaskType.VerificationStopped, uri: null, manuallyTriggered: false }));
         }
     }
 
     public stopDebuggingOnServer() {
         if (State.isDebugging) {
-            Log.log("Tell language server to stop debugging", LogLevel.Debug);
-            State.client.sendNotification(Commands.StopDebugging);
+            throw new Error("stop debugging - not implemented");
+            // Log.log("Tell language server to stop debugging", LogLevel.Debug);
+            // State.client.sendNotification(Commands.StopDebugging);
         }
     }
 
@@ -622,15 +562,15 @@ export class VerificationController {
             try {
                 Log.log("Stop Debugging", LogLevel.Info);
                 let visualizer = State.getLastActiveFile().stateVisualizer;
-                this.hideStates(() => { }, visualizer);
+                this.hideStates(visualizer);
             } catch (e) {
                 Log.error("Error handling stop debugging request: " + e);
             }
         }
     }
 
-    private hideStates(callback, visualizer: StateVisualizer) {
-        try {
+    private hideStates(visualizer: StateVisualizer): Promise<void> {
+        return new Promise(resolve => {
             if (Settings.areAdvancedFeaturesEnabled()) {
                 let editor = visualizer.viperFile.editor;
                 vscode.commands.executeCommand('workbench.action.focusFirstEditorGroup').then(success => { }, error => {
@@ -642,14 +582,12 @@ export class VerificationController {
                 visualizer.removeSpecialCharacters(() => {
                     visualizer.hideDecorations();
                     visualizer.reset();
-                    callback();
+                    resolve();
                 });
             } else {
-                callback();
+                resolve();
             }
-        } catch (e) {
-            Log.error("Error hiding States: " + e);
-        }
+        });
     }
 
     private getTotalProgress(): string {
@@ -688,32 +626,6 @@ export class VerificationController {
             return progress;
         } catch (e) {
             Log.error("Error computing progress: " + e);
-        }
-    }
-
-    public handleBackendReadyNotification(params: BackendReadyParams) {
-        try {
-            if (!State.isVerifying) {
-                State.statusBarItem.update("ready", Color.READY);
-            }
-            if (params.restarted) {
-                //no file is verifying
-                State.resetViperFiles()
-                State.addToWorklist(new Task({ type: TaskType.Clear, uri: Helper.getActiveFileUri(), manuallyTriggered: false }));
-                if (Settings.isAutoVerifyAfterBackendChangeEnabled()) {
-                    Log.log("AutoVerify after backend change", LogLevel.Info);
-                    State.addToWorklist(new Task({ type: TaskType.Verify, uri: Helper.getActiveFileUri(), manuallyTriggered: false }));
-                }
-            }
-            Log.log("Backend ready: " + params.name, LogLevel.Info);
-            State.addToWorklist(new Task({ type: TaskType.BackendStarted, backend: params.name, manuallyTriggered: true }));
-            State.isBackendReady = true;
-            State.isActiveViperEngine = params.isViperServer;
-            if (State.unitTest) {
-                State.unitTest.backendStarted(params.name);
-            }
-        } catch (e) {
-            Log.error("Error handling backend started notification: " + e);
         }
     }
 
@@ -850,7 +762,7 @@ export class VerificationController {
                         });
 
                         if (State.unitTest && this.verificationCompleted(params.success)) {
-                            State.unitTest.verificationComplete(State.activeBackend, params.filename);
+                            State.unitTest.verificationComplete(State.activeBackend.name, params.filename);
                         }
                         State.addToWorklist(new Task({ type: TaskType.VerificationComplete, uri: uri, manuallyTriggered: false }));
                     }
@@ -866,7 +778,6 @@ export class VerificationController {
                     clearInterval(this.progressUpdater);
                     State.hideProgress();
                     State.statusBarItem.update('stopped', Color.READY);
-                    State.addToWorklist(new Task({ type: TaskType.BackendStopped, manuallyTriggered: false }));
                     break;
                 default:
                     break;

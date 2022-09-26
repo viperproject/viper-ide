@@ -92,7 +92,7 @@ export class ViperApi {
     }
 
     public getBackendName(): string {
-        return State.activeBackend
+        return State.activeBackend.name
     }
 
     public isBackendReady(): boolean {
