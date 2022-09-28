@@ -133,9 +133,7 @@ async function internalDeactivate(): Promise<void> {
         const oldFile = State.getLastActiveFile();
         if (oldFile) {
             Log.log("Removing special chars of last opened file.", LogLevel.Debug);
-            await new Promise<void>(resolve => {
-                oldFile.stateVisualizer.removeSpecialCharacters(resolve);
-            });
+            await oldFile.stateVisualizer.removeSpecialCharacters();
         }
         Log.log("Close Log", LogLevel.Debug);
         Log.dispose();
@@ -231,7 +229,9 @@ async function initializeState(location: Location): Promise<void> {
     if (backends.length === 0) {
         throw new Error("no verification backends configured in the settings");
     }
-    considerStartingBackend(backends[0]);
+    // awaiting the following promise ensures that the extension is only marked as
+    // ready when the default backend has already been set:
+    await considerStartingBackend(backends[0]);
 
     // visually indicate that the IDE is now ready:
     State.statusBarItem.update("ready", Color.READY);
@@ -342,8 +342,8 @@ function registerHandlers(location: Location) {
             // only `advancedFeatures` might be fine to ignore but we simply restart ViperServer
             // for every configuration change:
             if (event.affectsConfiguration("viperSettings")) {
-                State.verificationController.stopDebuggingOnServer();
-                State.verificationController.stopDebuggingLocally();
+                await State.verificationController.stopDebuggingOnServer();
+                await State.verificationController.stopDebuggingLocally();
                 Log.updateSettings();
                 Log.log(`Viper settings have been changed -> schedule an extension restart`, LogLevel.Info);
                 State.addToWorklist(new Task({ type: TaskType.RestartExtension, uri: null, manuallyTriggered: false }));
@@ -351,7 +351,7 @@ function registerHandlers(location: Location) {
         }));
 
         //trigger verification texteditorChange
-        State.context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(() => {
+        State.context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(async () => {
             try {
                 let editor = vscode.window.activeTextEditor;
                 if (editor) {
@@ -363,9 +363,9 @@ function registerHandlers(location: Location) {
                             if (oldViperFile.uri.toString() !== uri.toString()) {
                                 oldViperFile.decorationsShown = false;
                                 if (State.isDebugging) {
-                                    oldViperFile.stateVisualizer.removeSpecialCharsFromClosedDocument(() => { });
-                                    State.verificationController.stopDebuggingOnServer();
-                                    State.verificationController.stopDebuggingLocally();
+                                    await oldViperFile.stateVisualizer.removeSpecialCharsFromClosedDocument();
+                                    await State.verificationController.stopDebuggingOnServer();
+                                    await State.verificationController.stopDebuggingLocally();
                                 }
                             }
                         }
@@ -539,7 +539,7 @@ function registerHandlers(location: Location) {
             }
 
             if (selectedBackend) {
-                considerStartingBackend(selectedBackend);
+                await considerStartingBackend(selectedBackend);
             } else {
                 Log.log("No backend was selected, don't change the backend", LogLevel.Info);
             }
@@ -604,12 +604,12 @@ async function flushCache(allFiles: boolean) {
 async function openLogFile(): Promise<void> {
     Log.log("Open logFile located at: " + Log.logFilePath, LogLevel.Info);
     const textDocument = await vscode.workspace.openTextDocument(Log.logFilePath)
-        .then(identity, Helper.rethrow(`Error opening logFile`));
+        .then(Helper.identity, Helper.rethrow(`Error opening logFile`));
     if (!textDocument) {
         Log.hint("Cannot open the logFile, it is too large to be opened within VSCode.");
     } else {
         await vscode.window.showTextDocument(textDocument, vscode.ViewColumn.Two)
-            .then(identity, Helper.rethrow(`vscode.window.showTextDocument call failed while opening the logfile`));
+            .then(Helper.identity, Helper.rethrow(`vscode.window.showTextDocument call failed while opening the logfile`));
         Log.log("Showing logfile succeeded", LogLevel.Debug);
         if (State.unitTest) {
             State.unitTest.logFileOpened();
@@ -617,11 +617,8 @@ async function openLogFile(): Promise<void> {
     }
 }
 
-function identity<T>(param: T): T {
-    return param;
-}
-
-function considerStartingBackend(newBackend: Backend): void {
+function considerStartingBackend(newBackend: Backend): Promise<void> {
+    /*
     if (newBackend && (!State.isBackendReady || State.activeBackend.name != newBackend.name)) {
         State.addToWorklist(new Task({
             type: TaskType.StartBackend,
@@ -631,21 +628,30 @@ function considerStartingBackend(newBackend: Backend): void {
         }));
     } else {
         Log.log("No need to restart backend " + newBackend.name, LogLevel.Info);
-    }
+    }*/
+    // we can't compare `newBackend` with the currently active backend because
+    // there might be other `StartBackend` tasks in the worklist
+    return new Promise((resolve, reject) => {
+        State.addToWorklist(new Task({
+            type: TaskType.StartBackend,
+            backend: newBackend,
+            manuallyTriggered: true,
+            forceRestart: false,
+            resolve: resolve,
+            reject: reject,
+        }));
+    });
 }
 
-function showStates(callback) {
+async function showStates(): Promise<void> {
     try {
         if (Settings.areAdvancedFeaturesEnabled()) {
             if (!StateVisualizer.showStates) {
                 StateVisualizer.showStates = true;
-                let visualizer = State.getLastActiveFile().stateVisualizer;
-                visualizer.removeSpecialCharacters(() => {
-                    visualizer.addCharacterToDecorationOptionLocations(() => {
-                        visualizer.showDecorations();
-                        callback();
-                    });
-                });
+                const visualizer = State.getLastActiveFile().stateVisualizer;
+                await visualizer.removeSpecialCharacters();
+                await visualizer.addCharacterToDecorationOptionLocations();
+                visualizer.showDecorations();
             } else {
                 Log.log("don't show states, they are already shown", LogLevel.Debug);
             }

@@ -9,8 +9,6 @@ suite('ViperIDE Tests', () => {
     suiteSetup(async function() {
         this.timeout(SETUP_TIMEOUT);
         await TestHelper.setup();
-        // these tests require a running backend:
-        await TestHelper.startExtension();
     });
 
     suiteTeardown(async function() {
@@ -77,7 +75,7 @@ suite('ViperIDE Tests', () => {
     });
         
     test("Test autoVerify", async function() {
-        this.timeout(2000);
+        this.timeout(3000);
 
         // disable auto verify:
         await TestHelper.executeCommand("viper.toggleAutoVerify");

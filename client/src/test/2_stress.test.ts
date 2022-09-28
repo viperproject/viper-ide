@@ -6,7 +6,6 @@ suite('ViperIDE Stress Tests', () => {
     suiteSetup(async function() {
         this.timeout(SETUP_TIMEOUT);
         await TestHelper.setup();
-        await TestHelper.startExtension();
     });
 
     suiteTeardown(async function() {

@@ -739,10 +739,12 @@ export class Settings {
         const boogiePath = await Settings.getBoogiePath(location);
         const disableCaching = Settings.getConfiguration("viperServerSettings").disableCaching === true;
         return verificationStage.customArguments
-            .replace("$z3Exe$", z3Path)
-            .replace("$boogieExe$", boogiePath)
-            .replace("$disableCaching$", disableCaching ? "--disableCaching" : "")
-            .replace("$fileToVerify$", fileUri.fsPath);
+            // note that we use functions as 2nd argument since we do not want that
+            // the special replacement patterns kick in
+            .replace("$z3Exe$", () => `"${z3Path}"`) // escape path
+            .replace("$boogieExe$", () => `"${boogiePath}"`) // escape path
+            .replace("$disableCaching$", () => disableCaching ? "--disableCaching" : "")
+            .replace("$fileToVerify$", () => `"${fileUri.fsPath}"`); // escape path
     }
 
     private static async checkTimeout(timeout: number, prefix: string): Promise<Either<Messages, number | null>> {
@@ -865,8 +867,10 @@ export class Settings {
         const configuredArgString = Settings.getConfiguration("javaSettings").customArguments;
         const serverJars = await Settings.getViperServerJars(location); // `viperServerJars()` already returns an escaped string
         return configuredArgString
-            .replace("$backendPaths$", serverJars)
-            .replace("$mainMethod$", mainMethod);
+            // note that we use functions as 2nd argument since we do not want that
+            // the special replacement patterns kick in
+            .replace("$backendPaths$", () => serverJars)
+            .replace("$mainMethod$", () => mainMethod);
     }
 
     public static getServerPolicy(): ServerPolicy {
@@ -902,7 +906,9 @@ export class Settings {
         return configuredArgString
             .replace("$backendSpecificCache$", useBackendSpecificCache ? "--backendSpecificCache" : "")
             .replace("$logLevel$", convertLogLevel(logLevel))
-            .replace("$logFile$", `"${logFile}"`); // escape logFile
+            // note that we use functions as 2nd argument since we do not want that
+            // the special replacement patterns kick in
+            .replace("$logFile$", () => `"${logFile}"`); // escape logFile
     }
 
     /** all paths get escaped */

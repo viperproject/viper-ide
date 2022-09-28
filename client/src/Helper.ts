@@ -112,6 +112,10 @@ export class Helper {
             throw new Error(`${msg} (reason: '${originalReason}')`);
         }
     }
+
+    public static identity<T>(param: T): T {
+        return param;
+    }
 }
 
 export interface Output {

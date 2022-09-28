@@ -31,6 +31,11 @@ export default class TestHelper {
     private static callbacks: UnitTestCallbackImpl = null;
     private static context: vscode.ExtensionContext = null;
 
+    /**
+     * Configures the state used for unit tests.
+     * When called as part of the first testsuite, the extension's start is not awaited.
+     * However, for subsequent testsuites, the extension's activation is awaited.
+     */
     public static async setup(): Promise<void> {
         // setup callbacks:
         assert(this.callbacks == null);
@@ -76,13 +81,6 @@ export default class TestHelper {
 
     private static getTestDataPath(fileName: string): string {
         return path.join(DATA_ROOT, fileName);
-    }
-
-    public static async startExtension(): Promise<void> {
-        const fileName = EMPTY;
-        const activated = TestHelper.waitForExtensionActivation();
-        await TestHelper.openFile(fileName);
-        await activated;
     }
 
     public static async openFile(fileName: string): Promise<vscode.TextDocument> {

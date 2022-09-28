@@ -6,8 +6,6 @@ suite('Viper Tools Update Test', () => {
     suiteSetup(async function() {
         this.timeout(SETUP_TIMEOUT);
         await TestHelper.setup();
-        // these tests require a running backend:
-        await TestHelper.startExtension();
     });
 
     suiteTeardown(async function() {
@@ -19,12 +17,13 @@ suite('Viper Tools Update Test', () => {
         TestHelper.resetErrors();
 
         const updateDone = TestHelper.waitForViperToolsUpdate();
-        const restarted = TestHelper.waitForExtensionRestart();
         const activated = TestHelper.waitForExtensionActivation();
+        const restarted = TestHelper.waitForExtensionRestart();
         await TestHelper.startViperToolsUpdate();
 
         await updateDone;
         TestHelper.log("Viper Tools Update done");
+        await activated;
         await restarted;
         TestHelper.log("Extension has been restarted after performing Viper Tools update");
         
@@ -32,11 +31,14 @@ suite('Viper Tools Update Test', () => {
         // note that we open the file only after awaiting the extension's restart as
         // the command to open the file otherwise seems to get lost
         const aborted = TestHelper.waitForAbort();
+        /*
         await TestHelper.openFile(LONG);
 
-        await activated;
+        
         TestHelper.log("extension has activated");
         await TestHelper.verify();
+        */
+       await TestHelper.openFile(LONG);
 
         // stop the verification after 1s
         setTimeout(() => {
@@ -52,6 +54,8 @@ suite('Viper Tools Update Test', () => {
         //reverify
         await TestHelper.openAndVerify(LONG);
         assert (!TestHelper.hasObservedInternalError());
+
+        await TestHelper.closeAllFiles();
     });
 
     test("Viper Tools Update Test", async function() {

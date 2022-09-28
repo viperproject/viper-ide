@@ -33,6 +33,8 @@ export interface ITask {
     isViperServerEngine?: boolean;
     timeout?: number;
     forceRestart?: boolean;
+    resolve?: () => void;
+    reject?: (err: Error) => void;
 }
 
 export class Task implements ITask {
@@ -45,6 +47,9 @@ export class Task implements ITask {
     timeout?: number;
     private startTime?: number = 0;
     forceRestart?: boolean;
+    resolve: () => void;
+    reject: (err: Error) => void;
+    private hasBeenResolvedOrRejected: boolean = false;
 
     constructor(task: ITask) {
         this.type = task.type;
@@ -57,6 +62,26 @@ export class Task implements ITask {
         this.isViperServerEngine = true
         this.timeout = task.timeout;
         this.forceRestart = task.forceRestart;
+
+        const self = this;
+        this.resolve = () => {
+            if (self.hasBeenResolvedOrRejected) {
+                throw new Error(`Task has already been resolved or rejected`);
+            }
+            self.hasBeenResolvedOrRejected = true;
+            if (task.resolve) {
+                task.resolve();
+            }
+        }
+        this.reject = (err: Error) => {
+            if (self.hasBeenResolvedOrRejected) {
+                throw new Error(`Task has already been resolved or rejected`);
+            }
+            self.hasBeenResolvedOrRejected = true;
+            if (task.reject) {
+                task.reject(err);
+            }
+        }
     }
 
     markStarted(type: TaskType, timeout?: number) {
@@ -69,6 +94,20 @@ export class Task implements ITask {
 
     hasTimedOut(): boolean {
         return this.startTime > 0 && this.timeout > 0 && (Date.now() - this.startTime) > this.timeout;
+    }
+
+    /** calls the corresponding callback informing clients that the task has been successfully processed */
+    completeSuccessfully(): void {
+        if (this.resolve) {
+            this.resolve();
+        }
+    }
+
+    /** calls the corresponding callback informing clients that processing the task has failed */
+    completeFailed(err: Error): void {
+        if (this.reject) {
+            this.reject(err);
+        }
     }
 }
 
@@ -87,10 +126,6 @@ export interface CheckResult {
     error: string
 }
 
-let NoOp: TaskType = TaskType.NoOp;
-
-let STOPPING_TIMEOUT = 5000;
-
 export class VerificationController {
 
     private lastCanStartVerificationReason: string;
@@ -105,7 +140,6 @@ export class VerificationController {
     private timings: number[];
     private oldTimings: TimingInfo;
     private progressUpdater;
-    private progressLabel = "";
     private lastProgress: number;
     private lastState: VerificationState = VerificationState.Stopped;
 
@@ -138,7 +172,8 @@ export class VerificationController {
                 let verifyFound = false;
                 let stopFound = false;
                 let isStopManuallyTriggered = false;
-                let clear = false;
+                /** tasks at entries strictly below `clear` get turned into NoOps, i.e. get cleared */
+                let clear: number = -1;
                 let verificationComplete = false;
                 let verificationFailed = false;
                 let completedOrFailedFileUri: vscode.Uri;
@@ -146,91 +181,124 @@ export class VerificationController {
                 let stopBackendFound = false;
                 let startBackendFound = false;
 
-                for (let i = this.workList.length - 1; i >= 0; i--) {
-                    let cur: TaskType = this.workList[i].type;
-                    if (clear && !this.isActive(cur) && !this.isImportant(cur)) {
-                        // clear the this.workList
-                        this.workList[i].type = NoOp;
+                /** 
+                 * list of calls that should be executed at the end of this timer's exeuction
+                 * to complete certain tasks
+                 */
+                type TaskNotification = { task: Task, notify: () => void };
+                const notifyTasks: TaskNotification[] = [];
+
+                function addNotificationForTask(task: Task, notify: () => void): void {
+                    if (hasNotificationForTask(task)) {
+                        throw new Error(`'notifyTasks' already contains a notification for task ${JSON.stringify(task)}`);
                     }
-                    switch (cur) {
+                    notifyTasks.push({ task: task, notify: notify });
+                }
+
+                function hasNotificationForTask(task: Task): boolean {
+                    return notifyTasks.some(notifyTask => task === notifyTask.task);
+                }
+
+                for (let i = this.workList.length - 1; i >= 0; i--) {
+                    const task = this.workList[i];
+                    switch (task.type) {
                         case TaskType.UpdateViperTools:
-                            clear = true;
+                            clear = i;
                             break;
                         case TaskType.RestartExtension:
-                            clear = true;
+                            clear = i;
                             break;
                         case TaskType.Verify:
-                            if (!this.workList[i].manuallyTriggered && !State.autoVerify) {
-                                this.workList[i].type = NoOp;
+                            if (!task.manuallyTriggered && !State.autoVerify) {
+                                task.type = TaskType.NoOp;
+                                addNotificationForTask(task, () => task.completeFailed(new Error(`verification is skipped because it got neither manually triggered nor is auto-verification enabled`)));
                             } else {
                                 //remove all older verify tasks
                                 if (verifyFound || stopFound) {
-                                    this.workList[i].type = NoOp;
+                                    task.type = TaskType.NoOp;
+                                    addNotificationForTask(task, () => task.completeFailed(new Error(`verification is skipped because it is preceeded by another verify command`)));
+                                } else if ((verificationComplete || verificationFailed) && Common.uriEquals(completedOrFailedFileUri, task.uri)) {
+                                    //remove verification requests of just verified file
+                                    task.type = TaskType.NoOp;
+                                    addNotificationForTask(task, () => task.completeFailed(new Error(`verification has completed for this file`)));
                                 } else {
                                     verifyFound = true;
-                                    uriOfFoundVerfy = this.workList[i].uri;
-                                }
-                                if ((verificationComplete || verificationFailed) && Common.uriEquals(completedOrFailedFileUri, this.workList[i].uri)) {
-                                    //remove verification requests of just verified file
-                                    this.workList[i].type = NoOp;
+                                    uriOfFoundVerfy = task.uri;
                                 }
                             }
                             break;
                         case TaskType.StopVerification:
-                            this.workList[i].type = NoOp;
+                            task.type = TaskType.NoOp;
+                            // we mark the task as successfully processed. This does not reflect whether 
+                            // stopping the verification was actually successful or not
+                            addNotificationForTask(task, () => task.completeSuccessfully());
                             stopFound = true;
-                            isStopManuallyTriggered = isStopManuallyTriggered || this.workList[i].manuallyTriggered;
+                            isStopManuallyTriggered = isStopManuallyTriggered || task.manuallyTriggered;
                             break;
                         case TaskType.FileClosed:
-                            if (this.workList[0].type == TaskType.Verifying && this.workList[0].uri.toString() == this.workList[i].uri.toString()) {
+                            if (this.workList[0].type === TaskType.Verifying && this.workList[0].uri.toString() === task.uri.toString()) {
                                 stopFound = true;
                             }
                             break;
                         case TaskType.Clear:
-                            this.workList[i].type = NoOp;
-                            clear = true;
+                            task.type = TaskType.NoOp;
+                            addNotificationForTask(task, () => task.completeSuccessfully());
+                            clear = i;
                             break;
                         case TaskType.VerificationComplete:
-                            this.workList[i].type = NoOp;
+                            task.type = TaskType.NoOp;
+                            addNotificationForTask(task, () => task.completeSuccessfully());
                             verificationComplete = true;
-                            completedOrFailedFileUri = this.workList[i].uri;
+                            completedOrFailedFileUri = task.uri;
                             break;
                         case TaskType.VerificationFailed:
-                            this.workList[i].type = NoOp;
+                            task.type = TaskType.NoOp;
+                            addNotificationForTask(task, () => task.completeSuccessfully());
                             verificationFailed = true;
-                            completedOrFailedFileUri = this.workList[i].uri;
+                            completedOrFailedFileUri = task.uri;
                             break;
                         case TaskType.StartBackend:
-                            //remove duplicated start backend commands
-                            if (startBackendFound) {
-                                this.workList[i].type = NoOp;
-                            }
                             startBackendFound = true;
-                            clear = true;
+                            clear = i;
                             break;
                         case TaskType.Save:
-                            if (this.workList[0].type == TaskType.Verifying) {
+                            if (this.workList[0].type === TaskType.Verifying) {
                                 stopFound = true;
                             }
                             break;
+                        default:
+                            break;
+                    }
+                    if (i < clear && task.type !== TaskType.NoOp && !this.isActive(task.type) && !this.isImportant(task.type)) {
+                        // clear the this.workList
+                        task.type = TaskType.NoOp;
+                        addNotificationForTask(task, () => task.completeFailed(new Error(`task has been cleared`)));
                     }
                 }
 
-                //remove leading NoOps
-                while (this.workList.length > 0 && this.workList[0].type == NoOp) {
-                    this.workList.shift();
-                }
+                // remove NoOps:
+                this.workList = this.workList.filter(task => {
+                    const keep = task.type !== TaskType.NoOp;
+                    if (!keep) {
+                        // sanity check that all tasks are going to be either resolved or rejected
+                        if (!hasNotificationForTask(task)) {
+                            throw new Error(`There is no notification task for task ${JSON.stringify(task)}`);
+                        }
+                    }
+                    return keep;
+                });
 
                 //Start processing the tasks
                 let done = false;
                 while (!done && this.workList.length > 0) {
-                    let task = this.workList[0];
+                    const task = this.workList[0];
 
-                    let fileState = State.getFileState(task.uri); //might be null
+                    const fileState = State.getFileState(task.uri); //might be null
                     switch (task.type) {
                         case TaskType.Verify:
                             if (!State.autoVerify && !task.manuallyTriggered) {
                                 task.type = TaskType.NoOp;
+                                addNotificationForTask(task, () => task.completeFailed(new Error(`verification is skipped because it got neither manually triggered nor is auto-verification enabled`)));
                             } else {
                                 let canVerify = this.canStartVerification(task);
                                 if (canVerify.result) {
@@ -243,7 +311,8 @@ export class VerificationController {
                                     Log.log(canVerify.reason, LogLevel.Info);
                                     this.lastCanStartVerificationReason = canVerify.reason;
                                     if (canVerify.removeRequest) {
-                                        task.type = NoOp;
+                                        task.type = TaskType.NoOp;
+                                        addNotificationForTask(task, () => task.completeFailed(new Error(`verification could not be started because of ${canVerify.reason}`)));
                                     }
                                 }
                                 this.lastCanStartVerificationUri = task.uri;
@@ -252,10 +321,11 @@ export class VerificationController {
                         case TaskType.Verifying:
                             if (!State.isVerifying) {
                                 //verification done
-                                task.type = NoOp;
+                                task.type = TaskType.NoOp;
+                                addNotificationForTask(task, () => task.completeSuccessfully());
                                 State.hideProgress();
                             } else {
-                                let timedOut = task.hasTimedOut();
+                                const timedOut = task.hasTimedOut();
                                 //should the verification be aborted?
                                 if ((verifyFound && !Common.uriEquals(uriOfFoundVerfy, task.uri))//if another verification is requested, the current one must be stopped
                                     || stopFound
@@ -275,7 +345,8 @@ export class VerificationController {
                                     if (!Common.uriEquals(completedOrFailedFileUri, task.uri)) {
                                         Log.error("WARNING: the " + (verificationComplete ? "completed" : "failed") + " verification uri does not correspond to the uri of the started verification.");
                                     }
-                                    task.type = NoOp;
+                                    task.type = TaskType.NoOp;
+                                    addNotificationForTask(task, () => task.completeSuccessfully());
                                     Log.logWithOrigin("workList", "VerificationFinished", LogLevel.LowLevelDebug);
 
                                     let succ = verificationComplete && !verificationFailed ? "succeded" : "failed"
@@ -290,7 +361,8 @@ export class VerificationController {
                                 //if the file has not been reopened in the meantime:
                                 State.viperFiles.delete(uri);
                             }
-                            task.type = NoOp;
+                            task.type = TaskType.NoOp;
+                            addNotificationForTask(task, () => task.completeSuccessfully());
                             break;
                         case TaskType.UpdateViperTools:
                             Log.logWithOrigin("workList", "Updating Viper Tools now", LogLevel.LowLevelDebug);
@@ -300,65 +372,95 @@ export class VerificationController {
                             Log.logWithOrigin("workList", "RestartExtension", LogLevel.LowLevelDebug);
                             break;
                         case TaskType.RestartExtension:
-                            // note that restarting the extension will kill the timer
-                            // that schedules the tasks.
-                            await restart();
-                            if (State.unitTest) State.unitTest.extensionRestarted();
+                            // note that `restart` awaits the disposable of the timer
+                            // this is problematic since the timer's disposable awaits
+                            // the timer's function
+                            // therefore, we stop the timer from firing again but do
+                            // not await neither the Timer's `stop` nor the extension's
+                            // `restart`:
+                            this.controller.stop()
+                                .then(() => Log.log(`timer got stopped`, LogLevel.Debug))
+                                .then(restart)
+                                .then(() => {
+                                    Log.log(`extension got restarted`, LogLevel.Debug);
+                                    if (State.unitTest) {
+                                        State.unitTest.extensionRestarted();
+                                        Log.log(`'extensionRestarted' notification sent`, LogLevel.LowLevelDebug);
+                                    }
+                                    task.completeSuccessfully();
+                                });
                             break;
                         case TaskType.Save:
-                            task.type = NoOp;
+                            task.type = TaskType.NoOp;
+                            addNotificationForTask(task, () => task.completeSuccessfully());
                             if (fileState) {
-                                this.handleSaveTask(fileState);
+                                await this.handleSaveTask(fileState);
                             }
                             break;
                         case TaskType.StartBackend:
-                            State.activeBackend = task.backend;
-                            // set all files to be not-verified:
-                            State.viperFiles.forEach(file => file.verified = false);
-                            State.backendStatusBar.update(task.backend.name, Color.READY);
-                            // there is no remote task we need to execute on the server and can thus directly set the ready flag:
-                            State.isBackendReady = true;
-                            if (State.unitTest) State.unitTest.backendStarted(task.backend.name);
-                            // reverify the currently open file with the new backend:
-                            const fileUri = Helper.getActiveFileUri();
-                            if (fileUri) {
-                                this.addToWorklist(new Task({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: false }));
+                            if (!State.isBackendReady || State.activeBackend !== task.backend) {
+                                // the backend has changed
+                                State.activeBackend = task.backend;
+                                // set all files to be not-verified:
+                                State.viperFiles.forEach(file => file.verified = false);
+                                State.backendStatusBar.update(task.backend.name, Color.READY);
+                                // there is no remote task we need to execute on the server and can thus directly set the ready flag:
+                                State.isBackendReady = true;
+                                Log.log(`Backend ${task.backend.name} is now ready`, LogLevel.Debug);
+                                if (State.unitTest) State.unitTest.backendStarted(task.backend.name);
+                                // reverify the currently open file with the new backend:
+                                const fileUri = Helper.getActiveFileUri();
+                                if (fileUri) {
+                                    this.addToWorklist(new Task({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: false }));
+                                }
+                            } else {
+                                Log.log(`Skipping 'StartBackend' because the same backend (${task.backend.name}) has been selected`, LogLevel.LowLevelDebug);
                             }
+                            task.type = TaskType.NoOp;
+                            addNotificationForTask(task, () => task.completeSuccessfully());
+                            break;
+                        case TaskType.NoOp:
+                            addNotificationForTask(task, () => task.completeSuccessfully());
+                            break;
                         default:
-                            //in case a completion event reaches the bottom of the this.workList, ignore it.
-                            task.type = NoOp;
+                            Log.error(`unhandled task type ${task.type}`);
+                            task.type = TaskType.NoOp;
+                            break;
                     }
 
                     //in case the leading element is now a NoOp, remove it, otherwise block.
-                    if (task.type == NoOp) {
-                        this.workList.shift();
+                    if (task.type === TaskType.NoOp) {
+                        const removedTask = this.workList.shift();
+                        // sanity check that all tasks are eventually either resolved or rejected:
+                        if (!hasNotificationForTask(removedTask)) {
+                            throw new Error(`There is no notification task for task ${JSON.stringify(removedTask)}`);
+                        }
                     } else {
+                        // break out of while loop to wait for next triggering of timer
                         done = true;
                     }
                 }
+                notifyTasks.forEach(notifyTask => notifyTask.notify());
                 if (State.unitTest && this.workList.length == 0) State.unitTest.ideIsIdle();
             } catch (e) {
                 Log.error(`Error in verification controller (critical): ${e}`);
                 this.workList.shift();
             }
         }, verificationTimeout);
+        // the following statement ensures that the controller, i.e. `AwaitTimer`, is disposed
+        // when shutting down the extension:
         State.context.subscriptions.push(this.controller);
     }
 
-    private getStoppingTimeout(): number{
-        //TODO Make this a settable parameter.
-        return 10000;
-    }
-
-    private handleSaveTask(fileState: ViperFileState) {
+    private async handleSaveTask(fileState: ViperFileState): Promise<void> {
         if (fileState.onlySpecialCharsChanged) {
             fileState.onlySpecialCharsChanged = false;
         } else {
             //Log.log("Save " + path.basename(task.uri.toString()) + " is handled", LogLevel.Info);
             fileState.changed = true;
             fileState.verified = false;
-            this.stopDebuggingOnServer();
-            this.stopDebuggingLocally();
+            await this.stopDebuggingOnServer();
+            await this.stopDebuggingLocally();
             this.addToWorklist(new Task({ type: TaskType.Verify, uri: fileState.uri, manuallyTriggered: false }));
         }
     }
@@ -483,8 +585,8 @@ export class VerificationController {
                     State.isVerifying = true;
                 }
                 //in case a debugging session is still running, stop it
-                this.stopDebuggingOnServer();
-                this.stopDebuggingLocally();
+                await this.stopDebuggingOnServer();
+                await this.stopDebuggingLocally();
             }
         } catch (e) {
             if (!State.isVerifying) {
@@ -530,7 +632,7 @@ export class VerificationController {
         }
     }
 
-    public stopDebuggingOnServer() {
+    public async stopDebuggingOnServer(): Promise<void> {
         if (State.isDebugging) {
             throw new Error("stop debugging - not implemented");
             // Log.log("Tell language server to stop debugging", LogLevel.Debug);
@@ -538,37 +640,30 @@ export class VerificationController {
         }
     }
 
-    public stopDebuggingLocally() {
+    public async stopDebuggingLocally(): Promise<void> {
         if (State.isDebugging) {
             try {
                 Log.log("Stop Debugging", LogLevel.Info);
                 let visualizer = State.getLastActiveFile().stateVisualizer;
-                this.hideStates(visualizer);
+                await this.hideStates(visualizer);
             } catch (e) {
                 Log.error("Error handling stop debugging request: " + e);
             }
         }
     }
 
-    private hideStates(visualizer: StateVisualizer): Promise<void> {
-        return new Promise(resolve => {
-            if (Settings.areAdvancedFeaturesEnabled()) {
-                let editor = visualizer.viperFile.editor;
-                vscode.commands.executeCommand('workbench.action.focusFirstEditorGroup').then(success => { }, error => {
-                    Log.error("Error changing the focus to the first editorGroup");
-                });
-                State.isDebugging = false;
-                Log.log("Hide states for " + visualizer.viperFile.name(), LogLevel.Info);
-                StateVisualizer.showStates = false;
-                visualizer.removeSpecialCharacters(() => {
-                    visualizer.hideDecorations();
-                    visualizer.reset();
-                    resolve();
-                });
-            } else {
-                resolve();
-            }
-        });
+    private async hideStates(visualizer: StateVisualizer): Promise<void> {
+        if (Settings.areAdvancedFeaturesEnabled()) {
+            const editor = visualizer.viperFile.editor;
+            const success = await vscode.commands.executeCommand('workbench.action.focusFirstEditorGroup')
+                .then(Helper.identity, Helper.rethrow("Error changing the focus to the first editorGroup"));
+            State.isDebugging = false;
+            Log.log("Hide states for " + visualizer.viperFile.name(), LogLevel.Info);
+            StateVisualizer.showStates = false;
+            await visualizer.removeSpecialCharacters();
+            visualizer.hideDecorations();
+            visualizer.reset();
+        }
     }
 
     private getTotalProgress(): string {
@@ -627,7 +722,6 @@ export class VerificationController {
                     State.abortButton.show();
                     State.statusBarProgress.show();
                     if (params.progress > 0) {
-                        this.progressLabel = `Verification of ${params.filename}:`;
                         this.addTiming(params.filename, params.progress, Color.ACTIVE);
                     }
                     if (params.diagnostics) {
@@ -639,7 +733,6 @@ export class VerificationController {
                     }
                     break;
                 case VerificationState.PostProcessing:
-                    this.progressLabel = `postprocessing ${params.filename}:`;
                     this.addTiming(params.filename, params.progress, Color.ACTIVE);
                     break;
                 case VerificationState.Stage:
@@ -880,22 +973,29 @@ enum LspDiagnosticSeverity {
 /** similar to Timer but awaits the function and only then sets up a new interval */
 class AwaitTimer {
     private running: Boolean = true;
+    private stopped: Promise<void>;
 
     constructor(fn: () => Promise<void>, intervalMs: number) {
         const self = this;
-        (async function loop() {
-            await fn();
-            if (self.running) {
-                setTimeout(loop, intervalMs);
-            }
-        })();
+        this.stopped = new Promise(resolve => {
+            (async function loop() {
+                await fn();
+                if (self.running) {
+                    setTimeout(loop, intervalMs);
+                } else {
+                    resolve();
+                }
+            })();
+        });
     }
 
-    stop(): void {
+    /** completes as soon as the timer and currently executing function has been stopped */
+    stop(): Promise<void> {
         this.running = false;
+        return this.stopped;
     }
 
-    dispose(): void {
-        this.stop();
+    dispose(): Promise<void> {
+        return this.stop();
     }
 }
