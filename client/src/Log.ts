@@ -29,12 +29,12 @@ export class Log {
     static logTiming = true;
 
 
-    public static initialize() {
+    public static async initialize(): Promise<void> {
         try {
             Log.updateSettings();
             if (!this.logFile) {
                 const logDirectory = Helper.getLogDir();
-                this.logFilePath = unusedFilename.sync(path.join(logDirectory, "viper.log"));
+                this.logFilePath = await unusedFilename(path.join(logDirectory, "viper.log"));
                 Log.log('The logFile is located at: "' + this.logFilePath + '"', LogLevel.Info)
                 try {
                     Log.createFile(this.logFilePath);

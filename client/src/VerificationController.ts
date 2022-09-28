@@ -8,10 +8,12 @@
  
 'use strict';
 
-import * as fs from 'fs';
+import { readdir } from 'fs/promises';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { URI } from 'vscode-uri';
+import { Location } from 'vs-verification-toolbox';
+import { AwaitTimer } from './AwaitTimer';
 import { State } from './ExtensionState';
 import { Common, VerifyParams, TimingInfo, VerificationState, Commands, StateChangeParams, LogLevel, Success, Backend } from './ViperProtocol';
 import { Log } from './Log';
@@ -19,10 +21,9 @@ import { Helper } from './Helper';
 import { ViperFileState } from './ViperFileState';
 import { Color } from './StatusBar';
 import { Settings } from './Settings';
-import { Location } from 'vs-verification-toolbox';
 import { updateViperTools } from './ViperTools';
 import { restart } from './extension';
-import { readdir } from 'fs/promises';
+
 
 export interface ITask {
     type: TaskType;
@@ -901,34 +902,4 @@ enum LspDiagnosticSeverity {
     Warning = 2,
     Information = 3,
     Hint = 4
-}
-
-/** similar to Timer but awaits the function and only then sets up a new interval */
-class AwaitTimer {
-    private running: Boolean = true;
-    private stopped: Promise<void>;
-
-    constructor(fn: () => Promise<void>, intervalMs: number) {
-        const self = this;
-        this.stopped = new Promise(resolve => {
-            (async function loop() {
-                await fn();
-                if (self.running) {
-                    setTimeout(loop, intervalMs);
-                } else {
-                    resolve();
-                }
-            })();
-        });
-    }
-
-    /** completes as soon as the timer and currently executing function has been stopped */
-    stop(): Promise<void> {
-        this.running = false;
-        return this.stopped;
-    }
-
-    dispose(): Promise<void> {
-        return this.stop();
-    }
 }

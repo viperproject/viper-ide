@@ -193,7 +193,7 @@ export class State {
         const javaPath = (await Settings.getJavaPath()).path;
         const cwd = await Settings.getJavaCwd();
         const logDirectory = Helper.getLogDir();
-        const serverLogFile = unusedFilename.sync(path.join(logDirectory, "viperserver.log"));
+        const serverLogFile = await unusedFilename(path.join(logDirectory, "viperserver.log"));
         const processArgs = await Settings.getServerJavaArgs(location, "viper.server.ViperServerRunner");
         const serverArgs = await Settings.getServerArgs(Log.logLevel, serverLogFile);
 

@@ -30,7 +30,6 @@ import { State } from './ExtensionState';
 import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, ProgressParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend } from './ViperProtocol';
 import { Log } from './Log';
 import { Helper } from './Helper';
-import { ViperFileState } from './ViperFileState';
 import { locateViperTools } from './ViperTools';
 import { Color } from './StatusBar';
 import { VerificationController, TaskType, Task } from './VerificationController';
@@ -59,7 +58,7 @@ async function internalActivate(context: vscode.ExtensionContext): Promise<Viper
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
     let ownPackageJson = vscode.extensions.getExtension("viper-admin.viper").packageJSON;
     Log.log(`The current version of ${ownPackageJson.displayName} is: v.${ownPackageJson.version}`, LogLevel.Info);
-    Log.initialize();
+    await Log.initialize();
     State.context = context;
     State.initializeStatusBar(context);
     await cleanViperToolsIfRequested(context);
@@ -166,13 +165,13 @@ async function internalRestart(): Promise<void> {
     await activate(context);
 }
 
-function toggleAutoVerify() {
+function toggleAutoVerify(): void {
     State.autoVerify = !State.autoVerify;
     State.statusBarItem.update("Auto Verify is " + (State.autoVerify ? "on" : "off"), Color.SUCCESS);
 }
 
-function startAutoSaver() {
-    let autoSaveTimeout = 1000;//ms
+function startAutoSaver(): void {
+    const autoSaveTimeout = 1000; // ms
     autoSaver = new Timer(() => {
         //only save viper files
         if (vscode.window.activeTextEditor != null && vscode.window.activeTextEditor.document.languageId == 'viper') {
@@ -194,7 +193,7 @@ function startAutoSaver() {
     State.context.subscriptions.push(onTextEditorSelectionChange);
 }
 
-function resetAutoSaver() {
+function resetAutoSaver(): void {
     autoSaver.reset();
 }
 
@@ -269,7 +268,7 @@ async function handleSettingsCheckResult(res: Either<Messages, {}>): Promise<voi
     }
 }
 
-function registerHandlers(location: Location) {
+function registerHandlers(location: Location): void {
     State.client.onReady().then(ready => {
 
         State.client.onNotification(Commands.StateChange, (params: StateChangeParams) => State.verificationController.handleStateChange(params));
@@ -453,7 +452,7 @@ function registerHandlers(location: Location) {
     });
 }
 
-async function flushCache(allFiles: boolean) {
+async function flushCache(allFiles: boolean): Promise<void> {
     const backend = State.activeBackend;
     if (!backend) {
         Log.hint("Cannot flush cache, no backend is active");
@@ -506,7 +505,7 @@ function considerStartingBackend(newBackend: Backend): Promise<void> {
     });
 }
 
-function removeDiagnostics(activeFileOnly: boolean) {
+function removeDiagnostics(activeFileOnly: boolean): void {
     if (activeFileOnly) {
         if (vscode.window.activeTextEditor) {
             const uri = vscode.window.activeTextEditor.document.uri;
