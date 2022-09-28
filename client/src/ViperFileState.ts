@@ -10,7 +10,6 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { StateVisualizer } from './StateVisualizer';
 import { Success,TimingInfo } from './ViperProtocol';
 
 export class ViperFileState {
@@ -21,12 +20,7 @@ export class ViperFileState {
         this.verifying = false;
         this.open = true;
         this.changed = true;
-        this.onlySpecialCharsChanged = false;
-        this.decorationsShown = false;
-        this.specialCharsShown = false;
         this.uri = uri;
-        this.stateVisualizer = new StateVisualizer();
-        this.stateVisualizer.initialize(this);
         this.initializeEditor();
     }
 
@@ -36,17 +30,12 @@ export class ViperFileState {
     verifying: boolean;
     open: boolean;
     changed: boolean;
-    onlySpecialCharsChanged: boolean;
-    decorationsShown: boolean;
-    specialCharsShown: boolean;
 
     timingInfo:TimingInfo;
 
     editor: vscode.TextEditor;
 
-    stateVisualizer: StateVisualizer;
-
-    public fileOpened() {
+    public fileOpened(): void {
         this.open = true;
     }
 
@@ -56,7 +45,7 @@ export class ViperFileState {
 
     //for the first open file we need to load the editor like this.
     //for the others the editor is set once the editor is active
-    private initializeEditor() {
+    private initializeEditor(): void {
         vscode.window.visibleTextEditors.forEach(editor => {
             if (editor.document.uri.toString() === this.uri.toString()) {
                 this.editor = editor;
@@ -64,7 +53,7 @@ export class ViperFileState {
         });
     }
 
-    public setEditor(editor: vscode.TextEditor) {
+    public setEditor(editor: vscode.TextEditor): void {
         if (!this.editor) {
             this.editor = editor;
         } else {

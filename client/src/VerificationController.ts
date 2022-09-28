@@ -15,7 +15,6 @@ import { URI } from 'vscode-uri';
 import { State } from './ExtensionState';
 import { Common, VerifyParams, TimingInfo, VerificationState, Commands, StateChangeParams, LogLevel, Success, Backend } from './ViperProtocol';
 import { Log } from './Log';
-import { StateVisualizer } from './StateVisualizer';
 import { Helper } from './Helper';
 import { ViperFileState } from './ViperFileState';
 import { Color } from './StatusBar';
@@ -23,6 +22,7 @@ import { Settings } from './Settings';
 import { Location } from 'vs-verification-toolbox';
 import { updateViperTools } from './ViperTools';
 import { restart } from './extension';
+import { readdir } from 'fs/promises';
 
 export interface ITask {
     type: TaskType;
@@ -30,7 +30,6 @@ export interface ITask {
     backend?: Backend;
     manuallyTriggered?: boolean;
     success?: Success;
-    isViperServerEngine?: boolean;
     timeout?: number;
     forceRestart?: boolean;
     resolve?: () => void;
@@ -43,7 +42,6 @@ export class Task implements ITask {
     backend?: Backend;
     manuallyTriggered?: boolean;
     success?: Success;
-    isViperServerEngine?: boolean;
     timeout?: number;
     private startTime?: number = 0;
     forceRestart?: boolean;
@@ -57,9 +55,6 @@ export class Task implements ITask {
         this.backend = task.backend;
         this.manuallyTriggered = task.manuallyTriggered;
         this.success = task.success;
-        // TODO Conceptually this parameter is no longer required, as the
-        // extension should only work with ViperServer as engine.
-        this.isViperServerEngine = true
         this.timeout = task.timeout;
         this.forceRestart = task.forceRestart;
 
@@ -394,7 +389,7 @@ export class VerificationController {
                             task.type = TaskType.NoOp;
                             addNotificationForTask(task, () => task.completeSuccessfully());
                             if (fileState) {
-                                await this.handleSaveTask(fileState);
+                                this.handleSaveTask(fileState);
                             }
                             break;
                         case TaskType.StartBackend:
@@ -452,17 +447,10 @@ export class VerificationController {
         State.context.subscriptions.push(this.controller);
     }
 
-    private async handleSaveTask(fileState: ViperFileState): Promise<void> {
-        if (fileState.onlySpecialCharsChanged) {
-            fileState.onlySpecialCharsChanged = false;
-        } else {
-            //Log.log("Save " + path.basename(task.uri.toString()) + " is handled", LogLevel.Info);
-            fileState.changed = true;
-            fileState.verified = false;
-            await this.stopDebuggingOnServer();
-            await this.stopDebuggingLocally();
-            this.addToWorklist(new Task({ type: TaskType.Verify, uri: fileState.uri, manuallyTriggered: false }));
-        }
+    private handleSaveTask(fileState: ViperFileState): void {
+        fileState.changed = true;
+        fileState.verified = false;
+        this.addToWorklist(new Task({ type: TaskType.Verify, uri: fileState.uri, manuallyTriggered: false }));
     }
 
     private canStartVerification(task: Task): CheckResult {
@@ -481,7 +469,6 @@ export class VerificationController {
                             type: TaskType.StartBackend,
                             backend: State.activeBackend,
                             manuallyTriggered: false,
-                            isViperServerEngine: State.isActiveViperEngine
                         }));
                     }
                     removeRequest = false;
@@ -537,7 +524,7 @@ export class VerificationController {
             clearInterval(this.progressUpdater);
             this.lastProgress = 0;
             //load expected timing
-            let expectedTimings: TimingInfo = fileState.stateVisualizer.getLastTiming();
+            const expectedTimings: TimingInfo = fileState.timingInfo;
             if (expectedTimings && expectedTimings.total) {
                 Log.log("Verification is expected to take " + Helper.formatSeconds(expectedTimings.total), LogLevel.Info);
                 this.oldTimings = expectedTimings;
@@ -548,12 +535,6 @@ export class VerificationController {
                 if (!State.client) {
                     Log.hint("Extension not ready yet.");
                 } else {
-                    let visualizer = State.getVisualizer(uri);
-                    visualizer.completeReset();
-                    await this.hideStates(visualizer);
-                    //delete old SymbExLog:
-                    //Log.deleteFile(Log.getSymbExLogPath());
-
                     //change fileState
                     fileState.changed = false;
                     fileState.verified = false;
@@ -584,9 +565,6 @@ export class VerificationController {
 
                     State.isVerifying = true;
                 }
-                //in case a debugging session is still running, stop it
-                await this.stopDebuggingOnServer();
-                await this.stopDebuggingLocally();
             }
         } catch (e) {
             if (!State.isVerifying) {
@@ -629,40 +607,6 @@ export class VerificationController {
                 Log.log(msg, LogLevel.Debug);
             }
             return false;
-        }
-    }
-
-    public async stopDebuggingOnServer(): Promise<void> {
-        if (State.isDebugging) {
-            throw new Error("stop debugging - not implemented");
-            // Log.log("Tell language server to stop debugging", LogLevel.Debug);
-            // State.client.sendNotification(Commands.StopDebugging);
-        }
-    }
-
-    public async stopDebuggingLocally(): Promise<void> {
-        if (State.isDebugging) {
-            try {
-                Log.log("Stop Debugging", LogLevel.Info);
-                let visualizer = State.getLastActiveFile().stateVisualizer;
-                await this.hideStates(visualizer);
-            } catch (e) {
-                Log.error("Error handling stop debugging request: " + e);
-            }
-        }
-    }
-
-    private async hideStates(visualizer: StateVisualizer): Promise<void> {
-        if (Settings.areAdvancedFeaturesEnabled()) {
-            const editor = visualizer.viperFile.editor;
-            const success = await vscode.commands.executeCommand('workbench.action.focusFirstEditorGroup')
-                .then(Helper.identity, Helper.rethrow("Error changing the focus to the first editorGroup"));
-            State.isDebugging = false;
-            Log.log("Hide states for " + visualizer.viperFile.name(), LogLevel.Info);
-            StateVisualizer.showStates = false;
-            await visualizer.removeSpecialCharacters();
-            visualizer.hideDecorations();
-            visualizer.reset();
         }
     }
 
@@ -768,7 +712,7 @@ export class VerificationController {
                         //complete the timing measurement
                         this.addTiming(params.filename, 100, Color.ACTIVE);
                         if (Settings.showProgress()) {
-                            verifiedFile.stateVisualizer.addTimingInformationToFileState({ total: params.time, timings: this.timings });
+                            verifiedFile.timingInfo = { total: params.time, timings: this.timings };
                         }
 
                         const diagnostics = params.diagnostics
@@ -887,7 +831,7 @@ export class VerificationController {
             || success === Success.VerificationFailed;
     }
 
-    public verifyAllFilesInWorkspace(folder: string) {
+    public async verifyAllFilesInWorkspace(folder: string | null): Promise<void> {
         this.autoVerificationStartTime = Date.now();
         this.verifyingAllFiles = true;
         this.autoVerificationResults = [];
@@ -897,42 +841,31 @@ export class VerificationController {
         }
         let endings = "{" + Helper.viperFileEndings.join(",") + "}";
 
-        let fileListReader;
+        let uris: vscode.Uri[];
         if (folder) {
-            fileListReader = this.getAllViperFilesInDir(folder);
+            uris = await this.getAllViperFilesInDir(folder);
         } else {
-            fileListReader = vscode.workspace.findFiles('**/' + endings, '');
+            uris = await vscode.workspace.findFiles('**/' + endings, '');
         }
 
-        fileListReader.then((uris: URI[]) => {
-            if (!uris) {
-                Log.error('cannot start verifying all files in directory, uris is ' + uris);
-            } else {
-                Log.log("Starting to verify " + uris.length + " viper files.", LogLevel.Info);
-                this.allFilesToAutoVerify = uris;
-                this.nextFileToAutoVerify = 0;
-                this.autoVerifyFile();
-            }
-        }).catch(err => {
-            Log.error("error reading files list " + err);
-        });
+        if (!uris) {
+            Log.error(`cannot start verifying all files in directory, uris is ${uris}`);
+        } else {
+            Log.log(`Starting to verify ${uris.length} viper files.`, LogLevel.Info);
+            this.allFilesToAutoVerify = uris;
+            this.nextFileToAutoVerify = 0;
+            this.autoVerifyFile();
+        }
     }
 
     //non recursive at the moment
     //TODO: implement recursively getting files
-    private getAllViperFilesInDir(folder) {
-        return new Promise((resolve, reject) => {
-            let result: vscode.Uri[] = [];
-            fs.readdir(folder, (err, files) => {
-                files.forEach(file => {
-                    let filePath = path.join(folder, file);
-                    if (Helper.isViperSourceFile(filePath)) {
-                        result.push(Common.uriToObject(Common.pathToUri(filePath)));
-                    }
-                });
-                resolve(result);
-            })
-        });
+    private async getAllViperFilesInDir(folder: string): Promise<vscode.Uri[]> {
+        const files = await readdir(folder);
+        return files
+            .map(file => path.join(folder, file))
+            .filter(filePath => Helper.isViperSourceFile(filePath))
+            .map(filePath => Common.uriToObject(Common.pathToUri(filePath)));
     }
 
     private printAllVerificationResults() {

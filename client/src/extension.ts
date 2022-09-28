@@ -22,18 +22,14 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
-import * as stripJSONComments from 'strip-json-comments';
 import * as rimraf from 'rimraf';
 import * as vscode from 'vscode';
 import { URI } from 'vscode-uri';
 import { Timer } from './Timer';
 import { State } from './ExtensionState';
-import { SettingsError, HintMessage, SettingsErrorType, Commands, StateChangeParams, LogLevel, LogParams, ProgressParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend } from './ViperProtocol';
+import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, ProgressParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend } from './ViperProtocol';
 import { Log } from './Log';
-import { StateVisualizer } from './StateVisualizer';
 import { Helper } from './Helper';
-import { ViperFormatter } from './ViperFormatter';
 import { ViperFileState } from './ViperFileState';
 import { locateViperTools } from './ViperTools';
 import { Color } from './StatusBar';
@@ -45,7 +41,6 @@ import { Location } from 'vs-verification-toolbox';
 let autoSaver: Timer;
 
 let fileSystemWatcher: vscode.FileSystemWatcher;
-let formatter: ViperFormatter;
 
 let activated: boolean = false;
 
@@ -78,7 +73,6 @@ async function internalActivate(context: vscode.ExtensionContext): Promise<Viper
     State.viperApi = new ViperApi(State.client);
     registerHandlers(location);
     startAutoSaver();
-    registerFormatter();
     await initializeState(location);
     if (State.unitTest) State.unitTest.extensionActivated();
     activated = true;
@@ -130,12 +124,6 @@ async function internalDeactivate(): Promise<void> {
         Log.log("deactivate", LogLevel.Info);
         await State.dispose();
         Log.log("State disposed", LogLevel.Debug);
-        const oldFile = State.getLastActiveFile();
-        if (oldFile) {
-            Log.log("Removing special chars of last opened file.", LogLevel.Debug);
-            await oldFile.stateVisualizer.removeSpecialCharacters();
-        }
-        Log.log("Close Log", LogLevel.Debug);
         Log.dispose();
         Log.log("Deactivated", LogLevel.Info)
     } catch (e) {
@@ -176,10 +164,6 @@ export async function restart(): Promise<void> {
 async function internalRestart(): Promise<void> {
     const context = await shutdown();
     await activate(context);
-}
-
-function registerFormatter() {
-    formatter = new ViperFormatter();
 }
 
 function toggleAutoVerify() {
@@ -317,7 +301,7 @@ function registerHandlers(location: Location) {
                 let range = vscode.window.activeTextEditor.document.getWordRangeAtPosition(new vscode.Position(position.line, position.character))
                 let res = vscode.window.activeTextEditor.document.getText(range);
                 if(res.indexOf(" ")> 0) return null
-                //Log.log("GetIdentifier: " + res, LogLevel.LowLevelDebug);
+                Log.log(`GetIdentifier: ${res}`, LogLevel.LowLevelDebug);
                 return res;
             } catch (e) {
                 Log.error("Error getting indentifier: " + e);
@@ -337,13 +321,12 @@ function registerHandlers(location: Location) {
                 Log.error("Error handling saved document: " + e);
             }
         }));
-        State.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(async (event) => {
+
+        State.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
             // basically all settings have some effect on ViperServer
             // only `advancedFeatures` might be fine to ignore but we simply restart ViperServer
             // for every configuration change:
             if (event.affectsConfiguration("viperSettings")) {
-                await State.verificationController.stopDebuggingOnServer();
-                await State.verificationController.stopDebuggingLocally();
                 Log.updateSettings();
                 Log.log(`Viper settings have been changed -> schedule an extension restart`, LogLevel.Info);
                 State.addToWorklist(new Task({ type: TaskType.RestartExtension, uri: null, manuallyTriggered: false }));
@@ -357,19 +340,7 @@ function registerHandlers(location: Location) {
                 if (editor) {
                     let uri = editor.document.uri;
                     if (Helper.isViperSourceFile(uri)) {
-                        let oldViperFile: ViperFileState = State.getLastActiveFile();
-                        if (oldViperFile) {
-                            //change in active viper file, remove special characters from the previous one
-                            if (oldViperFile.uri.toString() !== uri.toString()) {
-                                oldViperFile.decorationsShown = false;
-                                if (State.isDebugging) {
-                                    await oldViperFile.stateVisualizer.removeSpecialCharsFromClosedDocument();
-                                    await State.verificationController.stopDebuggingOnServer();
-                                    await State.verificationController.stopDebuggingLocally();
-                                }
-                            }
-                        }
-                        let fileState = State.setLastActiveFile(uri, editor);
+                        const fileState = State.setLastActiveFile(uri, editor);
                         if (fileState) {
                             if (!fileState.verified) {
                                 Log.log("The active text editor changed, consider reverification of " + fileState.name(), LogLevel.Debug);
@@ -385,79 +356,6 @@ function registerHandlers(location: Location) {
                 Log.error("Error handling active text editor change: " + e);
             }
         }));
-        /*
-        //Heap visualization
-        State.client.onNotification(Commands.StepsAsDecorationOptions, params => {
-            try {
-                let castParams = <StepsAsDecorationOptionsResult>params;
-                if (!castParams) {
-                    Log.error("Invalid Params for StepsAdDecorationOptions");
-                }
-                let visualizer = State.getVisualizer(castParams.uri);
-                visualizer.storeNewStates(castParams);
-            } catch (e) {
-                Log.error("Error handling steps as decoration options notification: " + e);
-            }
-        });
-
-        State.client.onRequest(Commands.HeapGraph, (heapGraph: HeapGraph) => {
-            try {
-                if (!heapGraph) return;
-                if (Settings.areAdvancedFeaturesEnabled()) {
-                    let visualizer = State.getVisualizer(heapGraph.fileUri);
-                    let state = visualizer.decorationOptions[heapGraph.state];
-                    if (Settings.isSimpleModeEnabled()) {
-                        //Simple Mode
-                        if (state.isErrorState) {
-                            //replace the error state
-                            visualizer.focusOnState(heapGraph);
-                        } else {
-                            //replace the execution state
-                            visualizer.setState(heapGraph);
-                        }
-                    } else {
-                        //Advanced Mode
-                        if (heapGraph.state != visualizer.previousState) {
-                            visualizer.pushState(heapGraph);
-                        }
-                    }
-                } else {
-                    Log.log("WARNING: Heap Graph is generated, even though the advancedFeatures are disabled.", LogLevel.Debug);
-                }
-            } catch (e) {
-                Log.error("Error displaying HeapGraph: " + e);
-            }
-        });
-        */
-        vscode.window.onDidChangeTextEditorSelection((change) => {
-            try {
-                if (!change.textEditor.document) {
-                    Log.error("document is undefined in onDidChangeTextEditorSelection");
-                    return;
-                }
-                let uri = change.textEditor.document.uri.toString();
-                let start = change.textEditor.selection.start;
-                let visualizer = State.getVisualizer(uri);
-                if (visualizer) {
-                    visualizer.showStateSelection(start);
-                }
-            } catch (e) {
-                Log.error("Error handling text editor selection change: " + e);
-            }
-        });
-
-        /*State.client.onRequest(Commands.StateSelected, change => {
-            try {
-                let castChange = <{ uri: string, line: number, character: number }>change;
-                if (!castChange) {
-                    Log.error("error casting stateSelected Request data");
-                }
-                let visualizer = State.viperFiles.get(castChange.uri).stateVisualizer;
-                visualizer.showStateSelection({ line: castChange.line, character: castChange.character });
-            } catch (e) {
-                Log.error("Error handling state selected request: " + e);
-            }
-        });*/
 
         State.client.onNotification(Commands.VerificationNotStarted, uri => {
             try {
@@ -472,11 +370,6 @@ function registerHandlers(location: Location) {
                 Log.error("Error handling verification not started request: " + e);
             }
         });
-        /*
-        State.client.onNotification(Commands.StopDebugging, () => {
-            State.verificationController.stopDebuggingLocally();
-        });
-        */
 
         //Command Handlers
         //verify
@@ -492,20 +385,10 @@ function registerHandlers(location: Location) {
         }));
 
         //verifyAllFilesInWorkspace
-        State.context.subscriptions.push(vscode.commands.registerCommand('viper.verifyAllFilesInWorkspace', (folder) => State.verificationController.verifyAllFilesInWorkspace(folder)));
+        State.context.subscriptions.push(vscode.commands.registerCommand('viper.verifyAllFilesInWorkspace', async (folder: string) => await State.verificationController.verifyAllFilesInWorkspace(folder)));
 
         //toggleAutoVerify
         State.context.subscriptions.push(vscode.commands.registerCommand('viper.toggleAutoVerify', () => toggleAutoVerify()));
-
-        //showAllStates
-        State.context.subscriptions.push(vscode.commands.registerCommand('viper.showAllStates', () => {
-            if (State.isDebugging) {
-                let viperFile = State.getLastActiveFile();
-                if ((!Settings.isSimpleModeEnabled()) && viperFile) {
-                    viperFile.stateVisualizer.showAllDecorations();
-                }
-            }
-        }));
 
         State.context.subscriptions.push(vscode.commands.registerCommand('viper.flushCache', async () => flushCache(true)));
 
@@ -548,15 +431,6 @@ function registerHandlers(location: Location) {
         //stopVerification
         State.context.subscriptions.push(vscode.commands.registerCommand('viper.stopVerification', () => {
             State.addToWorklist(new Task({ type: TaskType.StopVerification, uri: null, manuallyTriggered: true }));
-        }));
-
-        //format
-        State.context.subscriptions.push(vscode.commands.registerCommand('viper.format', () => {
-            try {
-                formatter.formatOpenDoc();
-            } catch (e) {
-                Log.error("Error handling formating request: " + e);
-            }
         }));
 
         //open logFile
@@ -618,17 +492,6 @@ async function openLogFile(): Promise<void> {
 }
 
 function considerStartingBackend(newBackend: Backend): Promise<void> {
-    /*
-    if (newBackend && (!State.isBackendReady || State.activeBackend.name != newBackend.name)) {
-        State.addToWorklist(new Task({
-            type: TaskType.StartBackend,
-            backend: newBackend,
-            manuallyTriggered: true,
-            forceRestart: false,
-        }));
-    } else {
-        Log.log("No need to restart backend " + newBackend.name, LogLevel.Info);
-    }*/
     // we can't compare `newBackend` with the currently active backend because
     // there might be other `StartBackend` tasks in the worklist
     return new Promise((resolve, reject) => {
@@ -643,24 +506,6 @@ function considerStartingBackend(newBackend: Backend): Promise<void> {
     });
 }
 
-async function showStates(): Promise<void> {
-    try {
-        if (Settings.areAdvancedFeaturesEnabled()) {
-            if (!StateVisualizer.showStates) {
-                StateVisualizer.showStates = true;
-                const visualizer = State.getLastActiveFile().stateVisualizer;
-                await visualizer.removeSpecialCharacters();
-                await visualizer.addCharacterToDecorationOptionLocations();
-                visualizer.showDecorations();
-            } else {
-                Log.log("don't show states, they are already shown", LogLevel.Debug);
-            }
-        }
-    } catch (e) {
-        Log.error("Error showing States: " + e);
-    }
-}
-
 function removeDiagnostics(activeFileOnly: boolean) {
     if (activeFileOnly) {
         if (vscode.window.activeTextEditor) {
@@ -672,62 +517,4 @@ function removeDiagnostics(activeFileOnly: boolean) {
         State.diagnosticCollection.clear();
         Log.log(`All diagnostics successfully removed`, LogLevel.Debug);
     }
-}
-
-const settings = [
-    "viperSettings.viperServerSettings",
-    "viperSettings.paths",
-    "viperSettings.preferences",
-    "viperSettings.javaSettings",
-    "viperSettings.advancedFeatures"]
-
-//check if each specified viper setting has a v field in the file located at path 
-function checkSettingsFile(path: string): SettingsError[] {
-    let errors: SettingsError[] = [];
-    let content = fs.readFileSync(path).toString();
-    if (content) {
-        let json = JSON.parse(stripJSONComments(content));
-        if (json) {
-            //check objects
-            settings.forEach(viperSetting => {
-                if (json[viperSetting] && !json[viperSetting].v) {
-                    errors.push({
-                        type: SettingsErrorType.Error,
-                        msg: viperSetting + " is missing a v field."
-                    })
-                }
-            });
-            //check arrays
-            let backendSettings = "viperSettings.verificationBackends";
-            if (json[backendSettings]) {
-                json[backendSettings].forEach(backend => {
-                    if (backend && !backend.v) {
-                        errors.push({
-                            type: SettingsErrorType.Error,
-                            msg: "backend " + backend.name + " is missing a v field."
-                        })
-                    }
-                });
-            }
-        }
-    }
-    return errors;
-}
-
-function getUserSettingsPath(): string {
-    let userSettingsPath;
-    if (State.isWin) {
-        userSettingsPath = path.join(process.env['APPDATA'], "Code", "User", "settings.json");
-    } else if (State.isLinux) {
-        userSettingsPath = path.join(os.homedir(), ".config", "Code", "User", "settings.json");
-    } else {
-        userSettingsPath = path.join(os.homedir(), "Library", "Application Support", "Code", "User", "settings.json");
-    }
-    return userSettingsPath;
-}
-function getWorkspaceSettingsPath(): string {
-    if (vscode.workspace.workspaceFolders) {
-        return path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, ".vscode", "settings.json");
-    }
-    return;
 }

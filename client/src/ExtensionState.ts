@@ -20,7 +20,6 @@ import { Log } from './Log';
 import { ViperFileState } from './ViperFileState';
 import { URI } from 'vscode-uri';
 import { Helper } from './Helper';
-import { StateVisualizer } from './StateVisualizer';
 import { Color, StatusBar } from './StatusBar';
 import { VerificationController, Task } from './VerificationController';
 import { ViperApi } from './ViperApi';
@@ -33,7 +32,6 @@ export class State {
 
     public static viperFiles: Map<string, ViperFileState> = new Map<string, ViperFileState>();
     public static isBackendReady: boolean;
-    public static isDebugging: boolean;
     public static isVerifying: boolean;
     public static isWin = /^win/.test(process.platform);
     public static isLinux = /^linux/.test(process.platform);
@@ -42,7 +40,6 @@ export class State {
     public static verificationController: VerificationController;
 
     public static activeBackend: Backend;
-    public static isActiveViperEngine: boolean = true;
 
     public static unitTest: UnitTestCallback;
 
@@ -58,11 +55,11 @@ export class State {
 
     public static viperApi: ViperApi;
 
-    public static addToWorklist(task: Task) {
+    public static addToWorklist(task: Task): void {
         this.verificationController.addToWorklist(task);
     }
 
-    public static initializeStatusBar(context) {
+    public static initializeStatusBar(context: vscode.ExtensionContext): void {
         this.statusBarItem = new StatusBar(10, context);
         this.statusBarItem.update("Hello from Viper", Color.READY).show();
 
@@ -80,7 +77,7 @@ export class State {
         this.diagnosticCollection = vscode.languages.createDiagnosticCollection();
     }
 
-    public static hideProgress(){
+    public static hideProgress(): void {
         this.abortButton.hide();
         this.statusBarProgress.hide().updateProgressBar(0);
     }
@@ -103,34 +100,19 @@ export class State {
         }
     }
 
-    public static resetViperFiles() {
+    public static resetViperFiles(): void {
         Log.log("Reset all viper files", LogLevel.Info);
         this.viperFiles.forEach(element => {
             element.changed = true;
             element.verified = false;
             element.verifying = false;
-            element.decorationsShown = false;
-            element.stateVisualizer.completeReset();
         });
     }
 
-    public static reset() {
+    public static reset(): void {
         this.isBackendReady = false;
-        this.isDebugging = false;
         this.isVerifying = false;
         this.viperFiles = new Map<string, ViperFileState>();
-    }
-
-    public static checkBackendReady(prefix: string) {
-        if (!this.isBackendReady) {
-            Log.log(prefix + "Backend is not ready.", LogLevel.Debug);
-        }
-        return this.isBackendReady;
-    }
-
-    public static getVisualizer(uri: URI | string | vscode.Uri): StateVisualizer {
-        let fileState = this.getFileState(uri);
-        return fileState ? fileState.stateVisualizer : null;
     }
 
     // retrieves the requested file, creating it when needed
