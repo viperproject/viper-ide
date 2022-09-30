@@ -14,7 +14,7 @@ suite('Extension Startup', () => {
         // thus, the first testcase makes sure that the extension is correctly started.
     });
 
-    let verified: boolean = false;
+    let verified = false;
     suiteTeardown(async function() {
         if (verified) {
             // otherwise the unit test has failed anyways
