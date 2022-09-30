@@ -355,6 +355,8 @@ export class VerificationController {
                             break;
                         case TaskType.UpdateViperTools:
                             Log.logWithOrigin("workList", "Updating Viper Tools now", LogLevel.LowLevelDebug);
+                            // shutdown ViperServer before updating it to make sure that the JAR is not locked by the OS:
+                            await State.dispose();
                             await updateViperTools(State.context);
                             if (State.unitTest) State.unitTest.viperUpdateComplete();
                             task.markStarted(TaskType.RestartExtension);
@@ -730,7 +732,9 @@ export class VerificationController {
                                 msg = `Successfully verified ${params.filename} in ${Helper.formatSeconds(params.time)} ${warningsMsg("with")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(check) " + msg, nofWarnings == 0 ? Color.SUCCESS : Color.WARNING);
-                                if (params.manuallyTriggered > 0) Log.hint(msg);
+                                if (params.manuallyTriggered > 0) {
+                                    Log.hint(msg);
+                                }
                                 break;
                             case Success.ParsingFailed:
                                 msg = `Parsing ${params.filename} failed after ${Helper.formatSeconds(params.time)} ${warningsMsg("with")}`;

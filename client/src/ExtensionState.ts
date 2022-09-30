@@ -60,6 +60,13 @@ export class State {
 
     public static viperApi: ViperApi;
 
+    public static isReady(): boolean {
+        if (State.client == null) {
+            return false;
+        }
+        return State.client.isRunning();
+    }
+
     public static addToWorklist(task: Task): void {
         this.verificationController.addToWorklist(task);
     }

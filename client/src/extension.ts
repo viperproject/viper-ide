@@ -43,7 +43,12 @@ let activated = false;
 // this method is called when your extension is activated
 export async function activate(context: vscode.ExtensionContext): Promise<ViperApi> {
     return internalActivate(context)
-        .catch(Helper.rethrow(`Activating the Viper-IDE extension has failed`));
+        .catch(async err => {
+            // give the user the choice what to do:
+            Log.hint(`Activating the Viper-IDE extension has failed: ${err}`, `Viper`, true, true);
+            // we resolve the promise here such that e.g. updating Viper-IDE actually works:
+            return State.viperApi;
+        });
 }
 
 async function internalActivate(context: vscode.ExtensionContext): Promise<ViperApi> {
@@ -60,6 +65,7 @@ async function internalActivate(context: vscode.ExtensionContext): Promise<Viper
     State.initializeStatusBar(context);
     await cleanViperToolsIfRequested(context);
     const location = await locateViperTools(context);
+    registerContextHandlers(context, location);
     // check whether settings are correct and expected files exist:
     const settingsResult = await Settings.checkAndGetSettings(location);
     await handleSettingsCheckResult(settingsResult);
@@ -68,7 +74,7 @@ async function internalActivate(context: vscode.ExtensionContext): Promise<Viper
     const startResult = await State.startLanguageServer(context, fileSystemWatcher, location);
     await handleSettingsCheckResult(startResult);
     State.viperApi = new ViperApi(State.client);
-    registerHandlers(location);
+    registerClientHandlers();
     startAutoSaver();
     await initializeState(location);
     if (State.unitTest) State.unitTest.extensionActivated();
@@ -260,14 +266,158 @@ async function handleSettingsCheckResult<R>(res: Either<Messages, R>): Promise<v
     if (nofErrors + nofWarnings > 1) {
         message = "see View->Output->Viper";
     }
-    await Log.hint(`${countDescription}: ${message}`, `Viper Settings`, true, true);
+    Log.hint(`${countDescription}: ${message}`, `Viper Settings`, true, true);
     if (nofErrors > 0) {
         // abort only in the case of errors
         throw new Error(`Problems in Viper Settings detected`);
     }
 }
 
-function registerHandlers(location: Location): void {
+function registerContextHandlers(context: vscode.ExtensionContext, location: Location): void {
+    context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
+        try {
+            State.addToWorklist(new Task({ type: TaskType.Save, uri: params.uri }));
+        } catch (e) {
+            Log.error("Error handling saved document: " + e);
+        }
+    }));
+
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
+        // basically all settings have some effect on ViperServer
+        // only `advancedFeatures` might be fine to ignore but we simply restart ViperServer
+        // for every configuration change:
+        if (event.affectsConfiguration("viperSettings")) {
+            Log.updateSettings();
+            Log.log(`Viper settings have been changed -> schedule an extension restart`, LogLevel.Info);
+            State.addToWorklist(new Task({ type: TaskType.RestartExtension, uri: null, manuallyTriggered: false }));
+        }
+    }));
+
+    //trigger verification texteditorChange
+    context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(async () => {
+        try {
+            const editor = vscode.window.activeTextEditor;
+            if (editor) {
+                const uri = editor.document.uri;
+                if (Helper.isViperSourceFile(uri)) {
+                    const fileState = State.setLastActiveFile(uri, editor);
+                    if (fileState) {
+                        if (!fileState.verified) {
+                            Log.log("The active text editor changed, consider reverification of " + fileState.name(), LogLevel.Debug);
+                            State.addToWorklist(new Task({ type: TaskType.Verify, uri: uri, manuallyTriggered: false }));
+                        } else {
+                            Log.log("Don't reverify, the file is already verified", LogLevel.Debug);
+                        }
+                        Log.log("Active viper file changed to " + fileState.name(), LogLevel.Info);
+                    }
+                }
+            }
+        } catch (e) {
+            Log.error("Error handling active text editor change: " + e);
+        }
+    }));
+
+    //Command Handlers
+    //verify
+    context.subscriptions.push(vscode.commands.registerCommand('viper.verify', () => {
+        if (!State.isReady()) {
+            showNotReadyHint();
+            return;
+        }
+        const fileUri = Helper.getActiveFileUri();
+        if (!fileUri) {
+            Log.log("Cannot verify, no document is open.", LogLevel.Info);
+        } else if (!Helper.isViperSourceFile(fileUri)) {
+            Log.log("Cannot verify the active file, its not a viper file.", LogLevel.Info);
+        } else {
+            State.addToWorklist(new Task({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: true }));
+        }
+    }));
+
+    //verifyAllFilesInWorkspace
+    context.subscriptions.push(vscode.commands.registerCommand('viper.verifyAllFilesInWorkspace', async (folder: string) => {
+        if (!State.isReady()) {
+            showNotReadyHint()
+            return;
+        }
+
+        await State.verificationController.verifyAllFilesInWorkspace(folder);
+    }));
+
+    //toggleAutoVerify
+    context.subscriptions.push(vscode.commands.registerCommand('viper.toggleAutoVerify', () => toggleAutoVerify()));
+
+    context.subscriptions.push(vscode.commands.registerCommand('viper.flushCache', async () => flushCache(true)));
+
+    context.subscriptions.push(vscode.commands.registerCommand('viper.flushCacheOfActiveFile', async () => flushCache(false)));
+
+    //selectBackend
+    context.subscriptions.push(vscode.commands.registerCommand('viper.selectBackend', async (selectBackend) => {
+        // get all backends from configuration:
+        const backends = await Settings.getVerificationBackends(location);
+        // user only needs to be asked if there is any choice:
+        let selectedBackend: Backend = null;
+        if (backends.length === 0) {
+            // this path should not be possible because we check during startup that at least 1 backend is configured
+            throw new Error(`0 verification backends are configured`);
+        } else if (backends.length === 1) {
+            selectedBackend = backends[0]; // there is no choice
+        } else {
+            // ask the user
+            let selectedBackendName: string;
+            if (selectBackend) {
+                // the user has provided a backend name already so don't ask again
+                selectedBackendName = selectBackend;
+            } else {
+                // no argument provided and thus ask:
+                selectedBackendName = await vscode.window.showQuickPick(backends.map(backend => backend.name));
+            }
+            if (selectedBackendName) {
+                // user has choosen a backend
+                selectedBackend = backends.find(backend => backend.name === selectedBackendName);
+            }
+        }
+
+        if (selectedBackend) {
+            await considerStartingBackend(selectedBackend);
+        } else {
+            Log.log("No backend was selected, don't change the backend", LogLevel.Info);
+        }
+    }));
+
+    //stopVerification
+    context.subscriptions.push(vscode.commands.registerCommand('viper.stopVerification', () => {
+        if (!State.isReady()) {
+            showNotReadyHint();
+            return;
+        }
+        State.addToWorklist(new Task({ type: TaskType.StopVerification, uri: null, manuallyTriggered: true }));
+    }));
+
+    //open logFile
+    context.subscriptions.push(vscode.commands.registerCommand('viper.openLogFile', openLogFile));
+
+    //remove diagnostics of open file
+    context.subscriptions.push(vscode.commands.registerCommand('viper.removeDiagnostics', () => removeDiagnostics(true)));
+
+    //automatic installation and updating of viper tools
+    context.subscriptions.push(vscode.commands.registerCommand('viper.updateViperTools', () => {
+        State.addToWorklist(new Task({ type: TaskType.UpdateViperTools, uri: null, manuallyTriggered: true }));
+    }));
+
+    // show currently active (Viper) settings
+    context.subscriptions.push(vscode.commands.registerCommand('viper.showSettings', async () => {
+        const settings = vscode.workspace.getConfiguration("viperSettings");
+        const document = await vscode.workspace.openTextDocument({ language: 'json', content: JSON.stringify(settings, null, 2) });
+        await vscode.window.showTextDocument(document, vscode.ViewColumn.Two);
+    }));
+}
+
+function showNotReadyHint(): void {
+    Log.hint(`Extension is not yet ready.`, `Viper`, false, true, true);
+}
+
+function registerClientHandlers(): void {
     State.client.onNotification(Commands.StateChange, (params: StateChangeParams) => State.verificationController.handleStateChange(params));
         
     State.client.onNotification(Commands.Hint, (data: HintMessage) => {
@@ -308,49 +458,6 @@ function registerHandlers(location: Location): void {
         return { fileEndings: Helper.viperFileEndings};
     });
 
-    State.context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
-        try {
-            State.addToWorklist(new Task({ type: TaskType.Save, uri: params.uri }));
-        } catch (e) {
-            Log.error("Error handling saved document: " + e);
-        }
-    }));
-
-    State.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
-        // basically all settings have some effect on ViperServer
-        // only `advancedFeatures` might be fine to ignore but we simply restart ViperServer
-        // for every configuration change:
-        if (event.affectsConfiguration("viperSettings")) {
-            Log.updateSettings();
-            Log.log(`Viper settings have been changed -> schedule an extension restart`, LogLevel.Info);
-            State.addToWorklist(new Task({ type: TaskType.RestartExtension, uri: null, manuallyTriggered: false }));
-        }
-    }));
-
-    //trigger verification texteditorChange
-    State.context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(async () => {
-        try {
-            const editor = vscode.window.activeTextEditor;
-            if (editor) {
-                const uri = editor.document.uri;
-                if (Helper.isViperSourceFile(uri)) {
-                    const fileState = State.setLastActiveFile(uri, editor);
-                    if (fileState) {
-                        if (!fileState.verified) {
-                            Log.log("The active text editor changed, consider reverification of " + fileState.name(), LogLevel.Debug);
-                            State.addToWorklist(new Task({ type: TaskType.Verify, uri: uri, manuallyTriggered: false }));
-                        } else {
-                            Log.log("Don't reverify, the file is already verified", LogLevel.Debug);
-                        }
-                        Log.log("Active viper file changed to " + fileState.name(), LogLevel.Info);
-                    }
-                }
-            }
-        } catch (e) {
-            Log.error("Error handling active text editor change: " + e);
-        }
-    }));
-
     State.client.onNotification(Commands.VerificationNotStarted, (params: VerificationNotStartedParams) => {
         try {
             Log.log(`Verification not started for ${path.basename(params.uri)}`, LogLevel.Debug);
@@ -364,89 +471,14 @@ function registerHandlers(location: Location): void {
             Log.error("Error handling verification not started request: " + e);
         }
     });
-
-    //Command Handlers
-    //verify
-    State.context.subscriptions.push(vscode.commands.registerCommand('viper.verify', () => {
-        const fileUri = Helper.getActiveFileUri();
-        if (!fileUri) {
-            Log.log("Cannot verify, no document is open.", LogLevel.Info);
-        } else if (!Helper.isViperSourceFile(fileUri)) {
-            Log.log("Cannot verify the active file, its not a viper file.", LogLevel.Info);
-        } else {
-            State.addToWorklist(new Task({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: true }));
-        }
-    }));
-
-    //verifyAllFilesInWorkspace
-    State.context.subscriptions.push(vscode.commands.registerCommand('viper.verifyAllFilesInWorkspace', async (folder: string) => await State.verificationController.verifyAllFilesInWorkspace(folder)));
-
-    //toggleAutoVerify
-    State.context.subscriptions.push(vscode.commands.registerCommand('viper.toggleAutoVerify', () => toggleAutoVerify()));
-
-    State.context.subscriptions.push(vscode.commands.registerCommand('viper.flushCache', async () => flushCache(true)));
-
-    State.context.subscriptions.push(vscode.commands.registerCommand('viper.flushCacheOfActiveFile', async () => flushCache(false)));
-
-    //selectBackend
-    State.context.subscriptions.push(vscode.commands.registerCommand('viper.selectBackend', async (selectBackend) => {
-        // get all backends from configuration:
-        const backends = await Settings.getVerificationBackends(location);
-        // user only needs to be asked if there is any choice:
-        let selectedBackend: Backend = null;
-        if (backends.length === 0) {
-            // this path should not be possible because we check during startup that at least 1 backend is configured
-            throw new Error(`0 verification backends are configured`);
-        } else if (backends.length === 1) {
-            selectedBackend = backends[0]; // there is no choice
-        } else {
-            // ask the user
-            let selectedBackendName: string;
-            if (selectBackend) {
-                // the user has provided a backend name already so don't ask again
-                selectedBackendName = selectBackend;
-            } else {
-                // no argument provided and thus ask:
-                selectedBackendName = await vscode.window.showQuickPick(backends.map(backend => backend.name));
-            }
-            if (selectedBackendName) {
-                // user has choosen a backend
-                selectedBackend = backends.find(backend => backend.name === selectedBackendName);
-            }
-        }
-
-        if (selectedBackend) {
-            await considerStartingBackend(selectedBackend);
-        } else {
-            Log.log("No backend was selected, don't change the backend", LogLevel.Info);
-        }
-    }));
-
-    //stopVerification
-    State.context.subscriptions.push(vscode.commands.registerCommand('viper.stopVerification', () => {
-        State.addToWorklist(new Task({ type: TaskType.StopVerification, uri: null, manuallyTriggered: true }));
-    }));
-
-    //open logFile
-    State.context.subscriptions.push(vscode.commands.registerCommand('viper.openLogFile', openLogFile));
-
-    //remove diagnostics of open file
-    State.context.subscriptions.push(vscode.commands.registerCommand('viper.removeDiagnostics', () => removeDiagnostics(true)));
-
-    //automatic installation and updating of viper tools
-    State.context.subscriptions.push(vscode.commands.registerCommand('viper.updateViperTools', () => {
-        State.addToWorklist(new Task({ type: TaskType.UpdateViperTools, uri: null, manuallyTriggered: true }));
-    }));
-
-    // show currently active (Viper) settings
-    State.context.subscriptions.push(vscode.commands.registerCommand('viper.showSettings', async () => {
-        const settings = vscode.workspace.getConfiguration("viperSettings");
-        const document = await vscode.workspace.openTextDocument({ language: 'json', content: JSON.stringify(settings, null, 2) });
-        await vscode.window.showTextDocument(document, vscode.ViewColumn.Two);
-    }));
 }
 
 async function flushCache(allFiles: boolean): Promise<void> {
+    if (!State.isReady()) {
+        showNotReadyHint();
+        return;
+    }
+
     const backend = State.activeBackend;
     if (!backend) {
         Log.hint("Cannot flush cache, no backend is active");

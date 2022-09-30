@@ -58,7 +58,7 @@ export default class TestHelper {
         }
     }
 
-    public static async teardown() {
+    public static async teardown(): Promise<void> {
         assert(this.callbacks != null);
         this.callbacks = null;
         this.context = await myExtension.shutdown();
@@ -75,7 +75,7 @@ export default class TestHelper {
         Log.dispose();
     }
 
-    public static log(msg: string) {
+    public static log(msg: string): void {
         Log.logWithOrigin("UnitTest", msg, LogLevel.Verbose);
     }
 
@@ -117,7 +117,7 @@ export default class TestHelper {
         return document;
     }
 
-    public static resetErrors() {
+    public static resetErrors(): void {
         TestHelper.callbacks.resetInternalError();
     }
 
@@ -129,7 +129,7 @@ export default class TestHelper {
         const options: SpawnOptionsWithoutStdio = {
             shell: true
         };
-        let outputs: Output[] = [];
+        const outputs: Output[] = [];
         // note for pgrep on macOS and linux:
         // the pgrep command might show up in the list of running commands. Simply using `-f java.*Viper` can thus lead to false
         // positives as it matches the command line of just this pgrep command. Two different solutions to this problem are
@@ -188,7 +188,7 @@ export default class TestHelper {
         await TestHelper.executeCommand('viper.updateViperTools');
     }
 
-    public static executeCommand(command: string, args?) {
+    public static executeCommand(command: string, args?): Thenable<unknown> {
         TestHelper.log(command + (args ? ' ' + args : ''));
         return vscode.commands.executeCommand(command, args);
     }
@@ -313,14 +313,15 @@ export default class TestHelper {
     /**
      * Promise is resolved with true if timeout is hit, otherwise if event happens before timeout returned promise is resolved with false
      */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public static waitForTimeout(timeoutMs, event: Promise<any>): Promise<boolean> {
-        return new Promise(resolve => {
+        return new Promise((resolve, reject) => {
             setTimeout(() => {
                 resolve(true);
             }, timeoutMs);
             event.then(() => {
                 resolve(false);
-            });
+            }, reject);
         });
     }
 
@@ -340,19 +341,19 @@ class UnitTestCallbackImpl implements UnitTestCallback {
         return this.errorDetected;
     }
 
-    public resetInternalError() {
+    public resetInternalError(): void {
         this.errorDetected = false;
     }
 
-    extensionActivated = () => { };
-    extensionRestarted = () => { };
-    backendStarted = (backend: string) => { };
-    verificationComplete = (backend: string, filename: string) => { };
-    logFileOpened = () => { };
-    allFilesVerified = (verified: number, total: number) => { };
-    ideIsIdle = () => { };
-    internalErrorDetected = () => { this.errorDetected = true; }
-    viperUpdateComplete = () => { };
-    verificationStopped = (success: boolean) => { };
-    verificationStarted = (backend: string, filename: string) => { };
+    extensionActivated: () => void = () => { };
+    extensionRestarted: () => void = () => { };
+    backendStarted: (backend: string) => void = () => { };
+    verificationComplete: (backend: string, filename: string) => void = () => { };
+    logFileOpened: () => void = () => { };
+    allFilesVerified: (verified: number, total: number) => void = () => { };
+    ideIsIdle: () => void = () => { };
+    internalErrorDetected: () => void = () => { this.errorDetected = true; }
+    viperUpdateComplete: () => void = () => { };
+    verificationStopped: (success: boolean) => void = () => { };
+    verificationStarted: (backend: string, filename: string) => void = () => { };
 }
