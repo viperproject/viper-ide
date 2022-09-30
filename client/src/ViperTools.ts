@@ -14,7 +14,7 @@ import { LogLevel } from './ViperProtocol';
 import { BuildChannel, Settings } from './Settings';
 import { Helper } from './Helper';
 
-const buildChannelSubfolderName: string = "ViperTools";
+const buildChannelSubfolderName = "ViperTools";
 
 export async function locateViperTools(context: vscode.ExtensionContext): Promise<Location> {
     const selectedChannel = Settings.getBuildChannel();
@@ -25,7 +25,7 @@ export async function locateViperTools(context: vscode.ExtensionContext): Promis
     // we ask the user for confirmation
 
     async function locateOnly(): Promise<Location> {
-        const confirm = () => Promise.resolve(ConfirmResult.Cancel); // always cancel if installation would be necessary
+        const confirm: () => Promise<ConfirmResult> = () => Promise.resolve(ConfirmResult.Cancel); // always cancel if installation would be necessary
         const installationResult: InstallResult<Location> = await dependency.install(selectedChannel, false, () => {}, confirm)
             .catch(Helper.rethrow(`Locating the Viper tools was unsuccessful`));
         if (!(installationResult instanceof Success)) {
@@ -89,7 +89,7 @@ export async function updateViperTools(context: vscode.ExtensionContext): Promis
     const selectedChannel = Settings.getBuildChannel();
     const dependency = await getDependency(context);
     Log.log(`Updating dependencies for build channel ${selectedChannel}`, LogLevel.Debug);
-    const { result: installationResult, didReportProgress } = await withProgressInWindow(
+    const { result: installationResult } = await withProgressInWindow(
         Texts.updatingViperTools,
         listener => dependency.install(selectedChannel, true, listener, confirm));
     if (!(installationResult instanceof Success)) {
@@ -163,7 +163,7 @@ function parseGitHubAssetURL(url: string): {isGitHubAsset: boolean, getUrl: () =
         const repo = latestReMatches[2];
         const assetName = latestReMatches[3];
         const includePrereleases = latestReMatches[4] === "&include-prereleases";
-        const resolveGitHubUrl = () => GitHubReleaseAsset.getLatestAssetUrl(owner, repo, assetName, includePrereleases, token)
+        const resolveGitHubUrl: () => Promise<string> = () => GitHubReleaseAsset.getLatestAssetUrl(owner, repo, assetName, includePrereleases, token)
             .catch(Helper.rethrow(`Retrieving asset URL of latest GitHub release has failed `
                 + `(owner: '${owner}', repo: '${repo}', asset-name: '${assetName}', include-prereleases: ${includePrereleases})`));
         return {
@@ -178,7 +178,7 @@ function parseGitHubAssetURL(url: string): {isGitHubAsset: boolean, getUrl: () =
         const repo = tagReMatches[2];
         const tag = tagReMatches[3];
         const assetName = tagReMatches[4];
-        const resolveGitHubUrl = () => GitHubReleaseAsset.getTaggedAssetUrl(owner, repo, assetName, tag, token)
+        const resolveGitHubUrl: () => Promise<string> = () => GitHubReleaseAsset.getTaggedAssetUrl(owner, repo, assetName, tag, token)
             .catch(Helper.rethrow(`Retrieving asset URL of a tagged GitHub release has failed `
                 + `(owner: '${owner}', repo: '${repo}', tag: '${tag}', asset-name: '${assetName}')`));
         return {

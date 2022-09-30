@@ -59,28 +59,27 @@ export class Task implements ITask {
         this.timeout = task.timeout;
         this.forceRestart = task.forceRestart;
 
-        const self = this;
         this.resolve = () => {
-            if (self.hasBeenResolvedOrRejected) {
+            if (this.hasBeenResolvedOrRejected) {
                 throw new Error(`Task has already been resolved or rejected`);
             }
-            self.hasBeenResolvedOrRejected = true;
+            this.hasBeenResolvedOrRejected = true;
             if (task.resolve) {
                 task.resolve();
             }
         }
         this.reject = (err: Error) => {
-            if (self.hasBeenResolvedOrRejected) {
+            if (this.hasBeenResolvedOrRejected) {
                 throw new Error(`Task has already been resolved or rejected`);
             }
-            self.hasBeenResolvedOrRejected = true;
+            this.hasBeenResolvedOrRejected = true;
             if (task.reject) {
                 task.reject(err);
             }
         }
     }
 
-    markStarted(type: TaskType, timeout?: number) {
+    markStarted(type: TaskType, timeout?: number): void {
         this.type = type;
         this.startTime = Date.now();
         if (timeout) {
@@ -161,7 +160,7 @@ export class VerificationController {
     constructor(location: Location) {
         this.location = location;
         this.workList = [];
-        let verificationTimeout = 100;//ms
+        const verificationTimeout = 100; // ms
         this.controller = new AwaitTimer(async () => {
             try {
                 //only keep most recent verify request
@@ -169,12 +168,11 @@ export class VerificationController {
                 let stopFound = false;
                 let isStopManuallyTriggered = false;
                 /** tasks at entries strictly below `clear` get turned into NoOps, i.e. get cleared */
-                let clear: number = -1;
+                let clear = -1;
                 let verificationComplete = false;
                 let verificationFailed = false;
                 let completedOrFailedFileUri: vscode.Uri;
                 let uriOfFoundVerfy: vscode.Uri;
-                let stopBackendFound = false;
                 let startBackendFound = false;
 
                 /** 
@@ -296,7 +294,7 @@ export class VerificationController {
                                 task.type = TaskType.NoOp;
                                 addNotificationForTask(task, () => task.completeFailed(new Error(`verification is skipped because it got neither manually triggered nor is auto-verification enabled`)));
                             } else {
-                                let canVerify = this.canStartVerification(task);
+                                const canVerify = this.canStartVerification(task);
                                 if (canVerify.result) {
                                     Log.logWithOrigin("workList", "Verifying", LogLevel.LowLevelDebug);
                                     if (State.unitTest) State.unitTest.verificationStarted(State.activeBackend.name, path.basename(task.uri.toString()));
@@ -326,7 +324,6 @@ export class VerificationController {
                                 if ((verifyFound && !Common.uriEquals(uriOfFoundVerfy, task.uri))//if another verification is requested, the current one must be stopped
                                     || stopFound
                                     || startBackendFound
-                                    || stopBackendFound
                                     || timedOut) {
                                     if (timedOut) {
                                         Log.hint("Verification of " + path.basename(task.uri.fsPath) + " timed out after " + task.timeout + "ms");
@@ -345,17 +342,15 @@ export class VerificationController {
                                     addNotificationForTask(task, () => task.completeSuccessfully());
                                     Log.logWithOrigin("workList", "VerificationFinished", LogLevel.LowLevelDebug);
 
-                                    let succ = verificationComplete && !verificationFailed ? "succeded" : "failed"
                                     // TODO: Should we somehow notify something via the ViperApi here?
                                     State.hideProgress();
                                 }
                             }
                             break;
                         case TaskType.FileClosed:
-                            let uri = task.uri.toString();
                             if (!fileState.open) {
                                 //if the file has not been reopened in the meantime:
-                                State.viperFiles.delete(uri);
+                                State.viperFiles.delete(task.uri.toString());
                             }
                             task.type = TaskType.NoOp;
                             addNotificationForTask(task, () => task.completeSuccessfully());
@@ -384,7 +379,7 @@ export class VerificationController {
                                         Log.log(`'extensionRestarted' notification sent`, LogLevel.LowLevelDebug);
                                     }
                                     task.completeSuccessfully();
-                                });
+                                }).catch(err => Log.error(`Error while restarting the extension: ${err}`));
                             break;
                         case TaskType.Save:
                             task.type = TaskType.NoOp;
@@ -462,7 +457,7 @@ export class VerificationController {
             if (!task.uri) {
                 reason = "Cannot Verify, unknown file uri";
             } else {
-                let dontVerify = `Don't verify ${path.basename(task.uri.toString())}: `;
+                const dontVerify = `Don't verify ${path.basename(task.uri.toString())}: `;
                 if (!State.isBackendReady) {
                     reason = "Backend is not ready, wait for backend to start.";
                     if (State.activeBackend) {
@@ -474,11 +469,11 @@ export class VerificationController {
                     }
                     removeRequest = false;
                 } else {
-                    let fileState = State.getFileState(task.uri);
+                    const fileState = State.getFileState(task.uri);
                     if (!fileState) {
                         reason = "it's not a viper file";
                     } else {
-                        let activeFile = Helper.getActiveFileUri();
+                        const activeFile = Helper.getActiveFileUri();
                         if (!task.manuallyTriggered && !State.autoVerify) {
                             reason = dontVerify + "autoVerify is disabled.";
                         }
@@ -506,7 +501,7 @@ export class VerificationController {
                 error: null
             };
         } catch (e) {
-            let error = "Error checking if verification can be started " + e;
+            const error = "Error checking if verification can be started " + e;
             Log.error(error);
             return {
                 result: false,
@@ -546,9 +541,9 @@ export class VerificationController {
 
                     //start progress updater
                     clearInterval(this.progressUpdater);
-                    let progress_lambda = () => {
-                        let progress = this.getProgress(this.lastProgress)
-                        let totalProgress = this.getTotalProgress();
+                    const progress_lambda: () => void = () => {
+                        const progress = this.getProgress(this.lastProgress)
+                        const totalProgress = this.getTotalProgress();
                         Log.progress({ domain: "Verification of " + fileState.name(), progress: progress, postfix: totalProgress }, LogLevel.Debug);
                     }
                     progress_lambda()
@@ -562,9 +557,8 @@ export class VerificationController {
                     const customArgs = await Settings.getCustomArgsForBackend(this.location, backend, uri);
                     const params: VerifyParams = { uri: uri.toString(), manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.name, customArgs: customArgs };
                     //request verification from Server
-                    State.client.sendNotification(Commands.Verify, params);
-
                     State.isVerifying = true;
+                    await State.client.sendNotification(Commands.Verify, params);
                 }
             }
         } catch (e) {
@@ -592,7 +586,7 @@ export class VerificationController {
                 const response = await State.client.sendRequest(Commands.StopVerification, params);
                 return response.success;
             } else {
-                let msg = "Cannot stop the verification, no verification is running.";
+                const msg = "Cannot stop the verification, no verification is running.";
                 if (manuallyTriggered) {
                     Log.hint(msg);
                 } else {
@@ -602,7 +596,7 @@ export class VerificationController {
                 return true;
             }
         } else {
-            let msg = "Cannot stop the verification, the extension not ready yet.";
+            const msg = "Cannot stop the verification, the extension not ready yet.";
             if (manuallyTriggered) {
                 Log.hint(msg);
             } else {
@@ -616,29 +610,29 @@ export class VerificationController {
         return this.verifyingAllFiles ? ` (${this.nextFileToAutoVerify}/${this.allFilesToAutoVerify.length})` : "";
     }
 
-    public addTiming(filename: string, paramProgress: number, color: string) {
+    public addTiming(filename: string, paramProgress: number): void {
         this.timings.push(Date.now() - this.verificationStartTime);
-        let progress = this.getProgress(paramProgress || 0);
+        const progress = this.getProgress(paramProgress || 0);
         Log.progress({ domain: "Verification of " + filename, progress: progress, postfix: this.getTotalProgress() }, LogLevel.Debug);
     }
 
     private getProgress(progress: number): number {
         try {
-            let timeSpentUntilLastStep = this.timings.length > 0 ? this.timings[this.timings.length - 1] : 0;
-            let timeAlreadySpent = Date.now() - this.verificationStartTime;
+            const timeSpentUntilLastStep = this.timings.length > 0 ? this.timings[this.timings.length - 1] : 0;
+            const timeAlreadySpent = Date.now() - this.verificationStartTime;
             if (this.oldTimings && this.oldTimings.timings) {
-                let old = this.oldTimings.timings;
+                const old = this.oldTimings.timings;
                 if (old.length >= this.timings.length) {
                     let timeSpentLastTime = this.timings.length > 0 ? old[this.timings.length - 1] : 0;
-                    let oldTotal = old[old.length - 1];
+                    const oldTotal = old[old.length - 1];
                     let timeSpent = timeSpentUntilLastStep;
                     if (old.length > this.timings.length && (timeAlreadySpent - timeSpentUntilLastStep) > (old[this.timings.length] - old[this.timings.length - 1])) {
                         //if this time we should already have completed the step, factor that in
                         timeSpentLastTime = old[this.timings.length];
                         timeSpent = timeAlreadySpent;
                     }
-                    let leftToCompute = oldTotal - timeSpentLastTime
-                    let estimatedTotal = timeSpent + leftToCompute;
+                    const leftToCompute = oldTotal - timeSpentLastTime
+                    const estimatedTotal = timeSpent + leftToCompute;
                     progress = 100 * Math.min((timeAlreadySpent / estimatedTotal), 1);
                 }
                 //don't show 100%, because otherwise people think it is done.
@@ -651,14 +645,14 @@ export class VerificationController {
         }
     }
 
-    public handleStateChange(params: StateChangeParams) {
+    public handleStateChange(params: StateChangeParams): void {
         Log.log("Received state change.", LogLevel.Info)
         try {
             Log.log('Changed FROM ' + VerificationState[this.lastState] + " TO: " + VerificationState[params.newState], LogLevel.Info);
             this.lastState = params.newState;
-            if (params.progress <= 0)
+            if (params.progress <= 0) {
                 Log.log("The new state is: " + VerificationState[params.newState], LogLevel.Debug);
-            let window = vscode.window;
+            }
             switch (params.newState) {
                 case VerificationState.Starting:
                     State.isBackendReady = false;
@@ -668,7 +662,7 @@ export class VerificationController {
                     State.abortButton.show();
                     State.statusBarProgress.show();
                     if (params.progress > 0) {
-                        this.addTiming(params.filename, params.progress, Color.ACTIVE);
+                        this.addTiming(params.filename, params.progress);
                     }
                     if (params.diagnostics) {
                         const diagnostics: vscode.Diagnostic[] = params.diagnostics
@@ -679,7 +673,7 @@ export class VerificationController {
                     }
                     break;
                 case VerificationState.PostProcessing:
-                    this.addTiming(params.filename, params.progress, Color.ACTIVE);
+                    this.addTiming(params.filename, params.progress);
                     break;
                 case VerificationState.Stage:
                     Log.log("Run " + params.stage + " for " + params.filename, LogLevel.Info);
@@ -700,19 +694,19 @@ export class VerificationController {
                         // the server indicates that there is a follow-up stage after verification
                         State.statusBarItem.update("ready", Color.READY);
                     } else {
-                        let uri = vscode.Uri.parse(params.uri);
+                        const uri = vscode.Uri.parse(params.uri);
 
                         //since at most one file can be verified at a time, set all to non-verified before potentially setting one to verified 
                         State.viperFiles.forEach(file => file.verified = false);
 
-                        let verifiedFile = State.getFileState(params.uri);
+                        const verifiedFile = State.getFileState(params.uri);
                         verifiedFile.success = params.success;
                         if (params.success != Success.Aborted && params.success != Success.Error) {
                             verifiedFile.verified = true;
                         }
 
                         //complete the timing measurement
-                        this.addTiming(params.filename, 100, Color.ACTIVE);
+                        this.addTiming(params.filename, 100);
                         if (Settings.showProgress()) {
                             verifiedFile.timingInfo = { total: params.time, timings: this.timings };
                         }
@@ -732,7 +726,7 @@ export class VerificationController {
                             }
                         }
     
-                        let msg: string = "";
+                        let msg = "";
                         switch (params.success) {
                             case Success.Success:
                                 msg = `Successfully verified ${params.filename} in ${Helper.formatSeconds(params.time)} ${warningsMsg("with")}`;
@@ -760,8 +754,7 @@ export class VerificationController {
                                 Log.log(`Verifying ${params.filename} was aborted`, LogLevel.Info);
                                 break;
                             case Success.Error:
-                                let moreInfo = " - see View->Output->Viper for more info"
-                                State.statusBarItem.update(`$(x) Internal error` + moreInfo, Color.ERROR);
+                                State.statusBarItem.update(`$(x) Internal error - see View->Output->Viper for more info"`, Color.ERROR);
                                 //msg = `Verifying ${params.filename} failed due to an internal error`;
                                 Log.error(`Internal Error: failed to verify ${params.filename}: Reason: ` + (params.error && params.error.length > 0 ? params.error : "Unknown Reason: Set loglevel to 5 and see the viper.log file for more details"));
                                 //Log.hint(msg + moreInfo);
@@ -826,7 +819,7 @@ export class VerificationController {
     }
 
     //for unittest
-    private verificationCompleted(success: Success) {
+    private verificationCompleted(success: Success): boolean {
         return success === Success.Success
             || success === Success.ParsingFailed
             || success === Success.TypecheckingFailed
@@ -841,7 +834,7 @@ export class VerificationController {
             Log.error("The backend must be running before verifying all files in the workspace")
             return;
         }
-        let endings = "{" + Helper.viperFileEndings.join(",") + "}";
+        const endings = "{" + Helper.viperFileEndings.join(",") + "}";
 
         let uris: vscode.Uri[];
         if (folder) {
@@ -870,7 +863,7 @@ export class VerificationController {
             .map(filePath => Common.uriToObject(Common.pathToUri(filePath)));
     }
 
-    private printAllVerificationResults() {
+    private printAllVerificationResults(): void {
         Log.log("Verified " + this.autoVerificationResults.length + " files in " + Helper.formatSeconds((Date.now() - this.autoVerificationStartTime) / 1000), LogLevel.Info);
         this.autoVerificationResults.forEach(res => {
             Log.log("Verification Result: " + res, LogLevel.Info);
@@ -878,19 +871,20 @@ export class VerificationController {
         if (State.unitTest) State.unitTest.allFilesVerified(this.autoVerificationResults.length, this.allFilesToAutoVerify.length);
     }
 
-    private autoVerifyFile() {
+    private autoVerifyFile(): void {
         if (this.nextFileToAutoVerify < this.allFilesToAutoVerify.length && this.verifyingAllFiles) {
-            let currFile = this.allFilesToAutoVerify[this.nextFileToAutoVerify];
+            const currFile = this.allFilesToAutoVerify[this.nextFileToAutoVerify];
             Log.log("AutoVerify " + path.basename(currFile.toString()), LogLevel.Info);
             this.nextFileToAutoVerify++;
-            vscode.workspace.openTextDocument(currFile).then((document) => {
-                vscode.window.showTextDocument(document).then(() => {
+            vscode.workspace.openTextDocument(currFile)
+                .then(document => vscode.window.showTextDocument(document))
+                .then(() => {
                     // set `manuallyTriggered` to true such that all files get reverified in case they have already
                     // been verified. This is sensible as this action is the immediate result of the user executing
                     // the verify all files in workspace command.
                     State.addToWorklist(new Task({ type: TaskType.Verify, uri: currFile, manuallyTriggered: true }));
                 })
-            })
+                .then(Helper.identity, err => Log.error(`Error while auto verifying files: ${err}`));
         } else {
             this.verifyingAllFiles = false;
             this.printAllVerificationResults();

@@ -49,7 +49,7 @@ export class State {
 
     public static unitTest: UnitTestCallback;
 
-    public static autoVerify: boolean = true;
+    public static autoVerify = true;
 
     //status bar
     public static statusBarItem: StatusBar;
@@ -90,7 +90,7 @@ export class State {
 
     public static setLastActiveFile(uri: URI | string | vscode.Uri, editor: vscode.TextEditor): ViperFileState {
         this.lastActiveFileUri = uri.toString();
-        let lastActiveFile = this.getFileState(uri);
+        const lastActiveFile = this.getFileState(uri);
         if (lastActiveFile) {
             lastActiveFile.setEditor(editor);
         }
@@ -124,8 +124,8 @@ export class State {
     // retrieves the requested file, creating it when needed
     public static getFileState(uri: URI | string | vscode.Uri): ViperFileState {
         if (!uri) return null;
-        let uriObject: vscode.Uri = Common.uriToObject(uri);
-        let uriString: string = Common.uriToString(uri);
+        const uriObject: vscode.Uri = Common.uriToObject(uri);
+        const uriString: string = Common.uriToString(uri);
 
         if (!Helper.isViperSourceFile(uriString)) {
             return null;
@@ -154,17 +154,17 @@ export class State {
 
         const traceOutputForCi: vscode.OutputChannel = {
             name: "Output Channel forwarding to log file",
-            append: function (value: string): void {
+            append: (value: string) => {
                 Log.logWithOrigin("LSP trace", value, LogLevel.LowLevelDebug);
             },
-            appendLine: function (value: string): void {
+            appendLine: (value: string) => {
                 Log.logWithOrigin("LSP trace", value, LogLevel.LowLevelDebug);
             },
-            replace: function (value: string): void {},
-            clear: function (): void {},
-            show: function (param: any): void {},
-            hide: function (): void {},
-            dispose: function (): void {}
+            replace: () => {},
+            clear: () => {},
+            show: () => {},
+            hide: () => {},
+            dispose: () => {}
         };
 
         // Options to control the language client
@@ -234,14 +234,14 @@ export class State {
             }};
 
             const portRegex = /<ViperServerPort:(\d+)>/;
-            let portFound: boolean = false;
+            let portFound = false;
             function stdOutLineHandler(line: string): void {
                 // check whether `line` contains the port number
                 if (!portFound) {
                     const match = line.match(portRegex);
                     if (match != null && match[1] != null) {
                         const port = Number(match[1]);
-                        if (port != NaN) {
+                        if (!isNaN(port)) {
                             portFound = true;
                             resolve({ port, disposable });
                         }
@@ -324,4 +324,4 @@ export interface UnitTestCallback {
     verificationStarted: (backend: string, filename: string) => void;
 }
 
-type Disposable = { dispose(): any };
+type Disposable = { dispose(): any }; // eslint-disable-line @typescript-eslint/no-explicit-any

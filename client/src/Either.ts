@@ -35,7 +35,7 @@ export function newEitherErrorFromError<R>(e: Error): Either<Messages, R> {
 export enum Level {
     Warning,
     Error,
-};
+}
 export type Message = {
     level: Level;
     msg: string;
@@ -113,7 +113,7 @@ export function toRight<L, R>(either: Either<L, R>, fn: (left: L) => string = le
 }
 
 export function flatten<T>(arr: T[][]): T[] {
-    let res: T[] = [];
+    const res: T[] = [];
     arr.forEach(elem => res.push(...elem));
     return res;
 }

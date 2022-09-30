@@ -17,7 +17,9 @@ import * as locate_java_home from '@viperproject/locate-java-home';
 import { IJavaHomeInfo } from '@viperproject/locate-java-home/js/es5/lib/interfaces';
 import { Log } from './Log';
 import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, Success, Stage, Backend, LogLevel, Common, ViperServerSettings, VersionedSettings, JavaSettings, AdvancedFeatureSettings, UserPreferences, PathSettings } from './ViperProtocol';
-import { combineMessages, Either, fold, isLeft, isRight, Messages, newEitherError, newEitherWarning, newLeft, newRight, toRight, transformRight } from './Either';
+import { combineMessages, Either, flatten, fold, isLeft, isRight, Messages, newEitherError, newEitherWarning, newLeft, newRight, toRight, transformRight } from './Either';
+import { readdir } from 'fs/promises';
+import { Helper } from './Helper';
 
 
 export class Settings {
@@ -40,11 +42,12 @@ export class Settings {
     public static isMac = /^darwin/.test(process.platform);
 
    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private static getConfiguration(setting: string): any {
         return vscode.workspace.getConfiguration("viperSettings").get(setting);
     }
 
-    public static async checkAndGetSettings(location: Location): Promise<Either<Messages, {}>> {
+    public static async checkAndGetSettings(location: Location): Promise<Either<Messages, unknown>> {
         const checks = [
             Settings.checkAndGetViperServerSettings(location),
             Settings.checkAndGetVerificationBackends(location),
@@ -62,7 +65,7 @@ export class Settings {
     private static async checkAndGetViperServerSettings(location: Location): Promise<Either<Messages, ViperServerSettings>> {
         const settingName = "viperServerSettings";
         const settings = Settings.getConfiguration(settingName);
-        const checks: Promise<Either<Messages, any>>[] = [
+        const checks: Promise<Either<Messages, unknown>>[] = [
             Settings.checkVersion<ViperServerSettings>(settings, settingName),
             // check viperServer path
             Settings.checkViperServerJars(location),
@@ -77,7 +80,7 @@ export class Settings {
     private static async checkAndGetVerificationBackends(location: Location): Promise<Either<Messages, Backend[]>> {
         const settingName = "verificationBackends";
         const settings = Settings.getConfiguration(settingName);
-        const defaultBackends = Settings.lastVersionWithSettingsChange.defaultSettings[`viperSettings.${settingName}`].default;
+        const defaultBackends = Settings.lastVersionWithSettingsChange.defaultSettings[`viperSettings.${settingName}`].default as Backend[];
         let backends: Backend[] = [];
         if (!settings.verificationBackends || settings.verificationBackends.length === 0) {
             backends = defaultBackends;
@@ -95,7 +98,7 @@ export class Settings {
             });
         }
 
-        const checks: Promise<Either<Messages, any>>[] = [
+        const checks: Promise<Either<Messages, unknown>>[] = [
             // check backends
             Settings.checkBackends(location, backends),
         ];
@@ -107,7 +110,7 @@ export class Settings {
     private static async checkAndGetPaths(location: Location): Promise<Either<Messages, PathSettings>> {
         const settingName = "paths";
         const settings = Settings.getConfiguration(settingName);
-        const checks: Promise<Either<Messages, any>>[] = [
+        const checks: Promise<Either<Messages, unknown>>[] = [
             Settings.checkVersion<ViperServerSettings>(settings, settingName),
             Settings.checkViperToolsPath(location, Settings.getBuildChannel()),
             Settings.checkZ3Path(location, true),
@@ -119,10 +122,11 @@ export class Settings {
             .then(res => isRight(res) ? newRight(settings) : res);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     private static async checkAndGetPreferences(location: Location): Promise<Either<Messages, UserPreferences>> {
         const settingName = "preferences";
         const settings = Settings.getConfiguration(settingName);
-        const checks: Promise<Either<Messages, any>>[] = [
+        const checks: Promise<Either<Messages, unknown>>[] = [
             Settings.checkVersion<ViperServerSettings>(settings, settingName),
             // check viperToolsProvider
             Settings.checkViperToolsProvider(settings),
@@ -132,10 +136,11 @@ export class Settings {
             .then(res => isRight(res) ? newRight(settings) : res);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     private static async checkAndGetJavaSettings(location: Location): Promise<Either<Messages, JavaSettings>> {
         const settingName = "javaSettings";
         const settings = Settings.getConfiguration(settingName);
-        const checks: Promise<Either<Messages, any>>[] = [
+        const checks: Promise<Either<Messages, unknown>>[] = [
             Settings.checkVersion<ViperServerSettings>(settings, settingName),
             Settings.checkJavaPath(),
             Settings.checkJavaCustomArgs(settings),
@@ -145,10 +150,11 @@ export class Settings {
             .then(res => isRight(res) ? newRight(settings) : res);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     private static async checkAndGetAdvancedFeatures(location: Location): Promise<Either<Messages, AdvancedFeatureSettings>> {
         const settingName = "advancedFeatures";
         const settings = Settings.getConfiguration(settingName);
-        const checks: Promise<Either<Messages, any>>[] = [
+        const checks: Promise<Either<Messages, unknown>>[] = [
             Settings.checkVersion<ViperServerSettings>(settings, settingName),
             // no additional checks
         ];
@@ -418,7 +424,7 @@ export class Settings {
     public static getStage(backend: Backend, name: string): Stage {
         if (!name) return null;
         for (let i = 0; i < backend.stages.length; i++) {
-            let stage = backend.stages[i];
+            const stage = backend.stages[i];
             if (stage.name === name) return stage;
         }
         return null;
@@ -438,7 +444,7 @@ export class Settings {
         return null;
     }
 
-    private static resolveEngine(engine: string) {
+    private static resolveEngine(engine: string): string {
         if (engine && (engine.toLowerCase() == "viperserver")) {
             return engine;
         } else {
@@ -446,9 +452,9 @@ export class Settings {
         }
     }
 
-    public static useViperServer(backend: Backend) {
+    public static useViperServer(backend: Backend): boolean {
         if (!backend || !backend.engine) return false;
-        return backend.engine.toLowerCase() == "viperserver";
+        return backend.engine.toLowerCase() === "viperserver";
     }
 
     private static mergeBackend(custom: Backend, def: Backend): Backend {
@@ -466,7 +472,7 @@ export class Settings {
 
     private static mergeStages(custom: Stage[], defaultStages: Stage[]): Stage[] {
         defaultStages.forEach(def => {
-            let cus = custom.filter(stage => stage.name == def.name)[0];
+            const cus = custom.filter(stage => stage.name == def.name)[0];
             if (cus) {
                 // merge
                 if (cus.customArguments === undefined) cus.customArguments = def.customArguments;
@@ -505,7 +511,7 @@ export class Settings {
 
     /** the returned paths are guaranteed to exist */
     private static async checkPaths(location: Location, paths: (string | string[] | PlatformDependentPath | PlatformDependentListOfPaths), prefix: string): Promise<Either<Messages, string[]>> {
-        let stringPaths: string[] = []
+        const stringPaths: string[] = []
         if (!paths) {
             return newEitherError(`${prefix} paths are missing`);
         } else if (typeof paths === "string") {
@@ -517,7 +523,7 @@ export class Settings {
                 }
             })
         } else {
-            let platformDependentPath: PlatformDependentPath = <PlatformDependentPath>paths;
+            const platformDependentPath: PlatformDependentPath = <PlatformDependentPath>paths;
             if (Settings.isLinux) {
                 return Settings.checkPaths(location, platformDependentPath.linux, prefix);
             } else if (Settings.isMac) {
@@ -604,8 +610,8 @@ export class Settings {
             return newEitherError(`No backend detected, specify at least one backend`);
         }
 
-        let backendNames: Set<string> = new Set<string>();
-        let retrievedBackends: Backend[] = [];
+        const backendNames: Set<string> = new Set<string>();
+        const retrievedBackends: Backend[] = [];
         for (let i = 0; i < backends.length; i++) {
             const backend = backends[i];
             if (!backend) {
@@ -636,16 +642,16 @@ export class Settings {
                 return newEitherError(`${backendName} the backend type ${backend.type} is not supported, try one of these: ${Settings.supportedTypes.join(", ")}`);
             }
 
-            let stages: Set<string> = new Set<string>();
+            const stages: Set<string> = new Set<string>();
             for (let i = 0; i < backend.stages.length; i++) {
-                let stage: Stage = backend.stages[i];
+                const stage: Stage = backend.stages[i];
                 if (!stage) {
                     return newEitherError(`${backendName} Empty stage detected`);
                 }
                 else if (!stage.name || stage.name.length == 0) {
                     return newEitherError(`${backendName} Every stage needs a name.`);
                 } else {
-                    let backendAndStage = `${backendName} Stage: ${stage.name}:`;
+                    const backendAndStage = `${backendName} Stage: ${stage.name}:`;
                     // check for duplicated stage names
                     if (stages.has(stage.name)) {
                         return newEitherError(`${backendName} Duplicated stage name: ${stage.name}`);
@@ -718,7 +724,7 @@ export class Settings {
         return toRight(res);
     }
 
-    private static isSupportedType(type: string) {
+    private static isSupportedType(type: string): boolean {
         if (!type) return false;
         return Settings.supportedTypes.includes(type.toLowerCase());
     }
@@ -894,6 +900,7 @@ export class Settings {
     public static async getServerArgs(logLevel: LogLevel, logFile: string): Promise<string> {
         function convertLogLevel(logLevel: LogLevel): string {
             // translate LogLevel to the command-line parameter that ViperServer understands:
+            return "ALL";
             switch(logLevel) { // we use `Log.logLevel` here as that one might differ from the one in the settings during unit tests
                 case LogLevel.None:
                     return "OFF";
@@ -931,38 +938,30 @@ export class Settings {
     }
 
     private static async getAllJarsInPaths(paths: string[], recursive: boolean): Promise<string[]> {
-        let result: string[] = [];
-        try {
-            paths.forEach(async p => {
-                if (fs.lstatSync(p).isDirectory()) {
-                    let files = fs.readdirSync(p);
-                    let folders = []
-                    files.forEach(child => {
-                        child = pathHelper.join(p, child);
-                        if (!fs.lstatSync(child).isDirectory()) {
-                            //child is a file
-                            if (Settings.isJar(child)) {
-                                //child is a jar file
-                                result.push(child);
-                            }
-                        } else {
-                            folders.push(child);
+        const resultPromises = paths.map(async p => {
+            if (fs.lstatSync(p).isDirectory()) {
+                const children = await readdir(p);
+                const childPaths = children.map(child => pathHelper.join(p, child));
+                const promises = childPaths.map(async childPath => {
+                    if (fs.lstatSync(childPath).isDirectory()) {
+                        if (recursive) {
+                            return Settings.getAllJarsInPaths([childPath], recursive);
                         }
-                    })
-                    if (recursive) {
-                        const rec = await Settings.getAllJarsInPaths(folders, recursive);
-                        result.push(...rec);
+                    } else if (Settings.isJar(childPath)) {
+                        return [childPath];
                     }
-                } else {
-                    if (Settings.isJar(p)) {
-                        result.push(p)
-                    }
+                    return [];
+                });
+                return Promise.all(promises).then(flatten);
+            } else {
+                if (Settings.isJar(p)) {
+                    return [p];
                 }
-            });
-        } catch (e) {
-            throw new Error(`Error getting all Jars in Paths: ${e}`);
-        }
-        return result;
+            }
+        });
+        return Promise.all(resultPromises)
+            .then(flatten)
+            .catch(Helper.rethrow(`Error getting all Jars in paths`));
     }
 
     private static isJar(file: string): boolean {
@@ -1066,7 +1065,9 @@ export class Settings {
         try {
             fs.accessSync(path);
             return { path: path, exists: true };
-        } catch (e) { }
+        } catch (e) {
+            // intentially empty as it simply means that the file does not exist
+        }
         if (executable && this.isWin && !path.toLowerCase().endsWith(".exe")) {
             path += ".exe";
             //only one recursion at most, because the ending is checked
@@ -1116,8 +1117,8 @@ class Version {
     }
 
     private static encrypt(msg: string, key: string): string {
-        let res: string = "";
-        let parity: number = 0;
+        let res = "";
+        let parity = 0;
         for (let i = 0; i < msg.length; i++) {
             const keyChar: number = key.charCodeAt(i % key.length);
             const char: number = msg.charCodeAt(i);
@@ -1134,8 +1135,8 @@ class Version {
     }
 
     private static decrypt(cypher: string, key: string): string {
-        let res: string = "";
-        let parity: number = 0;
+        let res = "";
+        let parity = 0;
         if (!cypher || cypher.length < 2 || cypher.length % 2 != 0) {
             return "";
         }
@@ -1157,9 +1158,9 @@ class Version {
     }
 
     public static testhash(): void {
-        let s = "1.0.0";
-        let en = this.encrypt(s, Version.Key);
-        let de = this.decrypt(en, Version.Key);
+        const s = "1.0.0";
+        const en = this.encrypt(s, Version.Key);
+        const de = this.decrypt(en, Version.Key);
         Log.log("Hash Test: " + s + " -> " + en + " -> " + de, LogLevel.LowLevelDebug);
     }
 

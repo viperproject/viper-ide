@@ -78,25 +78,25 @@ export class Log {
         return initialized;
     }
 
-    private static createFile(filePath: string) {
+    private static createFile(filePath: string): void {
         if (!fs.existsSync(filePath)) {
             fs.closeSync(fs.openSync(filePath, 'w'));
             fs.accessSync(filePath);
         }
     }
 
-    public static deleteFile(fileName: string) {
+    public static deleteFile(fileName: string): void {
         try {
             if (fs.existsSync(fileName)) {
                 fs.unlinkSync(fileName);
-            };
+            }
         } catch (e) {
             Log.error("Error deleting file " + fileName + ": " + e);
         }
     }
 
-    public static updateSettings() {
-        let oldLogLevel = Log.logLevel;
+    public static updateSettings(): void {
+        const oldLogLevel = Log.logLevel;
         Log.logLevel = Settings.getLogLevel();
         if (State.unitTest) {
             // we want to keep output small during testing and in case log output matters,
@@ -113,7 +113,7 @@ export class Log {
         }
     }
 
-    public static log(message: string, logLevel: LogLevel, fromServer: boolean = false) {
+    public static log(message: string, logLevel: LogLevel, fromServer: boolean = false): void {
         if (this.lastProgress) {
             this.doLog(this.lastProgress.msg, this.lastProgress.logLevel, fromServer);
             this.lastProgress = null;
@@ -121,7 +121,7 @@ export class Log {
         this.doLog(message, logLevel, fromServer);
     }
 
-    private static doLog(message: string, logLevel: LogLevel, fromServer: boolean) {
+    private static doLog(message: string, logLevel: LogLevel, fromServer: boolean): void {
         const timing = this.logTiming ? this.prettyUptime() + ' ' : '';
         const messageWithLogLevel = this.prefix(logLevel) + message;
         const messageWithTiming = timing + messageWithLogLevel;
@@ -141,17 +141,17 @@ export class Log {
         }
     }
 
-    public static logWithOrigin(origin: string, message: string, logLevel: LogLevel) {
+    public static logWithOrigin(origin: string, message: string, logLevel: LogLevel): void {
         if (message) {
             this.log((logLevel >= LogLevel.Debug ? "[" + origin + "]: " : "") + message, logLevel);
         }
     }
 
-    public static progress(data: Progress, logLevel: LogLevel) {
+    public static progress(data: Progress, logLevel: LogLevel): void {
         if (!data) return;
 
-        let progress = (data.progress !== undefined) ? data.progress : 100.0 * data.current / data.total;
-        let label = data.domain + ": " + Helper.formatProgress(progress) + (data.postfix ? ' ' + data.postfix : '');
+        const progress = (data.progress !== undefined) ? data.progress : 100.0 * data.current / data.total;
+        const label = data.domain + ": " + Helper.formatProgress(progress) + (data.postfix ? ' ' + data.postfix : '');
         this.lastProgress = { msg: label, logLevel: logLevel };
 
         State.statusBarProgress.updateProgressBar(progress, null);
@@ -170,7 +170,7 @@ export class Log {
         }
     }
 
-    public static toLogFile(message: string, logLevel: LogLevel = LogLevel.Default) {
+    public static toLogFile(message: string, logLevel: LogLevel = LogLevel.Default): void {
         const timing = this.logTiming ? this.prettyUptime() + ' ' : '';
         const msgWithTiming = timing + message;
         if (Log.logLevel == null || Log.logLevel >= logLevel) {
@@ -182,12 +182,12 @@ export class Log {
         }
     }
 
-    public static error(message: string, logLevel: LogLevel = LogLevel.Debug) {
+    public static error(message: string): void {
         if (this.lastProgress) {
             this.log(this.lastProgress.msg, this.lastProgress.logLevel);
             this.lastProgress = null;
         }
-        let timing = this.logTiming ? this.prettyUptime() + ' ' : '';
+        const timing = this.logTiming ? this.prettyUptime() + ' ' : '';
         message = "ERROR: " + message;
         // all errors should be printed independent of the log level
         console.error(timing + message);
@@ -197,7 +197,7 @@ export class Log {
         }
     }
 
-    public static dispose() {
+    public static dispose(): void {
         if (State.unitTest) {
             Log.log("Log: ignoring call to `dispose` because we are running in a unit test environment", LogLevel.Info);
         } else {
@@ -206,32 +206,32 @@ export class Log {
         }
     }
 
-    public static hint(message: string, tag: string = "Viper", showSettingsButton = false, showViperToolsUpdateButton = false) {
+    public static hint(message: string, tag: string = "Viper", showSettingsButton = false, showViperToolsUpdateButton = false): void {
         Log.log("H: " + tag + ": " + message, LogLevel.Debug);
 
-        let settingsButton: vscode.MessageItem = { title: "Open Settings" };
-        let updateButton: vscode.MessageItem = { title: "Update ViperTools" };
-        let buttons: vscode.MessageItem[] = [];
+        const settingsButton: vscode.MessageItem = { title: "Open Settings" };
+        const updateButton: vscode.MessageItem = { title: "Update ViperTools" };
+        const buttons: vscode.MessageItem[] = [];
         if (showSettingsButton) buttons.push(settingsButton);
         if (showViperToolsUpdateButton) buttons.push(updateButton);
-        vscode.window.showInformationMessage(tag + ": " + message, ...buttons).then((choice) => {
+        vscode.window.showInformationMessage(`${tag}: ${message}`, ...buttons).then(async (choice) => {
             try {
                 if (choice && choice.title === settingsButton.title) {
-                    vscode.commands.executeCommand("workbench.action.openGlobalSettings")
+                    await vscode.commands.executeCommand("workbench.action.openGlobalSettings")
                 } else if (choice && choice.title === updateButton.title) {
-                    vscode.commands.executeCommand("viper.updateViperTools")
+                    await vscode.commands.executeCommand("viper.updateViperTools")
                 }
             } catch (e) {
-                Log.error("Error accessing " + choice.title + " settings: " + e)
+                Log.error(`Error accessing ${choice.title} settings: ${e}`)
             }
-        });
+        }).then(Helper.identity, err => Log.error(`Error showing information message ${err}`));
     }
 
     public static prettyUptime(): string {
-        let uptime = new Date().getTime() - this.START_TIME;
-        var hours = Math.floor(uptime / (1000 * 60 * 60));
-        var minutes = Math.floor(uptime % (1000 * 60 * 60) / (1000 * 60));
-        var seconds = uptime % (1000 * 60) / 1000;
+        const uptime = new Date().getTime() - this.START_TIME;
+        const hours = Math.floor(uptime / (1000 * 60 * 60));
+        const minutes = Math.floor(uptime % (1000 * 60 * 60) / (1000 * 60));
+        const seconds = uptime % (1000 * 60) / 1000;
         return (hours ? hours + ':' : '') +
             (minutes < 10 ? '0' : '') + minutes + ':' +
             (seconds < 10 ? '0' : '') + seconds.toFixed(3);

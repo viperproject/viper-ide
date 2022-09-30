@@ -20,6 +20,7 @@ export class VerificationTerminatedEvent {
 }
 
 class ViperConfiguration {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public get(id: string): any {
         return vscode.workspace.getConfiguration('viperSettings').get(id);
     }
@@ -27,7 +28,7 @@ class ViperConfiguration {
 
 export class ViperApi {
     private verificationTerminatedObservers: ((VerificationTerminatedEvent) => void)[] = []
-    private serverMessageCallbacks: Map<string, Array<(string, any) => void>> = new Map();
+    private serverMessageCallbacks: Map<string, Array<(messageType: string, message: string) => void>> = new Map();
     private languageClient: LanguageClient;
     public configuration: ViperConfiguration;
 
@@ -37,12 +38,12 @@ export class ViperApi {
     }
 
     /** Register an observer for a VerificationTerminated event */
-    public onVerificationTerminated(callback: (VerificationTerminatedEvent) => void) {
+    public onVerificationTerminated(callback: (VerificationTerminatedEvent) => void): void {
         this.verificationTerminatedObservers.push(callback);
     }
 
     /** Notify a VerificationTermianted event to all observers. */
-    public notifyVerificationTerminated(event: VerificationTerminatedEvent) {
+    public notifyVerificationTerminated(event: VerificationTerminatedEvent): void {
         this.verificationTerminatedObservers.forEach(callback => callback(event))
     }
 
@@ -53,7 +54,7 @@ export class ViperApi {
      *  messages to the IDE. This method allows setting up handlers for message
      *  types that are not recognized by the Viper IDE by default.
      */
-    public registerServerMessageCallback(messageType: string, callback: (any) => void) {
+    public registerServerMessageCallback(messageType: string, callback: (messageType: string, message: string) => void): void {
         if (!this.serverMessageCallbacks.has(messageType)) {
             this.serverMessageCallbacks.set(messageType, []);
         }
@@ -66,8 +67,8 @@ export class ViperApi {
      *  This will be called by the client when an unhandled message type is
      *  received by the language server.
      */
-    public notifyServerMessage(messageType: string, message: any) {
-        let callbacks = this.serverMessageCallbacks.get(messageType);
+    public notifyServerMessage(messageType: string, message: string): void {
+        const callbacks = this.serverMessageCallbacks.get(messageType);
 
         if (callbacks) {
             callbacks.forEach((cb) => cb(messageType, message));
@@ -78,6 +79,7 @@ export class ViperApi {
         return this.sendServerMessage<string>("GetViperServerUrl");
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private sendServerMessage<R>(key: string, param?: any): Thenable<R> {
         if (param) {
             return this.languageClient.sendRequest(key, param);

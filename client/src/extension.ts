@@ -42,7 +42,7 @@ let autoSaver: Timer;
 
 let fileSystemWatcher: vscode.FileSystemWatcher;
 
-let activated: boolean = false;
+let activated = false;
 
 // this method is called when your extension is activated
 export async function activate(context: vscode.ExtensionContext): Promise<ViperApi> {
@@ -57,7 +57,7 @@ async function internalActivate(context: vscode.ExtensionContext): Promise<Viper
     
     Helper.loadViperFileExtensions();
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
-    let ownPackageJson = vscode.extensions.getExtension("viper-admin.viper").packageJSON;
+    const ownPackageJson = vscode.extensions.getExtension("viper-admin.viper").packageJSON;
     Log.log(`The current version of ${ownPackageJson.displayName} is: v.${ownPackageJson.version}`, LogLevel.Info);
     await Log.initialize();
     State.context = context;
@@ -178,15 +178,16 @@ function startAutoSaver(): void {
         //only save viper files
         if (vscode.window.activeTextEditor != null && vscode.window.activeTextEditor.document.languageId == 'viper') {
             if (Settings.isAutoSaveEnabled()) {
-                vscode.window.activeTextEditor.document.save();
+                vscode.window.activeTextEditor.document.save()
+                    .then(Helper.identity, err => Log.error(`error occurred while auto-saving: ${err}`));
             }
         }
     }, autoSaveTimeout);
 
     State.context.subscriptions.push(autoSaver);
 
-    let onActiveTextEditorChangeDisposable = vscode.window.onDidChangeActiveTextEditor(resetAutoSaver);
-    let onTextEditorSelectionChange = vscode.window.onDidChangeTextEditorSelection(selectionChange => {
+    const onActiveTextEditorChangeDisposable = vscode.window.onDidChangeActiveTextEditor(resetAutoSaver);
+    const onTextEditorSelectionChange = vscode.window.onDidChangeTextEditorSelection(selectionChange => {
         if (Helper.isViperSourceFile(selectionChange.textEditor.document.uri)) {
             resetAutoSaver();
         }
@@ -235,7 +236,7 @@ async function handleSettingsCheckResult<R>(res: Either<Messages, R>): Promise<v
         switch (msg.level) {
             case Level.Error:
                 nofErrors++;
-                Log.error(`Settings Error: ${msg.msg}`, LogLevel.Info);
+                Log.error(`Settings Error: ${msg.msg}`);
                 break;
             case Level.Warning:
                 nofWarnings++;
@@ -263,7 +264,7 @@ async function handleSettingsCheckResult<R>(res: Either<Messages, R>): Promise<v
     if (nofErrors + nofWarnings > 1) {
         message = "see View->Output->Viper";
     }
-    Log.hint(`${countDescription}: ${message}`, `Viper Settings`, true, true);
+    await Log.hint(`${countDescription}: ${message}`, `Viper Settings`, true, true);
     if (nofErrors > 0) {
         // abort only in the case of errors
         throw new Error(`Problems in Viper Settings detected`);
@@ -333,9 +334,9 @@ function registerHandlers(location: Location): void {
     //trigger verification texteditorChange
     State.context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(async () => {
         try {
-            let editor = vscode.window.activeTextEditor;
+            const editor = vscode.window.activeTextEditor;
             if (editor) {
-                let uri = editor.document.uri;
+                const uri = editor.document.uri;
                 if (Helper.isViperSourceFile(uri)) {
                     const fileState = State.setLastActiveFile(uri, editor);
                     if (fileState) {
@@ -371,7 +372,7 @@ function registerHandlers(location: Location): void {
     //Command Handlers
     //verify
     State.context.subscriptions.push(vscode.commands.registerCommand('viper.verify', () => {
-        let fileUri = Helper.getActiveFileUri();
+        const fileUri = Helper.getActiveFileUri();
         if (!fileUri) {
             Log.log("Cannot verify, no document is open.", LogLevel.Info);
         } else if (!Helper.isViperSourceFile(fileUri)) {

@@ -13,9 +13,9 @@ export class Timer {
     lastExec = Date.now();
     interval = null;
     checkingFrequency = 200;
-    constructor(func, timeout) {
+    constructor(func: () => void, timeout: number) {
         this.interval = setInterval(() => {
-            let now = Date.now();
+            const now = Date.now();
             if (now - this.lastExec > timeout) {
                 this.lastExec = now;
                 func();
@@ -23,15 +23,15 @@ export class Timer {
         }, this.checkingFrequency);
     }
 
-    stop() {
+    stop(): void {
         clearInterval(this.interval);
     }
 
-    dispose() {
+    dispose(): void {
         this.stop();
     }
 
-    reset() {
+    reset(): void {
         this.lastExec = Date.now();
     }
 }

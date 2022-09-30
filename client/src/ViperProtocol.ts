@@ -259,23 +259,23 @@ export class StateColors {
     //currently selected state
     static currentState(dark: boolean): string {
         return dark ? "red" : "red";
-    };
+    }
     //previously selected state
     static previousState(dark: boolean): string {
         return dark ? "green" : "green";
-    };
+    }
     //state in which an error was reported by the backend
     static errorState(dark: boolean): string {
         return dark ? "yellow" : "orange";
-    };
+    }
     //state in same method as current state
     static interestingState(dark: boolean): string {
         return dark ? "yellow" : "orange";
-    };
+    }
     //state in other method
     static uninterestingState(dark: boolean): string {
         return dark ? "grey" : "grey";
-    };
+    }
 }
 
 export interface StepsAsDecorationOptionsResult {
@@ -355,7 +355,7 @@ export interface LaunchRequestArguments {
 
 //Language Server Internal:
 
-export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE, UNKONWN };
+export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE, UNKONWN }
 
 ////////////////////////////////////////////////////
 //SETTINGS
@@ -537,7 +537,7 @@ export interface Versions {
     preferencesVersion: string;
     javaSettingsVersion: string;
     advancedFeaturesVersion: string;
-    defaultSettings: any;
+    defaultSettings: any; // eslint-disable-line @typescript-eslint/no-explicit-any
     extensionVersion: string;
 }
 
@@ -678,14 +678,14 @@ export class Common {
     }
 
     public static pathToUri(path: string): string {
-        let uriObject: URI = URI.file(path);
-        let platformIndependentUri = uriObject.toString();
+        const uriObject: URI = URI.file(path);
+        const platformIndependentUri = uriObject.toString();
         return platformIndependentUri;
     }
 
-    public static uriEquals(a: string | vscode.Uri, b: string | vscode.Uri) {
+    public static uriEquals(a: string | vscode.Uri, b: string | vscode.Uri): boolean {
         if (!a || !b) return false;
-        return this.uriToString(a) == this.uriToString(b);
+        return this.uriToString(a) === this.uriToString(b);
     }
 
     //Helper methods for child processes
@@ -693,7 +693,7 @@ export class Common {
                            onError?: (string) => void, onExit?: () => void): child_process.ChildProcess {
         try {
             Log.logWithOrigin("executer", command, LogLevel.Debug);
-            let child: child_process.ChildProcess = child_process.exec(command, function (error, stdout, stderr) {
+            const child: child_process.ChildProcess = child_process.exec(command, function (error, stdout, stderr) {
                 Log.logWithOrigin('executer:stdout', stdout, LogLevel.LowLevelDebug);
                 Log.logWithOrigin('executer:stderr', stderr, LogLevel.LowLevelDebug);
                 if (error) Log.logWithOrigin('executer:error', `${error}`, LogLevel.LowLevelDebug);
@@ -725,7 +725,7 @@ export class Common {
     public static spawner(command: string, args: string[]): child_process.ChildProcess {
         Log.log("spawner: " + command + " " + args.join(" "), LogLevel.Debug);
         try {
-            let child = child_process.spawn(command, args, { detached: true });
+            const child = child_process.spawn(command, args, { detached: true });
             child.on('stdout', data => {
                 Log.logWithOrigin('spawner stdout', data, LogLevel.LowLevelDebug);
             });
@@ -777,28 +777,30 @@ export class Common {
         });
       }
 
-    public static backendRestartNeeded(settings: ViperSettings, oldBackendName: string, newBackendName: string) {
-        if (!settings)
+    public static backendRestartNeeded(settings: ViperSettings, oldBackendName: string, newBackendName: string): boolean {
+        if (!settings) {
             return true;
+        }
 
-        let oldBackend = settings.verificationBackends.find(value => value.name == oldBackendName);
-        let newBackend = settings.verificationBackends.find(value => value.name == newBackendName);
+        const oldBackend = settings.verificationBackends.find(value => value.name === oldBackendName);
+        const newBackend = settings.verificationBackends.find(value => value.name === newBackendName);
 
-        if (oldBackend && newBackend && oldBackend.engine.toLowerCase() == 'viperserver' && newBackend.engine.toLowerCase() == 'viperserver')
+        if (oldBackend && newBackend && oldBackend.engine.toLowerCase() === 'viperserver' && newBackend.engine.toLowerCase() == 'viperserver') {
             return false;
-
+        }
         return true;
     }
 
-    public static isViperServer(settings: ViperSettings, newBackendName: string) {
-        if (!settings)
+    public static isViperServer(settings: ViperSettings, newBackendName: string): boolean {
+        if (!settings) {
             return false;
+        }
 
-        let newBackend = settings.verificationBackends.find(value => value.name == newBackendName);
+        const newBackend = settings.verificationBackends.find(value => value.name === newBackendName);
 
-        if (newBackend && newBackend.engine.toLowerCase() == 'viperserver')
+        if (newBackend && newBackend.engine.toLowerCase() === 'viperserver') {
             return true;
-
+        }
         return false;
     }
 

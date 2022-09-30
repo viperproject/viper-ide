@@ -19,12 +19,12 @@ import { Common, LogLevel } from './ViperProtocol';
 export class Helper {
     public static viperFileEndings: string[];
 
-    public static loadViperFileExtensions() {
+    public static loadViperFileExtensions(): void {
         this.viperFileEndings = ["*.vpr", "*.sil"];
-        let fileAssociations = vscode.workspace.getConfiguration("files").get("associations", []);
-        for (var pattern in fileAssociations) {
-            let language = fileAssociations[pattern];
-            if (language == 'viper') {
+        const fileAssociations = vscode.workspace.getConfiguration("files").get("associations", []);
+        for (const pattern in fileAssociations) {
+            const language = fileAssociations[pattern];
+            if (language === 'viper') {
                 Log.log("Additional file associations detected: " + language + " -> " + pattern, LogLevel.Debug);
                 this.viperFileEndings.push(pattern);
             }
@@ -33,9 +33,9 @@ export class Helper {
 
     public static isViperSourceFile(uri: string | vscode.Uri): boolean {
         if (!uri) return false;
-        let uriString = Common.uriToString(uri);
+        const uriString = Common.uriToString(uri);
         return this.viperFileEndings.some(globPattern => {
-            let regex = globToRexep(globPattern);
+            const regex = globToRexep(globPattern);
             return regex.test(uriString);
         });
     }
@@ -106,11 +106,12 @@ export class Helper {
             (value == "1" || value.toUpperCase() == "TRUE");
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public static rethrow(msg: string): (originalReason: any) => PromiseLike<never> {
-        return (originalReason: any) => {
+        return originalReason => {
             Log.log(originalReason, LogLevel.Info);
             throw new Error(`${msg} (reason: '${originalReason}')`);
-        }
+        };
     }
 
     public static identity<T>(param: T): T {
