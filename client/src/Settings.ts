@@ -894,7 +894,6 @@ export class Settings {
     public static async getServerArgs(logLevel: LogLevel, logFile: string): Promise<string> {
         function convertLogLevel(logLevel: LogLevel): string {
             // translate LogLevel to the command-line parameter that ViperServer understands:
-            return "ALL";
             switch(logLevel) { // we use `Log.logLevel` here as that one might differ from the one in the settings during unit tests
                 case LogLevel.None:
                     return "OFF";
