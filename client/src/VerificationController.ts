@@ -15,7 +15,7 @@ import { URI } from 'vscode-uri';
 import { Location } from 'vs-verification-toolbox';
 import { AwaitTimer } from './AwaitTimer';
 import { State } from './ExtensionState';
-import { Common, VerifyParams, TimingInfo, VerificationState, Commands, StateChangeParams, LogLevel, Success, Backend } from './ViperProtocol';
+import { Common, VerifyParams, TimingInfo, VerificationState, Commands, StateChangeParams, LogLevel, Success, Backend, StopVerificationRequest } from './ViperProtocol';
 import { Log } from './Log';
 import { Helper } from './Helper';
 import { ViperFileState } from './ViperFileState';
@@ -588,8 +588,9 @@ export class VerificationController {
                 Log.log("Verification stop request", LogLevel.Debug);
                 State.hideProgress();
                 State.statusBarItem.update("aborting", Color.WARNING);
-                const success = await State.client.sendRequest(Commands.StopVerification, uriToStop);
-                return success;
+                const params: StopVerificationRequest = { uri: uriToStop };
+                const response = await State.client.sendRequest(Commands.StopVerification, params);
+                return response.success;
             } else {
                 let msg = "Cannot stop the verification, no verification is running.";
                 if (manuallyTriggered) {

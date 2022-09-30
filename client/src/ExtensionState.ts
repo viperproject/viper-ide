@@ -8,14 +8,15 @@
  
 'use strict';
 import * as child_process from "child_process";
-import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient';
+import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
 import * as vscode from 'vscode';
 import * as net from 'net';
 import * as path from 'path';
 import * as readline from 'readline';
+import * as semver from 'semver';
 import * as unusedFilename from 'unused-filename';
 import { Location } from 'vs-verification-toolbox';
-import { Backend, Common, LogLevel } from './ViperProtocol';
+import { Backend, Commands, Common, GetVersionRequest, LogLevel } from './ViperProtocol';
 import { Log } from './Log';
 import { ViperFileState } from './ViperFileState';
 import { URI } from 'vscode-uri';
@@ -24,8 +25,13 @@ import { Color, StatusBar } from './StatusBar';
 import { VerificationController, Task } from './VerificationController';
 import { ViperApi } from './ViperApi';
 import { Settings } from './Settings';
+import { combineMessages, Either, Messages, newEitherError, newRight, transformRight } from "./Either";
 
 export class State {
+    public static get MIN_SERVER_VERSION(): string {
+        return "2.0.0"; // has to be a valid semver
+    }
+
     public static client: LanguageClient;
     public static context: vscode.ExtensionContext;
     public static instance: State;
@@ -134,7 +140,7 @@ export class State {
         return result;
     }
 
-    public static async startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, location: Location): Promise<void> {
+    public static async startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, location: Location): Promise<Either<Messages, void>> {
         const policy = Settings.getServerPolicy();
         let serverOptions: ServerOptions;
         let serverDisposable: Disposable;
@@ -178,14 +184,20 @@ export class State {
         // the ID `viperserver` has to match the first part of `viperserver.trace.server` controlling the amount of tracing
         State.client = new LanguageClient('viperserver', 'Viper IDE - ViperServer Communication', serverOptions, clientOptions);
 
-        // Create the language client and start the client.
-        const disposable = State.client.start();
         // Push the disposable to the context's subscriptions so that the
         // client can be deactivated on extension deactivation
-        context.subscriptions.push(disposable);
         context.subscriptions.push(serverDisposable);
 
-        return State.client.onReady();
+        // Create the language client, start the client, and wait until it's ready.
+        await State.client.start();
+
+        // check whether client and server are compatible:
+        const request: GetVersionRequest = { clientVersion: Settings.getExtensionVersion() };
+        const response = await State.client.sendRequest(Commands.GetVersion, request);
+        const checkClient: Either<Messages, void> = response.error ? newEitherError(response.error) : newRight(undefined);
+        const serverIsSupported = Settings.disableServerVersionCheck() ? true : semver.compare(response.serverVersion, State.MIN_SERVER_VERSION) >= 0;
+        const checkServer: Either<Messages, void> = serverIsSupported ? newRight(undefined) : newEitherError(`Server is not compatible with client - expected at least server version ${State.MIN_SERVER_VERSION} but is ${response.serverVersion}`);
+        return transformRight(combineMessages([checkClient, checkServer]), () => {});
     }
 
     /**creates a server for the given server binary; the disposable object kills the server process */

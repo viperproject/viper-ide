@@ -10,7 +10,7 @@
 
 import * as child_process from 'child_process';
 import * as vscode from 'vscode';
-import { NotificationType, NotificationType1, RequestType0, RequestType1 } from 'vscode-jsonrpc';
+import { NotificationType, RequestType0, RequestType } from 'vscode-jsonrpc';
 import { URI } from 'vscode-uri';
 import { Log } from './Log';
 
@@ -24,22 +24,19 @@ import { Log } from './Log';
 
 // implementation note:
 // - RequestType0 represents an LSP request & response pair whose request does not take any arguments
-// - RequestType1 represents an LSP request & response pair whose request takes exactly 1 argument
-// - ...
+// - RequestType represents an LSP request & response pair whose request takes exactly 1 argument
 
 export class Commands {
     //SERVER TO CLIENT
     //Server notifies client about a state change
-    static StateChange: NotificationType<StateChangeParams, void> = new NotificationType("StateChange");
+    static StateChange: NotificationType<StateChangeParams> = new NotificationType("StateChange");
     //LOGGING
     //Log a message to the output
-    static Log: NotificationType<LogParams, void> = new NotificationType("Log");
+    static Log: NotificationType<LogParams> = new NotificationType("Log");
     //Server tells client to show an information message to the user
-    static Hint: NotificationType<HintMessage, void> = new NotificationType("Hint");
-    //Server tells client to show progress
-    static Progress: NotificationType<ProgressParams, void> = new NotificationType("Progress");
+    static Hint: NotificationType<HintMessage> = new NotificationType("Hint");
     //Server is notifying client that the verification could not be started
-    static VerificationNotStarted: NotificationType</* uri */ string, void> = new NotificationType("VerificationNotStarted");
+    static VerificationNotStarted: NotificationType<VerificationNotStartedParams> = new NotificationType("VerificationNotStarted");
     //Either server or client request debugging to be stopped
     // static StopDebugging = "StopDebugging";//void
     // static StepsAsDecorationOptions = "StepsAsDecorationOptions";//StepsAsDecorationOptionsResult
@@ -49,26 +46,26 @@ export class Commands {
      *  Used to inform the client that there might be some additional messages
      *  that may be destined to some extension via the ViperApi.
      */
-    static UnhandledViperServerMessageType: NotificationType<UnhandledViperServerMessageTypeParams, void> = new NotificationType('UnhandledViperServerMessageType');
+    static UnhandledViperServerMessageType: NotificationType<UnhandledViperServerMessageTypeParams> = new NotificationType('UnhandledViperServerMessageType');
 
     //CLIENT TO SERVER
-    //Client asks server for the list of backend names
+    static GetVersion: RequestType<GetVersionRequest, GetVersionResponse, void> = new RequestType("GetVersion");
     //Client requests verification for a file
-    static Verify: NotificationType1<VerifyRequest, void> = new NotificationType1("Verify");
+    static Verify: NotificationType<VerifyParams> = new NotificationType("Verify");
     //Client tells server to abort the running verification
-    static StopVerification: RequestType1</* filePath */ string, boolean, void> = new RequestType1("StopVerification");
-    static GetLanguageServerUrl: RequestType0<string, void, void> = new RequestType0("GetLanguageServerUrl");
+    static StopVerification: RequestType<StopVerificationRequest, StopVerificationResponse, void> = new RequestType("StopVerification");
+    static GetLanguageServerUrl: RequestType0<GetLanguageServerUrlResponse, void> = new RequestType0("GetLanguageServerUrl");
     // static ShowHeap = "ShowHeap";//ShowHeapParams
     //Request a list of all states that led to the current state
     // static GetExecutionTrace = "GetExecutionTrace";//GetExecutionTraceParams -> trace:ExecutionTrace[]
     //remove the diagnostics in the file specified by uri
-    static RemoveDiagnostics: RequestType1<string, boolean, void, void> = new RequestType1("RemoveDiagnostics");
+    static RemoveDiagnostics: RequestType<RemoveDiagnosticsRequest, RemoveDiagnosticsResponse, void> = new RequestType("RemoveDiagnostics");
     //The server requests the custom file endings specified in the configuration
-    static GetViperFileEndings: RequestType0<string[], void, void> = new RequestType0("GetViperFileEndings");
+    static GetViperFileEndings: RequestType0<GetViperFileEndingsResponse, void> = new RequestType0("GetViperFileEndings");
     //The client requests the cache in the viperserver to be flushed, (either completely or for a file)
-    static FlushCache: RequestType1<FlushCacheParams, void, void, void> = new RequestType1("FlushCache");
+    static FlushCache: RequestType<FlushCacheParams, void, void> = new RequestType("FlushCache");
     //The server requests the identifier at some location in the current file to answer the gotoDefinition request
-    static GetIdentifier: RequestType1<Position, string, void, void> = new RequestType1("GetIdentifier");
+    static GetIdentifier: RequestType<Position, GetIdentifierResponse, void> = new RequestType("GetIdentifier");
 }
 
 //==============================================================================
@@ -79,6 +76,15 @@ export class Commands {
 // ViperServer code base under viper/server/frontends/lsp/DataProtocol.scala. 
 // The set of commands in both files should be kept in sync.
 //==============================================================================
+
+export interface GetVersionRequest {
+    clientVersion: string
+}
+
+export interface GetVersionResponse {
+    serverVersion: string,
+    error: string | null // error message if client is not supported by server, null otherwise
+}
 
 export interface GetExecutionTraceParams {
     uri: string;
@@ -181,13 +187,28 @@ export interface BackendStartedParams {
     isViperServer: boolean;
 }
 
-export interface VerifyRequest {
-    //file to verify
-    uri: string,
-    //was the verification triggered manually
-    manuallyTriggered: boolean,
-    //the path to the open workspace folder
-    workspace: string
+export interface StopVerificationRequest {
+    uri: string
+}
+
+export interface StopVerificationResponse {
+    success: boolean
+}
+
+export interface GetLanguageServerUrlResponse {
+    url: string
+}
+
+export interface RemoveDiagnosticsRequest {
+    uri: string
+}
+
+export interface RemoveDiagnosticsResponse {
+    success: boolean
+}
+
+export interface GetViperFileEndingsResponse {
+    fileEndings: string[]
 }
 
 export interface ShowHeapParams {
@@ -222,7 +243,7 @@ export interface HeapGraph {
     conditions: string[]
 }
 
-//own Position interface, because vscode.Position is not available at Language Server
+// own Position interface, because vscode.Position is not available at Language Server
 export interface Position {
     line: number;
     character: number;
@@ -316,6 +337,10 @@ export interface UnhandledViperServerMessageTypeParams {
 export interface FlushCacheParams {
     uri: string, // nullable (null indicates that the cache for all files should be flushed)
     backend: string // non-null
+}
+
+export interface GetIdentifierResponse {
+    identifier: string // nullable
 }
 
 //Communication between Language Server and Debugger:
@@ -603,6 +628,10 @@ export interface HintMessage {
     message: string,
     showSettingsButton: boolean,
     showViperToolsUpdateButton: boolean
+}
+
+export interface VerificationNotStartedParams {
+    uri: string
 }
 
 export interface Error {
