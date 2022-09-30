@@ -81,7 +81,6 @@ export async function locateViperTools(context: vscode.ExtensionContext): Promis
 
 export async function updateViperTools(context: vscode.ExtensionContext): Promise<Location> {
     async function confirm(): Promise<ConfirmResult> {
-        // TODO stop server
         return ConfirmResult.Continue;
     }
     

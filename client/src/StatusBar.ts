@@ -6,8 +6,6 @@
   * Copyright (c) 2011-2020 ETH Zurich.
   */
 
-'use strict';
-
 import * as vscode from "vscode";
 import { Helper } from './Helper';
 import { Settings } from "./Settings";

@@ -5,8 +5,6 @@
   *
   * Copyright (c) 2011-2020 ETH Zurich.
   */
- 
-'use strict';
 
 import * as child_process from 'child_process';
 import * as vscode from 'vscode';

@@ -5,8 +5,6 @@
   *
   * Copyright (c) 2011-2020 ETH Zurich.
   */
- 
-'use strict';
 
 import { readdir } from 'fs/promises';
 import * as path from 'path';
@@ -299,7 +297,7 @@ export class VerificationController {
                                     Log.logWithOrigin("workList", "Verifying", LogLevel.LowLevelDebug);
                                     if (State.unitTest) State.unitTest.verificationStarted(State.activeBackend.name, path.basename(task.uri.toString()));
                                     task.markStarted(TaskType.Verifying);
-                                    task.timeout = await Settings.getTimeoutForBackend(State.activeBackend);
+                                    task.timeout = State.activeBackend.timeout;
                                     await this.verify(fileState, task.manuallyTriggered);
                                 } else if (canVerify.reason && (canVerify.reason != this.lastCanStartVerificationReason || (task.uri && !Common.uriEquals(task.uri, this.lastCanStartVerificationUri)))) {
                                     Log.log(canVerify.reason, LogLevel.Info);

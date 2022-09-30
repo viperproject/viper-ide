@@ -5,8 +5,7 @@
   *
   * Copyright (c) 2011-2019 ETH Zurich.
   */
- 
-'use strict';
+
 import * as child_process from "child_process";
 import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
 import * as vscode from 'vscode';
@@ -177,7 +176,7 @@ export class State {
                 // Notify the server about file changes to .sil or .vpr files contain in the workspace
                 fileEvents: fileSystemWatcher
             },
-            // redirect output while unit testing to the log file as no UI is available:
+            // redirect output while unit testing to the log file as no UI is available, otherwise stick to default behavior, i.e. separate output view
             traceOutputChannel: State.unitTest ? traceOutputForCi : undefined
         }
 
@@ -200,7 +199,7 @@ export class State {
         return transformRight(combineMessages([checkClient, checkServer]), () => {});
     }
 
-    /**creates a server for the given server binary; the disposable object kills the server process */
+    /** creates a server for the given server binary; the disposable object kills the server process */
     private static async startServerProcess(location: Location): Promise<{ streamInfo: StreamInfo, disposable: Disposable }> {
         const javaPath = (await Settings.getJavaPath()).path;
         const cwd = await Settings.getJavaCwd();
@@ -276,7 +275,6 @@ export class State {
             .then(info => ({streamInfo: info, disposable: disposable}));
     }
 
-    /** `disposable` is simply passed to the returned promise */
     private static async connectToServer(host: string, port: number): Promise<StreamInfo> {
         return new Promise((resolve: (res: StreamInfo) => void, reject) => {
             const clientSocket = new net.Socket();

@@ -6,16 +6,12 @@
   * Copyright (c) 2011-2019 ETH Zurich.
   */
 
-'use strict';
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 
 
 
 //============================================================================//
-// NOTE: Before this extension can be launched, the path to a viper.jar
-// must be set in Server.startLanguageServer in the file ExtensionState.ts!
-// 
 // NOTE: This extension only works with a version of ViperServer that includes
 // an LSP frontend.
 //============================================================================//

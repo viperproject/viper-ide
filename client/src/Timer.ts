@@ -5,8 +5,6 @@
   *
   * Copyright (c) 2011-2020 ETH Zurich.
   */
- 
-'use strict';
 
 export class Timer {
 

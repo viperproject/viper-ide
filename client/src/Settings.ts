@@ -5,8 +5,6 @@
   *
   * Copyright (c) 2011-2019 ETH Zurich.
   */
- 
-'use strict';
 
 import * as fs from 'fs';
 import * as os from 'os';
@@ -730,22 +728,6 @@ export class Settings {
     }
 
     private static supportedTypes: string[] = ["silicon", "carbon", "other"];
-    /*
-    private static async getBackendByName(location: Location, backend: string): Promise<Backend> {
-        const backendRes = await Settings.checkAndGetVerificationBackends(location);
-        const timeoutEither = flatMap<Messages, Backend[], Backend>(backendRes, backends => {
-            const foundBackend = backends.find(b => b.name == backend.toLowerCase());
-            if (!foundBackend) {
-                return newEitherError(`Backend '${backend.toLowerCase()}' not found`);
-            }
-            return newRight(foundBackend);
-        });
-        return toRight(timeoutEither);
-    }
-    */
-    public static async getTimeoutForBackend(backend: Backend): Promise<number> {
-        return backend.timeout;
-    }
 
     public static async getCustomArgsForBackend(location: Location, backend: Backend, fileUri: vscode.Uri): Promise<string> {
         // while checking the stages, we make sure that there is exactly one stage with `isVerification` set to true:
