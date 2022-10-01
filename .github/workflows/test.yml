@@ -304,10 +304,19 @@ jobs:
         run: npx vsce ls
         working-directory: client
 
-      - name: Package Viper-IDE extension (ubuntu only)
-        if: startsWith(matrix.os, 'ubuntu')
-        # note that baseContentUrl has to be manually provided as vsce does not know that it is run in the client subfolder:
-        run: npm run package -- --baseContentUrl https://github.com/viperproject/viper-ide/raw/master/client --out viper-ide.vsix
+      # use vsce to package the extension into a vsix file.
+      # sets a special field in package.json to indicate that the package is not a pre-release (it's one
+      # by default)
+      - name: Package Viper-IDE extension (ubuntu & stable release only)
+        if: ${{ startsWith(matrix.os, 'ubuntu') && github.event.inputs.type == 'stable' }}
+        run: |
+          npm pkg set viper.prerelease=false --json
+          npm run package -- --out viper-ide.vsix
+        working-directory: client
+
+      - name: Package Viper-IDE extension (ubuntu & non-stable release only)
+        if: ${{ startsWith(matrix.os, 'ubuntu') && github.event.inputs.type != 'stable' }}
+        run: npm run package -- --out viper-ide.vsix --pre-release
         working-directory: client
 
       - name: Upload packaged Viper-IDE (ubuntu-only)

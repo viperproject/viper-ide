@@ -18,6 +18,7 @@ import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependen
 import { combineMessages, Either, flatten, fold, isLeft, isRight, Messages, newEitherError, newEitherWarning, newLeft, newRight, toRight, transformRight } from './Either';
 import { readdir } from 'fs/promises';
 import { Helper } from './Helper';
+import { State } from './ExtensionState';
 
 
 export class Settings {
@@ -35,6 +36,7 @@ export class Settings {
         extensionVersion: Settings.ownPackageJson.version
     };
 
+    public static isPrerelease: boolean = Settings.ownPackageJson.viper.prerelease;
     public static isWin = /^win/.test(process.platform);
     public static isLinux = /^linux/.test(process.platform);
     public static isMac = /^darwin/.test(process.platform);
@@ -53,7 +55,7 @@ export class Settings {
             Settings.checkAndGetPreferences(location),
             Settings.checkAndGetJavaSettings(location),
             Settings.checkAndGetAdvancedFeatures(location),
-            // build version is not checked as it also does not have any version
+            Settings.checkBuildVersion(location),
         ];
         return Promise.all(checks)
             .then(combineMessages)
@@ -159,6 +161,18 @@ export class Settings {
         return Promise.all(checks)
             .then(combineMessages)
             .then(res => isRight(res) ? newRight(settings) : res);
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    private static async checkBuildVersion(location: Location): Promise<Either<Messages, BuildChannel>> {
+        const buildChannel = Settings.getBuildChannel();
+        // we only check that 'stable' is not chosen when the extension is in pre-release mode (and the 
+        // extension is normally run, i.e. not as part of the unit tests):
+        if (Settings.isPrerelease && !State.unitTest && buildChannel === BuildChannel.Stable) {
+            return newEitherError(`Viper-IDE is configured to use build version 'Stable' for the Viper tools, which is an unsupported choice for a pre-release version of the IDE.`);
+        } else {
+            return newRight(buildChannel);
+        }
     }
 
     private static async checkVersion<T extends VersionedSettings>(settings: T, settingName: string): Promise<Either<Messages, T>> {

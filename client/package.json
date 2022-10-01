@@ -77,6 +77,12 @@
 		"test": "node ./dist/test/runTest.js",
 		"package": "vsce package"
 	},
+	"vsce": {
+		"baseImagesUrl": "https://github.com/viperproject/viper-ide/raw/master/client"
+	},
+	"viper": {
+		"prerelease": true
+	},
 	"activationEvents": [
 		"onLanguage:viper"
 	],
@@ -444,11 +450,5 @@
 				}
 			}
 		}
-	},
-	"__metadata": {
-		"id": "20da0370-13e1-4393-8d10-4e90c9c9e6e2",
-		"publisherDisplayName": "Chair of Programming Methodology - ETH Zurich",
-		"publisherId": "40c87fab-912c-4304-b2ee-b6c71e280a3c",
-		"isPreReleaseVersion": false
 	}
 }
