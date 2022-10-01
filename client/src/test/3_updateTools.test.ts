@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { Log } from '../Log';
 import TestHelper, { LONG, SETUP_TIMEOUT, SIMPLE } from './TestHelper';
 
 suite('Viper Tools Update Test', () => {
@@ -44,6 +45,7 @@ suite('Viper Tools Update Test', () => {
         setTimeout(() => {
             TestHelper.log("timeout triggered: stopping verification");
             TestHelper.stopVerification()
+                .catch(err => Log.error(`error while stopping verification: ${err}`));
         }, 1000);
 
         // wait until verification is aborted:

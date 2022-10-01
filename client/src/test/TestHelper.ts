@@ -193,6 +193,18 @@ export default class TestHelper {
         return vscode.commands.executeCommand(command, args);
     }
 
+    public static checkIfExtensionIsActivatedOrWaitForIt(): Promise<void> {
+        return new Promise(resolve => {
+            TestHelper.callbacks.extensionActivated = () => {
+                resolve();
+            }
+            // check whether activation has already happened in the past:
+            if (myExtension.isActivated()) {
+                resolve();
+            }
+        });
+    }
+
     public static waitForExtensionActivation(): Promise<void> {
         return new Promise(resolve => {
             TestHelper.callbacks.extensionActivated = () => {

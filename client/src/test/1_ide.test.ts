@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import { Helper } from '../Helper';
+import { Log } from '../Log';
 import { Common } from '../ViperProtocol';
 import TestHelper, { EMPTY_TXT, LONG, SETUP_TIMEOUT, SIMPLE } from './TestHelper';
 
@@ -26,6 +27,7 @@ suite('ViperIDE Tests', () => {
         setTimeout(() => {
             TestHelper.log("timeout triggered: stopping verification");
             TestHelper.stopVerification()
+                .catch(err => Log.error(`error while stopping verification: ${err}`));
         }, 300);
 
         await TestHelper.waitForVerificationOrAbort();
@@ -38,7 +40,7 @@ suite('ViperIDE Tests', () => {
         this.timeout(30000);
         TestHelper.resetErrors();
 
-        TestHelper.openAndVerify(LONG);
+        await TestHelper.openAndVerify(LONG);
         await TestHelper.wait(500);
         await TestHelper.closeFile();
         await TestHelper.openFile(SIMPLE);
@@ -85,7 +87,7 @@ suite('ViperIDE Tests', () => {
         const timeoutHit = await TestHelper.waitForTimeout(1000, started);
         assert(timeoutHit, "verification was started even if autoVerify is disabled");
         // turn auto verify back on:
-        TestHelper.executeCommand("viper.toggleAutoVerify");
+        await TestHelper.executeCommand("viper.toggleAutoVerify");
     });
 
     test("Test Helper Methods", async function() {
@@ -112,6 +114,6 @@ suite('ViperIDE Tests', () => {
     });
 });
 
-function checkAssert<T>(seen: T, expected: T, message: string) {
+function checkAssert<T>(seen: T, expected: T, message: string): void {
     assert(expected === seen, message + ": Expected: " + expected + " Seen: " + seen);
 }

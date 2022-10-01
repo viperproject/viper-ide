@@ -25,7 +25,7 @@ suite('Extension Startup', () => {
     test("Language Detection, and Silicon Backend Startup test.", async function() {
         this.timeout(40000);
         // this checks that silicon is the default backend
-        const activated = TestHelper.waitForExtensionActivation();
+        const activated = TestHelper.checkIfExtensionIsActivatedOrWaitForIt();
         const started = TestHelper.waitForBackendStarted(SILICON);
         await TestHelper.openFile(EMPTY);
         await activated;
@@ -46,7 +46,7 @@ suite('Extension Startup', () => {
     test("Language Detection, and Carbon Backend Startup test.", async function() {
         this.timeout(40000);
         const started = TestHelper.waitForBackendStarted(CARBON);
-        TestHelper.selectBackend(CARBON);
+        await TestHelper.selectBackend(CARBON);
         await TestHelper.openFile(SIMPLE);
         await started;
     });

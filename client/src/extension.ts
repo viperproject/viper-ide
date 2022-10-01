@@ -83,6 +83,10 @@ async function internalActivate(context: vscode.ExtensionContext): Promise<Viper
     return State.viperApi;
 }
 
+export function isActivated(): boolean {
+    return activated;
+}
+
 async function cleanViperToolsIfRequested(context: vscode.ExtensionContext): Promise<void> {
     // start of in a clean state by wiping Viper Tools if this was requested via
 	// environment variables. In particular, this is used for the extension tests.
