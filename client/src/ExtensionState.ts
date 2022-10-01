@@ -68,7 +68,11 @@ export class State {
     }
 
     public static addToWorklist(task: Task): void {
-        this.verificationController.addToWorklist(task);
+        if (this.verificationController) {
+            this.verificationController.addToWorklist(task);
+        } else {
+            Log.error(`Ignoring task because verification controller does not yet exist: ${JSON.stringify(task)}`);
+        }
     }
 
     public static initializeStatusBar(context: vscode.ExtensionContext): void {
