@@ -110,7 +110,6 @@ suite('ViperIDE Tests', () => {
         await TestHelper.executeCommand('viper.openLogFile');
         await opened;
         await TestHelper.closeFile();
-        await TestHelper.wait(500);
     });
 });
 
