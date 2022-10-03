@@ -4,6 +4,9 @@
 
 ### Changelog
 
+#### v.3.0.1
+* Identical release as v.2.5.0.
+
 #### v.2.5.0 (Viper v.22.07-release)
 * Default extension for Viper files is now `.vpr`.
 
