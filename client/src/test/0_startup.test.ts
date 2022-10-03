@@ -14,12 +14,9 @@ suite('Extension Startup', () => {
         // thus, the first testcase makes sure that the extension is correctly started.
     });
 
-    let verified = false;
     suiteTeardown(async function() {
-        if (verified) {
-            // otherwise the unit test has failed anyways
-            await TestHelper.teardown();
-        }
+        // otherwise the unit test has failed anyways
+        await TestHelper.teardown();
     });
 
     test("Language Detection, and Silicon Backend Startup test.", async function() {
@@ -35,7 +32,6 @@ suite('Extension Startup', () => {
     test("Test simple verification with Silicon", async function(){
         this.timeout(40000);
         await TestHelper.openAndVerify(SIMPLE);
-        verified = true;
     });
 
     test("Test simple verification with Silicon and a different file", async function(){
