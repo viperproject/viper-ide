@@ -48,6 +48,7 @@ suite('ViperIDE Tests', () => {
         await TestHelper.stopVerification();
         await TestHelper.closeFile();
         await TestHelper.openFile(LONG);
+        await TestHelper.verify(); // otherwise, `LONG` might not get verified because it has been verified in the past
         await TestHelper.waitForVerification(LONG);
         assert (!TestHelper.hasObservedInternalError());
     });
