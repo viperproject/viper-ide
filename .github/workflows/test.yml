@@ -483,7 +483,7 @@ jobs:
 
       # publish 'stable' releases (release-candidates will be released as pre-releases below)
       - name: Publish the extension to Visual Studio Marketplace
-        uses: HaaLeo/publish-vscode-extension@v0
+        uses: HaaLeo/publish-vscode-extension@v1
         if: ${{ github.event.inputs.type == 'stable' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
         with:
           pat: ${{ secrets.VSCE_TOKEN }}
@@ -492,7 +492,7 @@ jobs:
           packagePath: ''
 
       - name: Publish the extension to Open VSX Registry
-        uses: HaaLeo/publish-vscode-extension@v0
+        uses: HaaLeo/publish-vscode-extension@v1
         if: ${{ github.event.inputs.type == 'stable' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
         with:
           pat: ${{ secrets.OPEN_VSX_TOKEN }}
@@ -502,7 +502,7 @@ jobs:
 
       # publish 'rc' releases as pre-releases
       - name: Publish the extension to Visual Studio Marketplace (as pre-release)
-        uses: HaaLeo/publish-vscode-extension@v0
+        uses: HaaLeo/publish-vscode-extension@v1
         if: ${{ github.event.inputs.type == 'rc' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
         with:
           pat: ${{ secrets.VSCE_TOKEN }}
