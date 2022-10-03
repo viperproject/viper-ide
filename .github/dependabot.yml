@@ -5,7 +5,3 @@ updates:
     directory: "/client"
     schedule:
       interval: monthly
-  - package-ecosystem: npm
-    directory: "/server"
-    schedule:
-      interval: monthly
