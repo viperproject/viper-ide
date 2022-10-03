@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { Log } from '../Log';
-import TestHelper, { LONG, SETUP_TIMEOUT, SIMPLE } from './TestHelper';
+import TestHelper, { LONG, SETUP_TIMEOUT, SIMPLE, VIPER_TOOLS_TIMEOUT } from './TestHelper';
 
 suite('Viper Tools Update Test', () => {
 
@@ -14,7 +14,7 @@ suite('Viper Tools Update Test', () => {
     });
 
     test("Viper Tools Update Test & test abort of first verification", async function() {
-        this.timeout(120000);
+        this.timeout(VIPER_TOOLS_TIMEOUT);
         TestHelper.resetErrors();
 
         const updateDone = TestHelper.waitForViperToolsUpdate();
@@ -61,7 +61,7 @@ suite('Viper Tools Update Test', () => {
     });
 
     test("Viper Tools Update Test", async function() {
-        this.timeout(120000);
+        this.timeout(VIPER_TOOLS_TIMEOUT);
         TestHelper.resetErrors();
 
         const updateDone = TestHelper.waitForViperToolsUpdate();

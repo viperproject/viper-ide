@@ -18,8 +18,9 @@ export const DATA_ROOT = path.join(PROJECT_ROOT, "src", "test", "data");
 export const SILICON = 'silicon';
 export const CARBON = 'carbon';
 
-// set timeout to a large value such that extension can be started and Viper tools installed:
-export const SETUP_TIMEOUT = 4 * 60 * 1000; // 4min
+export const VIPER_TOOLS_TIMEOUT = 2 * 60 * 1000; // 2 min
+// set timeout to a large value such that extension can be started & installed:
+export const SETUP_TIMEOUT = VIPER_TOOLS_TIMEOUT;
 
 
 export const SIMPLE = 'simple.sil';
