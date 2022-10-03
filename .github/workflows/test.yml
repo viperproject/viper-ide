@@ -208,37 +208,37 @@ jobs:
           path: client/ViperTools
 
       - name: Setup ViperTools folder
-        if: ${{ env.TEST_LOCAL_ON_PUSH_PR && !contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ env.TEST_LOCAL_ON_PUSH_PR == true && !contains(needs.create-viper-tools.result, 'success') }}
         run: mkdir -p client/ViperTools
 
       - name: Download ViperTools to test against (only downloading ViperTools for PUSH and PR operations if configured accordingly)
-        if: ${{ env.TEST_LOCAL_ON_PUSH_PR && !contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ env.TEST_LOCAL_ON_PUSH_PR == true && !contains(needs.create-viper-tools.result, 'success') }}
         run: curl --fail --silent --show-error -L ${{ env.TEST_LOCAL_ON_PUSH_PR_VIPERTOOLS_URL }}/${{ matrix.viper-tools-zip-file }} --output ${{ matrix.viper-tools-zip-file }}
         working-directory: client/ViperTools
 
       - name: Unzip ViperTools (non-windows)
-        if: ${{ !startsWith(matrix.os, 'windows') && (env.TEST_LOCAL_ON_PUSH_PR || contains(needs.create-viper-tools.result, 'success')) }}
+        if: ${{ !startsWith(matrix.os, 'windows') && (env.TEST_LOCAL_ON_PUSH_PR == true || contains(needs.create-viper-tools.result, 'success')) }}
         run: unzip ${{ matrix.viper-tools-zip-file }} -d ExtractedTools
         working-directory: client/ViperTools
 
       - name: Unzip ViperTools (windows)
-        if: ${{ startsWith(matrix.os, 'windows') && (env.TEST_LOCAL_ON_PUSH_PR || contains(needs.create-viper-tools.result, 'success')) }}
+        if: ${{ startsWith(matrix.os, 'windows') && (env.TEST_LOCAL_ON_PUSH_PR == true || contains(needs.create-viper-tools.result, 'success')) }}
         run: powershell Expand-Archive -LiteralPath ${{ matrix.viper-tools-zip-file }} -DestinationPath ExtractedTools
         working-directory: client/ViperTools
 
       - name: Download ViperServer JAR (only downloading ViperTools for PUSH and PR operations if configured accordingly)
-        if: ${{ env.TEST_LOCAL_ON_PUSH_PR && !contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ env.TEST_LOCAL_ON_PUSH_PR == true && !contains(needs.create-viper-tools.result, 'success') }}
         run: curl --fail --silent --show-error -L ${{ env.TEST_LOCAL_ON_PUSH_PR_VIPERSERVER_URL }} --output viperserver.jar
         working-directory: client/ViperTools/ExtractedTools/backends
 
       - name: Create path to extracted tools (non-windows)
-        if: ${{ !startsWith(matrix.os, 'windows') && (env.TEST_LOCAL_ON_PUSH_PR || contains(needs.create-viper-tools.result, 'success')) }}
+        if: ${{ !startsWith(matrix.os, 'windows') && (env.TEST_LOCAL_ON_PUSH_PR == true || contains(needs.create-viper-tools.result, 'success')) }}
         run: |
           echo "EXTRACTED_TOOLS_PATH=${{ github.workspace }}/client/ViperTools/ExtractedTools" >> $GITHUB_ENV
         shell: bash
 
       - name: Create path to extracted tools (windows)
-        if: ${{ startsWith(matrix.os, 'windows') && (env.TEST_LOCAL_ON_PUSH_PR || contains(needs.create-viper-tools.result, 'success')) }}
+        if: ${{ startsWith(matrix.os, 'windows') && (env.TEST_LOCAL_ON_PUSH_PR == true || contains(needs.create-viper-tools.result, 'success')) }}
         # replace all backslashes by double backslashes to properly escape them in the resulting JSON
         run: |
           PATH='EXTRACTED_TOOLS_PATH=${{ github.workspace }}\client\ViperTools\ExtractedTools'
@@ -246,7 +246,7 @@ jobs:
         shell: bash
 
       - name: Create an additional test config
-        if: ${{ env.TEST_LOCAL_ON_PUSH_PR || contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ env.TEST_LOCAL_ON_PUSH_PR == true || contains(needs.create-viper-tools.result, 'success') }}
         run: |
           mkdir -p client/src/test/data/settings
           echo '{ 
@@ -264,7 +264,7 @@ jobs:
         shell: bash
 
       - name: Get config content
-        if: ${{ env.TEST_LOCAL_ON_PUSH_PR || contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ env.TEST_LOCAL_ON_PUSH_PR == true || contains(needs.create-viper-tools.result, 'success') }}
         run: cat client/src/test/data/settings/ci_local.json
         shell: bash
 
