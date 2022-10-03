@@ -3,17 +3,12 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at http://mozilla.org/MPL/2.0/.
   *
-  * Copyright (c) 2011-2019 ETH Zurich.
+  * Copyright (c) 2011-2020 ETH Zurich.
   */
 
-'use strict';
-
 import * as vscode from "vscode";
-import * as path from 'path';
-import * as fs from 'fs';
-import { Progress, LogLevel } from './ViperProtocol';
 import { Helper } from './Helper';
-import { Log } from './Log';
+import { Settings } from "./Settings";
 
 export class StatusBar {
 
@@ -25,32 +20,32 @@ export class StatusBar {
         context.subscriptions.push(this.elem);
     }
 
-    public update(text: string, color: string, tooltip: string = null) {
+    public update(text: string, color: string, tooltip: string = null): StatusBar {
         this.elem.text = text;
         this.elem.color = color;
         this.elem.tooltip = tooltip;
         return this;
     }
 
-    public setCommand(command: string) {
+    public setCommand(command: string): void {
         this.elem.command = command;
     }
 
-    public updateProgressBar(progress: number, tooltip: string = null) {
+    public updateProgressBar(progress: number, tooltip: string = null): StatusBar {
         return this.update(this.progressBarText(progress), Color.PROGRESS_BAR, tooltip);
     }
-    public updateProgressLabel(progressLabel: string, progress: number, postfix?: string) {
+    public updateProgressLabel(progressLabel: string, progress: number, postfix?: string): StatusBar {
         return this.update(progressLabel + " " + Helper.formatProgress(progress) + (postfix ? " " + postfix : ""), Color.PROGRESS_BAR);
     }
 
-    public show() {
-        if (Helper.getConfiguration('preferences').showProgress === true) {
+    public show(): StatusBar {
+        if (Settings.showProgress()) {
             this.elem.show();
         }
         return this;
     }
 
-    public hide() {
+    public hide(): StatusBar {
         this.elem.hide();
         return this;
     }
@@ -58,7 +53,7 @@ export class StatusBar {
     private progressBarText(progress: number): string {
         if (progress < 0) progress = 0;
         if (progress > 100) progress = 100;
-        let completed = Math.floor(progress / 10);
+        const completed = Math.floor(progress / 10);
         return "⚫".repeat(completed) + "⚪".repeat(10 - completed);
     }
 }

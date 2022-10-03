@@ -6,7 +6,6 @@ suite('ViperIDE Stress Tests', () => {
     suiteSetup(async function() {
         this.timeout(SETUP_TIMEOUT);
         await TestHelper.setup();
-        await TestHelper.startExtension();
     });
 
     suiteTeardown(async function() {
@@ -14,7 +13,7 @@ suite('ViperIDE Stress Tests', () => {
     });
 
     test("1. multiple fast verification requests", async function() {
-        this.timeout(11000);
+        this.timeout(15000);
 
         TestHelper.resetErrors();
         // 1 verification is expected, there should be no subsequent ones

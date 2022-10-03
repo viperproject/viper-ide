@@ -1,6 +1,8 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import { Helper } from '../Helper';
+import { Log } from '../Log';
+import { Common } from '../ViperProtocol';
 import TestHelper, { EMPTY_TXT, LONG, SETUP_TIMEOUT, SIMPLE } from './TestHelper';
 
 suite('ViperIDE Tests', () => {
@@ -8,8 +10,6 @@ suite('ViperIDE Tests', () => {
     suiteSetup(async function() {
         this.timeout(SETUP_TIMEOUT);
         await TestHelper.setup();
-        // these tests require a running backend:
-        await TestHelper.startExtension();
     });
 
     suiteTeardown(async function() {
@@ -27,6 +27,7 @@ suite('ViperIDE Tests', () => {
         setTimeout(() => {
             TestHelper.log("timeout triggered: stopping verification");
             TestHelper.stopVerification()
+                .catch(err => Log.error(`error while stopping verification: ${err}`));
         }, 300);
 
         await TestHelper.waitForVerificationOrAbort();
@@ -39,7 +40,7 @@ suite('ViperIDE Tests', () => {
         this.timeout(30000);
         TestHelper.resetErrors();
 
-        TestHelper.openAndVerify(LONG);
+        await TestHelper.openAndVerify(LONG);
         await TestHelper.wait(500);
         await TestHelper.closeFile();
         await TestHelper.openFile(SIMPLE);
@@ -47,6 +48,7 @@ suite('ViperIDE Tests', () => {
         await TestHelper.stopVerification();
         await TestHelper.closeFile();
         await TestHelper.openFile(LONG);
+        await TestHelper.verify(); // otherwise, `LONG` might not get verified because it has been verified in the past
         await TestHelper.waitForVerification(LONG);
         assert (!TestHelper.hasObservedInternalError());
     });
@@ -67,16 +69,16 @@ suite('ViperIDE Tests', () => {
     test("Test zooming", async function() {
         this.timeout(20000);
 
-        const started = TestHelper.waitForBackendStarted();
+        const activated = TestHelper.waitForExtensionActivation();
         await TestHelper.executeCommand("workbench.action.zoomIn")
         await TestHelper.wait(5000);
         await TestHelper.executeCommand("workbench.action.zoomOut");
-        const timeoutHit = await TestHelper.waitForTimeout(9000, started);
-        assert(timeoutHit, "backend was restarted, but it should not be");
+        const timeoutHit = await TestHelper.waitForTimeout(9000, activated);
+        assert(timeoutHit, "Viper IDE was activated, but it should not be");
     });
         
     test("Test autoVerify", async function() {
-        this.timeout(2000);
+        this.timeout(3000);
 
         // disable auto verify:
         await TestHelper.executeCommand("viper.toggleAutoVerify");
@@ -86,20 +88,20 @@ suite('ViperIDE Tests', () => {
         const timeoutHit = await TestHelper.waitForTimeout(1000, started);
         assert(timeoutHit, "verification was started even if autoVerify is disabled");
         // turn auto verify back on:
-        TestHelper.executeCommand("viper.toggleAutoVerify");
+        await TestHelper.executeCommand("viper.toggleAutoVerify");
     });
 
     test("Test Helper Methods", async function() {
-        this.timeout(1000);
+        this.timeout(2000);
 
         await TestHelper.openFile(SIMPLE);
+        checkAssert(path.basename(Common.uriToString(Helper.getActiveFileUri())), SIMPLE, "active file");
 
         checkAssert(Helper.formatProgress(12.9), "13%", "formatProgress");
         checkAssert(Helper.formatSeconds(12.99), "13.0 seconds", "formatSeconds");
         checkAssert(Helper.isViperSourceFile("/folder/file.vpr"), true, "isViperSourceFile unix path");
         checkAssert(Helper.isViperSourceFile("..\\.\\folder\\file.sil"), true, "isViperSourceFile relavive windows path");
         checkAssert(!Helper.isViperSourceFile("C:\\absolute\\path\\file.ts"), true, "isViperSourceFile absolute windows path");
-        checkAssert(path.basename(Helper.uriToString(Helper.getActiveFileUri())), SIMPLE, "active file");
     });
         
     test("Test opening logFile", async function() {
@@ -108,11 +110,10 @@ suite('ViperIDE Tests', () => {
         const opened = TestHelper.waitForLogFile();
         await TestHelper.executeCommand('viper.openLogFile');
         await opened;
-        await TestHelper.executeCommand('workbench.action.closeActiveEditor');
-        await TestHelper.wait(500);
+        await TestHelper.closeFile();
     });
 });
 
-function checkAssert<T>(seen: T, expected: T, message: string) {
+function checkAssert<T>(seen: T, expected: T, message: string): void {
     assert(expected === seen, message + ": Expected: " + expected + " Seen: " + seen);
 }

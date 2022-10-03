@@ -37,6 +37,16 @@ on:
 # note that release-candidate builds are treated like 'stable' builds for now except that there is no deployment to the marketplaces in the end.
 # in the future, this should be changed such that release-candidates result in a prerelease (like nightly builds).
 
+# the following env variables configure the behavior of this workflow
+# in particular, they control whether Viper-IDE is tested against certain ViperTools and a ViperServer JAR on push and pull requests
+# this is particularly useful during debugging / testing as a new Viper-IDE release is not necessary for every change to the ViperServer JAR
+env:
+  TEST_LOCAL_ON_PUSH_PR: false
+  # note that the following URL is extended with `/${{ matrix.viper-tools-zip-file }}` in the 'build-and-test' job:
+  TEST_LOCAL_ON_PUSH_PR_VIPERTOOLS_URL: https://github.com/viperproject/viper-ide/releases/download/v-2022-09-21-1611
+  # the following  URL is not extended and downloading the destination is expected to return the viperserver.jar:
+  TEST_LOCAL_ON_PUSH_PR_VIPERSERVER_URL: https://polybox.ethz.ch/index.php/s/54sDcqHDJHelKBY/download
+
 jobs:
   create-viper-tools:
     if: github.event_name == 'workflow_dispatch'
@@ -143,10 +153,10 @@ jobs:
       # tests should not be stopped when they fail on one of the OSes:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest] # [macos-latest, ubuntu-latest, windows-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
         include:
-          # - os: macos-latest
-          #   viper-tools-zip-file: "ViperToolsMac.zip"
+          - os: macos-latest
+            viper-tools-zip-file: "ViperToolsMac.zip"
           - os: ubuntu-latest
             viper-tools-zip-file: "ViperToolsLinux.zip"
           - os: windows-latest
@@ -182,9 +192,6 @@ jobs:
           git config --global url."https://github.com/".insteadOf
           ssh://git@github.com/
 
-      - run: npm ci --cache ../client/.npm --prefer-offline # server uses same cache as the client
-        working-directory: server
-
       - run: npm ci --cache .npm --prefer-offline
         working-directory: client
 
@@ -193,31 +200,45 @@ jobs:
       #   nightly ViperTool releases. Any change to the Viper-IDE have ensure compatability
       # - before releasing Viper-IDE together with some ViperTools, Viper-IDE has to be tested against the latest stable and
       #   nightly ViperTool releases AND the ViperTools that should be released.
-      - name: Download ViperTools to test against
+      - name: Download ViperTools to test against (only downloading previously created ViperTools)
         if: ${{ contains(needs.create-viper-tools.result, 'success') }}
         uses: actions/download-artifact@v2
         with:
           name: ViperTools
           path: client/ViperTools
 
+      - name: Setup ViperTools folder
+        if: ${{ fromJSON(env.TEST_LOCAL_ON_PUSH_PR) && !contains(needs.create-viper-tools.result, 'success') }}
+        run: mkdir -p client/ViperTools
+
+      - name: Download ViperTools to test against (only downloading ViperTools for PUSH and PR operations if configured accordingly)
+        if: ${{ fromJSON(env.TEST_LOCAL_ON_PUSH_PR) && !contains(needs.create-viper-tools.result, 'success') }}
+        run: curl --fail --silent --show-error -L ${{ env.TEST_LOCAL_ON_PUSH_PR_VIPERTOOLS_URL }}/${{ matrix.viper-tools-zip-file }} --output ${{ matrix.viper-tools-zip-file }}
+        working-directory: client/ViperTools
+
       - name: Unzip ViperTools (non-windows)
-        if: ${{ !startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ !startsWith(matrix.os, 'windows') && (fromJSON(env.TEST_LOCAL_ON_PUSH_PR) || contains(needs.create-viper-tools.result, 'success')) }}
         run: unzip ${{ matrix.viper-tools-zip-file }} -d ExtractedTools
         working-directory: client/ViperTools
 
       - name: Unzip ViperTools (windows)
-        if: ${{ startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ startsWith(matrix.os, 'windows') && (fromJSON(env.TEST_LOCAL_ON_PUSH_PR) || contains(needs.create-viper-tools.result, 'success')) }}
         run: powershell Expand-Archive -LiteralPath ${{ matrix.viper-tools-zip-file }} -DestinationPath ExtractedTools
         working-directory: client/ViperTools
 
+      - name: Download ViperServer JAR (only downloading ViperTools for PUSH and PR operations if configured accordingly)
+        if: ${{ fromJSON(env.TEST_LOCAL_ON_PUSH_PR) && !contains(needs.create-viper-tools.result, 'success') }}
+        run: curl --fail --silent --show-error -L ${{ env.TEST_LOCAL_ON_PUSH_PR_VIPERSERVER_URL }} --output viperserver.jar
+        working-directory: client/ViperTools/ExtractedTools/backends
+
       - name: Create path to extracted tools (non-windows)
-        if: ${{ !startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ !startsWith(matrix.os, 'windows') && (fromJSON(env.TEST_LOCAL_ON_PUSH_PR) || contains(needs.create-viper-tools.result, 'success')) }}
         run: |
           echo "EXTRACTED_TOOLS_PATH=${{ github.workspace }}/client/ViperTools/ExtractedTools" >> $GITHUB_ENV
         shell: bash
 
       - name: Create path to extracted tools (windows)
-        if: ${{ startsWith(matrix.os, 'windows') && contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ startsWith(matrix.os, 'windows') && (fromJSON(env.TEST_LOCAL_ON_PUSH_PR) || contains(needs.create-viper-tools.result, 'success')) }}
         # replace all backslashes by double backslashes to properly escape them in the resulting JSON
         run: |
           PATH='EXTRACTED_TOOLS_PATH=${{ github.workspace }}\client\ViperTools\ExtractedTools'
@@ -225,8 +246,9 @@ jobs:
         shell: bash
 
       - name: Create an additional test config
-        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ fromJSON(env.TEST_LOCAL_ON_PUSH_PR) || contains(needs.create-viper-tools.result, 'success') }}
         run: |
+          mkdir -p client/src/test/data/settings
           echo '{ 
             "viperSettings.buildVersion": "Local",
             "viperSettings.paths": {
@@ -236,12 +258,13 @@ jobs:
                 "linux": "${{ env.EXTRACTED_TOOLS_PATH }}",
                 "mac": "${{ env.EXTRACTED_TOOLS_PATH }}"
               }
-            }
+            },
+            "viperserver.trace.server": "verbose"
           }' > client/src/test/data/settings/ci_local.json
         shell: bash
 
       - name: Get config content
-        if: ${{ contains(needs.create-viper-tools.result, 'success') }}
+        if: ${{ fromJSON(env.TEST_LOCAL_ON_PUSH_PR) || contains(needs.create-viper-tools.result, 'success') }}
         run: cat client/src/test/data/settings/ci_local.json
         shell: bash
 
@@ -281,10 +304,19 @@ jobs:
         run: npx vsce ls
         working-directory: client
 
-      - name: Package Viper-IDE extension (ubuntu only)
-        if: startsWith(matrix.os, 'ubuntu')
-        # note that baseContentUrl has to be manually provided as vsce does not know that it is run in the client subfolder:
-        run: npm run package -- --baseContentUrl https://github.com/viperproject/viper-ide/raw/master/client --out viper-ide.vsix
+      # use vsce to package the extension into a vsix file.
+      # sets a special field in package.json to indicate that the package is not a pre-release (it's one
+      # by default)
+      - name: Package Viper-IDE extension (ubuntu & stable release only)
+        if: ${{ startsWith(matrix.os, 'ubuntu') && github.event.inputs.type == 'stable' }}
+        run: |
+          npm pkg set viper.prerelease=false --json
+          npm run package -- --out viper-ide.vsix
+        working-directory: client
+
+      - name: Package Viper-IDE extension (ubuntu & non-stable release only)
+        if: ${{ startsWith(matrix.os, 'ubuntu') && github.event.inputs.type != 'stable' }}
+        run: npm run package -- --out viper-ide.vsix --pre-release
         working-directory: client
 
       - name: Upload packaged Viper-IDE (ubuntu-only)
@@ -449,7 +481,7 @@ jobs:
           echo "LAST_PUBLISHED_VERSION=$LAST_PUBLISHED_VERSION" >> $GITHUB_ENV
           echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
 
-      # only publish 'stable' releases not release-candidates
+      # publish 'stable' releases (release-candidates will be released as pre-releases below)
       - name: Publish the extension to Visual Studio Marketplace
         uses: HaaLeo/publish-vscode-extension@v0
         if: ${{ github.event.inputs.type == 'stable' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
@@ -467,3 +499,14 @@ jobs:
           registryUrl: https://open-vsx.org
           extensionFile: client/viper-ide.vsix
           packagePath: ''
+
+      # publish 'rc' releases as pre-releases
+      - name: Publish the extension to Visual Studio Marketplace (as pre-release)
+        uses: HaaLeo/publish-vscode-extension@v0
+        if: ${{ github.event.inputs.type == 'rc' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
+        with:
+          pat: ${{ secrets.VSCE_TOKEN }}
+          registryUrl: https://marketplace.visualstudio.com
+          extensionFile: client/viper-ide.vsix
+          packagePath: ''
+          preRelease: true

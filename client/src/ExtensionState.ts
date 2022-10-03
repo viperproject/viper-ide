@@ -5,30 +5,38 @@
   *
   * Copyright (c) 2011-2019 ETH Zurich.
   */
- 
-'use strict';
-import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient';
+
+import * as child_process from "child_process";
+import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
 import * as vscode from 'vscode';
-import * as fs from 'fs';
+import * as net from 'net';
 import * as path from 'path';
-import { Commands, LogLevel, ViperSettings } from './ViperProtocol';
+import * as readline from 'readline';
+import * as semver from 'semver';
+import * as unusedFilename from 'unused-filename';
+import { Location } from 'vs-verification-toolbox';
+import { Backend, Commands, Common, GetVersionRequest, LogLevel } from './ViperProtocol';
 import { Log } from './Log';
 import { ViperFileState } from './ViperFileState';
 import { URI } from 'vscode-uri';
 import { Helper } from './Helper';
-import { StateVisualizer } from './StateVisualizer';
 import { Color, StatusBar } from './StatusBar';
 import { VerificationController, Task } from './VerificationController';
 import { ViperApi } from './ViperApi';
+import { Settings } from './Settings';
+import { combineMessages, Either, Messages, newEitherError, newRight, transformRight } from "./Either";
 
 export class State {
+    public static get MIN_SERVER_VERSION(): string {
+        return "2.0.0"; // has to be a valid semver
+    }
+
     public static client: LanguageClient;
     public static context: vscode.ExtensionContext;
     public static instance: State;
 
     public static viperFiles: Map<string, ViperFileState> = new Map<string, ViperFileState>();
     public static isBackendReady: boolean;
-    public static isDebugging: boolean;
     public static isVerifying: boolean;
     public static isWin = /^win/.test(process.platform);
     public static isLinux = /^linux/.test(process.platform);
@@ -36,12 +44,11 @@ export class State {
     private static lastActiveFileUri: string;
     public static verificationController: VerificationController;
 
-    public static activeBackend: string;
-    public static isActiveViperEngine: boolean = true;
+    public static activeBackend: Backend;
 
     public static unitTest: UnitTestCallback;
 
-    public static autoVerify: boolean = true;
+    public static autoVerify = true;
 
     //status bar
     public static statusBarItem: StatusBar;
@@ -51,36 +58,24 @@ export class State {
     
     public static diagnosticCollection: vscode.DiagnosticCollection;
 
-    public static checkedSettings:ViperSettings;
-
     public static viperApi: ViperApi;
 
-    // public static createState(): State {
-    //     if (State.instance) {
-    //         return State.instance;
-    //     } else {
-    //         this.reset();
-    //         let newState = new State();
-    //         State.instance = newState;
-    //         return newState;
-    //     }
-    // }
+    public static isReady(): boolean {
+        if (State.client == null) {
+            return false;
+        }
+        return State.client.isRunning();
+    }
 
-    public static getTimeoutOfActiveBackend():number{
-        if(!this.checkedSettings){
-            Log.error("Error getting timeout, there are no checked Settings available, default to no timeout.");
-            return 0;
-        }else{
-            let backend = this.checkedSettings.verificationBackends.find(b => b.name == this.activeBackend);
-            return backend.timeout;
+    public static addToWorklist(task: Task): void {
+        if (this.verificationController) {
+            this.verificationController.addToWorklist(task);
+        } else {
+            Log.error(`Ignoring task because verification controller does not yet exist: ${JSON.stringify(task)}`);
         }
     }
 
-    public static addToWorklist(task: Task) {
-        this.verificationController.addToWorklist(task);
-    }
-
-    public static initializeStatusBar(context) {
+    public static initializeStatusBar(context: vscode.ExtensionContext): void {
         this.statusBarItem = new StatusBar(10, context);
         this.statusBarItem.update("Hello from Viper", Color.READY).show();
 
@@ -98,14 +93,14 @@ export class State {
         this.diagnosticCollection = vscode.languages.createDiagnosticCollection();
     }
 
-    public static hideProgress(){
+    public static hideProgress(): void {
         this.abortButton.hide();
         this.statusBarProgress.hide().updateProgressBar(0);
     }
 
     public static setLastActiveFile(uri: URI | string | vscode.Uri, editor: vscode.TextEditor): ViperFileState {
         this.lastActiveFileUri = uri.toString();
-        let lastActiveFile = this.getFileState(uri);
+        const lastActiveFile = this.getFileState(uri);
         if (lastActiveFile) {
             lastActiveFile.setEditor(editor);
         }
@@ -121,41 +116,26 @@ export class State {
         }
     }
 
-    public static resetViperFiles() {
+    public static resetViperFiles(): void {
         Log.log("Reset all viper files", LogLevel.Info);
         this.viperFiles.forEach(element => {
             element.changed = true;
             element.verified = false;
             element.verifying = false;
-            element.decorationsShown = false;
-            element.stateVisualizer.completeReset();
         });
     }
 
-    public static reset() {
+    public static reset(): void {
         this.isBackendReady = false;
-        this.isDebugging = false;
         this.isVerifying = false;
         this.viperFiles = new Map<string, ViperFileState>();
     }
 
-    public static checkBackendReady(prefix: string) {
-        if (!this.isBackendReady) {
-            Log.log(prefix + "Backend is not ready.", LogLevel.Debug);
-        }
-        return this.isBackendReady;
-    }
-
-    public static getVisualizer(uri: URI | string | vscode.Uri): StateVisualizer {
-        let fileState = this.getFileState(uri);
-        return fileState ? fileState.stateVisualizer : null;
-    }
-
-    ///retrieves the requested file, creating it when needed
+    // retrieves the requested file, creating it when needed
     public static getFileState(uri: URI | string | vscode.Uri): ViperFileState {
         if (!uri) return null;
-        let uriObject: vscode.Uri = Helper.uriToObject(uri);
-        let uriString: string = Helper.uriToString(uri);
+        const uriObject: vscode.Uri = Common.uriToObject(uri);
+        const uriString: string = Common.uriToString(uri);
 
         if (!Helper.isViperSourceFile(uriString)) {
             return null;
@@ -170,30 +150,35 @@ export class State {
         return result;
     }
 
-    public static startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, brk: boolean): Promise<void> {
-        // The server is implemented in node
-        const serverModule = State.context.asAbsolutePath(path.join('server', 'index.js'));
-
-        if (!fs.existsSync(serverModule)) {
-            Log.log(serverModule + " does not exist. Reinstall the Extension", LogLevel.Debug);
-            return;
+    public static async startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, location: Location): Promise<Either<Messages, void>> {
+        const policy = Settings.getServerPolicy();
+        let serverOptions: ServerOptions;
+        let serverDisposable: Disposable;
+        if (policy.create) {
+            const { streamInfo, disposable } = await State.startServerProcess(location);
+            serverDisposable = disposable;
+            serverOptions = () => Promise.resolve(streamInfo);
+        } else {
+            serverOptions = () => State.connectToServer(policy.address, policy.port);
         }
-        const args = [
-            "--globalStorage", Helper.getGlobalStoragePath(context),
-            "--logDir", Helper.getLogDir()
-        ];
-        // The debug options for the server
-        const debugOptions = { execArgv: ["--nolazy", "--inspect=5443"] };
 
-        // If the extension is launch in debug mode the debug server options are use
-        // Otherwise the run options are used
-        let serverOptions: ServerOptions = {
-            run: { module: serverModule, transport: TransportKind.ipc, args: args },
-            debug: { module: serverModule, transport: TransportKind.ipc, args: args, options: debugOptions }
-        }
+        const traceOutputForCi: vscode.OutputChannel = {
+            name: "Output Channel forwarding to log file",
+            append: (value: string) => {
+                Log.logWithOrigin("LSP trace", value, LogLevel.LowLevelDebug);
+            },
+            appendLine: (value: string) => {
+                Log.logWithOrigin("LSP trace", value, LogLevel.LowLevelDebug);
+            },
+            replace: () => {},
+            clear: () => {},
+            show: () => {},
+            hide: () => {},
+            dispose: () => {}
+        };
 
         // Options to control the language client
-        let clientOptions: LanguageClientOptions = {
+        const clientOptions: LanguageClientOptions = {
             // Register the server for plain text documents
             documentSelector: [{ scheme: 'file', language: 'viper' }],
             synchronize: {
@@ -201,19 +186,121 @@ export class State {
                 configurationSection: 'viperSettings',
                 // Notify the server about file changes to .sil or .vpr files contain in the workspace
                 fileEvents: fileSystemWatcher
-            }
+            },
+            // redirect output while unit testing to the log file as no UI is available, otherwise stick to default behavior, i.e. separate output view
+            traceOutputChannel: State.unitTest ? traceOutputForCi : undefined
         }
 
-        State.client = new LanguageClient('languageServer', 'Viper Language Server', serverOptions, clientOptions, brk);
+        // the ID `viperserver` has to match the first part of `viperserver.trace.server` controlling the amount of tracing
+        State.client = new LanguageClient('viperserver', 'Viper IDE - ViperServer Communication', serverOptions, clientOptions);
 
-        Log.log("Start Language Server", LogLevel.Info);
-        // Create the language client and start the client.
-        const disposable = State.client.start();
         // Push the disposable to the context's subscriptions so that the
         // client can be deactivated on extension deactivation
-        context.subscriptions.push(disposable);
+        context.subscriptions.push(serverDisposable);
 
-        return State.client.onReady();
+        // Create the language client, start the client, and wait until it's ready.
+        await State.client.start();
+
+        // check whether client and server are compatible:
+        const request: GetVersionRequest = { clientVersion: Settings.getExtensionVersion() };
+        const response = await State.client.sendRequest(Commands.GetVersion, request);
+        const checkClient: Either<Messages, void> = response.error ? newEitherError(response.error) : newRight(undefined);
+        const serverIsSupported = Settings.disableServerVersionCheck() ? true : semver.compare(response.serverVersion, State.MIN_SERVER_VERSION) >= 0;
+        const checkServer: Either<Messages, void> = serverIsSupported ? newRight(undefined) : newEitherError(`Server is not compatible with client - expected at least server version ${State.MIN_SERVER_VERSION} but is ${response.serverVersion}`);
+        return transformRight(combineMessages([checkClient, checkServer]), () => {});
+    }
+
+    /** creates a server for the given server binary; the disposable object kills the server process */
+    private static async startServerProcess(location: Location): Promise<{ streamInfo: StreamInfo, disposable: Disposable }> {
+        const javaPath = (await Settings.getJavaPath()).path;
+        const cwd = await Settings.getJavaCwd();
+        const logDirectory = Helper.getLogDir();
+        const serverLogFile = await unusedFilename(path.join(logDirectory, "viperserver.log"));
+        const processArgs = await Settings.getServerJavaArgs(location, "viper.server.ViperServerRunner");
+        const serverArgs = await Settings.getServerArgs(Log.logLevel, serverLogFile);
+
+        // spawn ViperServer and get port number on which it is reachable:
+        const { port: portNr, disposable: disposable } = await new Promise((resolve:(res: { port: number, disposable: Disposable }) => void, reject) => {
+            // we use `--singleClient` such that the server correctly terminates if the client sends the exit notification:
+            const command = `"${javaPath}" ${processArgs} ${serverArgs}`; // processArgs & serverArgs are already escaped but escape javaPath as well.
+            Log.log(`Spawning ViperServer with ${command}`, LogLevel.Verbose);
+            const serverProcess = child_process.spawn(command, [], { shell: true, cwd: cwd });
+            Log.log(`ViperServer has been spawned and has PID ${serverProcess.pid}`, LogLevel.Verbose);
+            /** this function should be invoked when the ViperServer process has ended */
+            let viperServerProcessHasEnded: () => void;
+            const onCloseViperServerProcess = new Promise<void>(resolve => { viperServerProcessHasEnded = resolve; });
+            // note: do not use construct an object of type `vscode.Disposable` (using its constructor)
+            // since the resulting disposable does not seem to be awaitable.
+            const disposable = { dispose: async () => {
+                const success = serverProcess.kill('SIGTERM');
+                // `kill` only signals the process to exit. Thus, wait until process has indeed terminated:
+                Log.log(`Awaiting termination of the ViperServer process`, LogLevel.Debug);
+                await onCloseViperServerProcess;
+                if (success) {
+                    Log.log(`Killing ViperServer (PID ${serverProcess.pid}) has succeeded`, LogLevel.Verbose);
+                } else {
+                    Log.log(`Killing ViperServer (PID ${serverProcess.pid}) has failed`, LogLevel.Info);
+                }
+            }};
+
+            const portRegex = /<ViperServerPort:(\d+)>/;
+            let portFound = false;
+            function stdOutLineHandler(line: string): void {
+                // check whether `line` contains the port number
+                if (!portFound) {
+                    const match = line.match(portRegex);
+                    if (match != null && match[1] != null) {
+                        const port = Number(match[1]);
+                        if (!isNaN(port)) {
+                            portFound = true;
+                            resolve({ port, disposable });
+                        }
+                    }
+                }
+            }
+
+            // redirect stdout to readline which nicely combines and splits lines
+            const rl = readline.createInterface({ input: serverProcess.stdout });
+            rl.on('line', stdOutLineHandler);
+            serverProcess.stdout.on('data', (data) => Log.log(data, LogLevel.Verbose, true));
+            serverProcess.stderr.on('data', (data) => Log.log(data, LogLevel.Verbose, true));
+            serverProcess.on('close', (code) => {
+                const msg = `ViperServer process has ended with return code ${code}`;
+                Log.log(msg, LogLevel.Info, true);
+                // reject the promise (this covers the case where ViperServer crashes during startup
+                // and thus the promise has not been resolved yet. In case the promise has already
+                // been resolved, this call to reject is simply ignored.)
+                reject(new Error(msg));
+                viperServerProcessHasEnded();
+            });
+            serverProcess.on('error', (err) => {
+                const msg = `ViperServer process has encountered an error: ${err}`;
+                Log.log(msg, LogLevel.Info); // TODO: remove
+                Log.log(msg, LogLevel.Info, true);
+                reject(msg);
+            });
+        });
+
+        // connect to server
+        return State.connectToServer('localhost', portNr)
+            .then(info => ({streamInfo: info, disposable: disposable}));
+    }
+
+    private static async connectToServer(host: string, port: number): Promise<StreamInfo> {
+        return new Promise((resolve: (res: StreamInfo) => void, reject) => {
+            const clientSocket = new net.Socket();
+            clientSocket.connect(port, host, () => {
+                Log.log(`Connected to ViperServer`, LogLevel.Info);
+                resolve({
+                    reader: clientSocket,
+                    writer: clientSocket
+                });
+            });
+            clientSocket.on('error', (err) => {
+                Log.log(`Error occurred on connection to ViperServer: ${err}`, LogLevel.Info);
+                reject(err);
+            });
+        });
     }
 
     public static async dispose(): Promise<void> {
@@ -222,35 +309,19 @@ export class State {
             return;
         }
         try {
-            Log.log("Ask language server to stop all verifications.", LogLevel.Info);
-            await State.client.sendRequest(Commands.StopAllVerifications, null);
-            Log.log("Language server has stopped verifications", LogLevel.Info);
-            await State.client.stop();
+            Log.log("Initiating language server shutdown.", LogLevel.Info);
+            await State.client.stop(); // initiates LSP's termination sequence
             Log.log("Language server has stopped", LogLevel.Info);
         } catch (e) {
             Log.error("Error disposing state: " + e);
         }
         State.reset();
     }
-
-    public static checkOperatingSystem() {
-        if ((this.isWin ? 1 : 0) + (this.isMac ? 1 : 0) + (this.isLinux ? 1 : 0) != 1) {
-            Log.error("Cannot detect OS")
-            return;
-        }
-        if (this.isWin) {
-            Log.log("OS: Windows", LogLevel.Debug);
-        }
-        else if (this.isMac) {
-            Log.log("OS: OsX", LogLevel.Debug);
-        }
-        else if (this.isLinux) {
-            Log.log("OS: Linux", LogLevel.Debug);
-        }
-    }
 }
 
 export interface UnitTestCallback {
+    extensionActivated: () => void;
+    extensionRestarted: () => void;
     backendStarted: (backend: string) => void;
     verificationComplete: (backend: string, filename: string) => void;
     logFileOpened: () => void;
@@ -258,7 +329,8 @@ export interface UnitTestCallback {
     ideIsIdle: () => void;
     internalErrorDetected: () => void;
     viperUpdateComplete: () => void;
-    viperUpdateFailed: () => void;
-    verificationStopped: () => void;
+    verificationStopped: (success: boolean) => void;
     verificationStarted: (backend: string, filename: string) => void;
 }
+
+type Disposable = { dispose(): any }; // eslint-disable-line @typescript-eslint/no-explicit-any

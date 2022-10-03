@@ -3,16 +3,12 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at http://mozilla.org/MPL/2.0/.
   *
-  * Copyright (c) 2011-2019 ETH Zurich.
+  * Copyright (c) 2011-2020 ETH Zurich.
   */
- 
-'use strict'
 
-import {LogLevel, Success,TimingInfo} from './ViperProtocol';
 import * as vscode from 'vscode';
-import {StateVisualizer} from './StateVisualizer';
-import {Log} from './Log';
 import * as path from 'path';
+import { Success,TimingInfo } from './ViperProtocol';
 
 export class ViperFileState {
 
@@ -22,12 +18,7 @@ export class ViperFileState {
         this.verifying = false;
         this.open = true;
         this.changed = true;
-        this.onlySpecialCharsChanged = false;
-        this.decorationsShown = false;
-        this.specialCharsShown = false;
         this.uri = uri;
-        this.stateVisualizer = new StateVisualizer();
-        this.stateVisualizer.initialize(this);
         this.initializeEditor();
     }
 
@@ -37,17 +28,12 @@ export class ViperFileState {
     verifying: boolean;
     open: boolean;
     changed: boolean;
-    onlySpecialCharsChanged: boolean;
-    decorationsShown: boolean;
-    specialCharsShown: boolean;
 
     timingInfo:TimingInfo;
 
     editor: vscode.TextEditor;
 
-    stateVisualizer: StateVisualizer;
-
-    public fileOpened() {
+    public fileOpened(): void {
         this.open = true;
     }
 
@@ -57,7 +43,7 @@ export class ViperFileState {
 
     //for the first open file we need to load the editor like this.
     //for the others the editor is set once the editor is active
-    private initializeEditor() {
+    private initializeEditor(): void {
         vscode.window.visibleTextEditors.forEach(editor => {
             if (editor.document.uri.toString() === this.uri.toString()) {
                 this.editor = editor;
@@ -65,7 +51,7 @@ export class ViperFileState {
         });
     }
 
-    public setEditor(editor: vscode.TextEditor) {
+    public setEditor(editor: vscode.TextEditor): void {
         if (!this.editor) {
             this.editor = editor;
         } else {

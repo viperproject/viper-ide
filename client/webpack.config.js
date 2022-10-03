@@ -20,8 +20,6 @@
 
 //@ts-check
 
-'use strict';
-
 const path = require('path');
 const ESLintPlugin = require('eslint-webpack-plugin');
 
@@ -40,9 +38,9 @@ const config = {
     externals: [{
         vscode: 'commonjs vscode' // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'edv-> https://webpack.js.org/configuration/externals/
     }, function({ context, request }, callback) {
-        if (/^node:/.test(request)) {
+        if (request && /^node:/.test(request)) {
             request = request.replace(/^node:/, "");
-            return callback(null, `commonjs ${request}`);
+            return callback(undefined, `commonjs ${request}`);
         }
         // Continue without externalizing the import
         callback();

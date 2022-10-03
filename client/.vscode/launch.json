@@ -7,9 +7,11 @@
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": [
-                "--extensionDevelopmentPath=${workspaceRoot}"
+                "--extensionDevelopmentPath=${workspaceRoot}" /*,
+                "--profile-temp",
+                "--disable-extensions",
+                "${workspaceRoot}/src/test/data" */
             ],
-            "stopOnEntry": false,
             "sourceMaps": true,
             "outFiles": ["${workspaceRoot}/dist/**/*.js"],
             "preLaunchTask": {
@@ -18,7 +20,7 @@
             }
         },
         {
-            "name": "Test (Startup)",
+            "name": "Test",
             "type": "extensionHost",
             "request": "launch",
             "runtimeExecutable": "${execPath}",
@@ -26,10 +28,6 @@
                 "--extensionDevelopmentPath=${workspaceRoot}",
                 "--extensionTestsPath=${workspaceRoot}/dist/test"
             ],
-            "env": {
-                "VIPER_IDE_TEST_SUITE": "${workspaceRoot}/dist/test/startup.test.js"
-            },
-            "stopOnEntry": false,
             "sourceMaps": true,
             "outFiles": ["${workspaceRoot}/dist/test/**/*.js"],
             "preLaunchTask": {

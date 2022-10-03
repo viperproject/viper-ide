@@ -1,0 +1,8 @@
+field f: Int
+
+method foo(x: Ref)
+requires acc(x.f) && x.f == 42
+{
+    assert x.f == 42
+    assert false
+} 

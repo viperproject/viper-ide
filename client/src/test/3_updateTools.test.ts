@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { Log } from '../Log';
 import TestHelper, { LONG, SETUP_TIMEOUT, SIMPLE } from './TestHelper';
 
 suite('Viper Tools Update Test', () => {
@@ -6,37 +7,45 @@ suite('Viper Tools Update Test', () => {
     suiteSetup(async function() {
         this.timeout(SETUP_TIMEOUT);
         await TestHelper.setup();
-        // these tests require a running backend:
-        await TestHelper.startExtension();
     });
 
     suiteTeardown(async function() {
         await TestHelper.teardown();
     });
 
-    /* this test causes troubles on macOS because stopping the verification times out often
     test("Viper Tools Update Test & test abort of first verification", async function() {
         this.timeout(60000);
         TestHelper.resetErrors();
 
         const updateDone = TestHelper.waitForViperToolsUpdate();
-        const backendStarted = TestHelper.waitForBackendStarted();
+        const activated = TestHelper.waitForExtensionActivation();
+        const restarted = TestHelper.waitForExtensionRestart();
         await TestHelper.startViperToolsUpdate();
 
-        // open LONG such that it will be verified as soon as backend has started:
+        await updateDone;
+        TestHelper.log("Viper Tools Update done");
+        await activated;
+        await restarted;
+        TestHelper.log("Extension has been restarted after performing Viper Tools update");
+        
+        // open LONG such that it will be verified as soon as backend has started
+        // note that we open the file only after awaiting the extension's restart as
+        // the command to open the file otherwise seems to get lost
         const aborted = TestHelper.waitForAbort();
+        /*
         await TestHelper.openFile(LONG);
 
-        const success = await updateDone;
-        assert(success, "Viper Tools Update failed")
-        TestHelper.log("Viper Tools Update done");
-        await backendStarted;
-        TestHelper.log("backend started");
+        
+        TestHelper.log("extension has activated");
+        await TestHelper.verify();
+        */
+       await TestHelper.openFile(LONG);
 
         // stop the verification after 1s
         setTimeout(() => {
             TestHelper.log("timeout triggered: stopping verification");
             TestHelper.stopVerification()
+                .catch(err => Log.error(`error while stopping verification: ${err}`));
         }, 1000);
 
         // wait until verification is aborted:
@@ -47,21 +56,22 @@ suite('Viper Tools Update Test', () => {
         //reverify
         await TestHelper.openAndVerify(LONG);
         assert (!TestHelper.hasObservedInternalError());
+
+        await TestHelper.closeAllFiles();
     });
-    */
+
     test("Viper Tools Update Test", async function() {
         this.timeout(60000);
         TestHelper.resetErrors();
 
         const updateDone = TestHelper.waitForViperToolsUpdate();
-        const backendStarted = TestHelper.waitForBackendStarted();
+        const activated = TestHelper.waitForExtensionActivation();
         await TestHelper.startViperToolsUpdate();
 
-        const success = await updateDone;
-        assert(success, "Viper Tools Update failed")
+        await updateDone;
         TestHelper.log("Viper Tools Update done");
-        await backendStarted;
-        TestHelper.log("backend started");
+        await activated;
+        TestHelper.log("extension has activated");
 
         assert (!TestHelper.hasObservedInternalError());
     });

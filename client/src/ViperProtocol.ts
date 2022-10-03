@@ -3,90 +3,85 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at http://mozilla.org/MPL/2.0/.
   *
-  * Copyright (c) 2011-2019 ETH Zurich.
+  * Copyright (c) 2011-2020 ETH Zurich.
   */
- 
-'use strict';
 
-import { URI } from 'vscode-uri';
 import * as child_process from 'child_process';
+import * as vscode from 'vscode';
+import { NotificationType, RequestType0, RequestType } from 'vscode-jsonrpc';
+import { URI } from 'vscode-uri';
 import { Log } from './Log';
 
-//Global interfaces:
+//==============================================================================
+// These commands are used to distinguish the different message types.
+// 
+// A file containing the same set of commands also exists in the ViperServer
+// code base under viper/server/frontends/lsp/CommandProtocol.scala. The set of 
+// commands in both files should be kept in sync.
+//==============================================================================
 
-//These commands are used to distinguish the different message types
+// implementation note:
+// - RequestType0 represents an LSP request & response pair whose request does not take any arguments
+// - RequestType represents an LSP request & response pair whose request takes exactly 1 argument
+
 export class Commands {
     //SERVER TO CLIENT
-    //Server notifies client about the result of the settings check
-    static SettingsChecked = "SettingsChecked";//SettingsCheckedParams
-    //The language server requests what version is required for the settings
-    static RequestRequiredVersion = "RequestRequiredVersion";//void -> requiredVersions: Versions
     //Server notifies client about a state change
-    static StateChange = "StateChange";//StateChangeParams
+    static StateChange: NotificationType<StateChangeParams> = new NotificationType("StateChange");
     //LOGGING
     //Log a message to the output
-    static Log = "Log";//LogParams
-    //Log an error message to the output
-    static Error = "Error";//LogParams
-    //Log a message to the log file
-    static ToLogFile = "ToLogFile";//LogParams
+    static Log: NotificationType<LogParams> = new NotificationType("Log");
     //Server tells client to show an information message to the user
-    static Hint = "Hint";//message: string
-    //Server tells client to show progress
-    static Progress = "Progress";//message: {domain:string, curr:number, total:number}
-    //Server is informing client about opened file
-    static FileOpened = "FileOpened";//uri: string
-    //Server is informing client about closed file
-    static FileClosed = "FileClosed";//uri: string
+    static Hint: NotificationType<HintMessage> = new NotificationType("Hint");
     //Server is notifying client that the verification could not be started
-    static VerificationNotStarted = "VerificationNotStarted";//uri: string
+    static VerificationNotStarted: NotificationType<VerificationNotStartedParams> = new NotificationType("VerificationNotStarted");
     //Either server or client request debugging to be stopped
-    static StopDebugging = "StopDebugging";//void
-    //Server informs client about started backend
-    static BackendReady = "BackendReady";//BackendReadyParams
-    static StepsAsDecorationOptions = "StepsAsDecorationOptions";//StepsAsDecorationOptionsResult
-    static HeapGraph = "HeapGraph";//HeapGraph
+    // static StopDebugging = "StopDebugging";//void
+    // static StepsAsDecorationOptions = "StepsAsDecorationOptions";//StepsAsDecorationOptionsResult
+    // static HeapGraph = "HeapGraph";//HeapGraph
     /** The language server notifies an unhandled message type from ViperServer.
      *  
      *  Used to inform the client that there might be some additional messages
      *  that may be destined to some extension via the ViperApi.
      */
-    static UnhandledViperServerMessageType = 'UnhandledViperServerMessageType';
+    static UnhandledViperServerMessageType: NotificationType<UnhandledViperServerMessageTypeParams> = new NotificationType('UnhandledViperServerMessageType');
 
     //CLIENT TO SERVER
-    //Client asks server for the list of backend names
-    static RequestBackendNames = "RequestBackendNames";//void
-    //Client tells server to stop all verifications before later on shutting server down (via shutdown command)
-    static StopAllVerifications = "StopAllVerifications";//void
+    static GetVersion: RequestType<GetVersionRequest, GetVersionResponse, void> = new RequestType("GetVersion");
     //Client requests verification for a file
-    static Verify = "Verify";//VerifyParams
+    static Verify: NotificationType<VerifyParams> = new NotificationType("Verify");
     //Client tells server to abort the running verification
-    static StopVerification = "StopVerification";//filePath:string
-    static ShowHeap = "ShowHeap";//ShowHeapParams
-    //Client tells Server to start backends
-    static StartBackend = "StartBackend";//backendName:string
-    //client asks Server to stop the backend
-    static StopBackend = "StopBackend";//void
-    //swap backend without restarting
-    static SwapBackend = "SwapBackend";//backendName:string
+    static StopVerification: RequestType<StopVerificationRequest, StopVerificationResponse, void> = new RequestType("StopVerification");
+    static GetLanguageServerUrl: RequestType0<GetLanguageServerUrlResponse, void> = new RequestType0("GetLanguageServerUrl");
+    // static ShowHeap = "ShowHeap";//ShowHeapParams
     //Request a list of all states that led to the current state
-    static GetExecutionTrace = "GetExecutionTrace";//GetExecutionTraceParams -> trace:ExecutionTrace[]
-
+    // static GetExecutionTrace = "GetExecutionTrace";//GetExecutionTraceParams -> trace:ExecutionTrace[]
     //remove the diagnostics in the file specified by uri
-    static RemoveDiagnostics = "RemoveDiagnostics";
-
-    //update the viper tools
-    static UpdateViperTools = "UpdateViperTools";
+    static RemoveDiagnostics: RequestType<RemoveDiagnosticsRequest, RemoveDiagnosticsResponse, void> = new RequestType("RemoveDiagnostics");
     //The server requests the custom file endings specified in the configuration
-    static GetViperFileEndings = "GetViperFileEndings";
-    //The server notifies the client about the completed update
-    static ViperUpdateComplete = "ViperUpdateComplete";
-    //the server requests a check of the settings.json files from the client
-    static CheckIfSettingsVersionsSpecified = "CheckIfSettingsVersionsSpecified";
+    static GetViperFileEndings: RequestType0<GetViperFileEndingsResponse, void> = new RequestType0("GetViperFileEndings");
     //The client requests the cache in the viperserver to be flushed, (either completely or for a file)
-    static FlushCache = "FlushCache";
+    static FlushCache: RequestType<FlushCacheParams, void, void> = new RequestType("FlushCache");
     //The server requests the identifier at some location in the current file to answer the gotoDefinition request
-    static GetIdentifier = "GetIdentifier";
+    static GetIdentifier: RequestType<Position, GetIdentifierResponse, void> = new RequestType("GetIdentifier");
+}
+
+//==============================================================================
+// These data structures are used in communication betwee the client an the
+// server.
+
+// A file containing the same set of data structure also exists in the 
+// ViperServer code base under viper/server/frontends/lsp/DataProtocol.scala. 
+// The set of commands in both files should be kept in sync.
+//==============================================================================
+
+export interface GetVersionRequest {
+    clientVersion: string
+}
+
+export interface GetVersionResponse {
+    serverVersion: string,
+    error: string | null // error message if client is not supported by server, null otherwise
 }
 
 export interface GetExecutionTraceParams {
@@ -98,6 +93,8 @@ export interface VerifyParams {
     uri: string;
     manuallyTriggered: boolean;
     workspace: string;
+    backend: string;
+    customArgs: string;
 }
 
 export interface Command {
@@ -158,20 +155,18 @@ export enum Success {
 
 export interface StateChangeParams {
     newState: VerificationState;
-    progress?;
+    progress?: number;
     success?: Success;
-    verificationCompleted?: boolean;
-    manuallyTriggered?: boolean;
+    verificationCompleted?: number;
+    manuallyTriggered?: number;
     filename?: string;
     backendName?: string;
     time?: number;
-    nofErrors?: number;
-    nofWarnings?: number;
-    verificationNeeded?: boolean;
+    verificationNeeded?: number;
     uri?: string;
     stage?: string;
     error?: string;
-    diagnostics?: string;
+    diagnostics?: vscode.Diagnostic[]
 }
 
 export interface BackendReadyParams {
@@ -182,13 +177,36 @@ export interface BackendReadyParams {
     isViperServer: boolean;
 }
 
-export interface VerifyRequest {
-    //file to verify
-    uri: string,
-    //was the verification triggered manually
-    manuallyTriggered: boolean,
-    //the path to the open workspace folder
-    workspace: string
+export interface BackendStartedParams {
+    //name of the backend ready to use
+    name: string;
+    //should the open file be reverified
+    forceRestart: boolean;
+    isViperServer: boolean;
+}
+
+export interface StopVerificationRequest {
+    uri: string
+}
+
+export interface StopVerificationResponse {
+    success: boolean
+}
+
+export interface GetLanguageServerUrlResponse {
+    url: string
+}
+
+export interface RemoveDiagnosticsRequest {
+    uri: string
+}
+
+export interface RemoveDiagnosticsResponse {
+    success: boolean
+}
+
+export interface GetViperFileEndingsResponse {
+    fileEndings: string[]
 }
 
 export interface ShowHeapParams {
@@ -223,7 +241,7 @@ export interface HeapGraph {
     conditions: string[]
 }
 
-//own Position interface, because vscode.Position is not available at Language Server
+// own Position interface, because vscode.Position is not available at Language Server
 export interface Position {
     line: number;
     character: number;
@@ -239,23 +257,23 @@ export class StateColors {
     //currently selected state
     static currentState(dark: boolean): string {
         return dark ? "red" : "red";
-    };
+    }
     //previously selected state
     static previousState(dark: boolean): string {
         return dark ? "green" : "green";
-    };
+    }
     //state in which an error was reported by the backend
     static errorState(dark: boolean): string {
         return dark ? "yellow" : "orange";
-    };
+    }
     //state in same method as current state
     static interestingState(dark: boolean): string {
         return dark ? "yellow" : "orange";
-    };
+    }
     //state in other method
     static uninterestingState(dark: boolean): string {
         return dark ? "grey" : "grey";
-    };
+    }
 }
 
 export interface StepsAsDecorationOptionsResult {
@@ -308,6 +326,21 @@ export interface MyProtocolDecorationOptions {
     isErrorState: boolean
 }
 
+export interface UnhandledViperServerMessageTypeParams {
+    msgType: string,
+    msg: string,
+    logLevel: LogLevel
+}
+
+export interface FlushCacheParams {
+    uri: string, // nullable (null indicates that the cache for all files should be flushed)
+    backend: string // non-null
+}
+
+export interface GetIdentifierResponse {
+    identifier: string // nullable
+}
+
 //Communication between Language Server and Debugger:
 
 export enum StepType { Stay, Next, Back, In, Out, Continue }
@@ -320,7 +353,7 @@ export interface LaunchRequestArguments {
 
 //Language Server Internal:
 
-export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE, UNKONWN };
+export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE, UNKONWN }
 
 ////////////////////////////////////////////////////
 //SETTINGS
@@ -497,12 +530,12 @@ export interface Progress {
 
 export interface Versions {
     viperServerSettingsVersion: string;
-    backendSettingsVersion: string;
-    pathSettingsVersion: string;
-    userPreferencesVersion: string;
+    verificationBackendsVersion: string;
+    pathsVersion: string;
+    preferencesVersion: string;
     javaSettingsVersion: string;
     advancedFeaturesVersion: string;
-    defaultSettings: any;
+    defaultSettings: any; // eslint-disable-line @typescript-eslint/no-explicit-any
     extensionVersion: string;
 }
 
@@ -595,6 +628,10 @@ export interface HintMessage {
     showViperToolsUpdateButton: boolean
 }
 
+export interface VerificationNotStartedParams {
+    uri: string
+}
+
 export interface Error {
     start: string
     end: string
@@ -620,10 +657,33 @@ export class Common {
         return platformIndependentPath;
     }
 
+    public static uriToString(uri: string | vscode.Uri): string {
+        if (!uri) return null;
+        if (typeof uri === "string") {
+            return uri;
+        } else {
+            return uri.toString();
+        }
+    }
+
+    public static uriToObject(uri: string | vscode.Uri): vscode.Uri {
+        if (!uri) return null;
+        if (typeof uri === "string") {
+            return vscode.Uri.parse(uri);
+        } else {
+            return uri;
+        }
+    }
+
     public static pathToUri(path: string): string {
-        let uriObject: URI = URI.file(path);
-        let platformIndependentUri = uriObject.toString();
+        const uriObject: URI = URI.file(path);
+        const platformIndependentUri = uriObject.toString();
         return platformIndependentUri;
+    }
+
+    public static uriEquals(a: string | vscode.Uri, b: string | vscode.Uri): boolean {
+        if (!a || !b) return false;
+        return this.uriToString(a) === this.uriToString(b);
     }
 
     //Helper methods for child processes
@@ -631,7 +691,7 @@ export class Common {
                            onError?: (string) => void, onExit?: () => void): child_process.ChildProcess {
         try {
             Log.logWithOrigin("executer", command, LogLevel.Debug);
-            let child: child_process.ChildProcess = child_process.exec(command, function (error, stdout, stderr) {
+            const child: child_process.ChildProcess = child_process.exec(command, function (error, stdout, stderr) {
                 Log.logWithOrigin('executer:stdout', stdout, LogLevel.LowLevelDebug);
                 Log.logWithOrigin('executer:stderr', stderr, LogLevel.LowLevelDebug);
                 if (error) Log.logWithOrigin('executer:error', `${error}`, LogLevel.LowLevelDebug);
@@ -663,7 +723,7 @@ export class Common {
     public static spawner(command: string, args: string[]): child_process.ChildProcess {
         Log.log("spawner: " + command + " " + args.join(" "), LogLevel.Debug);
         try {
-            let child = child_process.spawn(command, args, { detached: true });
+            const child = child_process.spawn(command, args, { detached: true });
             child.on('stdout', data => {
                 Log.logWithOrigin('spawner stdout', data, LogLevel.LowLevelDebug);
             });
@@ -715,28 +775,30 @@ export class Common {
         });
       }
 
-    public static backendRestartNeeded(settings: ViperSettings, oldBackendName: string, newBackendName: string) {
-        if (!settings)
+    public static backendRestartNeeded(settings: ViperSettings, oldBackendName: string, newBackendName: string): boolean {
+        if (!settings) {
             return true;
+        }
 
-        let oldBackend = settings.verificationBackends.find(value => value.name == oldBackendName);
-        let newBackend = settings.verificationBackends.find(value => value.name == newBackendName);
+        const oldBackend = settings.verificationBackends.find(value => value.name === oldBackendName);
+        const newBackend = settings.verificationBackends.find(value => value.name === newBackendName);
 
-        if (oldBackend && newBackend && oldBackend.engine.toLowerCase() == 'viperserver' && newBackend.engine.toLowerCase() == 'viperserver')
+        if (oldBackend && newBackend && oldBackend.engine.toLowerCase() === 'viperserver' && newBackend.engine.toLowerCase() == 'viperserver') {
             return false;
-
+        }
         return true;
     }
 
-    public static isViperServer(settings: ViperSettings, newBackendName: string) {
-        if (!settings)
+    public static isViperServer(settings: ViperSettings, newBackendName: string): boolean {
+        if (!settings) {
             return false;
+        }
 
-        let newBackend = settings.verificationBackends.find(value => value.name == newBackendName);
+        const newBackend = settings.verificationBackends.find(value => value.name === newBackendName);
 
-        if (newBackend && newBackend.engine.toLowerCase() == 'viperserver')
+        if (newBackend && newBackend.engine.toLowerCase() === 'viperserver') {
             return true;
-
+        }
         return false;
     }
 

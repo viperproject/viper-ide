@@ -3,10 +3,8 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at http://mozilla.org/MPL/2.0/.
   *
-  * Copyright (c) 2011-2019 ETH Zurich.
+  * Copyright (c) 2011-2020 ETH Zurich.
   */
- 
-'use strict';
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
@@ -14,79 +12,34 @@ import * as globToRexep from 'glob-to-regexp';
 import * as path from 'path';
 import * as os from 'os';
 import { Log } from './Log';
-import { LogLevel } from './ViperProtocol';
+import { Common, LogLevel } from './ViperProtocol';
 
 export class Helper {
-
     public static viperFileEndings: string[];
 
-    public static loadViperFileExtensions() {
+    public static loadViperFileExtensions(): void {
         this.viperFileEndings = ["*.vpr", "*.sil"];
-        let fileAssociations = vscode.workspace.getConfiguration("files").get("associations", []);
-        for (var pattern in fileAssociations) {
-            let language = fileAssociations[pattern];
-            if (language == 'viper') {
+        const fileAssociations = vscode.workspace.getConfiguration("files").get("associations", []);
+        for (const pattern in fileAssociations) {
+            const language = fileAssociations[pattern];
+            if (language === 'viper') {
                 Log.log("Additional file associations detected: " + language + " -> " + pattern, LogLevel.Debug);
                 this.viperFileEndings.push(pattern);
             }
         }
     }
 
-    public static getConfiguration(setting: string): any {
-        return vscode.workspace.getConfiguration("viperSettings").get(setting);
-    }
-
-
-    public static areAdvancedFeaturesEnabled(): boolean {
-        return (Helper.getConfiguration("advancedFeatures").enabled === true);
-    }
-
-    //unused
-    public static makeSureFileExists(fileName: string) {
-        try {
-            if (!fs.existsSync(fileName)) {
-                fs.createWriteStream(fileName).close();
-            }
-            fs.accessSync(fileName);
-        } catch (e) {
-            Log.error("Error making sure " + fileName + " exists. Are you missing access permission? " + e);
-        }
-    }
-
     public static isViperSourceFile(uri: string | vscode.Uri): boolean {
         if (!uri) return false;
-        let uriString = this.uriToString(uri);
+        const uriString = Common.uriToString(uri);
         return this.viperFileEndings.some(globPattern => {
-            let regex = globToRexep(globPattern);
+            const regex = globToRexep(globPattern);
             return regex.test(uriString);
         });
     }
 
-    public static uriEquals(a: string | vscode.Uri, b: string | vscode.Uri) {
-        if (!a || !b) return false;
-        return this.uriToString(a) == this.uriToString(b);
-    }
-
-    public static uriToString(uri: string | vscode.Uri): string {
-        if (!uri) return null;
-        if (typeof uri === "string") {
-            return uri;
-        } else {
-            return uri.toString();
-        }
-    }
-
-    public static uriToObject(uri: string | vscode.Uri): vscode.Uri {
-        if (!uri) return null;
-        if (typeof uri === "string") {
-            return vscode.Uri.parse(uri);
-        } else {
-            return uri;
-        }
-    }
-
     ///might be null
-    public static getActiveFileUri(): vscode.Uri {
+    public static getActiveFileUri(): vscode.Uri | null {
         if (vscode.window.activeTextEditor) {
             return vscode.window.activeTextEditor.document.uri;
         } else {
@@ -100,7 +53,7 @@ export class Helper {
     }
 
     public static formatProgress(progress: number): string {
-        if (!progress) return "0%";
+        if (progress <= 0) return "0%";
         return progress.toFixed(0) + "%";
     }
 
@@ -129,6 +82,10 @@ export class Helper {
         return logDir;
     }
 
+    public static getGitHubToken(): string {
+        return process.env["GITHUB_TOKEN"];
+    }
+
     /**
      * Returns true if `getGobraToolsPath` should be wiped after activating the extension to ensure a clean system state.
      */
@@ -137,4 +94,31 @@ export class Helper {
         return value != null &&
             (value == "1" || value.toUpperCase() == "TRUE");
     }
+
+    /**
+     * Returns true if Viper-IDE runs in a non-interactive environment and confirmations should automatically be accepted.
+     */
+    public static assumeYes(): boolean {
+        const value = process.env["VIPER_IDE_ASSUME_YES"];
+        return value != null && 
+            (value == "1" || value.toUpperCase() == "TRUE");
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    public static rethrow(msg: string): (originalReason: any) => PromiseLike<never> {
+        return originalReason => {
+            Log.log(originalReason, LogLevel.Info);
+            throw new Error(`${msg} (reason: '${originalReason}')`);
+        };
+    }
+
+    public static identity<T>(param: T): T {
+        return param;
+    }
+}
+
+export interface Output {
+    stdout: string;
+    stderr: string;
+    code: number | null;
 }
