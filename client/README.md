@@ -4,6 +4,9 @@
 
 ### Changelog
 
+#### v.4.0.0
+* Major reimplementation of the Viper-IDE to directly talk LSP with ViperServer.
+
 #### v.3.0.1
 * Identical release as v.2.5.0.
 
