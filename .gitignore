@@ -1,0 +1,8 @@
+/node_modules/
+^.*\.log$
+re:(?x) (^|.*\/) (?!webpack\.config) ([^\/]+)\.js $
+/out/
+/.vscode-test/
+
+syntax:glob
+.DS_Store

@@ -1,7 +1,8 @@
-.DS_Store
 dist/
-server/
 node_modules/
 out/
+.vscode-test/
 npm-debug.log
 languageServerExample.log
+logger.log
+viperserver.log
