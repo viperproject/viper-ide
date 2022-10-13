@@ -67,10 +67,10 @@ export class Commands {
 }
 
 //==============================================================================
-// These data structures are used in communication betwee the client an the
+// These data structures are used in communication between the client and the
 // server.
 
-// A file containing the same set of data structure also exists in the 
+// A file containing the same set of data structures also exists in the 
 // ViperServer code base under viper/server/frontends/lsp/DataProtocol.scala. 
 // The set of commands in both files should be kept in sync.
 //==============================================================================
