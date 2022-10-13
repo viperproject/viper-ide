@@ -149,7 +149,7 @@ export enum Success {
     Aborted = 5,
     //Caused by internal error
     Error = 6,
-    //Caused by veification taking too long
+    //Caused by verification taking too long
     Timeout = 7
 }
 
