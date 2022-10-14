@@ -67,10 +67,10 @@ export class Commands {
 }
 
 //==============================================================================
-// These data structures are used in communication betwee the client an the
+// These data structures are used in communication between the client and the
 // server.
 
-// A file containing the same set of data structure also exists in the 
+// A file containing the same set of data structures also exists in the 
 // ViperServer code base under viper/server/frontends/lsp/DataProtocol.scala. 
 // The set of commands in both files should be kept in sync.
 //==============================================================================
@@ -149,7 +149,7 @@ export enum Success {
     Aborted = 5,
     //Caused by internal error
     Error = 6,
-    //Caused by veification taking too long
+    //Caused by verification taking too long
     Timeout = 7
 }
 
