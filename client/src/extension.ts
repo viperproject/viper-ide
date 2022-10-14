@@ -465,7 +465,7 @@ function registerClientHandlers(): void {
     State.client.onNotification(Commands.VerificationNotStarted, (params: VerificationNotStartedParams) => {
         try {
             Log.log(`Verification not started for ${path.basename(params.uri)}`, LogLevel.Debug);
-            //reset the verifying flag if it is not beeing verified
+            //reset the verifying flag if it is not being verified
             State.viperFiles.forEach(file => {
                 file.verifying = false;
             });
