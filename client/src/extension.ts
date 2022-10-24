@@ -32,7 +32,6 @@ import { VerificationController, TaskType, Task } from './VerificationController
 import { ViperApi } from './ViperApi';
 import { Settings } from './Settings';
 import { Location } from 'vs-verification-toolbox';
-import { Either, isRight, Level, Messages } from './Either';
 
 let autoSaver: Timer;
 

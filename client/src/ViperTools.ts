@@ -13,7 +13,7 @@ import { Log } from './Log';
 import { LogLevel } from './ViperProtocol';
 import { BuildChannel, Settings } from './Settings';
 import { Helper } from './Helper';
-import { toRight, transformRight } from './Either';
+import { transformRight } from './Either';
 
 const buildChannelSubfolderName = "ViperTools";
 
