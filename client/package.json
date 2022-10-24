@@ -355,8 +355,8 @@
 					"default": {
 						"v": "674a514867b1",
 						"viperToolsPath": {
-							"windows": "%APPDATA%\\Viper\\",
-							"linux": "$HOME/.config/Viper",
+							"windows": "%APPDATA%\\Roaming\\Code\\User\\globalStorage\\viper-admin.viper\\Local",
+							"linux": "$HOME/.config/Code/User/globalStorage/viper-admin.viper/Local",
 							"mac": "$HOME/Library/Application Support/Code/User/globalStorage/viper-admin.viper/Local"
 						},
 						"z3Executable": {
