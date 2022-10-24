@@ -357,7 +357,7 @@
 						"viperToolsPath": {
 							"windows": "%APPDATA%\\Viper\\",
 							"linux": "$HOME/.config/Viper",
-							"mac": "$HOME/Library/Application Support/Code/User/globalStorage/viper-admin.viper"
+							"mac": "$HOME/Library/Application Support/Code/User/globalStorage/viper-admin.viper/Local"
 						},
 						"z3Executable": {
 							"windows": "$viperTools$/z3/bin/z3.exe",
