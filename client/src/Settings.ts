@@ -15,10 +15,11 @@ import * as locate_java_home from '@viperproject/locate-java-home';
 import { IJavaHomeInfo } from '@viperproject/locate-java-home/js/es5/lib/interfaces';
 import { Log } from './Log';
 import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, Success, Stage, Backend, LogLevel, Common, ViperServerSettings, VersionedSettings, JavaSettings, AdvancedFeatureSettings, UserPreferences, PathSettings } from './ViperProtocol';
-import { combineMessages, Either, flatten, fold, isLeft, isRight, Messages, newEitherError, newEitherWarning, newLeft, newRight, toRight, transformRight } from './Either';
+import { combineMessages, Either, flatMap, flatten, fold, isLeft, isRight, Level, Messages, newEitherError, newEitherWarning, newLeft, newRight, toRight, transformRight } from './Either';
 import { readdir } from 'fs/promises';
 import { Helper } from './Helper';
 import { State } from './ExtensionState';
+import { Color } from './StatusBar';
 
 
 export class Settings {
@@ -355,12 +356,32 @@ export class Settings {
         return toRight(resolvedJars);
     }
 
+    /**
+     * Resolves the path to the Boogie binary based on `buildVersion`, checks whether the file exists, and (optionally)
+     * tries to execute the binary.
+     * In case the user uses `buildVersion` `Local` and specifies an empty Boogie path, checks are skipped and `Right("")` is returned.
+     */
     public static async checkBoogiePath(location: Location, execute: boolean = false): Promise<Either<Messages, string>> {
         const settingName = "paths";
         let resolvedPath: Either<Messages, ResolvedPath>;
         if (Settings.getBuildChannel() == BuildChannel.Local) {
             const boogiePaths = Settings.getConfiguration(settingName).boogieExecutable;
-            resolvedPath = await Settings.checkPath(location, boogiePaths, `Boogie Executable (if you don't need Boogie, set '${settingName}.boogieExecutable' to ""):`, true, true, true);
+            // note that the path does not have to exist (4th argument is set to true)
+            // we check afterwards that the path exists if the path is non-empty
+            const checkPathRes = await Settings.checkPath(location, boogiePaths, `Boogie Executable (if you don't need Boogie, set '${settingName}.boogieExecutable' to ""):`, true, true, true, true);
+            resolvedPath = flatMap(checkPathRes, res => {
+                // note that the empty path does not have to exist. This allows users to specify an empty path when they want to skip these checks:
+                if (!res.exists && res.path && res.path.length !== 0) {
+                    return newEitherError<ResolvedPath>(`Boogie Executable at path '${res.path}' does not exist`);
+                } else {
+                    return newRight(res);
+                }
+            });
+
+            if (isRight(resolvedPath) && (!resolvedPath.right.path || resolvedPath.right.path.length === 0)) {
+                // this is a special case, namely we allow users to skip Boogie checks (e.g. when Boogie is not needed) by specifying an empty path
+                return newRight("");
+            }
         } else {
             // ignore `paths`:
             const path = pathHelper.join(location.basePath, "boogie", "Binaries", "Boogie");
@@ -379,9 +400,16 @@ export class Settings {
         return transformRight(resolvedPath, p => p.path);
     }
 
-    public static async getBoogiePath(location: Location): Promise<string> {
-       const res = await Settings.checkBoogiePath(location);
-       return toRight(res);
+    /**
+     * Returns the path to the Boogie executable. If the user provided an empty string (to skip the checks), an
+     * error will be returned.
+     */
+    public static async getBoogiePath(location: Location): Promise<Either<Messages, string>> {
+        const res = await Settings.checkBoogiePath(location);
+        return flatMap(res, path =>
+            path.length === 0 ?
+                newEitherError<string>("Path to the Boogie binary is set to the empty path although the path is passed as an argument to a verification backend.") :
+                newRight(path));
     }
 
     public static async checkZ3Path(location: Location, execute: boolean = false): Promise<Either<Messages, string>> {
@@ -743,19 +771,36 @@ export class Settings {
 
     private static supportedTypes: string[] = ["silicon", "carbon", "other"];
 
-    public static async getCustomArgsForBackend(location: Location, backend: Backend, fileUri: vscode.Uri): Promise<string> {
+    public static async getCustomArgsForBackend(location: Location, backend: Backend, fileUri: vscode.Uri): Promise<Either<Messages, string>> {
         // while checking the stages, we make sure that there is exactly one stage with `isVerification` set to true:
         const verificationStage = backend.stages.filter(stage => stage.isVerification)[0];
         const z3Path = await Settings.getZ3Path(location);
-        const boogiePath = await Settings.getBoogiePath(location);
         const disableCaching = Settings.getConfiguration("viperServerSettings").disableCaching === true;
-        return verificationStage.customArguments
+        const partiallyReplacedString = verificationStage.customArguments
             // note that we use functions as 2nd argument since we do not want that
             // the special replacement patterns kick in
             .replace("$z3Exe$", () => `"${z3Path}"`) // escape path
-            .replace("$boogieExe$", () => `"${boogiePath}"`) // escape path
             .replace("$disableCaching$", () => disableCaching ? "--disableCaching" : "")
             .replace("$fileToVerify$", () => `"${fileUri.fsPath}"`); // escape path
+
+        // Note that we need to passes over the string because `replace` does not allow async replace functions.
+        // Thus, we use `replace` to search for occurrences of `"$boogieExe$"` (ensuring we use the same match
+        // algorithm under the hood) and await the Boogie path only in the case we need it.
+        let containsBoogieExe = false;
+        partiallyReplacedString
+            .replace("$boogieExe$", () => {
+                containsBoogieExe = true;
+                return ""; // doesn't matter what we return because we ignore the replaced string anyway
+            });
+        if (containsBoogieExe) {
+            const boogiePathRes = await Settings.getBoogiePath(location);
+            return transformRight(boogiePathRes, boogiePath =>
+                partiallyReplacedString
+                    .replace("$boogieExe$", () => `"${boogiePath}"`) // escape path
+            );
+        } else {
+            return newRight(partiallyReplacedString);
+        }
     }
 
     private static async checkTimeout(timeout: number, prefix: string): Promise<Either<Messages, number | null>> {
@@ -896,7 +941,6 @@ export class Settings {
     public static async getServerArgs(logLevel: LogLevel, logFile: string): Promise<string> {
         function convertLogLevel(logLevel: LogLevel): string {
             // translate LogLevel to the command-line parameter that ViperServer understands:
-            return "ALL";
             switch(logLevel) { // we use `Log.logLevel` here as that one might differ from the one in the settings during unit tests
                 case LogLevel.None:
                     return "OFF";
@@ -1074,6 +1118,54 @@ export class Settings {
 
     private static toAbsolute(path: string): string {
         return pathHelper.resolve(pathHelper.normalize(path));
+    }
+
+    public static async handleSettingsCheckResult<R>(res: Either<Messages, R>): Promise<void> {
+        if (isRight(res)) {
+            return; // success, i.e. no warnings and no errors
+        }
+    
+        const msgs = res.left;
+        let nofErrors = 0;
+        let nofWarnings = 0;
+        let message = "";
+        msgs.forEach(msg => {
+            switch (msg.level) {
+                case Level.Error:
+                    nofErrors++;
+                    Log.error(`Settings Error: ${msg.msg}`);
+                    break;
+                case Level.Warning:
+                    nofWarnings++;
+                    Log.log(`Settings Warning: ${msg.msg}`, LogLevel.Info);
+                    break;
+                default:
+                    nofErrors++; // we simply count it as an error
+                    Log.log(`Settings Warning or Error with unknown level '${msg.level}': ${msg.msg}`, LogLevel.Info);
+                    break;
+            }
+            message = msg.msg;
+        })
+    
+        const countDescription = ((nofErrors > 0 ? ("" + nofErrors + " Error" + (nofErrors > 1 ? "s" : "")) : "") + (nofWarnings > 0 ? (" " + nofWarnings + " Warning" + (nofWarnings > 1 ? "s" : "")) : "")).trim();
+    
+        // update status bar
+        Log.log(`${countDescription} detected.`, LogLevel.Info);
+        if (nofErrors > 0) {
+            State.statusBarItem.update(countDescription, Color.ERROR);
+        } else if (nofWarnings > 0) {
+            State.statusBarItem.update(countDescription, Color.WARNING);
+        }
+    
+        // we can display one message, if there are more we redirect users to the output view:
+        if (nofErrors + nofWarnings > 1) {
+            message = "see View->Output->Viper";
+        }
+        Log.hint(`${countDescription}: ${message}`, `Viper Settings`, true, true);
+        if (nofErrors > 0) {
+            // abort only in the case of errors
+            throw new Error(`Problems in Viper Settings detected`);
+        }
     }
 }
 
