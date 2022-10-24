@@ -555,10 +555,14 @@ export class VerificationController {
                     const workspace = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri.fsPath : path.dirname(fileState.uri.fsPath);
                     const backend = State.activeBackend;
                     const customArgs = await Settings.getCustomArgsForBackend(this.location, backend, uri);
-                    const params: VerifyParams = { uri: uri.toString(), manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.name, customArgs: customArgs };
-                    //request verification from Server
-                    State.isVerifying = true;
-                    await State.client.sendNotification(Commands.Verify, params);
+                    if (customArgs.isRight) {
+                        const params: VerifyParams = { uri: uri.toString(), manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.name, customArgs: customArgs.right };
+                        //request verification from Server
+                        State.isVerifying = true;
+                        await State.client.sendNotification(Commands.Verify, params);
+                    } else {
+                        await Settings.handleSettingsCheckResult(customArgs);
+                    }
                 }
             }
         } catch (e) {
@@ -566,7 +570,7 @@ export class VerificationController {
                 //make sure the worklist is not blocked
                 State.addToWorklist(new Task({ type: TaskType.VerificationFailed, uri: fileState.uri }));
             }
-            Log.error("Error requesting verification of " + fileState.name);
+            Log.error(`Error requesting verification of ${fileState.name()}: ${e.toString()}`);
         }
     }
 
