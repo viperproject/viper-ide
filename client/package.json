@@ -399,7 +399,7 @@
 					"type": "object",
 					"default": {
 						"v": "674a514867b1",
-						"javaBinary": "",
+						"javaBinary": "java",
 						"customArguments": "-Xmx2048m -Xss16m -cp $backendPaths$ -server $mainMethod$",
 						"cwd": ""
 					},
