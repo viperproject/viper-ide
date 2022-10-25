@@ -210,7 +210,7 @@ async function initializeState(location: Location): Promise<void> {
     if (vscode.window.activeTextEditor) {
         const uri = vscode.window.activeTextEditor.document.uri;
         State.setLastActiveFile(uri, vscode.window.activeTextEditor);
-        // this file is automatically verified as soo as the backend got started
+        // this file is automatically verified as soon as the backend got started
     } else {
         Log.log("No active text editor found", LogLevel.Info);
     }
@@ -328,7 +328,7 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
                 selectedBackendName = await vscode.window.showQuickPick(backends.map(backend => backend.name));
             }
             if (selectedBackendName) {
-                // user has choosen a backend
+                // user has chosen a backend
                 selectedBackend = backends.find(backend => backend.name === selectedBackendName);
             }
         }
