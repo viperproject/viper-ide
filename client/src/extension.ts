@@ -488,19 +488,23 @@ async function flushCache(allFiles: boolean): Promise<void> {
         Log.hint("Cannot flush cache, no backend is active");
         return;
     }
-    if (!allFiles) {
-        const fileUri = Helper.getActiveFileUri();
-        if (!fileUri) {
-            Log.hint("Cannot flush cache, no active viper file found");
-            return;
+    try {
+        if (allFiles) {
+            Log.log(`Request to flush the entire cache for backend ${backend}`, LogLevel.Info);
+            const params: FlushCacheParams = { uri: null, backend: backend.name };
+            await State.client.sendRequest(Commands.FlushCache, params);
+        } else {
+            const fileUri = Helper.getActiveFileUri();
+            if (!fileUri) {
+                Log.hint("Cannot flush cache, no active viper file found");
+                return;
+            }
+            Log.log(`Request to flush the cache of ${path.basename(fileUri.fsPath)} and backend ${backend}`, LogLevel.Info);
+            const params: FlushCacheParams = { uri: fileUri.fsPath, backend: backend.name };
+            await State.client.sendRequest(Commands.FlushCache, params);
         }
-        Log.log(`Request to flush the cache of ${path.basename(fileUri.fsPath)} and backend ${backend}`, LogLevel.Info);
-        const params: FlushCacheParams = { uri: fileUri.fsPath, backend: backend.name };
-        await State.client.sendRequest(Commands.FlushCache, params);
-    } else {
-        Log.log(`Request to flush the entire cache for backend ${backend}`, LogLevel.Info);
-        const params: FlushCacheParams = { uri: null, backend: backend.name };
-        await State.client.sendRequest(Commands.FlushCache, params);
+    } catch(e) {
+        Log.hint(`Flushing backend failed: ${e}`);
     }
 }
 
