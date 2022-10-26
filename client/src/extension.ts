@@ -32,7 +32,6 @@ import { VerificationController, TaskType, Task } from './VerificationController
 import { ViperApi } from './ViperApi';
 import { Settings } from './Settings';
 import { Location } from 'vs-verification-toolbox';
-import { Either, isRight, Level, Messages } from './Either';
 
 let autoSaver: Timer;
 
@@ -68,11 +67,11 @@ async function internalActivate(context: vscode.ExtensionContext): Promise<Viper
     registerContextHandlers(context, location);
     // check whether settings are correct and expected files exist:
     const settingsResult = await Settings.checkAndGetSettings(location);
-    await handleSettingsCheckResult(settingsResult);
+    await Settings.handleSettingsCheckResult(settingsResult);
     State.verificationController = new VerificationController(location);
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/{' + Helper.viperFileEndings.join(",") + "}");
     const startResult = await State.startLanguageServer(context, fileSystemWatcher, location);
-    await handleSettingsCheckResult(startResult);
+    await Settings.handleSettingsCheckResult(startResult);
     State.viperApi = new ViperApi(State.client);
     registerClientHandlers();
     startAutoSaver();
@@ -211,7 +210,7 @@ async function initializeState(location: Location): Promise<void> {
     if (vscode.window.activeTextEditor) {
         const uri = vscode.window.activeTextEditor.document.uri;
         State.setLastActiveFile(uri, vscode.window.activeTextEditor);
-        // this file is automatically verified as soo as the backend got started
+        // this file is automatically verified as soon as the backend got started
     } else {
         Log.log("No active text editor found", LogLevel.Info);
     }
@@ -227,54 +226,6 @@ async function initializeState(location: Location): Promise<void> {
 
     // visually indicate that the IDE is now ready:
     State.statusBarItem.update("ready", Color.READY);
-}
-
-async function handleSettingsCheckResult<R>(res: Either<Messages, R>): Promise<void> {
-    if (isRight(res)) {
-        return; // success, i.e. no warnings and no errors
-    }
-
-    const msgs = res.left;
-    let nofErrors = 0;
-    let nofWarnings = 0;
-    let message = "";
-    msgs.forEach(msg => {
-        switch (msg.level) {
-            case Level.Error:
-                nofErrors++;
-                Log.error(`Settings Error: ${msg.msg}`);
-                break;
-            case Level.Warning:
-                nofWarnings++;
-                Log.log(`Settings Warning: ${msg.msg}`, LogLevel.Info);
-                break;
-            default:
-                nofErrors++; // we simply count it as an error
-                Log.log(`Settings Warning or Error with unknown level '${msg.level}': ${msg.msg}`, LogLevel.Info);
-                break;
-        }
-        message = msg.msg;
-    })
-
-    const countDescription = ((nofErrors > 0 ? ("" + nofErrors + " Error" + (nofErrors > 1 ? "s" : "")) : "") + (nofWarnings > 0 ? (" " + nofWarnings + " Warning" + (nofWarnings > 1 ? "s" : "")) : "")).trim();
-
-    // update status bar
-    Log.log(`${countDescription} detected.`, LogLevel.Info);
-    if (nofErrors > 0) {
-        State.statusBarItem.update(countDescription, Color.ERROR);
-    } else if (nofWarnings > 0) {
-        State.statusBarItem.update(countDescription, Color.WARNING);
-    }
-
-    // we can display one message, if there are more we redirect users to the output view:
-    if (nofErrors + nofWarnings > 1) {
-        message = "see View->Output->Viper";
-    }
-    Log.hint(`${countDescription}: ${message}`, `Viper Settings`, true, true);
-    if (nofErrors > 0) {
-        // abort only in the case of errors
-        throw new Error(`Problems in Viper Settings detected`);
-    }
 }
 
 function registerContextHandlers(context: vscode.ExtensionContext, location: Location): void {
@@ -377,7 +328,7 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
                 selectedBackendName = await vscode.window.showQuickPick(backends.map(backend => backend.name));
             }
             if (selectedBackendName) {
-                // user has choosen a backend
+                // user has chosen a backend
                 selectedBackend = backends.find(backend => backend.name === selectedBackendName);
             }
         }

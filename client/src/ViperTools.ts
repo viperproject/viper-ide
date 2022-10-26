@@ -13,6 +13,7 @@ import { Log } from './Log';
 import { LogLevel } from './ViperProtocol';
 import { BuildChannel, Settings } from './Settings';
 import { Helper } from './Helper';
+import { transformRight } from './Either';
 
 const buildChannelSubfolderName = "ViperTools";
 
@@ -66,10 +67,15 @@ export async function locateViperTools(context: vscode.ExtensionContext): Promis
 
     async function setPermissions(location: Location): Promise<Location> {
         if (Settings.isLinux || Settings.isMac) {
-            const boogiePath = await Settings.getBoogiePath(location);
             const z3Path = await Settings.getZ3Path(location);
             fs.chmodSync(z3Path, '755');
-            fs.chmodSync(boogiePath, '755');
+
+            const boogiePath = await Settings.getBoogiePath(location);
+            // `boogiePath` will be left when the user provided e.g. an empty path.
+            // ignored the error here and only change permissions if it's a valid path
+            transformRight(boogiePath, path => {
+                fs.chmodSync(path, '755');
+            });
         }
         return location;
     }
