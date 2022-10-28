@@ -15,7 +15,7 @@ import * as locate_java_home from '@viperproject/locate-java-home';
 import { IJavaHomeInfo } from '@viperproject/locate-java-home/js/es5/lib/interfaces';
 import { Log } from './Log';
 import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, Success, Stage, Backend, LogLevel, Common, ViperServerSettings, VersionedSettings, JavaSettings, AdvancedFeatureSettings, UserPreferences, PathSettings } from './ViperProtocol';
-import { combineMessages, Either, flatMap, flatten, fold, isLeft, isRight, Level, Messages, newEitherError, newEitherWarning, newLeft, newRight, toRight, transformRight } from './Either';
+import { combineMessages, Either, flatMap, flatMapAsync, flatten, fold, isLeft, isRight, Level, Messages, newEitherError, newEitherWarning, newLeft, newRight, toRight, transformRight } from './Either';
 import { readdir } from 'fs/promises';
 import { Helper } from './Helper';
 import { State } from './ExtensionState';
@@ -143,7 +143,7 @@ export class Settings {
         const settings = Settings.getConfiguration(settingName);
         const checks: Promise<Either<Messages, unknown>>[] = [
             Settings.checkVersion<ViperServerSettings>(settings, settingName),
-            Settings.checkJavaPath(),
+            Settings.checkJavaPath(location),
             Settings.checkJavaCustomArgs(settings),
         ];
         return Promise.all(checks)
@@ -814,55 +814,67 @@ export class Settings {
     }
 
     /**
-     * Searches for a Java home and tries to use it.
-     * Promise is resolved with the path to the Java executable that should be used.
-     * Otherwise, promise is rejected with an error message (as string) in case something went wrong
+     * Processes the `javaSettings.javaBinary` by either locating a Java installation on the machine or
+     * by potentially substituting environment variables in the provided path.
+     * Afterwards, `<resolved java path> -version` is executed as an additional check (unless `skipExecution` is set to true).
+     * In case multiple Java installation have been located, this function produces a warning message (unless `ignoreWarnings` is set to true).
      */
-    public static async getJavaPath(): Promise<{ path: string, isAmbiguous: boolean }> {
-        const configuredJavaBinary = Settings.getConfiguration("javaSettings").javaBinary;
+    private static async checkJavaPath(location: Location, ignoreWarnings: boolean = false, skipExecution: boolean = false): Promise<Either<Messages, string>> {
+        const settingName = "javaSettings";
+        const configuredJavaBinary = Settings.getConfiguration(settingName).javaBinary;
         const searchForJavaHome = configuredJavaBinary == null || configuredJavaBinary == "";
-        let javaPath: string;
-        let isAmbiguous: boolean;
+        let javaPath: Either<Messages, string>;
         if (searchForJavaHome) {
             // no java binary configured, search for it:
             const javaHomes = await Settings.getJavaHomes();
-            javaPath = javaHomes[0].executables.java;
+            javaPath = newRight(javaHomes[0].executables.java);
             Log.log(`Java was successfully located at ${javaPath}`, LogLevel.Debug);
-            isAmbiguous = javaHomes.length !== 1;
+            if (javaHomes.length !== 1 && !ignoreWarnings) {
+                javaPath = newEitherWarning(`Multiple Java installations have been discovered. '${javaHomes[0].executables.java}' will be used. ` +
+                    `You can manually provide a path to a Java installation by specifying ` +
+                    `'"viper.javaSettings.javaBinary": "<path>"' in your settings file.`);
+            }
         } else {
-            Log.log(`Uses Java home found in settings: ${configuredJavaBinary}`, LogLevel.Debug);
-            javaPath = configuredJavaBinary;
-            isAmbiguous = false;
+            const resolvedPath = await Settings.checkPath(location, configuredJavaBinary, `Java binary (if you want Viper-IDE to locate one for you, set '${settingName}.javaBinary' to ""):`, true, true, true);
+            javaPath = transformRight(resolvedPath, res => {
+                Log.log(`The Java home found in settings (${configuredJavaBinary}) has been resolved to ${res.path}`, LogLevel.Debug);
+                return res.path;
+            });
         }
-        return { path: javaPath, isAmbiguous: isAmbiguous };
+
+        if (skipExecution) {
+            return javaPath;
+        } else {
+            return await flatMapAsync(javaPath, async path => {
+                try {
+                    // try to execute `java -version`:
+                    const javaVersionOutput = await Common.spawn(path, ["-version"]);
+                    const javaVersion = javaVersionOutput.stdout.concat(javaVersionOutput.stderr);
+                    Log.log(`Java home found: ${path}. It's version is: ${javaVersion}`, LogLevel.Verbose);
+                    return newRight(path);
+                } catch (err) {
+                    let errorMsg: string
+                    const configuredJavaBinary = Settings.getConfiguration("javaSettings").javaBinary;
+                    const searchForJavaHome = configuredJavaBinary == null || configuredJavaBinary == "";
+                    if (searchForJavaHome) {
+                        errorMsg = `A Java home was found at '${path}' but executing it with '-version' has failed: ${err}.`;
+                    } else {
+                        errorMsg = `The Java home is in the settings configured to be '${path}' but executing it with '-version' has failed: ${err}.`;
+                    }
+                    return newEitherError(errorMsg);
+                }
+            });
+        }
     }
 
-    private static async checkJavaPath(): Promise<Either<Messages, string>> {
-        const javaPathInfo = await Settings.getJavaPath();
-        try {
-            // try to execute `java -version`:
-            const javaVersionOutput = await Common.spawn(javaPathInfo.path, ["-version"]);
-            const javaVersion = javaVersionOutput.stdout.concat(javaVersionOutput.stderr);
-            Log.log(`Java home found: ${javaPathInfo.path}. It's version is: ${javaVersion}`, LogLevel.Verbose);
-        } catch (err) {
-            let errorMsg: string
-            const configuredJavaBinary = Settings.getConfiguration("javaSettings").javaBinary;
-            const searchForJavaHome = configuredJavaBinary == null || configuredJavaBinary == "";
-            if (searchForJavaHome) {
-                errorMsg = `A Java home was found at '${javaPathInfo.path}' but executing it with '-version' has failed: ${err}.`;
-            } else {
-                errorMsg = `The Java home is in the settings configured to be '${javaPathInfo.path}' but executing it with '-version' has failed: ${err}.`;
-            }
-            return newEitherError(errorMsg);
-        }
-
-        if (javaPathInfo.isAmbiguous) {
-            return newEitherWarning(`Multiple Java installations have been discovered. '${javaPathInfo.path}' will be used. ` +
-                `You can manually provide a path to a Java installation by specifying ` +
-                `'"viper.javaSettings.javaBinary": "<path>"' in your settings file.`);
-        } else {
-            return newRight(javaPathInfo.path);
-        }
+    /**
+     * Returns the path to the java binary. Ignores warnings and rejects the promise only if `checkJavaPath` returns errors.
+     * To catch warnings and propagate errors & warnings to the user, `checkJavaPath` should be invoked first.
+     */
+    public static async getJavaPath(location: Location): Promise<string> {
+        // skip warnings & checks as `checkJavaPath` has been called during startup to inform the user
+        // about any issues
+        return toRight(await Settings.checkJavaPath(location, true, true));
     }
 
     private static async checkJavaCustomArgs(settings: JavaSettings): Promise<Either<Messages, string>> {

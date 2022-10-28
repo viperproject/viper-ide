@@ -146,6 +146,7 @@ jobs:
 
 
   build-and-test:
+    name: build-and-test - ${{ matrix.os }}
     needs: create-viper-tools
     # make the dependency optional in the sense that this job should be executed whenever the dependency was successful or skipped:
     if: ${{ always() && (contains(needs.create-viper-tools.result, 'success') || contains(needs.create-viper-tools.result, 'skipped')) }}
