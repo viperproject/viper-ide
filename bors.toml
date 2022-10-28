@@ -4,6 +4,5 @@
 #
 # Copyright (c) 2011-2022 ETH Zurich.
 
-status = ["build-and-test"]
+status = ["build-and-test - macos-latest", "build-and-test - ubuntu-latest", "build-and-test - windows-latest"]
 timeout_sec = 7200
- 
