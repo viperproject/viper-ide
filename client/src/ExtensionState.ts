@@ -212,7 +212,7 @@ export class State {
 
     /** creates a server for the given server binary; the disposable object kills the server process */
     private static async startServerProcess(location: Location): Promise<{ streamInfo: StreamInfo, disposable: Disposable }> {
-        const javaPath = (await Settings.getJavaPath()).path;
+        const javaPath = await Settings.getJavaPath(location);
         const cwd = await Settings.getJavaCwd();
         const logDirectory = Helper.getLogDir();
         const serverLogFile = await unusedFilename(path.join(logDirectory, "viperserver.log"));

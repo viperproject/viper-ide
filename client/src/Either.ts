@@ -100,6 +100,14 @@ export function flatMap<L, R, S>(either: Either<L, R>, fn: (right: R) => Either<
     }
 }
 
+export async function flatMapAsync<L, R, S>(either: Either<L, R>, fn: (right: R) => Promise<Either<L, S>>): Promise<Either<L, S>> {
+    if (isRight(either)) {
+        return await fn(either.right);
+    } else {
+        return either;
+    }
+}
+
 export function combine<L, R>(eithers: Either<L, R>[]): Either<L[], R[]> {
     if (eithers.every(e => isRight(e))) {
         return newRight(eithers.map(e => e.right));
