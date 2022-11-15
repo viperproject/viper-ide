@@ -4,6 +4,9 @@
 
 ### Changelog
 
+#### v.4.0.1 (Viper v.22.07-release)
+* Stable Viper-IDE release using LSP to communicate with [ViperServer (November release)](https://github.com/viperproject/viperserver/releases/tag/v.22.11-release).
+
 #### v.4.0.0
 * Major reimplementation of the Viper-IDE to directly talk LSP with ViperServer.
 
