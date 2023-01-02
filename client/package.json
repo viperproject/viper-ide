@@ -57,7 +57,7 @@
 		"typescript": "^4.9.3",
 		"unused-filename": "^3.0.1",
 		"vs-verification-toolbox": "git+https://github.com/viperproject/vs-verification-toolbox.git",
-		"vsce": "^2.6.7",
+		"vsce": "^2.15.0",
 		"vscode-languageclient": "^8.0.2",
 		"vscode-uri": "^3.0.3",
 		"webpack": "^5.75.0",
