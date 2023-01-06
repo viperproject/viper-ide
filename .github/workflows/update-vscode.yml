@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Update VS Code version used by the tests
         run: |
@@ -32,7 +32,7 @@ jobs:
           echo "TEST_VSCODE_VERSION=$TEST_VSCODE_VERSION" >> $GITHUB_ENV
           echo "LATEST_VSCODE_VERSION=$LATEST_VSCODE_VERSION" >> $GITHUB_ENV
       - name: Open a pull request
-        uses: peter-evans/create-pull-request@v3
+        uses: peter-evans/create-pull-request@v4
         if: env.TEST_VSCODE_VERSION != env.LATEST_VSCODE_VERSION
         with:
           # Use viper-admin's token to workaround a restriction of GitHub.
