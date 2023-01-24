@@ -4,6 +4,9 @@
 
 ### Changelog
 
+#### v.4.1.0 (Viper v.23.01-release)
+* Support for Viper plugins in the IDE, several bugfixes.
+
 #### v.4.0.1 (Viper v.22.07-release)
 * Stable Viper-IDE release using LSP to communicate with [ViperServer (November release)](https://github.com/viperproject/viperserver/releases/tag/v.22.11-release).
 
