@@ -828,7 +828,7 @@ export class Settings {
             // no java binary configured, search for it:
             const javaHomes = await Settings.getJavaHomes();
             javaPath = newRight(javaHomes[0].executables.java);
-            Log.log(`Java was successfully located at ${javaPath}`, LogLevel.Debug);
+            Log.log(`Java was successfully located at ${javaPath.right}`, LogLevel.Debug);
             if (javaHomes.length !== 1 && !ignoreWarnings) {
                 javaPath = newEitherWarning(`Multiple Java installations have been discovered. '${javaHomes[0].executables.java}' will be used. ` +
                     `You can manually provide a path to a Java installation by specifying ` +
