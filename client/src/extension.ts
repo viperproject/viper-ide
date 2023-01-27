@@ -256,6 +256,8 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
                 const uri = editor.document.uri;
                 if (Helper.isViperSourceFile(uri)) {
                     const fileState = State.setLastActiveFile(uri, editor);
+                    // show status bar items (in case they were hidden)
+                    State.showViperStatusBarItems();
                     if (fileState) {
                         if (!fileState.verified) {
                             Log.log("The active text editor changed, consider reverification of " + fileState.name(), LogLevel.Debug);
@@ -265,6 +267,9 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
                         }
                         Log.log("Active viper file changed to " + fileState.name(), LogLevel.Info);
                     }
+                } else {
+                    // hide status bar items (in case they are shown):
+                    State.hideViperStatusBarItems();
                 }
             }
         } catch (e) {

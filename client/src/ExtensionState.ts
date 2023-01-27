@@ -77,7 +77,7 @@ export class State {
 
     public static initializeStatusBar(context: vscode.ExtensionContext): void {
         this.statusBarItem = new StatusBar(10, context);
-        this.statusBarItem.update("Hello from Viper", Color.READY).show();
+        this.statusBarItem.update("Hello from Viper", Color.READY);
 
         this.abortButton = new StatusBar(11, context);
         this.abortButton.setCommand("viper.stopVerification");
@@ -87,10 +87,30 @@ export class State {
 
         this.backendStatusBar = new StatusBar(12, context);
         this.backendStatusBar.setCommand("viper.selectBackend");
-        this.backendStatusBar.show();
-
+        
+        this.showViperStatusBarItems();
         
         this.diagnosticCollection = vscode.languages.createDiagnosticCollection();
+    }
+
+    public static showViperStatusBarItems():  void {
+        if (this.statusBarItem) {
+            this.statusBarItem.show();
+        }
+        // we do not interfere with statusBarProgress and abortButton here, because they are only visible while verifying a file
+        if (this.backendStatusBar) {
+            this.backendStatusBar.show();
+        }
+    }
+
+    public static hideViperStatusBarItems(): void {
+        if (this.statusBarItem) {
+            this.statusBarItem.hide();
+        }
+        // we do not interfere with statusBarProgress and abortButton here, because they are only visible while verifying a file
+        if (this.backendStatusBar) {
+            this.backendStatusBar.hide();
+        }
     }
 
     public static hideProgress(): void {
