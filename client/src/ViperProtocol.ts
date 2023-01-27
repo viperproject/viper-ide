@@ -744,7 +744,8 @@ export class Common {
         args?: string[] | undefined, 
         options?: child_process.SpawnOptionsWithoutStdio | undefined
       ): Promise<Output> {
-        Log.log(`Viper-IDE/server: Running '${cmd} ${args ? args.join(' ') : ''}'`, LogLevel.Debug);
+        const prettifiedCmd = `${cmd} ${args ? args.join(' ') : ''}`;
+        Log.log(`Viper-IDE/server: Running '${prettifiedCmd}'`, LogLevel.Debug);
         return new Promise((resolve, reject) => {
           let stdout = '';
           let stderr = '';
@@ -753,14 +754,20 @@ export class Common {
     
           proc.stdout.on('data', (data) => stdout += data);
           proc.stderr.on('data', (data) => stderr += data);
-          proc.on('close', (code) => {
+          proc.on('close', (code, signal) => {
             Log.log("┌──── Begin stdout ────┐", LogLevel.Debug);
             Log.log(stdout, LogLevel.Debug);
             Log.log("└──── End stdout ──────┘", LogLevel.Debug);
             Log.log("┌──── Begin stderr ────┐", LogLevel.Debug);
             Log.log(stderr, LogLevel.Debug);
             Log.log("└──── End stderr ──────┘", LogLevel.Debug);
-            resolve({ stdout, stderr, code });
+            if (code != null && code === 0) {
+                resolve({ stdout, stderr });
+            } else if (code != null) {
+                reject(new Error(`Running '${prettifiedCmd}' resulted in the non-zero exit code ${code}`));
+            } else {
+                reject(new Error(`Running '${prettifiedCmd}' resulted in the non-zero exit code because the process got terminated by signal '${signal}'`));
+            }
           });
           proc.on('error', (err) => {
             Log.log("┌──── Begin stdout ────┐", LogLevel.Debug);
@@ -819,5 +826,4 @@ export class Common {
 export interface Output {
     stdout: string;
     stderr: string;
-    code: number;
 }
