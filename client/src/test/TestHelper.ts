@@ -137,6 +137,7 @@ export default class TestHelper {
         // described here: https://serverfault.com/q/367921
         // either one can use `-f [j]ava.*Viper` or `-f [^]]java.*Viper` to avoid this problem. As we do have a static string to match
         // against, we have opted for the first variant.
+        // note that we add `|| true` on macOS and Linux because `pgrep` exits with code 1 if no process is found.
         if (State.isWin) {
             function getArgs(whereCond: string): string[] {
                 return ['process', 'where', whereCond, 'get', 'ParentProcessId,ProcessId,Name,CommandLine'];
@@ -145,13 +146,13 @@ export default class TestHelper {
             if (checkJava) outputs.push(await Common.spawn('wmic', getArgs('(CommandLine like "%Viper%" and name="java.exe")'), options));
             if (checkBoogie) outputs.push(await Common.spawn('wmic', getArgs('name="Boogie.exe"'), options));
         } else if (State.isMac) {
-            if (checkZ3) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$UID"', 'z3'], options));
-            if (checkJava) outputs.push(await Common.spawn('pgrep', ['-l', '-u', '"$UID"', '-f', '"[j]ava.*Viper"'], options));
-            if (checkBoogie) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$UID"', 'Boogie'], options));
+            if (checkZ3) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$UID"', 'z3', '||', 'true'], options));
+            if (checkJava) outputs.push(await Common.spawn('pgrep', ['-l', '-u', '"$UID"', '-f', '"[j]ava.*Viper"', '||', 'true'], options));
+            if (checkBoogie) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$UID"', 'Boogie', '||', 'true'], options));
         } else {
-            if (checkZ3) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$(whoami)"', 'z3'], options));
-            if (checkJava) outputs.push(await Common.spawn('pgrep', ['-l', '-u', '"$(whoami)"', '-f', '"[j]ava.*Viper"'], options));
-            if (checkBoogie) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$(whoami)"', 'Boogie'], options));
+            if (checkZ3) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$(whoami)"', 'z3', '||', 'true'], options));
+            if (checkJava) outputs.push(await Common.spawn('pgrep', ['-l', '-u', '"$(whoami)"', '-f', '"[j]ava.*Viper"', '||', 'true'], options));
+            if (checkBoogie) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$(whoami)"', 'Boogie', '||', 'true'], options));
         }
         const outputMsgs = outputs
             .map(out => {
