@@ -26,7 +26,7 @@ on:
       z3_version:
         description: 'Z3 version that should be downloaded and included in a release'
         required: true
-        default: '4.8.6'
+        default: '4.8.7'
       tag_name:
         description: 'Tag name for stable release.'
         required: true
