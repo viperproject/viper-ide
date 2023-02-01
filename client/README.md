@@ -4,7 +4,7 @@
 
 ### Changelog
 
-#### v.4.1.0 (Viper v.23.01-release)
+#### v.4.1.1 (Viper v.23.01-release)
 * Support for Viper plugins in the IDE, several bugfixes.
 * Updated Boogie version to 2.15.9 and Z3 version to 4.8.7.
 
