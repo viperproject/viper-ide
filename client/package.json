@@ -42,7 +42,7 @@
 		"@types/tmp": "^0.2.3",
 		"@types/vscode": "^1.63.2",
 		"@typescript-eslint/eslint-plugin": "^5.50.0",
-		"@typescript-eslint/parser": "^5.45.0",
+		"@typescript-eslint/parser": "^5.50.0",
 		"@viperproject/locate-java-home": "^1.1.9",
 		"@vscode/test-electron": "^2.2.0",
 		"eslint": "^8.15.0",
