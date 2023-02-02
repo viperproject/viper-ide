@@ -101,16 +101,8 @@ async function cleanViperToolsIfRequested(context: vscode.ExtensionContext): Pro
             return;
         }
         Log.log(`cleanInstall has been requested and viper tools already exist --> delete them`, LogLevel.Info);
-        return new Promise((resolve, reject) => {
-            // we do not delete `globalStoragePath` but only its content:
-            rimraf(path.join(globalStoragePath, '*'), (err: Error) => {
-                if (err == null) {
-                    resolve();
-                } else {
-                    reject(err);
-                }
-            });
-        });
+        // we do not delete `globalStoragePath` but only its content:
+        await rimraf(path.join(globalStoragePath, '*'));
 	}
 }
 
