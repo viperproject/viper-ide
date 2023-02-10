@@ -21,7 +21,6 @@ import * as path from 'path';
 import * as rimraf from 'rimraf';
 import * as vscode from 'vscode';
 import { URI } from 'vscode-uri';
-import { Timer } from './Timer';
 import { State } from './ExtensionState';
 import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, VerificationNotStartedParams } from './ViperProtocol';
 import { Log } from './Log';
@@ -32,8 +31,6 @@ import { VerificationController, TaskType, Task } from './VerificationController
 import { ViperApi } from './ViperApi';
 import { Settings } from './Settings';
 import { Location } from 'vs-verification-toolbox';
-
-let autoSaver: Timer;
 
 let fileSystemWatcher: vscode.FileSystemWatcher;
 
@@ -74,7 +71,6 @@ async function internalActivate(context: vscode.ExtensionContext): Promise<Viper
     await Settings.handleSettingsCheckResult(startResult);
     State.viperApi = new ViperApi(State.client);
     registerClientHandlers();
-    startAutoSaver();
     await initializeState(location);
     if (State.unitTest) State.unitTest.extensionActivated();
     activated = true;
@@ -175,34 +171,6 @@ async function internalRestart(): Promise<void> {
 function toggleAutoVerify(): void {
     State.autoVerify = !State.autoVerify;
     State.statusBarItem.update("Auto Verify is " + (State.autoVerify ? "on" : "off"), Color.SUCCESS);
-}
-
-function startAutoSaver(): void {
-    const autoSaveTimeout = 1000; // ms
-    autoSaver = new Timer(() => {
-        //only save viper files
-        if (vscode.window.activeTextEditor != null && vscode.window.activeTextEditor.document.languageId == 'viper') {
-            if (Settings.isAutoSaveEnabled()) {
-                vscode.window.activeTextEditor.document.save()
-                    .then(Helper.identity, err => Log.error(`error occurred while auto-saving: ${err}`));
-            }
-        }
-    }, autoSaveTimeout);
-
-    State.context.subscriptions.push(autoSaver);
-
-    const onActiveTextEditorChangeDisposable = vscode.window.onDidChangeActiveTextEditor(resetAutoSaver);
-    const onTextEditorSelectionChange = vscode.window.onDidChangeTextEditorSelection(selectionChange => {
-        if (Helper.isViperSourceFile(selectionChange.textEditor.document.uri)) {
-            resetAutoSaver();
-        }
-    });
-    State.context.subscriptions.push(onActiveTextEditorChangeDisposable);
-    State.context.subscriptions.push(onTextEditorSelectionChange);
-}
-
-function resetAutoSaver(): void {
-    autoSaver.reset();
 }
 
 async function initializeState(location: Location): Promise<void> {

@@ -230,10 +230,6 @@ export class Settings {
         return (Settings.getConfiguration("advancedFeatures").showPartialExecutionTree === true);
     }
 
-    public static isAutoSaveEnabled(): boolean {
-        return (Settings.getConfiguration('preferences').autoSave === true);
-    }
-
     public static isAutoVerifyAfterBackendChangeEnabled(): boolean {
         return (Settings.getConfiguration('preferences').autoVerifyAfterBackendChange === true);
     }
