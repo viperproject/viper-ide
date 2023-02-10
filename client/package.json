@@ -54,6 +54,7 @@
 		"semver": "^7.3.7",
 		"tmp": "^0.2.1",
 		"ts-loader": "^9.4.2",
+		"ts-node": "^10.9.1",
 		"typescript": "^4.9.3",
 		"unused-filename": "^3.0.1",
 		"vs-verification-toolbox": "git+https://github.com/viperproject/vs-verification-toolbox.git",
@@ -61,27 +62,29 @@
 		"vscode-languageclient": "^8.0.2",
 		"vscode-uri": "^3.0.7",
 		"webpack": "^5.75.0",
-		"webpack-cli": "^4.9.1"
+		"webpack-cli": "^4.9.1",
+		"yargs": "^17.6.2"
 	},
 	"scripts": {
 		"webpack-production": "webpack --mode production",
 		"webpack-development": "webpack --mode development",
 		"webpack-development-watch": "webpack --mode development --watch",
+		"download-dependencies": "ts-node ./download-dependencies.ts ",
 		"tsc": "tsc",
-		"clean": "rimraf dist",
-		"compile": "npm-run-all --sequential clean webpack-development",
-		"watch": "npm-run-all --sequential clean webpack-development-watch",
-		"vscode:prepublish": "npm-run-all --sequential clean webpack-production",
-		"test-compile": "npm-run-all --sequential clean tsc",
+		"clean": "rimraf dist dependencies",
+		"compile": "npm-run-all --sequential clean webpack-development download-dependencies",
+		"watch": "npm-run-all --sequential clean download-dependencies webpack-development-watch",
+		"test-compile": "npm-run-all --sequential clean tsc download-dependencies",
 		"pretest": "npm run test-compile",
 		"test": "node ./dist/test/runTest.js",
-		"package": "vsce package"
+		"vsce-package": "vsce package",
+		"package": "npm-run-all --sequential clean webpack-production download-dependencies vsce-package",
+		"package-linux": "npm-run-all --sequential clean webpack-production 'download-dependencies -- --platform linux' 'vsce-package -- --target linux-x64'",
+		"package-mac": "npm-run-all --sequential clean webpack-production 'download-dependencies -- --platform mac' 'vsce-package -- --target darwin-x64'",
+		"package-win": "npm-run-all --sequential clean webpack-production 'download-dependencies -- --platform windows' 'vsce-package -- --target win32-x64'"
 	},
 	"vsce": {
 		"baseImagesUrl": "https://github.com/viperproject/viper-ide/raw/master/client"
-	},
-	"viper": {
-		"prerelease": true
 	},
 	"activationEvents": [
 		"onLanguage:viper"
@@ -121,11 +124,6 @@
 			{
 				"command": "viper.removeDiagnostics",
 				"title": "remove diagnostics caused by this file",
-				"category": "Viper"
-			},
-			{
-				"command": "viper.updateViperTools",
-				"title": "install or update dependencies (command line tools)",
 				"category": "Viper"
 			},
 			{
@@ -178,11 +176,6 @@
 				},
 				{
 					"command": "viper.removeDiagnostics",
-					"when": "resourceLangId == viper",
-					"group": "Viper"
-				},
-				{
-					"command": "viper.updateViperTools",
 					"when": "resourceLangId == viper",
 					"group": "Viper"
 				},
@@ -424,12 +417,11 @@
 					"scope": "window",
 					"type": "string",
 					"enum": [
-						"Stable",
-						"Nightly",
-						"Local"
+						"BuiltIn",
+						"External"
 					],
-					"default": "Stable",
-					"description": "Select the build version of the Viper Tools. The path specified at 'viperSettings.paths.viperToolsPath' will be used for build version 'Local'"
+					"default": "BuiltIn",
+					"description": "Select the build version of the Viper Tools. The path specified at 'viperSettings.paths.viperToolsPath' will be used for build version 'External'"
 				},
 				"viperSettings.disableServerVersionCheck": {
 					"scope": "window",
