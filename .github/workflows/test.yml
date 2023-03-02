@@ -319,7 +319,6 @@ jobs:
       - name: Package Viper-IDE extension (ubuntu & stable release only)
         if: ${{ startsWith(matrix.os, 'ubuntu') && github.event.inputs.type == 'stable' }}
         run: |
-          npm pkg set viper.prerelease=false --json
           npm run package -- --out viper-ide.vsix
         working-directory: client
 
