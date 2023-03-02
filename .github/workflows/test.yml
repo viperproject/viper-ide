@@ -298,7 +298,7 @@ jobs:
         run: npm run clean
         working-directory: client
 
-      # `npm run package` resp. `vsce` complains that it cannot find 
+      # `npm run package` resp. `@vscode/vsce` complains that it cannot find 
       # locate-java-home and vs-verification-toolbox dependencies (the two non-npm dependencies).
       # this seems related to https://github.com/npm/cli/issues/791
       # the current workaround is to `run npm install` first:
@@ -310,10 +310,10 @@ jobs:
 
       - name: List all files that will be packaged (ubuntu only)
         if: startsWith(matrix.os, 'ubuntu')
-        run: npx vsce ls
+        run: npx @vscode/vsce ls
         working-directory: client
 
-      # use vsce to package the extension into a vsix file.
+      # use @vscode/vsce to package the extension into a vsix file.
       # sets a special field in package.json to indicate that the package is not a pre-release (it's one
       # by default)
       - name: Package Viper-IDE extension (ubuntu & stable release only)
@@ -475,7 +475,7 @@ jobs:
       - name: Obtain version information
         run: |
           VSCE_OUTPUT="$(
-            npx vsce show viper-admin.viper --json
+            npx @vscode/vsce show viper-admin.viper --json
           )"
           if [[ $(echo $VSCE_OUTPUT | grep --fixed-strings --line-regexp undefined) ]]; then
             LAST_PUBLISHED_VERSION="0"
