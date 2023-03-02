@@ -36,7 +36,7 @@
 	"devDependencies": {
 		"@types/glob-to-regexp": "^0.4.1",
 		"@types/mocha": "^10.0.1",
-		"@types/node": "^18.11.8",
+		"@types/node": "^18.14.4",
 		"@types/rimraf": "^3.0.2",
 		"@types/semver": "^7.3.12",
 		"@types/tmp": "^0.2.3",
