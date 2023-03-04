@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2011-2020 ETH Zurich.
 
-import * as assert from 'assert';
+import assert from 'assert';
 import { SpawnOptionsWithoutStdio } from 'child_process';
 import * as path from 'path';
 import * as vscode from 'vscode';

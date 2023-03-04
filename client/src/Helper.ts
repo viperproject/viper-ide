@@ -8,7 +8,7 @@
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import * as globToRexep from 'glob-to-regexp';
+import globToRexep from 'glob-to-regexp';
 import * as path from 'path';
 import * as os from 'os';
 import { Log } from './Log';

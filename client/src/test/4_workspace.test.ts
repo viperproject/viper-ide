@@ -1,4 +1,4 @@
-import * as assert from 'assert';
+import assert from 'assert';
 import { Common } from '../ViperProtocol';
 import TestHelper, { DATA_ROOT, SETUP_TIMEOUT } from './TestHelper';
 
