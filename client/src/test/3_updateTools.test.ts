@@ -1,4 +1,4 @@
-import * as assert from 'assert';
+import assert from 'assert';
 import { Log } from '../Log';
 import TestHelper, { LONG, SETUP_TIMEOUT, SIMPLE, VIPER_TOOLS_TIMEOUT } from './TestHelper';
 

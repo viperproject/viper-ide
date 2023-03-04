@@ -1,4 +1,4 @@
-import * as assert from 'assert';
+import assert from 'assert';
 import * as path from 'path';
 import { Helper } from '../Helper';
 import { Log } from '../Log';
