@@ -56,11 +56,14 @@ jobs:
       WIN_Z3_URL: "https://github.com/Z3Prover/z3/releases/download/z3-${{ github.event.inputs.z3_version }}/z3-${{ github.event.inputs.z3_version }}-x64-win.zip"
       LINUX_Z3_URL: "https://github.com/Z3Prover/z3/releases/download/z3-${{ github.event.inputs.z3_version }}/z3-${{ github.event.inputs.z3_version }}-x64-ubuntu-16.04.zip"
       MAC_Z3_URL: "https://github.com/Z3Prover/z3/releases/download/z3-${{ github.event.inputs.z3_version }}/z3-${{ github.event.inputs.z3_version }}-x64-osx-10.14.6.zip"
+      # The non-'4.8.7' URL will only work for '4.9.0' and above (such a version would break the above two URLs though, since they now build for `osx-10.16` and `glibc-2.35`)
+      MAC_ARM_Z3_URL: ${{ github.event.inputs.z3_version == '4.8.7' && 'https://github.com/viperproject/boogie-builder/raw/master/prebuilt_z3/z3-4.8.7-arm64-osx.zip' || format('https://github.com/Z3Prover/z3/releases/download/z3-{0}/z3-{0}-arm64-osx-11.zip', github.event.inputs.z3_version) }}
       # we fake a ternary operator `a ? b : c` by using `a && b || c` as mentioned here:
       # https://github.com/actions/runner/issues/409
       WIN_BOOGIE_URL: ${{ github.event.inputs.boogie_tag_name == 'latest' && 'https://github.com/viperproject/boogie-builder/releases/latest/download/boogie-win.zip' || format('https://github.com/viperproject/boogie-builder/releases/download/{0}/boogie-win.zip', github.event.inputs.boogie_tag_name) }}
       LINUX_BOOGIE_URL: ${{ github.event.inputs.boogie_tag_name == 'latest' && 'https://github.com/viperproject/boogie-builder/releases/latest/download/boogie-linux.zip' || format('https://github.com/viperproject/boogie-builder/releases/download/{0}/boogie-linux.zip', github.event.inputs.boogie_tag_name) }}
       MAC_BOOGIE_URL: ${{ github.event.inputs.boogie_tag_name == 'latest' && 'https://github.com/viperproject/boogie-builder/releases/latest/download/boogie-osx.zip' || format('https://github.com/viperproject/boogie-builder/releases/download/{0}/boogie-osx.zip', github.event.inputs.boogie_tag_name) }}
+      MAC_ARM_BOOGIE_URL: ${{ github.event.inputs.boogie_tag_name == 'latest' && 'https://github.com/viperproject/boogie-builder/releases/latest/download/boogie-osx-arm.zip' || format('https://github.com/viperproject/boogie-builder/releases/download/{0}/boogie-osx-arm.zip', github.event.inputs.boogie_tag_name) }}
       VIPER_IDE_DEPS_REF: "master"
     steps:
       - name: Install prerequisites
@@ -71,6 +74,7 @@ jobs:
           mkdir ViperToolsWin
           mkdir ViperToolsLinux
           mkdir ViperToolsMac
+          mkdir ViperToolsMacARM
 
       - name: Clone ViperTools template
         uses: actions/checkout@v3
@@ -85,6 +89,7 @@ jobs:
           cp -r template/* ViperToolsWin
           cp -r template/* ViperToolsLinux
           cp -r template/* ViperToolsMac
+          cp -r template/* ViperToolsMacARM
 
       - name: Download ViperServer fat JAR
         run: curl -L --silent --show-error --fail ${{ env.VIPERSERVER_URL }} --output viperserver.jar
@@ -94,36 +99,43 @@ jobs:
           cp viperserver.jar ViperToolsWin/backends
           cp viperserver.jar ViperToolsLinux/backends
           cp viperserver.jar ViperToolsMac/backends
+          cp viperserver.jar ViperToolsMacARM/backends
 
       - name: Download Z3
         run: |
           curl --fail --silent --show-error -L ${{ env.WIN_Z3_URL }} --output z3-win.zip
           curl --fail --silent --show-error -L ${{ env.LINUX_Z3_URL }} --output z3-linux.zip
           curl --fail --silent --show-error -L ${{ env.MAC_Z3_URL }} --output z3-mac.zip
+          curl --fail --silent --show-error -L ${{ env.MAC_ARM_Z3_URL }} --output z3-mac-arm.zip
 
       - name: Unzip Z3 and copy Z3
         run: |
           unzip z3-win.zip -d z3-win
           unzip z3-linux.zip -d z3-linux
           unzip z3-mac.zip -d z3-mac
+          unzip z3-mac-arm.zip -d z3-mac-arm
           mkdir -p ViperToolsWin/z3/bin && cp $(find z3-win -name bin -type d)/z3.exe ViperToolsWin/z3/bin
           mkdir -p ViperToolsLinux/z3/bin && cp $(find z3-linux -name bin -type d)/z3 ViperToolsLinux/z3/bin
           mkdir -p ViperToolsMac/z3/bin && cp $(find z3-mac -name bin -type d)/z3 ViperToolsMac/z3/bin
+          mkdir -p ViperToolsMacARM/z3/bin && cp $(find z3-mac-arm -name bin -type d)/z3 ViperToolsMacARM/z3/bin
 
       - name: Download Boogie
         run: |
           curl --fail --silent --show-error -L ${{ env.WIN_BOOGIE_URL }} --output boogie-win.zip
           curl --fail --silent --show-error -L ${{ env.LINUX_BOOGIE_URL }} --output boogie-linux.zip
           curl --fail --silent --show-error -L ${{ env.MAC_BOOGIE_URL }} --output boogie-mac.zip
+          curl --fail --silent --show-error -L ${{ env.MAC_ARM_BOOGIE_URL }} --output boogie-mac-arm.zip
 
       - name: Unzip Boogie and copy Boogie
         run: |
           unzip boogie-win.zip -d boogie-win
           unzip boogie-linux.zip -d boogie-linux
           unzip boogie-mac.zip -d boogie-mac
+          unzip boogie-mac-arm.zip -d boogie-mac-arm
           mkdir -p ViperToolsWin/boogie && cp -r boogie-win/binaries-win ViperToolsWin/boogie/Binaries
           mkdir -p ViperToolsLinux/boogie && cp -r boogie-linux/binaries-linux ViperToolsLinux/boogie/Binaries
           mkdir -p ViperToolsMac/boogie && cp -r boogie-mac/binaries-osx ViperToolsMac/boogie/Binaries
+          mkdir -p ViperToolsMacARM/boogie && cp -r boogie-mac-arm/binaries-osx-arm ViperToolsMacARM/boogie/Binaries
 
       - name: Create folder to store all ViperTools platform zip files
         run: mkdir deploy
@@ -134,9 +146,12 @@ jobs:
       - name: Zip ViperTools for Linux
         run: zip -r ../deploy/ViperToolsLinux.zip ./*
         working-directory: ViperToolsLinux
-      - name: Zip ViperTools for macOS
+      - name: Zip ViperTools for macOS Intel
         run: zip -r ../deploy/ViperToolsMac.zip ./*
         working-directory: ViperToolsMac
+      - name: Zip ViperTools for macOS ARM
+        run: zip -r ../deploy/ViperToolsMacARM.zip ./*
+        working-directory: ViperToolsMacARM
 
       - name: Upload ViperTools zip files
         uses: actions/upload-artifact@v3
@@ -459,7 +474,7 @@ jobs:
           asset_name: ViperToolsLinux.zip
           asset_content_type: application/zip
 
-      - name: Upload ViperTools for macOS
+      - name: Upload ViperTools for macOS Intel
         uses: actions/upload-release-asset@v1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -467,6 +482,16 @@ jobs:
           upload_url: ${{ env.UPLOAD_URL }}
           asset_path: deploy/ViperToolsMac.zip
           asset_name: ViperToolsMac.zip
+          asset_content_type: application/zip
+
+      - name: Upload ViperTools for macOS ARM
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: deploy/ViperToolsMacARM.zip
+          asset_name: ViperToolsMacARM.zip
           asset_content_type: application/zip
 
       # compare version in client/package.json with last published version on
