@@ -507,6 +507,7 @@ export interface PlatformDependentListOfPaths {
 export interface PlatformDependentURL {
     windows?: string;
     mac?: string;
+    mac_arm?: string;
     linux?: string;
 }
 
