@@ -4,7 +4,7 @@
 #
 # Copyright (c) 2011-2021 ETH Zurich.
 
-name: test
+name: Test and create release (when run manually)
 
 
 on:
@@ -13,9 +13,14 @@ on:
   workflow_dispatch: # allow to manually trigger this workflow
     inputs:
       type:
-        description: 'Specifies whether a stable release, nightly release or release candidate should be triggered. Has to be "stable", "nightly" or "rc".'
+        type: choice
+        description: 'Specifies whether a stable release, nightly release or release candidate should be triggered.'
         required: true
-        default: 'stable'
+        default: 'nightly'
+        options: 
+          - stable
+          - nightly
+          - rc
       viperserver_tag_name:
         description: 'Tag name of ViperServer release from which server JAR should be downloaded'
         required: true
@@ -30,9 +35,11 @@ on:
       tag_name:
         description: 'Tag name for stable release.'
         required: true
+        default: '-'
       release_name:
         description: 'Release title for stable release.'
         required: true
+        default: '-'
 
 # note that release-candidate builds are treated like 'stable' builds for now except that there is no deployment to the marketplaces in the end.
 # in the future, this should be changed such that release-candidates result in a prerelease (like nightly builds).
