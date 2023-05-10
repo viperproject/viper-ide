@@ -166,7 +166,11 @@ export interface StateChangeParams {
     uri?: string;
     stage?: string;
     error?: string;
-    diagnostics?: vscode.Diagnostic[]
+    diagnostics?: FileDiagnostics[]
+}
+export interface FileDiagnostics {
+    file: string;
+    diagnostics: vscode.Diagnostic[]
 }
 
 export interface BackendReadyParams {

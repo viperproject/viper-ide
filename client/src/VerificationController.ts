@@ -657,6 +657,13 @@ export class VerificationController {
             if (params.progress <= 0) {
                 Log.log("The new state is: " + VerificationState[params.newState], LogLevel.Debug);
             }
+            // for mysterious reasons, LSP defines DiagnosticSeverity levels 1 - 4 while
+            // vscode uses 0 - 3. Thus convert them:
+            if (params.diagnostics) {
+                params.diagnostics.forEach(fileDiag =>
+                    fileDiag.diagnostics.forEach(d => d = this.translateLsp2VsCodeDiagnosticSeverity(d))
+                );
+            }
             switch (params.newState) {
                 case VerificationState.Starting:
                     State.isBackendReady = false;
@@ -669,11 +676,9 @@ export class VerificationController {
                         this.addTiming(params.filename, params.progress);
                     }
                     if (params.diagnostics) {
-                        const diagnostics: vscode.Diagnostic[] = params.diagnostics
-                            // for mysterious reasons, LSP defines DiagnosticSeverity levels 1 - 4 while
-                            // vscode uses 0 - 3. Thus convert them:
-                            .map(this.translateLsp2VsCodeDiagnosticSeverity);
-                        State.diagnosticCollection.set(vscode.Uri.parse(params.uri, false), diagnostics);
+                        params.diagnostics.forEach(fileDiag =>
+                            State.diagnosticCollection.set(vscode.Uri.parse(fileDiag.file, false), fileDiag.diagnostics)
+                        );
                     }
                     break;
                 case VerificationState.PostProcessing:
@@ -715,13 +720,20 @@ export class VerificationController {
                             verifiedFile.timingInfo = { total: params.time, timings: this.timings };
                         }
 
-                        const diagnostics = params.diagnostics
-                            .map(this.translateLsp2VsCodeDiagnosticSeverity);
+                        const errorInOpenFile = params.diagnostics.some(
+                            fileDiag => fileDiag.file == params.uri
+                                && fileDiag.diagnostics.some(diag => diag.severity == vscode.DiagnosticSeverity.Error)
+                        );
+                        const postfix = errorInOpenFile ? "" : " due to imported files";
+                        const diagnostics = params.diagnostics.flatMap(fileDiag => fileDiag.diagnostics);
                         const nofErrors = diagnostics
                             .filter(diag => diag.severity == vscode.DiagnosticSeverity.Error)
                             .length;
                         const nofWarnings = diagnostics.length - nofErrors;
 
+                        function errorsMsg(separator: string): string {
+                            return `${separator} ${nofErrors} error${nofErrors == 1 ? "" : "s"}${postfix}`
+                        }
                         function warningsMsg(separator: string): string {
                             if (nofWarnings == 0) {
                                 return ``;
@@ -733,7 +745,7 @@ export class VerificationController {
                         let msg = "";
                         switch (params.success) {
                             case Success.Success:
-                                msg = `Successfully verified ${params.filename} in ${Helper.formatSeconds(params.time)} ${warningsMsg("with")}`;
+                                msg = `Verified ${params.filename} (${Helper.formatSeconds(params.time)}) ${warningsMsg("with")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(check) " + msg, nofWarnings == 0 ? Color.SUCCESS : Color.WARNING);
                                 if (params.manuallyTriggered > 0) {
@@ -741,17 +753,17 @@ export class VerificationController {
                                 }
                                 break;
                             case Success.ParsingFailed:
-                                msg = `Parsing ${params.filename} failed after ${Helper.formatSeconds(params.time)} ${warningsMsg("with")}`;
+                                msg = `Parsing ${params.filename} failed (${Helper.formatSeconds(params.time)})${postfix} ${warningsMsg("with")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(x) " + msg, Color.ERROR);
                                 break;
                             case Success.TypecheckingFailed:
-                                msg = `Type checking ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${nofErrors} error${nofErrors == 1 ? "" : "s"} ${warningsMsg("and")}`;
+                                msg = `Type checking ${params.filename} failed (${Helper.formatSeconds(params.time)}) ${errorsMsg("with")} ${warningsMsg("and")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(x) " + msg, nofErrors == 0 ? Color.WARNING : Color.ERROR);
                                 break;
                             case Success.VerificationFailed:
-                                msg = `Verifying ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${nofErrors} error${nofErrors == 1 ? "" : "s"} ${warningsMsg("and")}`;
+                                msg = `Verifying ${params.filename} failed (${Helper.formatSeconds(params.time)}) ${errorsMsg("with")} ${warningsMsg("and")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(x) " + msg, nofErrors == 0 ? Color.WARNING : Color.ERROR);
                                 break;
@@ -870,7 +882,7 @@ export class VerificationController {
     }
 
     private printAllVerificationResults(): void {
-        Log.log("Verified " + this.autoVerificationResults.length + " files in " + Helper.formatSeconds((Date.now() - this.autoVerificationStartTime) / 1000), LogLevel.Info);
+        Log.log("Verified " + this.autoVerificationResults.length + " files (" + Helper.formatSeconds((Date.now() - this.autoVerificationStartTime) / 1000) + ")", LogLevel.Info);
         this.autoVerificationResults.forEach(res => {
             Log.log("Verification Result: " + res, LogLevel.Info);
         });

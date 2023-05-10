@@ -48,8 +48,8 @@ export class Helper {
     }
 
     public static formatSeconds(time: number): string {
-        if (!time) return "0 seconds";
-        return time.toFixed(1) + " seconds";
+        if (!time) return "0s";
+        return time.toFixed(1) + "s";
     }
 
     public static formatProgress(progress: number): string {

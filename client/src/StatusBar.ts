@@ -22,7 +22,16 @@ export class StatusBar {
 
     public update(text: string, color: string, tooltip: string = null): StatusBar {
         this.elem.text = text;
-        this.elem.color = color;
+        if (color == Color.ERROR) {
+            this.elem.color = "white";
+            this.elem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+        } else if (color == Color.WARNING) {
+            this.elem.color = "white";
+            this.elem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+        } else {
+            this.elem.color = color;
+            this.elem.backgroundColor = undefined;
+        }
         this.elem.tooltip = tooltip;
         return this;
     }
