@@ -4,7 +4,7 @@
 
 ### Changelog
 
-#### v.4.2.0 (Viper v.23.07-release)
+#### v.4.2.1 (Viper v.23.07-release)
 * Includes ViperTools for ARM Macs
 
 #### v.4.1.1 (Viper v.23.01-release)
