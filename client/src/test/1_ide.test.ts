@@ -15,7 +15,7 @@ suite('ViperIDE Tests', () => {
     suiteTeardown(async function() {
         await TestHelper.teardown();
     });
-
+    
     test("Test abort", async function() {
         this.timeout(30000);
 
@@ -36,82 +36,82 @@ suite('ViperIDE Tests', () => {
         assert (!TestHelper.hasObservedInternalError());
     });
 
-    // test("Test closing files", async function() {
-    //     this.timeout(30000);
-    //     TestHelper.resetErrors();
+    test("Test closing files", async function() {
+        this.timeout(30000);
+        TestHelper.resetErrors();
 
-    //     await TestHelper.openAndVerify(LONG);
-    //     await TestHelper.wait(500);
-    //     await TestHelper.closeFile();
-    //     await TestHelper.openFile(SIMPLE);
-    //     await TestHelper.wait(200);
-    //     await TestHelper.stopVerification();
-    //     await TestHelper.closeFile();
-    //     await TestHelper.openFile(LONG);
-    //     await TestHelper.verify(); // otherwise, `LONG` might not get verified because it has been verified in the past
-    //     await TestHelper.waitForVerification(LONG);
-    //     assert (!TestHelper.hasObservedInternalError());
-    // });
+        await TestHelper.openAndVerify(LONG);
+        await TestHelper.wait(500);
+        await TestHelper.closeFile();
+        await TestHelper.openFile(SIMPLE);
+        await TestHelper.wait(200);
+        await TestHelper.stopVerification();
+        await TestHelper.closeFile();
+        await TestHelper.openFile(LONG);
+        await TestHelper.verify(); // otherwise, `LONG` might not get verified because it has been verified in the past
+        await TestHelper.waitForVerification(LONG);
+        assert (!TestHelper.hasObservedInternalError());
+    });
 
-    // test("Test not verifying verified files", async function() {
-    //     this.timeout(40000);
+    test("Test not verifying verified files", async function() {
+        this.timeout(40000);
 
-    //     await TestHelper.openAndVerify(SIMPLE);
-    //     // simulate context switch by opening non-viper file
-    //     await TestHelper.openFile(EMPTY_TXT);
-    //     const verificationStart = TestHelper.waitForVerificationStart(SIMPLE);
-    //     await TestHelper.openFile(SIMPLE);
-    //     // wait 1000ms for verification start - it should not start
-    //     const timeoutHit = TestHelper.waitForTimeout(1000, verificationStart);
-    //     assert(timeoutHit, "unwanted reverification of verified file after switching context");
-    // });
+        await TestHelper.openAndVerify(SIMPLE);
+        // simulate context switch by opening non-viper file
+        await TestHelper.openFile(EMPTY_TXT);
+        const verificationStart = TestHelper.waitForVerificationStart(SIMPLE);
+        await TestHelper.openFile(SIMPLE);
+        // wait 1000ms for verification start - it should not start
+        const timeoutHit = TestHelper.waitForTimeout(1000, verificationStart);
+        assert(timeoutHit, "unwanted reverification of verified file after switching context");
+    });
+    
+    test("Test zooming", async function() {
+        this.timeout(20000);
 
-    // test("Test zooming", async function() {
-    //     this.timeout(20000);
+        const activated = TestHelper.waitForExtensionActivation();
+        await TestHelper.executeCommand("workbench.action.zoomIn")
+        await TestHelper.wait(5000);
+        await TestHelper.executeCommand("workbench.action.zoomOut");
+        const timeoutHit = await TestHelper.waitForTimeout(9000, activated);
+        assert(timeoutHit, "Viper IDE was activated, but it should not be");
+    });
+        
+    test("Test autoVerify", async function() {
+        this.timeout(3000);
 
-    //     const activated = TestHelper.waitForExtensionActivation();
-    //     await TestHelper.executeCommand("workbench.action.zoomIn")
-    //     await TestHelper.wait(5000);
-    //     await TestHelper.executeCommand("workbench.action.zoomOut");
-    //     const timeoutHit = await TestHelper.waitForTimeout(9000, activated);
-    //     assert(timeoutHit, "Viper IDE was activated, but it should not be");
-    // });
+        // disable auto verify:
+        await TestHelper.executeCommand("viper.toggleAutoVerify");
+        const started = TestHelper.waitForVerificationStart(LONG);
+        await TestHelper.openFile(LONG);
+        await TestHelper.openFile(SIMPLE);
+        const timeoutHit = await TestHelper.waitForTimeout(1000, started);
+        assert(timeoutHit, "verification was started even if autoVerify is disabled");
+        // turn auto verify back on:
+        await TestHelper.executeCommand("viper.toggleAutoVerify");
+    });
 
-    // test("Test autoVerify", async function() {
-    //     this.timeout(3000);
+    test("Test Helper Methods", async function() {
+        this.timeout(2000);
 
-    //     // disable auto verify:
-    //     await TestHelper.executeCommand("viper.toggleAutoVerify");
-    //     const started = TestHelper.waitForVerificationStart(LONG);
-    //     await TestHelper.openFile(LONG);
-    //     await TestHelper.openFile(SIMPLE);
-    //     const timeoutHit = await TestHelper.waitForTimeout(1000, started);
-    //     assert(timeoutHit, "verification was started even if autoVerify is disabled");
-    //     // turn auto verify back on:
-    //     await TestHelper.executeCommand("viper.toggleAutoVerify");
-    // });
+        await TestHelper.openFile(SIMPLE);
+        checkAssert(path.basename(Common.uriToString(Helper.getActiveFileUri())), SIMPLE, "active file");
 
-    // test("Test Helper Methods", async function() {
-    //     this.timeout(2000);
+        checkAssert(Helper.formatProgress(12.9), "13%", "formatProgress");
+        checkAssert(Helper.formatSeconds(12.99), "13.0 seconds", "formatSeconds");
+        checkAssert(Helper.isViperSourceFile("/folder/file.vpr"), true, "isViperSourceFile unix path");
+        checkAssert(Helper.isViperSourceFile("..\\.\\folder\\file.sil"), true, "isViperSourceFile relavive windows path");
+        checkAssert(!Helper.isViperSourceFile("C:\\absolute\\path\\file.ts"), true, "isViperSourceFile absolute windows path");
+    });
+        
+    test("Test opening logFile", async function() {
+        this.timeout(2000);
 
-    //     await TestHelper.openFile(SIMPLE);
-    //     checkAssert(path.basename(Common.uriToString(Helper.getActiveFileUri())), SIMPLE, "active file");
-
-    //     checkAssert(Helper.formatProgress(12.9), "13%", "formatProgress");
-    //     checkAssert(Helper.formatSeconds(12.99), "13.0 seconds", "formatSeconds");
-    //     checkAssert(Helper.isViperSourceFile("/folder/file.vpr"), true, "isViperSourceFile unix path");
-    //     checkAssert(Helper.isViperSourceFile("..\\.\\folder\\file.sil"), true, "isViperSourceFile relavive windows path");
-    //     checkAssert(!Helper.isViperSourceFile("C:\\absolute\\path\\file.ts"), true, "isViperSourceFile absolute windows path");
-    // });
-
-    // test("Test opening logFile", async function() {
-    //     this.timeout(2000);
-
-    //     const opened = TestHelper.waitForLogFile();
-    //     await TestHelper.executeCommand('viper.openLogFile');
-    //     await opened;
-    //     await TestHelper.closeFile();
-    // });
+        const opened = TestHelper.waitForLogFile();
+        await TestHelper.executeCommand('viper.openLogFile');
+        await opened;
+        await TestHelper.closeFile();
+    });
 });
 
 function checkAssert<T>(seen: T, expected: T, message: string): void {
