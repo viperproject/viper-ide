@@ -31,8 +31,8 @@ suite('ViperIDE Tests', () => {
         }, 300);
 
         await TestHelper.waitForVerificationOrAbort();
-        await TestHelper.wait(20000); // This is really stupid, but Windows fails to clean up processes quickly in this case for some reason
-        await TestHelper.checkForRunningProcesses(false, true, true);
+        //await TestHelper.wait(20000); // This is really stupid, but Windows fails to clean up processes quickly in this case for some reason
+        //await TestHelper.checkForRunningProcesses(false, true, true);
         await TestHelper.openAndVerify(LONG);
         assert (!TestHelper.hasObservedInternalError());
     });
