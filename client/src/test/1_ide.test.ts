@@ -31,6 +31,7 @@ suite('ViperIDE Tests', () => {
         }, 300);
 
         await TestHelper.waitForVerificationOrAbort();
+        await TestHelper.wait(500);
         await TestHelper.checkForRunningProcesses(false, true, true);
         await TestHelper.openAndVerify(LONG);
         assert (!TestHelper.hasObservedInternalError());
