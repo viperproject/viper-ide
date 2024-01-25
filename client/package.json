@@ -1,7 +1,7 @@
 {
 	"name": "viper",
 	"displayName": "Viper",
-	"version": "4.1.1",
+	"version": "4.2.2",
 	"publisher": "viper-admin",
 	"description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
 	"license": "SEE LICENSE IN LICENSE.txt",
@@ -44,7 +44,7 @@
 		"@typescript-eslint/eslint-plugin": "^5.54.0",
 		"@typescript-eslint/parser": "^5.54.0",
 		"@viperproject/locate-java-home": "^1.1.11",
-		"@vscode/test-electron": "^2.3.0",
+		"@vscode/test-electron": "^2.3.8",
 		"@vscode/vsce": "^2.18.0",
 		"eslint": "^8.35.0",
 		"eslint-webpack-plugin": "^4.0.0",
@@ -384,12 +384,14 @@
 						"stableViperToolsProvider": {
 							"windows": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsWin.zip",
 							"linux": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsLinux.zip",
-							"mac": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMac.zip"
+							"mac": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMac.zip",
+							"mac_arm": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMacARM.zip"
 						},
 						"nightlyViperToolsProvider": {
 							"windows": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsWin.zip&include-prereleases",
 							"linux": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsLinux.zip&include-prereleases",
-							"mac": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMac.zip&include-prereleases"
+							"mac": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMac.zip&include-prereleases",
+							"mac_arm": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMacARM.zip&include-prereleases"
 						}
 					},
 					"description": "General user preferences. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Preferences"
