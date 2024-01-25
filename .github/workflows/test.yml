@@ -84,7 +84,7 @@ jobs:
           mkdir ViperToolsMacARM
 
       - name: Clone ViperTools template
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: viperproject/viper-ide-deps
           ref: ${{ env.VIPER_IDE_DEPS_REF }}
@@ -187,7 +187,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Viper-IDE
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Node.js
         uses: actions/setup-node@v3
@@ -370,7 +370,7 @@ jobs:
     steps:
       # we have to checkout the repo to read client/package.json later on:
       - name: Checkout Viper-IDE
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download packaged Viper IDE
         uses: actions/download-artifact@v3
