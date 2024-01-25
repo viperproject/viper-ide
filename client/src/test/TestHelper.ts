@@ -27,6 +27,8 @@ export const SIMPLE = 'simple.sil';
 export const EMPTY = 'empty.sil';
 export const EMPTY_TXT = 'empty.txt';
 export const LONG = 'longDuration.vpr';
+export const WARNINGS = 'warnings.vpr';
+
 
 export default class TestHelper {
     private static callbacks: UnitTestCallbackImpl = null;
