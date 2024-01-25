@@ -44,7 +44,7 @@
 		"@typescript-eslint/eslint-plugin": "^5.54.0",
 		"@typescript-eslint/parser": "^5.54.0",
 		"@viperproject/locate-java-home": "^1.1.11",
-		"@vscode/test-electron": "^2.3.0",
+		"@vscode/test-electron": "^2.3.8",
 		"@vscode/vsce": "^2.18.0",
 		"eslint": "^8.35.0",
 		"eslint-webpack-plugin": "^4.0.0",
