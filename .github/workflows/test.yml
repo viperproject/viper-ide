@@ -192,7 +192,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '16' # we use latest node instead of LTS 14 to have the same lockfile version as locally used
+          node-version: '20' # we use latest node instead of LTS 14 to have the same lockfile version as locally used
 
       - name: Setup Java JDK
         uses: actions/setup-java@v4
