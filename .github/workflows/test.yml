@@ -202,7 +202,7 @@ jobs:
       - run: java --version
 
       - name: Cache npm
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: client/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
