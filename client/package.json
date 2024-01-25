@@ -17,7 +17,7 @@
 	},
 	"main": "./dist/extension",
 	"engines": {
-		"vscode": "^1.63.0"
+		"vscode": "^1.82.0"
 	},
 	"icon": "images/icon_bright_orange_avatar.png",
 	"categories": [
@@ -40,7 +40,7 @@
 		"@types/node": "^20.11.6",
 		"@types/semver": "^7.5.6",
 		"@types/tmp": "^0.2.6",
-		"@types/vscode": "^1.63.2",
+		"@types/vscode": "^1.82.0",
 		"@typescript-eslint/eslint-plugin": "^6.19.1",
 		"@typescript-eslint/parser": "^6.19.1",
 		"@viperproject/locate-java-home": "^1.1.15",
