@@ -5,3 +5,10 @@ updates:
     directory: "/client"
     schedule:
       interval: monthly
+      day: monday
+    ignore:
+      - dependency-name: "@types/vscode"
+    groups:
+      all:
+        patterns:
+          - "*"
