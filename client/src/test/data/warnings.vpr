@@ -1,0 +1,15 @@
+// Any copyright is dedicated to the Public Domain.
+// http://creativecommons.org/publicdomain/zero/1.0/
+
+adt List[T] {
+    Nil()
+    Cons(value: T, tail: List[T])
+}
+
+method test()
+{
+    // causes a parser warning
+    var rat: Rational
+    // causes a type-checker warning:
+    assert Nil() == Nil()
+}
