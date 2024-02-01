@@ -408,7 +408,7 @@ jobs:
       - name: Create nightly release
         if: ${{ github.event.inputs.type != 'stable' && github.event.inputs.type != 'rc' }}
         id: create_nightly_release
-        uses: actions/create-release@v1
+        uses: comnoco/create-release-action@v2.0.5
         env:
           # This token is provided by Actions, you do not need to create your own token
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -431,7 +431,7 @@ jobs:
       - name: Create stable draft-release
         if: ${{ github.event.inputs.type == 'stable' || github.event.inputs.type == 'rc' }}
         id: create_stable_release
-        uses: actions/create-release@v1
+        uses: comnoco/create-release-action@v2.0.5
         env:
           # This token is provided by Actions, you do not need to create your own token
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -452,7 +452,7 @@ jobs:
         run: echo "UPLOAD_URL=${{ steps.create_stable_release.outputs.upload_url }}" >> $GITHUB_ENV
 
       - name: Upload packaged Viper IDE
-        uses: actions/upload-release-asset@v1.0.2
+        uses: tanyagray/action-upload-release-asset@v1.1.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -462,7 +462,7 @@ jobs:
           asset_content_type: application/octet-stream
 
       - name: Upload ViperTools for Windows
-        uses: actions/upload-release-asset@v1.0.2
+        uses: tanyagray/action-upload-release-asset@v1.1.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -472,7 +472,7 @@ jobs:
           asset_content_type: application/zip
 
       - name: Upload ViperTools for Ubuntu
-        uses: actions/upload-release-asset@v1.0.2
+        uses: tanyagray/action-upload-release-asset@v1.1.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -482,7 +482,7 @@ jobs:
           asset_content_type: application/zip
 
       - name: Upload ViperTools for macOS Intel
-        uses: actions/upload-release-asset@v1.0.2
+        uses: tanyagray/action-upload-release-asset@v1.1.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -492,7 +492,7 @@ jobs:
           asset_content_type: application/zip
 
       - name: Upload ViperTools for macOS ARM
-        uses: actions/upload-release-asset@v1.0.2
+        uses: tanyagray/action-upload-release-asset@v1.1.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
