@@ -32,7 +32,7 @@ jobs:
           echo "TEST_VSCODE_VERSION=$TEST_VSCODE_VERSION" >> $GITHUB_ENV
           echo "LATEST_VSCODE_VERSION=$LATEST_VSCODE_VERSION" >> $GITHUB_ENV
       - name: Open a pull request
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v6
         if: env.TEST_VSCODE_VERSION != env.LATEST_VSCODE_VERSION
         with:
           # Use viper-admin's token to workaround a restriction of GitHub.
