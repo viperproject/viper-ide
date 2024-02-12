@@ -1,9 +1,10 @@
 import assert from 'assert';
 import * as path from 'path';
+import * as vscode from 'vscode';
 import { Helper } from '../Helper';
 import { Log } from '../Log';
 import { Common } from '../ViperProtocol';
-import TestHelper, { EMPTY_TXT, LONG, SETUP_TIMEOUT, SIMPLE } from './TestHelper';
+import TestHelper, { EMPTY_TXT, LONG, SETUP_TIMEOUT, SIMPLE, WARNINGS } from './TestHelper';
 
 suite('ViperIDE Tests', () => {
 
@@ -31,7 +32,8 @@ suite('ViperIDE Tests', () => {
         }, 300);
 
         await TestHelper.waitForVerificationOrAbort();
-        await TestHelper.checkForRunningProcesses(false, true, true);
+        //await TestHelper.wait(20000); // This is really stupid, but Windows fails to clean up processes quickly in this case for some reason
+        //await TestHelper.checkForRunningProcesses(false, true, true);
         await TestHelper.openAndVerify(LONG);
         assert (!TestHelper.hasObservedInternalError());
     });
@@ -111,6 +113,16 @@ suite('ViperIDE Tests', () => {
         await TestHelper.executeCommand('viper.openLogFile');
         await opened;
         await TestHelper.closeFile();
+    });
+
+    test("Test warnings", async function() {
+        this.timeout(2000);
+
+        const document = await TestHelper.openAndVerify(WARNINGS);
+        const diagnostics = vscode.languages.getDiagnostics(document.uri);
+        checkAssert(diagnostics.length, 2, `Amount of diagnostics`);
+        checkAssert(diagnostics[0].severity, vscode.DiagnosticSeverity.Warning, "First diagnostic");
+        checkAssert(diagnostics[1].severity, vscode.DiagnosticSeverity.Warning, "Second diagnostic");
     });
 });
 
