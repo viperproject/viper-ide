@@ -97,7 +97,7 @@ suite('ViperIDE Tests', () => {
         this.timeout(2000);
 
         await TestHelper.openFile(SIMPLE);
-        checkAssert(path.basename(Common.uriToString(Helper.getActiveFileUri())), SIMPLE, "active file");
+        checkAssert(path.basename(Common.uriToString(Helper.getActiveVerificationUri())), SIMPLE, "active file");
 
         checkAssert(Helper.formatProgress(12.9), "13%", "formatProgress");
         checkAssert(Helper.formatSeconds(12.99), "13.0s", "formatSeconds");

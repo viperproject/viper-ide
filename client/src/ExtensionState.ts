@@ -3,7 +3,7 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at http://mozilla.org/MPL/2.0/.
   *
-  * Copyright (c) 2011-2019 ETH Zurich.
+  * Copyright (c) 2011-2023 ETH Zurich.
   */
 
 import * as child_process from "child_process";
@@ -21,14 +21,15 @@ import { ViperFileState } from './ViperFileState';
 import { URI } from 'vscode-uri';
 import { Helper } from './Helper';
 import { Color, StatusBar } from './StatusBar';
-import { VerificationController, Task } from './VerificationController';
+import { VerificationController, Task, TaskType } from './VerificationController';
 import { ViperApi } from './ViperApi';
 import { Settings } from './Settings';
 import { combineMessages, Either, Messages, newEitherError, newRight, transformRight } from "./Either";
+import { ProjectManager, ProjectRoot } from './ProjectManager';
 
 export class State {
     public static get MIN_SERVER_VERSION(): string {
-        return "2.0.0"; // has to be a valid semver
+        return "3.0.0"; // has to be a valid semver
     }
 
     public static client: LanguageClient;
@@ -54,9 +55,8 @@ export class State {
     public static statusBarItem: StatusBar;
     public static statusBarProgress: StatusBar;
     public static backendStatusBar: StatusBar;
+    public static statusBarPin: StatusBar;
     public static abortButton: StatusBar;
-    
-    public static diagnosticCollection: vscode.DiagnosticCollection;
 
     public static viperApi: ViperApi;
 
@@ -85,17 +85,20 @@ export class State {
         this.statusBarProgress = new StatusBar(9, context);
         this.hideProgress();
 
-        this.backendStatusBar = new StatusBar(12, context);
+        this.statusBarPin = new StatusBar(12, context);
+
+        this.backendStatusBar = new StatusBar(13, context);
         this.backendStatusBar.setCommand("viper.selectBackend");
         
         this.showViperStatusBarItems();
-        
-        this.diagnosticCollection = vscode.languages.createDiagnosticCollection();
     }
 
     public static showViperStatusBarItems():  void {
         if (this.statusBarItem) {
             this.statusBarItem.show();
+        }
+        if (this.statusBarPin) {
+            this.statusBarPin.show();
         }
         // we do not interfere with statusBarProgress and abortButton here, because they are only visible while verifying a file
         if (this.backendStatusBar) {
@@ -106,6 +109,9 @@ export class State {
     public static hideViperStatusBarItems(): void {
         if (this.statusBarItem) {
             this.statusBarItem.hide();
+        }
+        if (this.statusBarPin) {
+            this.statusBarPin.hide();
         }
         // we do not interfere with statusBarProgress and abortButton here, because they are only visible while verifying a file
         if (this.backendStatusBar) {
@@ -118,7 +124,55 @@ export class State {
         this.statusBarProgress.hide().updateProgressBar(0);
     }
 
-    public static setLastActiveFile(uri: URI | string | vscode.Uri, editor: vscode.TextEditor): ViperFileState {
+    public static handleOpenedFile(): void {
+        const active = Helper.getActiveFileUri();
+        if (active == null) {
+            Log.log("No active text editor found", LogLevel.Info);
+            return;
+        }
+        const project = ProjectManager.getProject(active[0]) ?? null;
+        State.updateActive(project);
+        if (Helper.isViperSourceFile(active[0])) {
+            const fileState = State.setLastActiveFile(active[0], active[1]);
+            // show status bar items (in case they were hidden)
+            State.showViperStatusBarItems();
+            // Get the file state for the root of the project if we are in a project
+            const activeState = project ? State.getFileState(project) : fileState;
+            if (activeState) {
+                if (!activeState.verified) {
+                    Log.log("The active text editor changed, consider reverification of " + activeState.name(), LogLevel.Debug);
+                    State.addToWorklist(new Task({ type: TaskType.Verify, uri: activeState.uri, manuallyTriggered: false }));
+                } else {
+                    Log.log("Don't reverify, the file is already verified", LogLevel.Debug);
+                }
+                Log.log("Active viper file changed to " + activeState.name(), LogLevel.Info);
+            }
+        } else {
+            // hide status bar items (in case they are shown):
+            State.hideViperStatusBarItems();
+        }
+    }
+
+    public static updateActive(projectUri: ProjectRoot | null): void {
+        if (projectUri) {
+            const projectFile = path.basename(projectUri.path);
+            State.statusBarPin.update("$(pinned)", Color.READY, `Unpin from project ${projectFile}`);
+            State.statusBarPin.setCommand("viper.unpinFile");
+        } else {
+            State.statusBarPin.update("", Color.READY);
+        }
+    }
+    public static unpinFile(uri: vscode.Uri): vscode.Uri | null {
+        return ProjectManager.removeFromProject(uri);
+    }
+    public static pinFile(projectUri: ProjectRoot, fileUri: vscode.Uri): void {
+        ProjectManager.addToProject(projectUri, fileUri);
+    }
+    public static unpinAllInProject(projectUri: ProjectRoot): void {
+        ProjectManager.resetProject(projectUri);
+    }
+
+    private static setLastActiveFile(uri: URI | string | vscode.Uri, editor: vscode.TextEditor): ViperFileState {
         this.lastActiveFileUri = uri.toString();
         const lastActiveFile = this.getFileState(uri);
         if (lastActiveFile) {
@@ -203,7 +257,7 @@ export class State {
             documentSelector: [{ scheme: 'file', language: 'viper' }],
             synchronize: {
                 // Synchronize the setting section 'viperSettings' to the server
-                configurationSection: 'viperSettings',
+                configurationSection: 'viper',
                 // Notify the server about file changes to .sil or .vpr files contain in the workspace
                 fileEvents: fileSystemWatcher
             },
@@ -211,7 +265,7 @@ export class State {
             traceOutputChannel: State.unitTest ? traceOutputForCi : undefined
         }
 
-        // the ID `viperserver` has to match the first part of `viperserver.trace.server` controlling the amount of tracing
+        // the ID `viperserver` has to match the first part of `viperServer.trace.server` controlling the amount of tracing
         State.client = new LanguageClient('viperserver', 'Viper IDE - ViperServer Communication', serverOptions, clientOptions);
 
         // Push the disposable to the context's subscriptions so that the

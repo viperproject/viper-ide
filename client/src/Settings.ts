@@ -14,7 +14,7 @@ import { Location } from 'vs-verification-toolbox';
 import * as locate_java_home from '@viperproject/locate-java-home';
 import { IJavaHomeInfo } from '@viperproject/locate-java-home/js/es5/lib/interfaces';
 import { Log } from './Log';
-import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, Success, Stage, Backend, LogLevel, Common, ViperServerSettings, VersionedSettings, JavaSettings, AdvancedFeatureSettings, UserPreferences, PathSettings } from './ViperProtocol';
+import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, Success, Stage, Backend, LogLevel, Common, ViperServerSettings, JavaSettings, AdvancedFeatureSettings, UserPreferences, PathSettings } from './ViperProtocol';
 import { combineMessages, Either, flatMap, flatMapAsync, flatten, fold, isLeft, isRight, Level, Messages, newEitherError, newEitherWarning, newLeft, newRight, toRight, transformRight } from './Either';
 import { readdir } from 'fs/promises';
 import { Helper } from './Helper';
@@ -25,7 +25,7 @@ import { Color } from './StatusBar';
 export class Settings {
 
     private static ownPackageJson = vscode.extensions.getExtension("viper-admin.viper").packageJSON;
-    private static defaultConfiguration = Settings.ownPackageJson.contributes.configuration.properties;
+    private static defaultConfiguration = this.initDefaultSettings(Settings.ownPackageJson.contributes.configuration.properties);
     private static lastVersionWithSettingsChange: Versions = {
         viperServerSettingsVersion: "1.0.4",
         verificationBackendsVersion: "1.0.2",
@@ -43,10 +43,28 @@ export class Settings {
     public static isMac = /^darwin/.test(process.platform);
     public static isArm = process.arch === 'arm64';
 
-   
+    private static initDefaultSettings(properties: any): object {
+        // Need to turn an object such as `{ "a.b": { "foo": 10 }, "a": { "c": 10 }, ... }`
+        // Into an object such as `{ "a": { "b": { "foo": 10 }, "c": 10 }, ... }`
+        const defaultSettings = {};
+        for (const key in properties) {
+            const parts = key.split(".");
+            let obj = defaultSettings;
+            for (let i = 0; i < parts.length - 1; i++) {
+                const part = parts[i];
+                if (!obj[part]) {
+                    obj[part] = {};
+                }
+                obj = obj[part];
+            }
+            obj[parts[parts.length - 1]] = properties[key].default;
+        }
+        return defaultSettings;
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private static getConfiguration(setting: string): any {
-        return vscode.workspace.getConfiguration("viperSettings").get(setting);
+        return vscode.workspace.getConfiguration("viper").get(setting);
     }
 
     public static async checkAndGetSettings(location: Location): Promise<Either<Messages, unknown>> {
@@ -65,7 +83,7 @@ export class Settings {
     }
 
     private static async checkAndGetViperServerSettings(location: Location): Promise<Either<Messages, ViperServerSettings>> {
-        const settingName = "viperServerSettings";
+        const settingName = "viperServer";
         const settings = Settings.getConfiguration(settingName);
         const checks: Promise<Either<Messages, unknown>>[] = [
             Settings.checkVersion<ViperServerSettings>(settings, settingName),
@@ -79,26 +97,60 @@ export class Settings {
             .then(res => isRight(res) ? newRight(settings) : res);
     }
 
+    private static builtinBackendToBackend(builtinBackend: any, type: string): Backend {
+        const preVerificationStages: Stage[] = builtinBackend.preVerificationStages;
+        const verificationStage: Stage = {
+            name: "verify",
+            isVerification: true,
+            mainMethod: builtinBackend.verificationStage.mainMethod,
+            customArguments: builtinBackend.verificationStage.customArguments,
+            onParsingError: builtinBackend.verificationStage.onParsingError,
+            onTypeCheckingError: builtinBackend.verificationStage.onTypeCheckingError,
+            onVerificationError: builtinBackend.verificationStage.onVerificationError,
+            onSuccess: builtinBackend.verificationStage.onSuccess,
+        };
+        const postVerificationStages: Stage[] = builtinBackend.postVerificationStages;
+        const backend: Backend = {
+            name: builtinBackend.name,
+            type,
+            paths: builtinBackend.paths,
+            engine: builtinBackend.engine,
+            timeout: builtinBackend.timeout,
+            stoppingTimeout: builtinBackend.stoppingTimeout,
+            stages: preVerificationStages.concat(verificationStage).concat(postVerificationStages),
+        };
+        return backend;
+    }
     private static async checkAndGetVerificationBackends(location: Location): Promise<Either<Messages, Backend[]>> {
         const settingName = "verificationBackends";
-        const settings = Settings.getConfiguration(settingName);
-        const defaultBackends = Settings.lastVersionWithSettingsChange.defaultSettings[`viperSettings.${settingName}`].default as Backend[];
-        let backends: Backend[] = [];
-        if (!settings.verificationBackends || settings.verificationBackends.length === 0) {
-            backends = defaultBackends;
-        } else {
-            defaultBackends.forEach(defaultBackend => {
-                const customBackend = settings.verificationBackends.filter(backend => backend.name == defaultBackend.name)[0];
-                if (customBackend) {
-                    // merge the backend with the default backend
-                    const mergedBackend = Settings.mergeBackend(customBackend, defaultBackend);
-                    backends.push(mergedBackend);
-                } else {
-                    // add the default backend if there is none with the same name
-                    backends.push(defaultBackend);
-                }
-            });
+        let settings = Settings.getConfiguration(settingName);
+        const defaultSettings = Settings.lastVersionWithSettingsChange.defaultSettings.viper[settingName];
+        const backends: Backend[] = [];
+        if (!settings || !settings.symbolicExecution || !settings.verificationConditionGeneration) {
+            settings = defaultSettings;
         }
+        // Add the built-in backends
+        const se = this.builtinBackendToBackend(settings.symbolicExecution, "silicon");
+        backends.push(se);
+        const vcg = this.builtinBackendToBackend(settings.verificationConditionGeneration, "carbon");
+        backends.push(vcg);
+
+        // Add the user-defined other backends
+        const defaultSe = this.builtinBackendToBackend(defaultSettings.symbolicExecution, "silicon");
+        const defaultVcg = this.builtinBackendToBackend(defaultSettings.verificationConditionGeneration, "carbon");
+        const others: Backend[] = settings.others
+        others.forEach(other => {
+            if (other.name === defaultSe.name) {
+                // merge the backend with the default backend
+                backends.push(Settings.mergeBackend(other, defaultSe));
+            } else if (other.name === defaultVcg.name) {
+                // merge the backend with the default backend
+                backends.push(Settings.mergeBackend(other, defaultVcg));
+            } else {
+                // add the default backend if there is none with the same name
+                backends.push(other);
+            }
+        });
 
         const checks: Promise<Either<Messages, unknown>>[] = [
             // check backends
@@ -106,7 +158,7 @@ export class Settings {
         ];
         return Promise.all(checks)
             .then(combineMessages)
-            .then(res => isRight(res) ? newRight(settings) : res);
+            .then(res => isRight(res) ? newRight(backends) : res);
     }
 
     private static async checkAndGetPaths(location: Location): Promise<Either<Messages, PathSettings>> {
@@ -143,7 +195,6 @@ export class Settings {
         const settingName = "javaSettings";
         const settings = Settings.getConfiguration(settingName);
         const checks: Promise<Either<Messages, unknown>>[] = [
-            Settings.checkVersion<ViperServerSettings>(settings, settingName),
             Settings.checkJavaPath(location),
             Settings.checkJavaCustomArgs(settings),
         ];
@@ -177,15 +228,8 @@ export class Settings {
         }
     }
 
-    private static async checkVersion<T extends VersionedSettings>(settings: T, settingName: string): Promise<Either<Messages, T>> {
-        const settingVersionName = `${settingName}Version`;
-        if (!(settingVersionName in Settings.lastVersionWithSettingsChange)) {
-            return newEitherError(`unable to retrieve version for ${settingName}`);
-        }
-        const lastVersionWithChange = Settings.lastVersionWithSettingsChange[settingVersionName];
-        if (Version.createFromVersion(lastVersionWithChange).compare(Version.createFromHash(settings.v)) > 0) {
-            return newEitherError(`version hash in setting ${settingName} is out-dated. Please update your settings.`);
-        }
+    private static async checkVersion<T>(settings: T, settingName: string): Promise<Either<Messages, T>> {
+        // TODO: remove this
         return newRight(settings);
     }
 
@@ -326,7 +370,7 @@ export class Settings {
 
     /* returns an escaped string */
     private static async checkViperServerJars(location: Location): Promise<Either<Messages, string>> {
-        const settingName = "viperServerSettings";
+        const settingName = "viperServer";
         const isBuildChannelLocal = (Settings.getBuildChannel() === BuildChannel.Local);
         let resolvedPaths: Either<Messages, string[]>;
         if (isBuildChannelLocal) {
@@ -664,7 +708,7 @@ export class Settings {
             const backendName = "Backend " + backend.name + ":";
             // check for duplicate backends
             if (backendNames.has(backend.name)) {
-                return newEitherError(`Dublicated backend name: ${backend.name}`);
+                return newEitherError(`Duplicated backend name: ${backend.name}`);
             }
             backendNames.add(backend.name);
 
@@ -772,7 +816,7 @@ export class Settings {
         // while checking the stages, we make sure that there is exactly one stage with `isVerification` set to true:
         const verificationStage = backend.stages.filter(stage => stage.isVerification)[0];
         const z3Path = await Settings.getZ3Path(location);
-        const disableCaching = Settings.getConfiguration("viperServerSettings").disableCaching === true;
+        const disableCaching = Settings.getConfiguration("viperServer").disableCaching === true;
         const partiallyReplacedString = verificationStage.customArguments
             // note that we use functions as 2nd argument since we do not want that
             // the special replacement patterns kick in
@@ -920,7 +964,7 @@ export class Settings {
                 Log.log(`no unique workspace folder was found, the operating system's temp ` + 
                     `folder will be used as ViperServer's current working directory. ` +
                     `This behavior can be changed by explicitly specifying a working directory in ` +
-                    `the settings as 'viperSettings.javaSettings.cwd'.`, LogLevel.Info);
+                    `the settings as 'viper.javaSettings.cwd'.`, LogLevel.Info);
                 return os.tmpdir();
             }
           return roots[0].uri.fsPath;
@@ -939,7 +983,7 @@ export class Settings {
     }
 
     public static getServerPolicy(): ServerPolicy {
-        const serverSettings = Settings.getConfiguration("viperServerSettings");
+        const serverSettings = Settings.getConfiguration("viperServer");
         if (serverSettings.viperServerPolicy === "attach") {
             return {create: false, address: serverSettings.viperServerAddress, port: serverSettings.viperServerPort};
         } else {
@@ -966,8 +1010,8 @@ export class Settings {
             }
         }
 
-        const configuredArgString = Settings.getConfiguration("viperServerSettings").customArguments;
-        const useBackendSpecificCache = Settings.getConfiguration("viperServerSettings").backendSpecificCache === true;
+        const configuredArgString = Settings.getConfiguration("viperServer").customArguments;
+        const useBackendSpecificCache = Settings.getConfiguration("viperServer").backendSpecificCache === true;
         return configuredArgString
             .replace("$backendSpecificCache$", useBackendSpecificCache ? "--backendSpecificCache" : "")
             .replace("$logLevel$", convertLogLevel(logLevel))

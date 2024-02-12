@@ -1,4 +1,4 @@
 {
-    "viperSettings.buildVersion": "Nightly",
-    "viperserver.trace.server": "verbose"
+    "buildVersion": "Nightly",
+    "viperServer.trace.server": "verbose"
 }

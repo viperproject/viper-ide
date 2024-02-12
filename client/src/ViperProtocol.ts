@@ -3,7 +3,7 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at http://mozilla.org/MPL/2.0/.
   *
-  * Copyright (c) 2011-2020 ETH Zurich.
+  * Copyright (c) 2011-2023 ETH Zurich.
   */
 
 import * as child_process from 'child_process';
@@ -60,10 +60,14 @@ export class Commands {
     static RemoveDiagnostics: RequestType<RemoveDiagnosticsRequest, RemoveDiagnosticsResponse, void> = new RequestType("RemoveDiagnostics");
     //The server requests the custom file endings specified in the configuration
     static GetViperFileEndings: RequestType0<GetViperFileEndingsResponse, void> = new RequestType0("GetViperFileEndings");
+    //The server requests that the given file (uri) be pinned to the given project
+    static SetupProject: RequestType<SetupProjectParams, void, void> = new RequestType("SetupProject");
     //The client requests the cache in the viperserver to be flushed, (either completely or for a file)
     static FlushCache: RequestType<FlushCacheParams, void, void> = new RequestType("FlushCache");
-    //The server requests the identifier at some location in the current file to answer the gotoDefinition request
+    //The server requests the identifier at some location in the current file to answer a `gotoDefinition` or `hover` request
     static GetIdentifier: RequestType<Position, GetIdentifierResponse, void> = new RequestType("GetIdentifier");
+    //The server requests text in the range in the current file to answer the `signatureHelp` request
+    static GetRange: RequestType<Range, GetRangeResponse, void> = new RequestType("GetRange");
 }
 
 //==============================================================================
@@ -91,6 +95,7 @@ export interface GetExecutionTraceParams {
 
 export interface VerifyParams {
     uri: string;
+    content: string;
     manuallyTriggered: boolean;
     workspace: string;
     backend: string;
@@ -112,13 +117,14 @@ export interface ExecutionTrace {
 export enum VerificationState {
     Stopped = 0,
     Starting = 1,
-    VerificationRunning = 2,
-    VerificationPrintingHelp = 3,
-    VerificationReporting = 4,
-    PostProcessing = 5,
-    Ready = 6,
-    Stopping = 7,
-    Stage = 8
+    ConstructingAst = 2,
+    VerificationRunning = 3,
+    VerificationPrintingHelp = 4,
+    VerificationReporting = 5,
+    PostProcessing = 6,
+    Ready = 7,
+    Stopping = 8,
+    Stage = 9
 }
 
 export enum LogLevel {
@@ -165,12 +171,7 @@ export interface StateChangeParams {
     verificationNeeded?: number;
     uri?: string;
     stage?: string;
-    error?: string;
-    diagnostics?: FileDiagnostics[]
-}
-export interface FileDiagnostics {
-    file: string;
-    diagnostics: vscode.Diagnostic[]
+    error?: string
 }
 
 export interface BackendReadyParams {
@@ -211,6 +212,11 @@ export interface RemoveDiagnosticsResponse {
 
 export interface GetViperFileEndingsResponse {
     fileEndings: string[]
+}
+
+export interface SetupProjectParams {
+    projectUri: string;
+    otherUris: string[];
 }
 
 export interface ShowHeapParams {
@@ -337,12 +343,16 @@ export interface UnhandledViperServerMessageTypeParams {
 }
 
 export interface FlushCacheParams {
-    uri: string, // nullable (null indicates that the cache for all files should be flushed)
+    uri?: string, // nullable (null indicates that the cache for all files should be flushed)
     backend: string // non-null
 }
 
 export interface GetIdentifierResponse {
-    identifier: string // nullable
+    identifier?: string // nullable
+}
+
+export interface GetRangeResponse {
+    range: string // non-null
 }
 
 //Communication between Language Server and Debugger:
@@ -365,7 +375,7 @@ export enum StatementType { EXECUTE, EVAL, CONSUME, PRODUCE, UNKONWN }
 
 export interface ViperSettings {
     //All viperServer related settings
-    viperServerSettings: ViperServerSettings;
+    viperServer: ViperServerSettings;
     //Description of backends
     verificationBackends: Backend[];
     //Used paths
@@ -379,9 +389,7 @@ export interface ViperSettings {
     buildVersion: "Stable" | "Nightly" | "Local";
 }
 
-export interface VersionedSettings { v: string; }
-
-export interface ViperServerSettings extends VersionedSettings {
+export interface ViperServerSettings {
     //Locator to the ViperServer jars
     serverJars: string | string[] | PlatformDependentPath | PlatformDependentListOfPaths;
     //custom commandLine arguments
@@ -400,7 +408,7 @@ export interface ViperServerSettings extends VersionedSettings {
     viperServerPort: number;
 }
 
-export interface Backend extends VersionedSettings {
+export interface Backend {
     //The unique name of this backend
     name: string;
     //The type of the backend: "silicon", "carbon", or "other"
@@ -436,7 +444,7 @@ export interface Stage {
     onSuccess: string;
 }
 
-export interface PathSettings extends VersionedSettings {
+export interface PathSettings {
     // Path to the folder containing all the ViperTools
     viperToolsPath: string | PlatformDependentPath
 
@@ -450,7 +458,7 @@ export interface PathSettings extends VersionedSettings {
     sfxPrefix: string | PlatformDependentPath
 }
 
-export interface UserPreferences extends VersionedSettings {
+export interface UserPreferences {
     // Verbosity of the output, all output is written to the logFile, regardless of the logLevel
     logLevel: number;
     
@@ -470,14 +478,14 @@ export interface UserPreferences extends VersionedSettings {
     nightlyViperToolsProvider: string | PlatformDependentURL;
 }
 
-export interface JavaSettings extends VersionedSettings {
+export interface JavaSettings {
     // optional path to a Java binary
     javaBinary: string
     //The arguments used for all java invocations
     customArguments: string;
 }
 
-export interface AdvancedFeatureSettings extends VersionedSettings {
+export interface AdvancedFeatureSettings {
     //Enable heap visualization, stepwise debugging and execution path visualization
     enabled: boolean;
     //Show the symbolic values in the heap visualization. If disabled, the symbolic values are only shown in the error states.
