@@ -69,7 +69,7 @@ suite('ViperIDE Stress Tests', () => {
         assert(!TestHelper.hasObservedInternalError());
     });
 
-    test("4. closing all files right after starting verificaiton", async function() {
+    test("4. closing all files right after starting verification", async function() {
         this.timeout(6000);
 
         TestHelper.resetErrors();
