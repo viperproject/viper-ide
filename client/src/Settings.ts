@@ -140,10 +140,10 @@ export class Settings {
         const defaultVcg = this.builtinBackendToBackend(defaultSettings.verificationConditionGeneration, "carbon");
         const others: Backend[] = settings.others
         others.forEach(other => {
-            if (other.name === defaultSe.name) {
+            if (other.type === defaultSe.type) {
                 // merge the backend with the default backend
                 backends.push(Settings.mergeBackend(other, defaultSe));
-            } else if (other.name === defaultVcg.name) {
+            } else if (other.type === defaultVcg.type) {
                 // merge the backend with the default backend
                 backends.push(Settings.mergeBackend(other, defaultVcg));
             } else {
@@ -539,7 +539,7 @@ export class Settings {
     }
 
     private static mergeBackend(custom: Backend, def: Backend): Backend {
-        if (!custom || !def || custom.name != def.name) return custom;
+        if (!custom || !def || custom.type != def.type) return custom;
         if (!custom.paths) custom.paths = def.paths;
         if (!custom.stages) custom.stages = def.stages
         else {
