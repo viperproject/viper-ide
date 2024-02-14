@@ -250,6 +250,7 @@ export default class TestHelper {
     public static waitForVerification(fileName: string, backend?: string): Promise<void> {
         return new Promise(resolve => {
             TestHelper.callbacks.verificationComplete = (b, f) => {
+                Log.error(`Verification Completed: file: ${f}, backend: ${b} (expected: ${fileName}, ${backend})`);
                 TestHelper.log(`Verification Completed: file: ${f}, backend: ${b}`);
                 if ((!backend || b.toLowerCase() === backend.toLowerCase()) && f === fileName) {
                     resolve();
