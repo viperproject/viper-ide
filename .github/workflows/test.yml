@@ -275,15 +275,12 @@ jobs:
           mkdir -p client/src/test/data/settings
           echo '{ 
             "viper.buildVersion": "Local",
-            "viper.paths": {
-              "v": "674a514867b1",
-              "viperToolsPath": {
-                "windows": "${{ env.EXTRACTED_TOOLS_PATH }}",
-                "linux": "${{ env.EXTRACTED_TOOLS_PATH }}",
-                "mac": "${{ env.EXTRACTED_TOOLS_PATH }}"
-              }
+            "viper.paths.viperToolsPath": {
+              "windows": "${{ env.EXTRACTED_TOOLS_PATH }}",
+              "linux": "${{ env.EXTRACTED_TOOLS_PATH }}",
+              "mac": "${{ env.EXTRACTED_TOOLS_PATH }}"
             },
-            "viper.trace.server": "verbose"
+            "viper.viperServer.trace.server": "verbose"
           }' > client/src/test/data/settings/ci_local.json
         shell: bash
 
