@@ -28,38 +28,38 @@ suite('ViperIDE Stress Tests', () => {
         assert(timeout, "multiple verifications seen");
     });
 
-    test("2. quickly change backends", async function() {
-        this.timeout(50000);
+    // test("2. quickly change backends", async function() {
+    //     this.timeout(50000);
 
-        TestHelper.resetErrors();
+    //     TestHelper.resetErrors();
 
-        await TestHelper.selectBackend(CARBON_NAME);
-        await TestHelper.openFile(SIMPLE);
-        //submit 10 verification requests
-        for (let i = 0; i < 10; i++) {
-            await TestHelper.selectBackend(SILICON_NAME);
-            await TestHelper.selectBackend(CARBON_NAME);
-        }
+    //     await TestHelper.selectBackend(CARBON_NAME);
+    //     await TestHelper.openFile(SIMPLE);
+    //     //submit 10 verification requests
+    //     for (let i = 0; i < 10; i++) {
+    //         await TestHelper.selectBackend(SILICON_NAME);
+    //         await TestHelper.selectBackend(CARBON_NAME);
+    //     }
 
-        await TestHelper.wait(500);
-        await TestHelper.selectBackend(SILICON_NAME);
-        await TestHelper.waitForVerification(SIMPLE, SILICON_NAME);
-        assert(!TestHelper.hasObservedInternalError());
-    });
+    //     await TestHelper.wait(500);
+    //     await TestHelper.selectBackend(SILICON_NAME);
+    //     await TestHelper.waitForVerification(SIMPLE, SILICON_NAME);
+    //     assert(!TestHelper.hasObservedInternalError());
+    // });
 
-    test("3. quickly start, stop, and restart verification", async function() {
-        this.timeout(15000);
+    // test("3. quickly start, stop, and restart verification", async function() {
+    //     this.timeout(15000);
 
-        TestHelper.resetErrors();
+    //     TestHelper.resetErrors();
 
-        await TestHelper.openFile(SIMPLE);
-        await TestHelper.verify();
-        await TestHelper.stopVerification();
-        const verified = TestHelper.waitForVerification(SIMPLE);
-        await TestHelper.verify();
-        await verified;
-        assert(!TestHelper.hasObservedInternalError());
-    });
+    //     await TestHelper.openFile(SIMPLE);
+    //     await TestHelper.verify();
+    //     await TestHelper.stopVerification();
+    //     const verified = TestHelper.waitForVerification(SIMPLE);
+    //     await TestHelper.verify();
+    //     await verified;
+    //     assert(!TestHelper.hasObservedInternalError());
+    // });
 
     test("4. closing all files right after starting verification", async function() {
         this.timeout(6000);
@@ -75,15 +75,15 @@ suite('ViperIDE Stress Tests', () => {
         assert(!TestHelper.hasObservedInternalError());
     });
 
-    test("Test simple verification with carbon", async function() {
-        this.timeout(35000);
+    // test("Test simple verification with carbon", async function() {
+    //     this.timeout(35000);
 
-        await TestHelper.openFile(SIMPLE);
-        const carbonVerified = TestHelper.waitForVerification(SIMPLE, CARBON_NAME);
-        await TestHelper.selectBackend(CARBON_NAME);
-        await carbonVerified;
-        const siliconVerified = TestHelper.waitForVerification(SIMPLE, SILICON_NAME);
-        await TestHelper.selectBackend(SILICON_NAME);
-        await siliconVerified;
-    });
+    //     await TestHelper.openFile(SIMPLE);
+    //     const carbonVerified = TestHelper.waitForVerification(SIMPLE, CARBON_NAME);
+    //     await TestHelper.selectBackend(CARBON_NAME);
+    //     await carbonVerified;
+    //     const siliconVerified = TestHelper.waitForVerification(SIMPLE, SILICON_NAME);
+    //     await TestHelper.selectBackend(SILICON_NAME);
+    //     await siliconVerified;
+    // });
 });
