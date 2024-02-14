@@ -706,7 +706,6 @@ export class VerificationController {
                     State.isVerifying = false;
 
                     Log.error(`LJDINFASKOLF ${params.verificationCompleted}`);
-                    params.verificationCompleted = 1;
                     if (params.verificationCompleted < 0 || params.verificationCompleted > 1) {
                         Log.log(`Unexpected value for field 'verificationCompleted' in state change 'ready' message. Expected 0 or 1 but got ${params.verificationCompleted}.`, LogLevel.Info);
                     } else if (params.verificationCompleted == 0) {
