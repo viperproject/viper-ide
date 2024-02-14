@@ -416,7 +416,7 @@ export class VerificationController {
                                 // there is no remote task we need to execute on the server and can thus directly set the ready flag:
                                 State.isBackendReady = true;
                                 Log.log(`Backend ${task.backend.name} is now ready`, LogLevel.Debug);
-                                if (State.unitTest) State.unitTest.backendStarted(task.backend.type);
+                                if (State.unitTest) State.unitTest.backendStarted(task.backend.name);
                                 // reverify the currently open file with the new backend:
                                 const fileUri = Helper.getActiveVerificationUri();
                                 if (fileUri) {

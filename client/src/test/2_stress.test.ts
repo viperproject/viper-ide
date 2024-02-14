@@ -1,5 +1,5 @@
 import assert from 'assert';
-import TestHelper, { CARBON, SETUP_TIMEOUT, SILICON, SIMPLE } from './TestHelper';
+import TestHelper, { CARBON_NAME, SETUP_TIMEOUT, SILICON_NAME, SIMPLE } from './TestHelper';
 
 suite('ViperIDE Stress Tests', () => {
 
@@ -33,17 +33,17 @@ suite('ViperIDE Stress Tests', () => {
 
         TestHelper.resetErrors();
 
-        await TestHelper.selectBackend(CARBON);
+        await TestHelper.selectBackend(CARBON_NAME);
         await TestHelper.openFile(SIMPLE);
         //submit 10 verification requests
         for (let i = 0; i < 10; i++) {
-            await TestHelper.selectBackend(SILICON);
-            await TestHelper.selectBackend(CARBON);
+            await TestHelper.selectBackend(SILICON_NAME);
+            await TestHelper.selectBackend(CARBON_NAME);
         }
 
         await TestHelper.wait(500);
-        await TestHelper.selectBackend(SILICON);
-        await TestHelper.waitForVerification(SIMPLE, SILICON);
+        await TestHelper.selectBackend(SILICON_NAME);
+        await TestHelper.waitForVerification(SIMPLE, SILICON_NAME);
         assert(!TestHelper.hasObservedInternalError());
     });
 
@@ -79,11 +79,11 @@ suite('ViperIDE Stress Tests', () => {
         this.timeout(35000);
 
         await TestHelper.openFile(SIMPLE);
-        const carbonVerified = TestHelper.waitForVerification(SIMPLE, CARBON);
-        await TestHelper.selectBackend(CARBON);
+        const carbonVerified = TestHelper.waitForVerification(SIMPLE, CARBON_NAME);
+        await TestHelper.selectBackend(CARBON_NAME);
         await carbonVerified;
-        const siliconVerified = TestHelper.waitForVerification(SIMPLE, SILICON);
-        await TestHelper.selectBackend(SILICON);
+        const siliconVerified = TestHelper.waitForVerification(SIMPLE, SILICON_NAME);
+        await TestHelper.selectBackend(SILICON_NAME);
         await siliconVerified;
     });
 });
