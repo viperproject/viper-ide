@@ -1,5 +1,6 @@
 import assert from 'assert';
 import TestHelper, { CARBON_NAME, SETUP_TIMEOUT, SILICON_NAME, SIMPLE } from './TestHelper';
+import { Log } from '../Log';
 
 suite('ViperIDE Stress Tests', () => {
 
@@ -35,15 +36,22 @@ suite('ViperIDE Stress Tests', () => {
 
         await TestHelper.selectBackend(CARBON_NAME);
         await TestHelper.openFile(SIMPLE);
+        Log.error(`[DBG] Opened file`);
         //submit 10 verification requests
         for (let i = 0; i < 10; i++) {
+            Log.error(`[DBG] Got to A ${i} times`);
             await TestHelper.selectBackend(SILICON_NAME);
+            Log.error(`[DBG] Got to B ${i} times`);
             await TestHelper.selectBackend(CARBON_NAME);
         }
+        Log.error(`[DBG] Got to D`);
 
         await TestHelper.wait(500);
+        Log.error(`[DBG] Got to E`);
         await TestHelper.selectBackend(SILICON_NAME);
+        Log.error(`[DBG] Got to F`);
         await TestHelper.waitForVerification(SIMPLE, SILICON_NAME);
+        Log.error(`[DBG] Got to G`);
         assert(!TestHelper.hasObservedInternalError());
     });
 
