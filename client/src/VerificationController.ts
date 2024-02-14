@@ -801,7 +801,6 @@ export class VerificationController {
                             message: msg
                         });
 
-                        Log.error(`Verification Completed check (${params.success}): backend: ${State.activeBackend.name}, file: ${params.filename}`);
                         if (State.unitTest && this.verificationCompleted(params.success)) {
                             State.unitTest.verificationComplete(State.activeBackend.name, params.filename);
                         }
