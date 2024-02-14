@@ -338,7 +338,7 @@ export class VerificationController {
                                     if (timedOut) {
                                         Log.hint("Verification of " + path.basename(task.uri.fsPath) + " timed out after " + task.timeout + "ms");
                                     }
-                                    Log.error("Stop the running verification of " + path.basename(task.uri.fsPath) + ` we have ${verifyFound}, ${stopFound}, ${startBackendFound}, ${timedOut}`);
+                                    Log.log("Stop the running verification of " + path.basename(task.uri.fsPath) + ` we have ${verifyFound}, ${stopFound}, ${startBackendFound}, ${timedOut}`, LogLevel.Debug);
                                     const success = await this.stopVerification(task.uri.toString(), isStopManuallyTriggered);
                                     if (State.unitTest) State.unitTest.verificationStopped(success);
                                     if (success) {
@@ -705,7 +705,8 @@ export class VerificationController {
                     });
                     State.isVerifying = false;
 
-                    Log.error(`LJDINFASKOLF ${params.verificationCompleted} / ${params.stage} / ${params.success} / ${params.verificationNeeded}`);
+                    Log.error(`LJDINFASKOLF ${params.verificationCompleted} / ${params.verificationNeeded}`);
+                    params.verificationCompleted = 1;
                     if (params.verificationCompleted < 0 || params.verificationCompleted > 1) {
                         Log.log(`Unexpected value for field 'verificationCompleted' in state change 'ready' message. Expected 0 or 1 but got ${params.verificationCompleted}.`, LogLevel.Info);
                     } else if (params.verificationCompleted == 0) {
