@@ -670,12 +670,12 @@ export class VerificationController {
     }
 
     public handleStateChange(params: StateChangeParams): void {
-        Log.error("Received state change.")
+        Log.log("Received state change.", LogLevel.Info)
         try {
-            Log.error('Changed FROM ' + VerificationState[this.lastState] + " TO: " + VerificationState[params.newState]);
+            Log.log('Changed FROM ' + VerificationState[this.lastState] + " TO: " + VerificationState[params.newState], LogLevel.Info);
             this.lastState = params.newState;
             if (params.progress <= 0) {
-                Log.error("The new state is: " + VerificationState[params.newState]);
+                Log.log("The new state is: " + VerificationState[params.newState], LogLevel.Debug);
             }
             switch (params.newState) {
                 case VerificationState.Starting:
