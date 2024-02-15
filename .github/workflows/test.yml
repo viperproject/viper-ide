@@ -311,6 +311,7 @@ jobs:
       # note that we change into the tool folder to zip it. This avoids including the parent folder in the zip
       - name: Zip ViperTools
         run: zip -r ../${{ matrix.viper-tools-zip-file }} ./*
+        shell: bash # manually set bash to avoid PowerShell on windows-latest
         working-directory: client/dependencies/ViperTools
 
       - name: Upload ViperTools zip files
