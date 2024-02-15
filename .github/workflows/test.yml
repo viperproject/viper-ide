@@ -293,12 +293,12 @@ jobs:
       # by default)
       - name: Package Viper-IDE extension (stable release only)
         if: ${{ github.event.inputs.type == 'stable' }}
-        run: npm run package-args -- "--platform ${{ matrix.platform}}" "--target ${{ matrix.target }} --out viper-ide-${{ matrix.platform }}.vsix"
+        run: npm run package-args -- --platform=${{ matrix.platform}} --target=${{ matrix.target }} --out=viper-ide-${{ matrix.platform }}.vsix
         working-directory: client
 
       - name: Package Viper-IDE extension (non-stable release only)
         if: ${{ github.event.inputs.type != 'stable' }}
-        run: npm run package-args -- "--platform ${{ matrix.platform}}" "--target ${{ matrix.target }} --out viper-ide-${{ matrix.platform }}.vsix --pre-release"
+        run: npm run package-args -- --platform=${{ matrix.platform}} --target=${{ matrix.target }} --out=viper-ide-${{ matrix.platform }}.vsix --pre-release
         working-directory: client
 
       - name: Upload packaged Viper-IDE

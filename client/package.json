@@ -68,7 +68,7 @@
 		"webpack-production": "webpack --mode production",
 		"webpack-development": "webpack --mode development",
 		"webpack-development-watch": "webpack --mode development --watch",
-		"download-dependencies": "ts-node ./download-dependencies.ts ",
+		"download-dependencies": "ts-node ./download-dependencies.ts",
 		"tsc": "tsc",
 		"clean": "rimraf dist dependencies",
 		"compile": "npm-run-all --sequential clean webpack-development download-dependencies",
@@ -80,7 +80,7 @@
 		"test-windows": "npm-run-all --sequential clean tsc 'download-dependencies -- --platform windows' run-test",
 		"vsce-package": "vsce package",
 		"package": "npm-run-all --sequential clean webpack-production 'download-dependencies vsce-package",
-		"package-args": "npm-run-all --sequential clean webpack-production \"download-dependencies -- {1}\" \"vsce-package -- {2}\" --",
+		"package-args": "npm-run-all --sequential clean webpack-production \"download-dependencies -- {1}\" \"vsce-package -- {2} {3} {4} {5} {6} {7}\" --",
 		"package-linux": "npm-run-all --sequential clean webpack-production 'download-dependencies -- --platform linux' 'vsce-package -- --target linux-x64'",
 		"package-mac": "npm-run-all --sequential clean webpack-production 'download-dependencies -- --platform mac' 'vsce-package -- --target darwin-x64'",
 		"package-windows": "npm-run-all --sequential clean webpack-production 'download-dependencies -- --platform windows' 'vsce-package -- --target win32-x64'"
