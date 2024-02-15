@@ -29,8 +29,9 @@ import { ProjectManager, ProjectRoot } from './ProjectManager';
 
 export class State {
     public static get MIN_SERVER_VERSION(): string {
-        return "3.0.0"; // has to be a valid semver
+        return "2.0.0"; // has to be a valid semver
     }
+    public static serverVersion: string;
 
     public static client: LanguageClient;
     public static context: vscode.ExtensionContext;
@@ -58,7 +59,13 @@ export class State {
     public static statusBarPin: StatusBar;
     public static abortButton: StatusBar;
 
+    public static diagnosticCollection: vscode.DiagnosticCollection;
+
     public static viperApi: ViperApi;
+
+    public static serverV3(): boolean {
+        return semver.compare(this.serverVersion, "3.0.0") >= 0;
+    }
 
     public static isReady(): boolean {
         if (State.client == null) {
@@ -91,6 +98,8 @@ export class State {
         this.backendStatusBar.setCommand("viper.selectBackend");
         
         this.showViperStatusBarItems();
+
+        this.diagnosticCollection = vscode.languages.createDiagnosticCollection();
     }
 
     public static showViperStatusBarItems():  void {
@@ -278,6 +287,7 @@ export class State {
         // check whether client and server are compatible:
         const request: GetVersionRequest = { clientVersion: Settings.getExtensionVersion() };
         const response = await State.client.sendRequest(Commands.GetVersion, request);
+        this.serverVersion = response.serverVersion;
         const checkClient: Either<Messages, void> = response.error ? newEitherError(response.error) : newRight(undefined);
         const serverIsSupported = Settings.disableServerVersionCheck() ? true : semver.compare(response.serverVersion, State.MIN_SERVER_VERSION) >= 0;
         const checkServer: Either<Messages, void> = serverIsSupported ? newRight(undefined) : newEitherError(`Server is not compatible with client - expected at least server version ${State.MIN_SERVER_VERSION} but is ${response.serverVersion}`);

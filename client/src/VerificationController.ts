@@ -558,6 +558,11 @@ export class VerificationController {
                     fileState.verified = false;
                     fileState.verifying = true;
 
+                    if (!State.serverV3()) {
+                        //clear all diagnostics
+                        State.diagnosticCollection.clear();
+                    }
+
                     //start progress updater
                     clearInterval(this.progressUpdater);
                     const progress_lambda: () => void = () => {
@@ -688,6 +693,14 @@ export class VerificationController {
                     if (params.progress > 0) {
                         this.addTiming(params.filename, params.progress);
                     }
+                    // only for server version < 3.0
+                    if (params.diagnostics) {
+                        const diagnostics: vscode.Diagnostic[] = params.diagnostics
+                            // for mysterious reasons, LSP defines DiagnosticSeverity levels 1 - 4 while
+                            // vscode uses 0 - 3. Thus convert them:
+                            .map(this.translateLsp2VsCodeDiagnosticSeverity);
+                        State.diagnosticCollection.set(vscode.Uri.parse(params.uri, false), diagnostics);
+                    }
                     break;
                 case VerificationState.PostProcessing:
                     this.addTiming(params.filename, params.progress);
@@ -728,7 +741,12 @@ export class VerificationController {
                             verifiedFile.timingInfo = { total: params.time, timings: this.timings };
                         }
 
-                        const allDiagnostics = vscode.languages.getDiagnostics().filter(diag => ProjectManager.inSameProject(uri, diag[0]));
+                        let allDiagnostics: [vscode.Uri, readonly vscode.Diagnostic[]][] = [];
+                        if (!State.serverV3()) {
+                            State.diagnosticCollection.forEach((uri, diag) => allDiagnostics.push([uri, diag]));
+                        } else {
+                            allDiagnostics = vscode.languages.getDiagnostics().filter(diag => ProjectManager.inSameProject(uri, diag[0]));
+                        }
                         const errorInOpenFile = allDiagnostics.some(
                             fileDiag => fileDiag[0].toString() == params.uri
                                 && fileDiag[1].some(diag => diag.severity == vscode.DiagnosticSeverity.Error)

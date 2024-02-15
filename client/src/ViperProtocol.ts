@@ -117,14 +117,14 @@ export interface ExecutionTrace {
 export enum VerificationState {
     Stopped = 0,
     Starting = 1,
-    ConstructingAst = 2,
-    VerificationRunning = 3,
-    VerificationPrintingHelp = 4,
-    VerificationReporting = 5,
-    PostProcessing = 6,
-    Ready = 7,
-    Stopping = 8,
-    Stage = 9
+    VerificationRunning = 2,
+    VerificationPrintingHelp = 3,
+    VerificationReporting = 4,
+    PostProcessing = 5,
+    Ready = 6,
+    Stopping = 7,
+    Stage = 8,
+    ConstructingAst = 9,
 }
 
 export enum LogLevel {
@@ -171,7 +171,8 @@ export interface StateChangeParams {
     verificationNeeded?: number;
     uri?: string;
     stage?: string;
-    error?: string
+    error?: string;
+    diagnostics?: vscode.Diagnostic[]
 }
 
 export interface BackendReadyParams {

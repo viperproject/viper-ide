@@ -459,14 +459,25 @@ function considerStartingBackend(newBackend: Backend): Promise<void> {
     });
 }
 
-// TODO: this should send a message to viperserver
 function removeDiagnostics(activeFileOnly: boolean): void {
     if (activeFileOnly) {
         const active = Helper.getActiveFileUri();
         if (active) {
-            Log.log(`[DEACTIVATED] Diagnostics successfully removed for file ${active[0]}`, LogLevel.Debug);
+            if (!State.serverV3()) {
+                State.diagnosticCollection.delete(active[0]);
+                Log.log(`Diagnostics successfully removed for file ${active[0]}`, LogLevel.Debug);
+            } else {
+                // TODO: this should send a message to viperserver
+                Log.log(`[DEACTIVATED] Diagnostics successfully removed for file ${active[0]}`, LogLevel.Debug);
+            }
         }
     } else {
-        Log.log(`[DEACTIVATED] All diagnostics successfully removed`, LogLevel.Debug);
+        if (!State.serverV3()) {
+            State.diagnosticCollection.clear();
+            Log.log(`All diagnostics successfully removed`, LogLevel.Debug);
+        } else {
+            // TODO: this should send a message to viperserver
+            Log.log(`[DEACTIVATED] All diagnostics successfully removed`, LogLevel.Debug);
+        }
     }
 }
