@@ -116,7 +116,7 @@ jobs:
 
 
   build-and-test:
-    name: test - ${{ matrix.os }}
+    name: build-and-test - ${{ matrix.target }}
     strategy:
       # tests should not be stopped when they fail on one of the OSes:
       fail-fast: false
