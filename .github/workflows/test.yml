@@ -125,10 +125,16 @@ jobs:
         include:
           - os: macos-latest
             platform: "mac"
+            viper-tools-zip-file: "ViperToolsMac.zip"
+          - os: ubuntu-latest # since GitHub does not have ARM macs, we can't test anyway and use Ubuntu instead for building
+            platform: "macARM"
+            viper-tools-zip-file: "ViperToolsMacARM.zip"
           - os: ubuntu-latest
             platform: "linux"
+            viper-tools-zip-file: "ViperToolsLinux.zip"
           - os: windows-latest
             platform: "windows"
+            viper-tools-zip-file: "ViperToolsWin.zip"
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Viper-IDE
@@ -238,7 +244,7 @@ jobs:
         shell: bash
 
       - name: Run tests (headless - non-ubuntu)
-        if: "!startsWith(matrix.os, 'ubuntu')"
+        if: "!startsWith(matrix.os, 'ubuntu') && matrix.platform != 'macARM'"
         run: npm run test-${{ matrix.platform }} --full-trace
         working-directory: client
         env:
@@ -246,7 +252,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run tests (headless - ubuntu only)
-        if: startsWith(matrix.os, 'ubuntu')
+        if: startsWith(matrix.os, 'ubuntu') && matrix.platform != 'macARM'"
         run: xvfb-run -a npm run test-${{ matrix.platform }} --full-trace
         working-directory: client
         env:
@@ -257,11 +263,10 @@ jobs:
         if: ${{ failure() || cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: TestLogs-${{ matrix.os }}
+          name: TestLogs-${{ matrix.platform }}
           path: client/logs
 
-      - name: Clean 'dist' folder (ubuntu only)
-        if: startsWith(matrix.os, 'ubuntu')
+      - name: Clean 'dist' folder
         run: npm run clean
         working-directory: client
 
@@ -292,12 +297,22 @@ jobs:
         run: npm run package-${{ matrix.platform }} -- --out viper-ide-${{ matrix.platform }}.vsix --pre-release
         working-directory: client
 
-      - name: Upload packaged Viper-IDE (ubuntu-only)
-        if: startsWith(matrix.os, 'ubuntu')
+      - name: Upload packaged Viper-IDE
         uses: actions/upload-artifact@v4
         with:
           name: viper-ide-${{ matrix.platform }}.vsix
           path: client/viper-ide-${{ matrix.platform }}.vsix
+
+      # note that we change into the tool folder to zip it. This avoids including the parent folder in the zip
+      - name: Zip ViperTools
+        run: zip -r ../${{ matrix.viper-tools-zip-file }} ./*
+        working-directory: client/dependencies/ViperTools
+
+      - name: Upload ViperTools zip files
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.viper-tools-zip-file }}
+          path: client/dependencies/${{ matrix.viper-tools-zip-file }}
 
 
   create-release:
@@ -327,6 +342,26 @@ jobs:
         with:
           name: viper-ide-windows.vsix
           path: client
+
+      - name: Download ViperTools for Linux
+        uses: actions/download-artifact@v4
+        with:
+          name: ViperToolsLinux.zip
+
+      - name: Download ViperTools for macOS
+        uses: actions/download-artifact@v4
+        with:
+          name: ViperToolsMac.zip
+
+      - name: Download ViperTools for macOS ARM
+        uses: actions/download-artifact@v4
+        with:
+          name: ViperToolsMacARM.zip
+
+      - name: Download ViperTools for Windows
+        uses: actions/download-artifact@v4
+        with:
+          name: ViperToolsWin.zip
 
       - name: Read versions
         run: |
@@ -434,6 +469,46 @@ jobs:
           asset_path: client/viper-ide-windows.vsix
           asset_name: viper-ide-windows.vsix
           asset_content_type: application/octet-stream
+
+      - name: Upload ViperTools for Windows
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: ViperToolsWin.zip
+          asset_name: ViperToolsWin.zip
+          asset_content_type: application/zip
+
+      - name: Upload ViperTools for Ubuntu
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: ViperToolsLinux.zip
+          asset_name: ViperToolsLinux.zip
+          asset_content_type: application/zip
+
+      - name: Upload ViperTools for macOS Intel
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: ViperToolsMac.zip
+          asset_name: ViperToolsMac.zip
+          asset_content_type: application/zip
+
+      - name: Upload ViperTools for macOS ARM
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: ViperToolsMacARM.zip
+          asset_name: ViperToolsMacARM.zip
+          asset_content_type: application/zip
 
       # compare version in client/package.json with last published version on
       # VS Marketplace and deploy this version if newer.
