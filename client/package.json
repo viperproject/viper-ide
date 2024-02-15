@@ -74,14 +74,16 @@
 		"clean": "rimraf dist dependencies",
 		"compile": "npm-run-all --sequential clean webpack-development download-dependencies",
 		"watch": "npm-run-all --sequential clean download-dependencies webpack-development-watch",
-		"test-compile": "npm-run-all --sequential clean tsc download-dependencies",
-		"pretest": "npm run test-compile",
-		"test": "node ./dist/test/runTest.js",
+		"run-test": "node ./dist/test/runTest.js",
+		"test": "npm-run-all --sequential clean tsc download-dependencies run-test",
+		"test-linux": "npm-run-all --sequential clean tsc 'download-dependencies -- --platform linux' run-test",
+		"test-mac": "npm-run-all --sequential clean tsc 'download-dependencies -- --platform mac' run-test",
+		"test-windows": "npm-run-all --sequential clean tsc 'download-dependencies -- --platform windows' run-test",
 		"vsce-package": "vsce package",
 		"package": "npm-run-all --sequential clean webpack-production download-dependencies vsce-package",
 		"package-linux": "npm-run-all --sequential clean webpack-production 'download-dependencies -- --platform linux' 'vsce-package -- --target linux-x64'",
 		"package-mac": "npm-run-all --sequential clean webpack-production 'download-dependencies -- --platform mac' 'vsce-package -- --target darwin-x64'",
-		"package-win": "npm-run-all --sequential clean webpack-production 'download-dependencies -- --platform windows' 'vsce-package -- --target win32-x64'"
+		"package-windows": "npm-run-all --sequential clean webpack-production 'download-dependencies -- --platform windows' 'vsce-package -- --target win32-x64'"
 	},
 	"vsce": {
 		"baseImagesUrl": "https://github.com/viperproject/viper-ide/raw/master/client"
