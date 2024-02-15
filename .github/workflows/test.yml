@@ -306,12 +306,12 @@ jobs:
 
       # note that we change into the tool folder to zip it. This avoids including the parent folder in the zip
       - name: Zip ViperTools (non-windows)
-        if: ${{ !startsWith(matrix.os, 'windows')
+        if: ${{ !startsWith(matrix.os, 'windows') }}
         run: zip -r ../${{ matrix.viper-tools-zip-file }} ./*
         working-directory: client/dependencies/ViperTools
 
       - name: Zip ViperTools (windows only)
-        if: ${{ startsWith(matrix.os, 'windows')
+        if: ${{ startsWith(matrix.os, 'windows') }}
         run: Compress-Archive -Path ./* -Destination ../${{ matrix.viper-tools-zip-file }}
         working-directory: client/dependencies/ViperTools
 
