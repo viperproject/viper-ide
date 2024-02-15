@@ -447,9 +447,6 @@ export interface PathSettings extends VersionedSettings {
 }
 
 export interface UserPreferences extends VersionedSettings {
-    // Enable automatically saving modified viper files
-    autoSave: boolean;
-    
     // Verbosity of the output, all output is written to the logFile, regardless of the logLevel
     logLevel: number;
     
@@ -510,6 +507,7 @@ export interface PlatformDependentListOfPaths {
 export interface PlatformDependentURL {
     windows?: string;
     mac?: string;
+    mac_arm?: string;
     linux?: string;
 }
 

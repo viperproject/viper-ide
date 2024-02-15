@@ -40,6 +40,7 @@ export class Settings {
     public static isWin = /^win/.test(process.platform);
     public static isLinux = /^linux/.test(process.platform);
     public static isMac = /^darwin/.test(process.platform);
+    public static isArm = process.arch === 'arm64';
 
    
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -219,10 +220,6 @@ export class Settings {
 
     public static isShowPartialExecutionTreeeEnabled(): boolean {
         return (Settings.getConfiguration("advancedFeatures").showPartialExecutionTree === true);
-    }
-
-    public static isAutoSaveEnabled(): boolean {
-        return (Settings.getConfiguration('preferences').autoSave === true);
     }
 
     public static isAutoVerifyAfterBackendChangeEnabled(): boolean {
@@ -503,7 +500,7 @@ export class Settings {
                 if (Settings.isLinux) {
                     stringURL = url.linux;
                 } else if (Settings.isMac) {
-                    stringURL = url.mac;
+                    stringURL = Settings.isArm ? url.mac_arm : url.mac;
                 } else if (Settings.isWin) {
                     stringURL = url.windows;
                 } else {

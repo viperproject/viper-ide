@@ -9,7 +9,7 @@
 import * as vscode from "vscode";
 import * as path from 'path';
 import * as fs from 'fs';
-import * as unusedFilename from 'unused-filename';
+import unusedFilename from 'unused-filename';
 import { Progress, LogLevel } from './ViperProtocol';
 import { Helper } from './Helper';
 import { State } from './ExtensionState';

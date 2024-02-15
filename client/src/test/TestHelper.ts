@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2011-2020 ETH Zurich.
 
-import * as assert from 'assert';
+import assert from 'assert';
 import { SpawnOptionsWithoutStdio } from 'child_process';
 import * as path from 'path';
 import * as vscode from 'vscode';
@@ -25,6 +25,8 @@ export const SIMPLE = 'simple.sil';
 export const EMPTY = 'empty.sil';
 export const EMPTY_TXT = 'empty.txt';
 export const LONG = 'longDuration.vpr';
+export const WARNINGS = 'warnings.vpr';
+
 
 export default class TestHelper {
     private static callbacks: UnitTestCallbackImpl = null;

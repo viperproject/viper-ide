@@ -1,4 +1,4 @@
-import * as assert from 'assert';
+import assert from 'assert';
 import TestHelper, { CARBON, SETUP_TIMEOUT, SILICON, SIMPLE } from './TestHelper';
 
 suite('ViperIDE Stress Tests', () => {

@@ -7,7 +7,7 @@ This VS Code extension provides interactive IDE features for [Viper](http://vipe
 
 The extension automatically downloads and manages Viper (via publicly available links, as listed here: http://viper.ethz.ch/downloads/). 
 
-Viper IDE uses an open-source 64-bit [Java server](https://github.com/viperproject/viperserver), so you need Java installed to be able to run it. 
+Viper IDE uses an open-source 64-bit [Java server](https://github.com/viperproject/viperserver), so you need Java (version 11 or newer) installed to be able to run it. 
 
 Please **always** refer to the official [installation instructions](http://viper.ethz.ch/downloads) for more details (in particular, about different operating system support). 
 

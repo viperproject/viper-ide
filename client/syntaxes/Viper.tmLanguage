@@ -131,9 +131,9 @@
                 <string>entity.name.function.silver</string>
               </dict>
             </dict>
-            
+
             <key>match</key>
-            <string>\b(function)\b(\s+([$\w]+(\.\[$\w])?))?</string>
+            <string>\b(unique\s+)?(function)\b(\s+([$\w]+(\.\[$\w])?))?</string>
             <key>name</key>
             <string>meta.function.silver</string>
             <key>patterns</key>
@@ -254,6 +254,25 @@
             <key>name</key>
             <string>meta.domain.silver</string>
           </dict>
+          <dict>
+            <key>captures</key>
+            <dict>
+              <key>1</key>
+              <dict>
+                <key>name</key>
+                <string>keyword.declaration.silver</string>
+              </dict>
+              <key>2</key>
+              <dict>
+                <key>name</key>
+                <string>entity.name.function.silver</string>
+              </dict>
+            </dict>
+            <key>match</key>
+            <string>\b(adt)\b</string>
+            <key>name</key>
+            <string>meta.adt.silver</string>
+          </dict>
         </array>
       </dict>
       <key>keywords</key>
@@ -316,7 +335,7 @@
           </dict>
           <dict>
             <key>match</key>
-            <string>\b(requires|ensures|invariant)\b</string>
+            <string>\b(requires|ensures|invariant|decreases)\b</string>
             <key>name</key>
             <string>keyword.other.verification.contracts.silver</string>
           </dict>

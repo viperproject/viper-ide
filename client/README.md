@@ -4,6 +4,9 @@
 
 ### Changelog
 
+#### v.4.2.2 (Viper v.23.07-release)
+* Includes ViperTools for ARM Macs
+
 #### v.4.1.1 (Viper v.23.01-release)
 * Support for Viper plugins in the IDE, several bugfixes.
 * Updated Boogie version to 2.15.9 and Z3 version to 4.8.7.

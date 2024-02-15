@@ -1,7 +1,7 @@
 {
 	"name": "viper",
 	"displayName": "Viper",
-	"version": "4.1.1",
+	"version": "4.2.2",
 	"publisher": "viper-admin",
 	"description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
 	"license": "SEE LICENSE IN LICENSE.txt",
@@ -17,7 +17,7 @@
 	},
 	"main": "./dist/extension",
 	"engines": {
-		"vscode": "^1.63.0"
+		"vscode": "^1.82.0"
 	},
 	"icon": "images/icon_bright_orange_avatar.png",
 	"categories": [
@@ -34,36 +34,36 @@
 		"automatic deduction"
 	],
 	"devDependencies": {
-		"@types/glob-to-regexp": "^0.4.1",
-		"@types/mocha": "^10.0.1",
-		"@types/node": "^18.11.8",
-		"@types/rimraf": "^3.0.2",
-		"@types/semver": "^7.3.12",
-		"@types/tmp": "^0.2.3",
-		"@types/vscode": "^1.63.2",
-		"@typescript-eslint/eslint-plugin": "^5.50.0",
-		"@typescript-eslint/parser": "^5.50.0",
-		"@viperproject/locate-java-home": "^1.1.10",
-		"@vscode/test-electron": "^2.2.0",
-		"@vscode/vsce": "^2.17.0",
-		"eslint": "^8.15.0",
-		"eslint-webpack-plugin": "^3.1.1",
+		"@types/glob-to-regexp": "^0.4.4",
+		"@types/mocha": "^10.0.6",
+		"@types/node": "^20.11.14",
+		"@types/rimraf": "^4.0.5",
+		"@types/semver": "^7.5.6",
+		"@types/tmp": "^0.2.6",
+		"@types/vscode": "^1.82.0",
+		"@typescript-eslint/eslint-plugin": "^6.20.0",
+		"@typescript-eslint/parser": "^6.20.0",
+		"@viperproject/locate-java-home": "^1.1.15",
+		"@vscode/test-electron": "^2.3.9",
+		"@vscode/vsce": "^2.23.0",
+		"eslint": "^8.56.0",
+		"eslint-webpack-plugin": "^4.0.1",
 		"glob-to-regexp": "^0.4.1",
 		"mocha": "^10.1.0",
 		"npm-run-all": "^4.1.5",
-		"rimraf": "^3.0.2",
+		"rimraf": "^5.0.5",
 		"semver": "^7.3.7",
 		"tmp": "^0.2.1",
-		"ts-loader": "^9.4.2",
-		"ts-node": "^10.9.1",
-		"typescript": "^4.9.3",
+		"ts-loader": "^9.5.1",
+		"ts-node": "^10.9.2",
+		"typescript": "^5.3.3",
 		"unused-filename": "^3.0.1",
-		"vs-verification-toolbox": "git+https://github.com/viperproject/vs-verification-toolbox.git",
-		"vscode-languageclient": "^8.0.2",
-		"vscode-uri": "^3.0.7",
-		"webpack": "^5.75.0",
-		"webpack-cli": "^4.9.1",
-		"yargs": "^17.6.2"
+		"vs-verification-toolbox": "git+https://github.com/viperproject/vs-verification-toolbox.git#separates-vscode-dependencies",
+		"vscode-languageclient": "^9.0.1",
+		"vscode-uri": "^3.0.8",
+		"webpack": "^5.90.0",
+		"webpack-cli": "^5.1.4",
+		"yargs": "^17.7.2"
 	},
 	"scripts": {
 		"webpack-production": "webpack --mode production",
@@ -370,7 +370,6 @@
 					"type": "object",
 					"default": {
 						"v": "674a514867b1",
-						"autoSave": true,
 						"logLevel": 3,
 						"autoVerifyAfterBackendChange": true,
 						"showProgress": true,
@@ -378,12 +377,14 @@
 						"stableViperToolsProvider": {
 							"windows": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsWin.zip",
 							"linux": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsLinux.zip",
-							"mac": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMac.zip"
+							"mac": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMac.zip",
+							"mac_arm": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMacARM.zip"
 						},
 						"nightlyViperToolsProvider": {
 							"windows": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsWin.zip&include-prereleases",
 							"linux": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsLinux.zip&include-prereleases",
-							"mac": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMac.zip&include-prereleases"
+							"mac": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMac.zip&include-prereleases",
+							"mac_arm": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMacARM.zip&include-prereleases"
 						}
 					},
 					"description": "General user preferences. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Preferences"

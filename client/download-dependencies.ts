@@ -8,10 +8,12 @@
 
 import * as fs from 'fs-extra';
 import * as path from 'path';
-import { Dependency, FileDownloader, GitHubZipExtractor, InstallerSequence, RemoteZipExtractor, withProgressInWindow, ZipExtractor } from 'vs-verification-toolbox';
+// we use 'vs-verification-toolbox/out/dependencies' instead of 'vs-verification-toolbox' to avoid loading exports that
+// depend on 'vscode' since this file should be executed outside of a vscode context, i.e., as a regular node script
+import { Dependency, FileDownloader, GitHubZipExtractor } from 'vs-verification-toolbox/out/dependencies';
 import * as yargs from 'yargs';
 import * as rimraf from 'rimraf';
-import * as assert from 'assert';
+import { strict as assert } from 'assert';
 
 const templateDownloadUrl = 'https://github.com/viperproject/viper-ide-deps/zipball/master/';
 const templateOutputDir = path.resolve(__dirname, 'dependencies/ViperTools');
@@ -41,25 +43,26 @@ const WindowsOption = 'windows';
 type Platform = 'linux' | 'mac' | 'windows';
 
 async function main() {
+    const isWindows = /^win/.test(process.platform);
+    const isLinux = /^linux/.test(process.platform);
+    const isMac = /^darwin/.test(process.platform);
+    let defaultPlatform: string | undefined;
+    if (isLinux) {
+      defaultPlatform = LinuxOption;
+    } else if (isMac) {
+      defaultPlatform = MacOption;
+    } else if (isWindows) {
+      defaultPlatform = WindowsOption;
+    } else {
+      defaultPlatform = undefined;
+    }
+
     const argv = await yargs
       .option('platform', {
         alias: 'p',
         describe: 'Platform for which dependencies should be downloaded',
         choices: [LinuxOption, MacOption, WindowsOption],
-        default: () => {
-          const isWindows = /^win/.test(process.platform);
-          const isLinux = /^linux/.test(process.platform);
-          const isMac = /^darwin/.test(process.platform);
-          if (isLinux) {
-            return LinuxOption;
-          } else if (isMac) {
-            return MacOption;
-          } else if (isWindows) {
-            return WindowsOption;
-          } else {
-            return undefined;
-          }
-        }
+        default: defaultPlatform
       })
       .help()
       .argv;
@@ -67,14 +70,12 @@ async function main() {
     if (!argv.platform) {
       throw new Error(`No platform detected or specified`);
     }
+    if (argv.platform !== LinuxOption && argv.platform !== MacOption && argv.platform !== WindowsOption) {
+      throw new Error(`Invalid platform specified`);
+    }
+    // TS now infers that `argv.platform` is of type `Platform`
 
-    await new Promise<void>((resolve, reject) => rimraf(templateOutputDir, (err) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve();
-      }
-    }));
+    await rimraf.rimraf(templateOutputDir);
 
     const boogieVersion = (await fs.readFile(boogieVersionFile)).toString().trim();
     const viperServerVersion = (await fs.readFile(viperServerVersionFile)).toString().trim();
