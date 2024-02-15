@@ -23,6 +23,7 @@ const boogieOutputDir = path.resolve(__dirname, 'dependencies/ViperTools/boogie'
 const boogieLinuxDownloadUrl = (version: string) => `https://github.com/viperproject/boogie-builder/releases/download/${version}/boogie-linux.zip`;
 const boogieWindowsDownloadUrl = (version: string) => `https://github.com/viperproject/boogie-builder/releases/download/${version}/boogie-win.zip`;
 const boogieMacDownloadUrl = (version: string) => `https://github.com/viperproject/boogie-builder/releases/download/${version}/boogie-osx.zip`;
+const boogieMacARMDownloadUrl = (version: string) => `https://github.com/viperproject/boogie-builder/releases/download/${version}/boogie-osx-arm.zip`;
 
 const viperServerVersionFile = 'viperserver-version';
 const viperServerOutputDir = path.resolve(__dirname, 'dependencies/ViperTools/backends');
@@ -33,24 +34,38 @@ const z3OutputDir = path.resolve(__dirname, 'dependencies/ViperTools/z3');
 const z3LinuxDownloadUrl = (version: string) => `https://github.com/Z3Prover/z3/releases/download/z3-${version}/z3-${version}-x64-ubuntu-16.04.zip`;
 const z3WindowsDownloadUrl = (version: string) => `https://github.com/Z3Prover/z3/releases/download/z3-${version}/z3-${version}-x64-win.zip`;
 const z3MacDownloadUrl = (version: string) => `https://github.com/Z3Prover/z3/releases/download/z3-${version}/z3-${version}-x64-osx-10.14.6.zip`;
+const z3MacARMDownloadUrl = (version: string) => {
+  // The non-'4.8.7' URL will only work for '4.9.0' and above (such a version would break the above two URLs though, since they now build for `osx-10.16` and `glibc-2.35`)
+  if (version == '4.8.7') {
+    return 'https://github.com/viperproject/boogie-builder/raw/master/prebuilt_z3/z3-4.8.7-arm64-osx.zip';
+  } else {
+    return `https://github.com/Z3Prover/z3/releases/download/z3-${version}/z3-${version}-arm64-osx-11.zip`;
+  }
+}
 
 const tmpFolder = path.resolve(__dirname, 'tmp');
 
 
-const LinuxOption = 'linux';
-const MacOption = 'mac';
-const WindowsOption = 'windows';
-type Platform = 'linux' | 'mac' | 'windows';
+const LinuxOption = 'linux-x64';
+const MacOption = 'darwin-x64';
+const MacARMOption = 'darwin-arm64';
+const WindowsOption = 'win32-x64';
+type Target = typeof LinuxOption | typeof MacOption | typeof MacARMOption | typeof WindowsOption;
 
 async function main() {
     const isWindows = /^win/.test(process.platform);
     const isLinux = /^linux/.test(process.platform);
     const isMac = /^darwin/.test(process.platform);
+    const isArm = process.arch === 'arm64';
     let defaultPlatform: string | undefined;
     if (isLinux) {
       defaultPlatform = LinuxOption;
     } else if (isMac) {
-      defaultPlatform = MacOption;
+      if (isArm) {
+        defaultPlatform = MacARMOption;
+      } else {
+        defaultPlatform = MacOption;
+      }
     } else if (isWindows) {
       defaultPlatform = WindowsOption;
     } else {
@@ -58,22 +73,22 @@ async function main() {
     }
 
     const argv = await yargs
-      .option('platform', {
-        alias: 'p',
-        describe: 'Platform for which dependencies should be downloaded',
-        choices: [LinuxOption, MacOption, WindowsOption],
+      .option('target', {
+        alias: 't',
+        describe: 'Target platform for which dependencies should be downloaded',
+        choices: [LinuxOption, MacOption, MacARMOption, WindowsOption],
         default: defaultPlatform
       })
       .help()
       .argv;
 
-    if (!argv.platform) {
-      throw new Error(`No platform detected or specified`);
+    if (!argv.target) {
+      throw new Error(`No target platform detected or specified`);
     }
-    if (argv.platform !== LinuxOption && argv.platform !== MacOption && argv.platform !== WindowsOption) {
-      throw new Error(`Invalid platform specified`);
+    if (argv.target !== LinuxOption && argv.target !== MacOption && argv.target !== MacARMOption && argv.target !== WindowsOption) {
+      throw new Error(`Invalid target platform specified`);
     }
-    // TS now infers that `argv.platform` is of type `Platform`
+    // TS now infers that `argv.target` is of type `Target`
 
     await rimraf.rimraf(templateOutputDir);
 
@@ -98,7 +113,7 @@ async function main() {
 
 
     // download Boogie
-    const boogieUrl = getBoogieUrl(argv.platform, boogieVersion);
+    const boogieUrl = getBoogieUrl(argv.target, boogieVersion);
     const boogieFoldername = "boogie"
     const boogie = new Dependency<"">(
       tmpFolder,
@@ -134,7 +149,7 @@ async function main() {
 
 
     // download z3
-    const z3Url = getZ3Url(argv.platform, z3Version);
+    const z3Url = getZ3Url(argv.target, z3Version);
     const z3Foldername = "z3"
     const z3 = new Dependency<"">(
       tmpFolder,
@@ -144,7 +159,7 @@ async function main() {
     // content is tmp/z3/binaries.../bin/z3 or tmp/z3/binaries.../bin/z3.exe
     const z3Subfolders = await fs.readdir(z3Destination);
     assert(z3Subfolders.length === 1);
-    const z3BinName = argv.platform == WindowsOption ? "z3.exe" : "z3";
+    const z3BinName = argv.target == WindowsOption ? "z3.exe" : "z3";
     await fs.move(
       path.resolve(z3Destination, z3Subfolders[0], "bin", z3BinName),
       path.resolve(z3OutputDir, "bin", z3BinName));
@@ -155,23 +170,27 @@ function getToken() {
     return process.env["GITHUB_TOKEN"];
 }
 
-function getBoogieUrl(platform: Platform, version: string): string {
-  switch (platform) {
+function getBoogieUrl(target: Target, version: string): string {
+  switch (target) {
     case LinuxOption:
       return boogieLinuxDownloadUrl(version);
     case MacOption:
       return boogieMacDownloadUrl(version);
+    case MacARMOption:
+      return boogieMacARMDownloadUrl(version);
     case WindowsOption:
       return boogieWindowsDownloadUrl(version);
   }
 }
 
-function getZ3Url(platform: Platform, version: string): string {
-  switch (platform) {
+function getZ3Url(target: Target, version: string): string {
+  switch (target) {
     case LinuxOption:
       return z3LinuxDownloadUrl(version);
     case MacOption:
       return z3MacDownloadUrl(version);
+    case MacARMOption:
+      return z3MacARMDownloadUrl(version);
     case WindowsOption:
       return z3WindowsDownloadUrl(version);
   }

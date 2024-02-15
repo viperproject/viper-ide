@@ -125,19 +125,15 @@ jobs:
         include:
           - target: "darwin-x64"
             os: macos-latest
-            platform: "mac"
             viper-tools-zip-file: "ViperToolsMac.zip"
           - target: "darwin-arm64"
             os: ubuntu-latest # since GitHub does not have ARM macs, we can't test anyway and use Ubuntu instead for building
-            platform: "macARM"
             viper-tools-zip-file: "ViperToolsMacARM.zip"
           - target: "linux-x64"
             os: ubuntu-latest
-            platform: "linux"
             viper-tools-zip-file: "ViperToolsLinux.zip"
           - target: "win32-x64"
             os: windows-latest
-            platform: "windows"
             viper-tools-zip-file: "ViperToolsWin.zip"
     runs-on: ${{ matrix.os }}
     steps:
@@ -248,16 +244,16 @@ jobs:
         shell: bash
 
       - name: Run tests (headless - non-ubuntu)
-        if: "!startsWith(matrix.os, 'ubuntu') && matrix.platform != 'macARM'"
-        run: npm run test-${{ matrix.platform }} --full-trace
+        if: "!startsWith(matrix.os, 'ubuntu') && matrix.target != 'darwin-arm64'"
+        run: npm run test --full-trace -- --target=${{ matrix.target }}
         working-directory: client
         env:
           VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run tests (headless - ubuntu only)
-        if: startsWith(matrix.os, 'ubuntu') && matrix.platform != 'macARM'
-        run: xvfb-run -a npm run test-${{ matrix.platform }} --full-trace
+        if: startsWith(matrix.os, 'ubuntu') && matrix.target != 'darwin-arm64'
+        run: xvfb-run -a npm run test --full-trace -- --target=${{ matrix.target }}
         working-directory: client
         env:
           VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
@@ -267,7 +263,7 @@ jobs:
         if: ${{ failure() || cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: TestLogs-${{ matrix.platform }}
+          name: TestLogs-${{ matrix.target }}
           path: client/logs
 
       - name: Clean 'dist' folder
@@ -289,24 +285,24 @@ jobs:
       # by default)
       - name: Package Viper-IDE extension (stable release only)
         if: ${{ github.event.inputs.type == 'stable' }}
-        run: npm run package-args -- --platform=${{ matrix.platform}} --target=${{ matrix.target }} --out=viper-ide-${{ matrix.platform }}.vsix
+        run: npm run package -- --target=${{ matrix.target }} --out=viper-ide-${{ matrix.target }}.vsix
         working-directory: client
 
       - name: Package Viper-IDE extension (non-stable release only)
         if: ${{ github.event.inputs.type != 'stable' }}
-        run: npm run package-args -- --platform=${{ matrix.platform}} --target=${{ matrix.target }} --out=viper-ide-${{ matrix.platform }}.vsix --pre-release
+        run: npm run package -- --target=${{ matrix.target }} --out=viper-ide-${{ matrix.target }}.vsix --pre-release
         working-directory: client
 
       # we have to list the files after packaging because packaging first downloads dependencies
-      - name: List all files that got packaged (ignore 'viper-ide-${{ matrix.platform }}.vsix')
+      - name: List all files that got packaged (ignore 'viper-ide-${{ matrix.target }}.vsix')
         run: npx @vscode/vsce ls
         working-directory: client
 
       - name: Upload packaged Viper-IDE
         uses: actions/upload-artifact@v4
         with:
-          name: viper-ide-${{ matrix.platform }}.vsix
-          path: client/viper-ide-${{ matrix.platform }}.vsix
+          name: viper-ide-${{ matrix.target }}.vsix
+          path: client/viper-ide-${{ matrix.target }}.vsix
 
       # note that we change into the tool folder to zip it. This avoids including the parent folder in the zip
       - name: Zip ViperTools
@@ -331,43 +327,18 @@ jobs:
       - name: Checkout Viper-IDE
         uses: actions/checkout@v4
 
-      - name: Download packaged Viper IDE for Linux
+      - name: Download packaged Viper IDE
         uses: actions/download-artifact@v4
         with:
-          name: viper-ide-linux.vsix
+          pattern: viper-ide-*.vsix
+          merge-multiple: true
           path: client
 
-      - name: Download packaged Viper IDE for macOS
+      - name: Download ViperTools
         uses: actions/download-artifact@v4
         with:
-          name: viper-ide-mac.vsix
-          path: client
-
-      - name: Download packaged Viper IDE for Windows
-        uses: actions/download-artifact@v4
-        with:
-          name: viper-ide-windows.vsix
-          path: client
-
-      - name: Download ViperTools for Linux
-        uses: actions/download-artifact@v4
-        with:
-          name: ViperToolsLinux.zip
-
-      - name: Download ViperTools for macOS
-        uses: actions/download-artifact@v4
-        with:
-          name: ViperToolsMac.zip
-
-      - name: Download ViperTools for macOS ARM
-        uses: actions/download-artifact@v4
-        with:
-          name: ViperToolsMacARM.zip
-
-      - name: Download ViperTools for Windows
-        uses: actions/download-artifact@v4
-        with:
-          name: ViperToolsWin.zip
+          pattern: ViperTools*.zip
+          merge-multiple: true
 
       - name: Read versions
         run: |
@@ -452,8 +423,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: client/viper-ide-linux.vsix
-          asset_name: viper-ide-linux.vsix
+          asset_path: client/viper-ide-linux-x64.vsix
+          asset_name: viper-ide-linux-x64.vsix
           asset_content_type: application/octet-stream
 
       - name: Upload packaged Viper IDE for macOS
@@ -462,8 +433,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: client/viper-ide-mac.vsix
-          asset_name: viper-ide-mac.vsix
+          asset_path: client/viper-ide-darwin-x64.vsix
+          asset_name: viper-ide-darwin-x64.vsix
+          asset_content_type: application/octet-stream
+
+      - name: Upload packaged Viper IDE for macOS ARM
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: client/viper-ide-darwin-arm64.vsix
+          asset_name: viper-ide-darwin-arm64.vsix
           asset_content_type: application/octet-stream
 
       - name: Upload packaged Viper IDE for Windows
@@ -472,8 +453,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: client/viper-ide-windows.vsix
-          asset_name: viper-ide-windows.vsix
+          asset_path: client/viper-ide-win32-x64.vsix
+          asset_name: viper-ide-win32-x64.vsix
           asset_content_type: application/octet-stream
 
       - name: Upload ViperTools for Windows
@@ -544,7 +525,7 @@ jobs:
         with:
           pat: ${{ secrets.VSCE_TOKEN }}
           registryUrl: https://marketplace.visualstudio.com
-          extensionFile: client/viper-ide-linux.vsix
+          extensionFile: client/viper-ide-linux-x64.vsix
           packagePath: ''
 
       - name: Publish the extension to Visual Studio Marketplace for macOS
@@ -553,7 +534,16 @@ jobs:
         with:
           pat: ${{ secrets.VSCE_TOKEN }}
           registryUrl: https://marketplace.visualstudio.com
-          extensionFile: client/viper-ide-mac.vsix
+          extensionFile: client/viper-ide-darwin-x64.vsix
+          packagePath: ''
+
+      - name: Publish the extension to Visual Studio Marketplace for macOS ARM
+        uses: HaaLeo/publish-vscode-extension@v1
+        if: ${{ github.event.inputs.type == 'stable' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
+        with:
+          pat: ${{ secrets.VSCE_TOKEN }}
+          registryUrl: https://marketplace.visualstudio.com
+          extensionFile: client/viper-ide-darwin-arm64.vsix
           packagePath: ''
 
       - name: Publish the extension to Visual Studio Marketplace for Windows
@@ -562,7 +552,7 @@ jobs:
         with:
           pat: ${{ secrets.VSCE_TOKEN }}
           registryUrl: https://marketplace.visualstudio.com
-          extensionFile: client/viper-ide-windows.vsix
+          extensionFile: client/viper-ide-win32-x64.vsix
           packagePath: ''
 
       - name: Publish the extension to Open VSX Registry for Linux
@@ -571,7 +561,7 @@ jobs:
         with:
           pat: ${{ secrets.OPEN_VSX_TOKEN }}
           registryUrl: https://open-vsx.org
-          extensionFile: client/viper-ide-linux.vsix
+          extensionFile: client/viper-ide-linux-x64.vsix
           packagePath: ''
 
       - name: Publish the extension to Open VSX Registry for macOS
@@ -580,7 +570,16 @@ jobs:
         with:
           pat: ${{ secrets.OPEN_VSX_TOKEN }}
           registryUrl: https://open-vsx.org
-          extensionFile: client/viper-ide-mac.vsix
+          extensionFile: client/viper-ide-darwin-x64.vsix
+          packagePath: ''
+
+      - name: Publish the extension to Open VSX Registry for macOS ARM
+        uses: HaaLeo/publish-vscode-extension@v1
+        if: ${{ github.event.inputs.type == 'stable' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
+        with:
+          pat: ${{ secrets.OPEN_VSX_TOKEN }}
+          registryUrl: https://open-vsx.org
+          extensionFile: client/viper-ide-darwin-arm64.vsix
           packagePath: ''
 
       - name: Publish the extension to Open VSX Registry for Windows
@@ -589,7 +588,7 @@ jobs:
         with:
           pat: ${{ secrets.OPEN_VSX_TOKEN }}
           registryUrl: https://open-vsx.org
-          extensionFile: client/viper-ide-windows.vsix
+          extensionFile: client/viper-ide-win32-x64.vsix
           packagePath: ''
 
       # publish 'rc' releases as pre-releases
@@ -599,7 +598,7 @@ jobs:
         with:
           pat: ${{ secrets.VSCE_TOKEN }}
           registryUrl: https://marketplace.visualstudio.com
-          extensionFile: client/viper-ide-linux.vsix
+          extensionFile: client/viper-ide-linux-x64.vsix
           packagePath: ''
           preRelease: true
 
@@ -609,7 +608,17 @@ jobs:
         with:
           pat: ${{ secrets.VSCE_TOKEN }}
           registryUrl: https://marketplace.visualstudio.com
-          extensionFile: client/viper-ide-mac.vsix
+          extensionFile: client/viper-ide-darwin-x64.vsix
+          packagePath: ''
+          preRelease: true
+
+      - name: Publish the extension to Visual Studio Marketplace for macOS ARM (as pre-release)
+        uses: HaaLeo/publish-vscode-extension@v1
+        if: ${{ github.event.inputs.type == 'rc' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
+        with:
+          pat: ${{ secrets.VSCE_TOKEN }}
+          registryUrl: https://marketplace.visualstudio.com
+          extensionFile: client/viper-ide-darwin-arm64.vsix
           packagePath: ''
           preRelease: true
 
@@ -619,6 +628,6 @@ jobs:
         with:
           pat: ${{ secrets.VSCE_TOKEN }}
           registryUrl: https://marketplace.visualstudio.com
-          extensionFile: client/viper-ide-windows.vsix
+          extensionFile: client/viper-ide-win32-x64.vsix
           packagePath: ''
           preRelease: true
