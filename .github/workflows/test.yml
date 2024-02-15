@@ -256,7 +256,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run tests (headless - ubuntu only)
-        if: startsWith(matrix.os, 'ubuntu') && matrix.platform != 'macARM'"
+        if: startsWith(matrix.os, 'ubuntu') && matrix.platform != 'macARM'
         run: xvfb-run -a npm run test-${{ matrix.platform }} --full-trace
         working-directory: client
         env:
