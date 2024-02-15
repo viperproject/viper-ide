@@ -7,8 +7,6 @@
   */
 
 import * as vscode from 'vscode';
-import { Log } from './Log';
-import { LogLevel } from './ViperProtocol';
 
 export type ProjectRoot = vscode.Uri;
 

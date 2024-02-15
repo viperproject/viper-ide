@@ -43,6 +43,7 @@ export class Settings {
     public static isMac = /^darwin/.test(process.platform);
     public static isArm = process.arch === 'arm64';
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private static initDefaultSettings(properties: any): object {
         // Need to turn an object such as `{ "a.b": { "foo": 10 }, "a": { "c": 10 }, ... }`
         // Into an object such as `{ "a": { "b": { "foo": 10 }, "c": 10 }, ... }`
@@ -86,7 +87,7 @@ export class Settings {
         const settingName = "viperServer";
         const settings = Settings.getConfiguration(settingName);
         const checks: Promise<Either<Messages, unknown>>[] = [
-            Settings.checkVersion<ViperServerSettings>(settings, settingName),
+            Settings.checkVersion<ViperServerSettings>(settings),
             // check viperServer path
             Settings.checkViperServerJars(location),
             // check viperServerTimeout
@@ -97,7 +98,8 @@ export class Settings {
             .then(res => isRight(res) ? newRight(settings) : res);
     }
 
-    private static builtinBackendToBackend(builtinBackend: any, type: string): Backend {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private static builtinBackendToBackend(builtinBackend: BuiltinBackend, type: string): Backend {
         const preVerificationStages: Stage[] = builtinBackend.preVerificationStages;
         const verificationStage: Stage = {
             name: "verify",
@@ -165,7 +167,7 @@ export class Settings {
         const settingName = "paths";
         const settings = Settings.getConfiguration(settingName);
         const checks: Promise<Either<Messages, unknown>>[] = [
-            Settings.checkVersion<ViperServerSettings>(settings, settingName),
+            Settings.checkVersion<ViperServerSettings>(settings),
             Settings.checkViperToolsPath(location, Settings.getBuildChannel()),
             Settings.checkZ3Path(location, true),
             Settings.checkBoogiePath(location, true),
@@ -181,7 +183,7 @@ export class Settings {
         const settingName = "preferences";
         const settings = Settings.getConfiguration(settingName);
         const checks: Promise<Either<Messages, unknown>>[] = [
-            Settings.checkVersion<ViperServerSettings>(settings, settingName),
+            Settings.checkVersion<ViperServerSettings>(settings),
             // check viperToolsProvider
             Settings.checkViperToolsProvider(settings),
         ];
@@ -208,7 +210,7 @@ export class Settings {
         const settingName = "advancedFeatures";
         const settings = Settings.getConfiguration(settingName);
         const checks: Promise<Either<Messages, unknown>>[] = [
-            Settings.checkVersion<ViperServerSettings>(settings, settingName),
+            Settings.checkVersion<ViperServerSettings>(settings),
             // no additional checks
         ];
         return Promise.all(checks)
@@ -228,7 +230,7 @@ export class Settings {
         }
     }
 
-    private static async checkVersion<T>(settings: T, settingName: string): Promise<Either<Messages, T>> {
+    private static async checkVersion<T>(settings: T): Promise<Either<Messages, T>> {
         // TODO: remove this
         return newRight(settings);
     }
@@ -685,7 +687,6 @@ export class Settings {
     }
 
     private static async checkBackends(location: Location, backends: Backend[]): Promise<Either<Messages, Backend[]>> {
-        const settingName = "verificationBackends";
         Log.log("Checking backends...", LogLevel.LowLevelDebug);
         if (!backends || backends.length == 0) {
             return newEitherError(`No backend detected, specify at least one backend`);
@@ -698,7 +699,7 @@ export class Settings {
             if (!backend) {
                 return newEitherError(`Empty backend detected`);
             }
-            const versionCheckResult = await Settings.checkVersion<Backend>(backend, settingName);
+            const versionCheckResult = await Settings.checkVersion<Backend>(backend);
             if (isLeft(versionCheckResult)) {
                 return versionCheckResult;
             }
@@ -1222,102 +1223,24 @@ export class Settings {
     }
 }
 
-class Version {
-    private static Key = "VdafSZVOWpe";
+export interface BuiltinBackend {
+    name: string;
+    paths: string[];
+    engine: string;
+    timeout: number;
+    stoppingTimeout: number;
+    preVerificationStages: Stage[];
+    verificationStage: VerificationStage;
+    postVerificationStages: Stage[];
+}
 
-    versionNumbers: number[] = [0, 0, 0];
-    private constructor(versionNumbers?: number[]) {
-        if (versionNumbers) {
-            this.versionNumbers = versionNumbers;
-        }
-    }
-
-    public static createFromVersion(version: string): Version {
-        try {
-            if (version) {
-                if (/\d+(\.\d+)+/.test(version)) {
-                    return new Version(version.split(".").map(x => Number.parseInt(x)));
-                }
-            }
-        } catch (e) {
-            Log.error("Error creating version from Version: " + e);
-        }
-        return new Version();
-    }
-
-    public static createFromHash(hash: string): Version {
-        try {
-            if (hash) {
-                const version = this.decrypt(hash, Version.Key);
-                return this.createFromVersion(version);
-            }
-        } catch (e) {
-            Log.error("Error creating version from hash: " + e);
-        }
-        return new Version();
-    }
-
-    private static encrypt(msg: string, key: string): string {
-        let res = "";
-        let parity = 0;
-        for (let i = 0; i < msg.length; i++) {
-            const keyChar: number = key.charCodeAt(i % key.length);
-            const char: number = msg.charCodeAt(i);
-            const cypher: number = (char ^ keyChar);
-            parity = (parity + cypher % (16 * 16)) % (16 * 16);
-            res += this.pad(cypher);
-        }
-        return res + this.pad(parity);
-    }
-
-    private static pad(n: number): string {
-        const s = n.toString(16);
-        return (s.length == 1 ? "0" : "") + s;
-    }
-
-    private static decrypt(cypher: string, key: string): string {
-        let res = "";
-        let parity = 0;
-        if (!cypher || cypher.length < 2 || cypher.length % 2 != 0) {
-            return "";
-        }
-        for (let i = 0; i < cypher.length - 2; i += 2) {
-            const keyChar: number = key.charCodeAt((i / 2) % key.length);
-            const char: number = (16 * parseInt(cypher.charAt(i), 16)) + parseInt(cypher.charAt(i + 1), 16);
-            parity = (parity + char % (16 * 16)) % (16 * 16);
-            res += String.fromCharCode(char ^ keyChar);
-        }
-        if (parity != (16 * parseInt(cypher.charAt(cypher.length - 2), 16)) + parseInt(cypher.charAt(cypher.length - 1), 16)) {
-            return "";
-        } else {
-            return res;
-        }
-    }
-
-    toString(): string {
-        return this.versionNumbers.join(".");
-    }
-
-    public static testhash(): void {
-        const s = "1.0.0";
-        const en = this.encrypt(s, Version.Key);
-        const de = this.decrypt(en, Version.Key);
-        Log.log("Hash Test: " + s + " -> " + en + " -> " + de, LogLevel.LowLevelDebug);
-    }
-
-    public static hash(version: string): string {
-        return this.encrypt(version, Version.Key);
-    }
-
-    //1: this is larger, -1 other is larger
-    compare(other: Version): number {
-        for (let i = 0; i < this.versionNumbers.length; i++) {
-            if (i >= other.versionNumbers.length) return 1;
-            if (this.versionNumbers[i] > other.versionNumbers[i]) return 1;
-            if (this.versionNumbers[i] < other.versionNumbers[i]) return -1;
-        }
-        return this.versionNumbers.length < other.versionNumbers.length ? -1 : 0;
-    }
+export interface VerificationStage {
+    mainMethod: string;
+    customArguments: string;
+    onParsingError: string;
+    onTypeCheckingError: string;
+    onVerificationError: string;
+    onSuccess: string;
 }
 
 export interface ResolvedPath {
