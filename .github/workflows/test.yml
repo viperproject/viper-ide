@@ -239,7 +239,7 @@ jobs:
 
       - name: Run tests (headless - non-ubuntu)
         if: "!startsWith(matrix.os, 'ubuntu')"
-        run: npm test-$${{ matrix.platform }} --full-trace
+        run: npm test-${{ matrix.platform }} --full-trace
         working-directory: client
         env:
           VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
@@ -247,7 +247,7 @@ jobs:
 
       - name: Run tests (headless - ubuntu only)
         if: startsWith(matrix.os, 'ubuntu')
-        run: xvfb-run -a npm test-$${{ matrix.platform }} --full-trace
+        run: xvfb-run -a npm test-${{ matrix.platform }} --full-trace
         working-directory: client
         env:
           VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
