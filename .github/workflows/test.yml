@@ -125,15 +125,19 @@ jobs:
         include:
           - os: macos-latest
             platform: "mac"
+            target: "darwin-x64"
             viper-tools-zip-file: "ViperToolsMac.zip"
           - os: ubuntu-latest # since GitHub does not have ARM macs, we can't test anyway and use Ubuntu instead for building
             platform: "macARM"
+            target: "darwin-arm64"
             viper-tools-zip-file: "ViperToolsMacARM.zip"
           - os: ubuntu-latest
             platform: "linux"
+            target: "linux-x64"
             viper-tools-zip-file: "ViperToolsLinux.zip"
           - os: windows-latest
             platform: "windows"
+            target: "win32-x64"
             viper-tools-zip-file: "ViperToolsWin.zip"
     runs-on: ${{ matrix.os }}
     steps:
@@ -289,12 +293,12 @@ jobs:
       # by default)
       - name: Package Viper-IDE extension (stable release only)
         if: ${{ github.event.inputs.type == 'stable' }}
-        run: npm run package-${{ matrix.platform }} -- --out viper-ide-${{ matrix.platform }}.vsix
+        run: npm run package-args -- "--platform ${{ matrix.platform}}" "--target ${{ matrix.target }} --out viper-ide-${{ matrix.platform }}.vsix"
         working-directory: client
 
       - name: Package Viper-IDE extension (non-stable release only)
         if: ${{ github.event.inputs.type != 'stable' }}
-        run: npm run package-${{ matrix.platform }} -- --out viper-ide-${{ matrix.platform }}.vsix --pre-release
+        run: npm run package-args -- "--platform ${{ matrix.platform}}" "--target ${{ matrix.target }} --out viper-ide-${{ matrix.platform }}.vsix --pre-release"
         working-directory: client
 
       - name: Upload packaged Viper-IDE
