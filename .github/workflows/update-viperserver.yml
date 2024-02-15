@@ -1,0 +1,63 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Copyright (c) 2011-2024 ETH Zurich.
+
+name: Update ViperServer
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Daily at 07:00 UTC. Use https://crontab.guru/ to edit this.
+    - cron:  '0 7 * * *'
+
+jobs:
+  # Update the version of rustc, open a PR and assign a developer.
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Update ViperServer version used by the tests
+        run: |
+          CURRENT_VIPERSERVER_VERSION="$(cat client/viperserver-version)"
+          echo "The current version of ViperServer used in is $CURRENT_VIPERSERVER_VERSION"
+
+          # the following command queries all releases (as JSON) and passes it to `jq` that performs the following
+          # filtering:
+          # 1. get release at index 0 (the newest one)
+          # 2. return this release's tag name
+          LATEST_VIPERSERVER_RELEASE=$( \
+            curl --fail --silent \
+              --header 'Accept: application/vnd.github.v3+json' \
+              --header 'Authorization: token ${{ secrets.GITHUB_TOKEN }}' \
+              --url 'https://api.github.com/repos/viperproject/viperserver/releases' \
+            | \
+            jq -r '.[0].tag_name')
+
+          echo "The latest ViperServer release tag is $LATEST_VIPERSERVER_RELEASE"
+          echo "$LATEST_VIPERSERVER_RELEASE" > client/viperserver-version
+          echo "CURRENT_VIPERSERVER_VERSION=$CURRENT_VIPERSERVER_VERSION" >> $GITHUB_ENV
+          echo "LATEST_VIPERSERVER_RELEASE=$LATEST_VIPERSERVER_RELEASE" >> $GITHUB_ENV
+      - name: Open a pull request
+        id: pr
+        uses: peter-evans/create-pull-request@v6
+        if: env.CURRENT_VIPERSERVER_VERSION != env.LATEST_VIPERSERVER_RELEASE
+        with:
+          # Use viper-admin's token to workaround a restriction of GitHub.
+          # See: https://github.com/peter-evans/create-pull-request/issues/48
+          token: ${{ secrets.VIPER_ADMIN_TOKEN }}
+          commit-message: Update ViperServer to ${{ env.LATEST_VIPERSERVER_RELEASE }}
+          title: Update ViperServer to ${{ env.LATEST_VIPERSERVER_RELEASE }}
+          branch: auto-update-viperserver
+          delete-branch: true
+          body: |
+            * Update ViperServer from `${{ env.CURRENT_VIPERSERVER_VERSION }}` to `${{ env.LATEST_VIPERSERVER_RELEASE }}`.
+
+      - name: Enable auto-merge of PR
+         if: env.CURRENT_VIPERSERVER_VERSION != env.LATEST_VIPERSERVER_RELEASE
+        run: gh pr merge --merge --auto "${{ steps.pr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ secrets.VIPER_ADMIN_TOKEN }}
