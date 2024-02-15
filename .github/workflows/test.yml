@@ -121,23 +121,23 @@ jobs:
       # tests should not be stopped when they fail on one of the OSes:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        target: ["darwin-x64", "darwin-arm64", "linux-x64", "win32-x64"]
         include:
-          - os: macos-latest
+          - target: "darwin-x64"
+            os: macos-latest
             platform: "mac"
-            target: "darwin-x64"
             viper-tools-zip-file: "ViperToolsMac.zip"
-          - os: ubuntu-latest # since GitHub does not have ARM macs, we can't test anyway and use Ubuntu instead for building
+          - target: "darwin-arm64"
+            os: ubuntu-latest # since GitHub does not have ARM macs, we can't test anyway and use Ubuntu instead for building
             platform: "macARM"
-            target: "darwin-arm64"
             viper-tools-zip-file: "ViperToolsMacARM.zip"
-          - os: ubuntu-latest
+          - target: "linux-x64"
+            os: ubuntu-latest
             platform: "linux"
-            target: "linux-x64"
             viper-tools-zip-file: "ViperToolsLinux.zip"
-          - os: windows-latest
+          - target: "win32-x64"
+            os: windows-latest
             platform: "windows"
-            target: "win32-x64"
             viper-tools-zip-file: "ViperToolsWin.zip"
     runs-on: ${{ matrix.os }}
     steps:
