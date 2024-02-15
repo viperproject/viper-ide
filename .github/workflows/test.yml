@@ -284,10 +284,6 @@ jobs:
       #   run: npm install
       #   working-directory: client
 
-      - name: List all files that will be packaged
-        run: npx @vscode/vsce ls
-        working-directory: client
-
       # use @vscode/vsce to package the extension into a vsix file.
       # sets a special field in package.json to indicate that the package is not a pre-release (it's one
       # by default)
@@ -299,6 +295,11 @@ jobs:
       - name: Package Viper-IDE extension (non-stable release only)
         if: ${{ github.event.inputs.type != 'stable' }}
         run: npm run package-args -- --platform=${{ matrix.platform}} --target=${{ matrix.target }} --out=viper-ide-${{ matrix.platform }}.vsix --pre-release
+        working-directory: client
+
+      # we have to list the files after packaging because packaging first downloads dependencies
+      - name: List all files that got packaged (ignore 'viper-ide-${{ matrix.platform }}.vsix')
+        run: npx @vscode/vsce ls
         working-directory: client
 
       - name: Upload packaged Viper-IDE
