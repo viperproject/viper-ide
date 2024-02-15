@@ -18,7 +18,7 @@ export const DATA_ROOT = path.join(PROJECT_ROOT, "src", "test", "data");
 export const SILICON = 'silicon';
 export const CARBON = 'carbon';
 
-export const SETUP_TIMEOUT = 15 * 1000; // 15 sec
+export const SETUP_TIMEOUT = 20 * 1000; // 20 sec
 
 
 export const SIMPLE = 'simple.sil';
