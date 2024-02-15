@@ -55,9 +55,3 @@ jobs:
           delete-branch: true
           body: |
             * Update ViperServer from `${{ env.CURRENT_VIPERSERVER_VERSION }}` to `${{ env.LATEST_VIPERSERVER_RELEASE }}`.
-
-      - name: Enable auto-merge of PR
-        if: env.CURRENT_VIPERSERVER_VERSION != env.LATEST_VIPERSERVER_RELEASE
-        run: gh pr merge --merge --auto "${{ steps.pr.outputs.pull-request-number }}"
-        env:
-          GH_TOKEN: ${{ secrets.VIPER_ADMIN_TOKEN }}
