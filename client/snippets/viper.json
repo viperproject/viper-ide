@@ -27,6 +27,13 @@
         ],
         "description": "Decreases clause"
     },
+    "Invariant": {
+        "prefix": "invariant",
+        "body": [
+            "invariant ${1:true}"
+        ],
+        "description": "Loop invariant"
+    },
     "Method": {
         "prefix": "method",
         "body": [
