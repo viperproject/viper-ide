@@ -7,18 +7,32 @@
         "description": "Access permission"
     },
     "Precondition": {
-        "prefix": "precondition",
+        "prefix": "requires",
         "body": [
-            "requires ${1:true)"
+            "requires ${1:true}"
         ],
         "description": "Precondition"
     },
     "Postcondition": {
-        "prefix": "postcondition|ensures",
+        "prefix": "ensures",
         "body": [
-            "ensures $(1:true)"
+            "ensures ${1:true}"
         ],
         "description": "Postcondition"
+    },
+    "Decreases": {
+        "prefix": "decreases",
+        "body": [
+            "decreases"
+        ],
+        "description": "Decreases clause"
+    },
+    "Invariant": {
+        "prefix": "invariant",
+        "body": [
+            "invariant ${1:true}"
+        ],
+        "description": "Loop invariant"
     },
     "Method": {
         "prefix": "method",

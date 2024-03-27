@@ -14,7 +14,3 @@ Please **always** refer to the official [installation instructions](http://viper
 ### Using Viper ###
 
 If you would like to learn more about Viper, please start with our extensive [tutorial](http://viper.ethz.ch/tutorial/). 
-
-### Debugging verification failures ###
-
-[Lizard](https://github.com/viperproject/lizard) is a (visual) verification debugger prototype for Viper IDE. It aims at simplifying the understanding of verification failures by converting SMT models to counterexample diagrams that are shown next to the code. 
