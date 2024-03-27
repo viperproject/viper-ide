@@ -1,4 +1,4 @@
-import TestHelper, { CARBON, EMPTY, LONG, SETUP_TIMEOUT, SILICON, SIMPLE, VIPER_TOOLS_TIMEOUT } from './TestHelper';
+import TestHelper, { CARBON, EMPTY, LONG, SETUP_TIMEOUT, SILICON, SIMPLE } from './TestHelper';
 
 // this test suite is supposed to be the first one that is executed
 // as we can only test that way that the extension is correctly started
@@ -20,13 +20,17 @@ suite('Extension Startup', () => {
     });
 
     test("Language Detection, and Silicon Backend Startup test.", async function() {
-        this.timeout(VIPER_TOOLS_TIMEOUT);
+        this.timeout(SETUP_TIMEOUT);
         // this checks that silicon is the default backend
         const activated = TestHelper.checkIfExtensionIsActivatedOrWaitForIt();
         const started = TestHelper.waitForBackendStarted(SILICON);
+        TestHelper.log("Language detection - before opening file");
         await TestHelper.openFile(EMPTY);
+        TestHelper.log("Language detection - after opening file");
         await activated;
+        TestHelper.log("Language detection - activated");
         await started;
+        TestHelper.log("Language detection - started");
     });
 
     test("Test simple verification with Silicon", async function(){

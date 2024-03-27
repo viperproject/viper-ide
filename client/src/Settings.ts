@@ -37,7 +37,6 @@ export class Settings {
         extensionVersion: Settings.ownPackageJson.version
     };
 
-    public static isPrerelease: boolean = Settings.ownPackageJson.viper.prerelease;
     public static isWin = /^win/.test(process.platform);
     public static isLinux = /^linux/.test(process.platform);
     public static isMac = /^darwin/.test(process.platform);
@@ -168,13 +167,7 @@ export class Settings {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     private static async checkBuildVersion(location: Location): Promise<Either<Messages, BuildChannel>> {
         const buildChannel = Settings.getBuildChannel();
-        // we only check that 'stable' is not chosen when the extension is in pre-release mode (and the 
-        // extension is normally run, i.e. not as part of the unit tests):
-        if (Settings.isPrerelease && !State.unitTest && buildChannel === BuildChannel.Stable) {
-            return newEitherError(`Viper-IDE is configured to use build version 'Stable' for the Viper tools, which is an unsupported choice for a pre-release version of the IDE.`);
-        } else {
-            return newRight(buildChannel);
-        }
+        return newRight(buildChannel);
     }
 
     private static async checkVersion<T extends VersionedSettings>(settings: T, settingName: string): Promise<Either<Messages, T>> {
@@ -195,12 +188,10 @@ export class Settings {
 
     public static getBuildChannel(): BuildChannel {
         const buildVersion = Settings.getConfiguration("buildVersion");
-        if (buildVersion === "Nightly") {
-            return BuildChannel.Nightly;
-        } else if (buildVersion === "Local") {
-            return BuildChannel.Local;
+        if (buildVersion === "External") {
+            return BuildChannel.External;
         }
-        return BuildChannel.Stable;
+        return BuildChannel.BuiltIn;
     }
 
     public static disableServerVersionCheck(): boolean {
@@ -262,31 +253,9 @@ export class Settings {
             }));
     }
 
-    /**
-    * Gets Viper Tools Provider URL as stored in the settings.
-    * Note that the returned URL might be invalid or correspond to one of the "special" URLs as specified in the README (e.g. to download a GitHub release asset)
-    */
-    public static async getViperToolsProvider(buildChannel: BuildChannel): Promise<string> {
-        const settings = Settings.getConfiguration("preferences");
-        const urls = await Settings.checkViperToolsProvider(settings);
-        if (isLeft(urls)) {
-            throw new Error(urls.left.toString());
-        }
-        let url: string = null;
-        if (buildChannel == BuildChannel.Stable) {
-            url = urls.right.stable;
-        } else if (buildChannel == BuildChannel.Nightly) {
-            url = urls.right.nightly;
-        }
-        if (url == null) {
-            throw new Error(`no URL for Viper Tools provider and build channel ${buildChannel} found`);
-        }
-        return url;
-    }
-
     /** 
-     * `location` is only needed if build channel is different from 'Local'.
-     * In the case that the build channel is 'Local', `null` can be passed.
+     * `location` is only needed if build channel is different from 'External'.
+     * In the case that the build channel is 'External', `null` can be passed.
      * Note that the provided `buildChannel` is used to perform all checks, we
      * can be independent of the user configued build channel.
      * if `allowMissingPath` is set to false, the promise will be resolved even if the path does
@@ -294,9 +263,9 @@ export class Settings {
      */
     private static async checkViperToolsPath(location: Location | null, buildChannel: BuildChannel, allowMissingPath: boolean = false): Promise<Either<Messages, string>> {
         const settingName = "paths";
-        const isBuildChannelLocal = (buildChannel === BuildChannel.Local);
+        const isBuildChannelExternal = (buildChannel === BuildChannel.External);
         let resolvedPath: Either<Messages, ResolvedPath>;
-        if (isBuildChannelLocal) {
+        if (isBuildChannelExternal) {
             const configuredPath = Settings.getConfiguration(settingName).viperToolsPath;
             resolvedPath = await Settings.checkPath(location, configuredPath, `${settingName}.viperToolsPath`, false, true, true, allowMissingPath);
         } else {
@@ -308,16 +277,16 @@ export class Settings {
     }
 
     /**
-     * Get path to location at which Viper tools should be / have been manually installed (build channel "Local").
+     * Get path to location at which Viper tools should be / have been manually installed (build channel "External").
      * `allowMissingPath` configures whether promise should be resolved even if the path does not exist.
      */
     public static async getLocalViperToolsPath(allowMissingPath: boolean = false): Promise<string> {
-        const resolvedPath = await Settings.checkViperToolsPath(null, BuildChannel.Local, allowMissingPath);
+        const resolvedPath = await Settings.checkViperToolsPath(null, BuildChannel.External, allowMissingPath);
         return toRight(resolvedPath);
     }
 
     /**
-     * Get path to location at which Viper tools have been either manually (build channel "Local") or automatically (other build channels) installed .
+     * Get path to location at which Viper tools have been either manually provided (build channel "External") or are built-in.
      */
      public static async getViperToolsPath(location: Location): Promise<string> {
         const viperTools = await Settings.checkViperToolsPath(location, Settings.getBuildChannel());
@@ -327,7 +296,7 @@ export class Settings {
     /* returns an escaped string */
     private static async checkViperServerJars(location: Location): Promise<Either<Messages, string>> {
         const settingName = "viperServerSettings";
-        const isBuildChannelLocal = (Settings.getBuildChannel() === BuildChannel.Local);
+        const isBuildChannelLocal = (Settings.getBuildChannel() === BuildChannel.External);
         let resolvedPaths: Either<Messages, string[]>;
         if (isBuildChannelLocal) {
             const configuredServerJars = Settings.getConfiguration(settingName).serverJars;
@@ -356,12 +325,12 @@ export class Settings {
     /**
      * Resolves the path to the Boogie binary based on `buildVersion`, checks whether the file exists, and (optionally)
      * tries to execute the binary.
-     * In case the user uses `buildVersion` `Local` and specifies an empty Boogie path, checks are skipped and `Right("")` is returned.
+     * In case the user uses `buildVersion` `External` and specifies an empty Boogie path, checks are skipped and `Right("")` is returned.
      */
     public static async checkBoogiePath(location: Location, execute: boolean = false): Promise<Either<Messages, string>> {
         const settingName = "paths";
         let resolvedPath: Either<Messages, ResolvedPath>;
-        if (Settings.getBuildChannel() == BuildChannel.Local) {
+        if (Settings.getBuildChannel() == BuildChannel.External) {
             const boogiePaths = Settings.getConfiguration(settingName).boogieExecutable;
             // note that the path does not have to exist (4th argument is set to true)
             // we check afterwards that the path exists if the path is non-empty
@@ -412,7 +381,7 @@ export class Settings {
     public static async checkZ3Path(location: Location, execute: boolean = false): Promise<Either<Messages, string>> {
         const settingName = "paths";
         let resolvedPath: Either<Messages, ResolvedPath>
-        if (Settings.getBuildChannel() == BuildChannel.Local) {
+        if (Settings.getBuildChannel() == BuildChannel.External) {
             const z3Paths = Settings.getConfiguration(settingName).z3Executable;
             resolvedPath = await Settings.checkPath(location, z3Paths, `Z3 Executable (from '${settingName}.z3Executable'):`, true, true, true);
         } else {
@@ -441,7 +410,7 @@ export class Settings {
     private static async checkSfxPath(location: Location): Promise<Either<Messages, string>> {
         const settingName = "paths";
         let resolvedPath: Either<Messages, ResolvedPath>
-        if (Settings.getBuildChannel() == BuildChannel.Local) {
+        if (Settings.getBuildChannel() == BuildChannel.External) {
             const sfxPrefix = Settings.getConfiguration(settingName).sfxPrefix;
             resolvedPath = await Settings.checkPath(location, sfxPrefix, `The sound effect resources (if you don't want sounds, set '${settingName}.sfxPrefix' to ""):`, false, true, true, true);
         } else {
@@ -1170,7 +1139,7 @@ export class Settings {
         if (nofErrors + nofWarnings > 1) {
             message = "see View->Output->Viper";
         }
-        Log.hint(`${countDescription}: ${message}`, `Viper Settings`, true, true);
+        Log.hint(`${countDescription}: ${message}`, `Viper Settings`, true);
         if (nofErrors > 0) {
             // abort only in the case of errors
             throw new Error(`Problems in Viper Settings detected`);
@@ -1282,9 +1251,8 @@ export interface ResolvedPath {
 }
 
 export enum BuildChannel {
-    Stable = "Stable",
-    Nightly = "Nightly",
-    Local = "Local"
+    BuiltIn = "BuiltIn",
+    External = "External"
 }
 
 export interface ServerPolicy {

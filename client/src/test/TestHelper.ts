@@ -18,9 +18,7 @@ export const DATA_ROOT = path.join(PROJECT_ROOT, "src", "test", "data");
 export const SILICON = 'silicon';
 export const CARBON = 'carbon';
 
-export const VIPER_TOOLS_TIMEOUT = 2 * 60 * 1000; // 2 min
-// set timeout to a large value such that extension can be started & installed:
-export const SETUP_TIMEOUT = VIPER_TOOLS_TIMEOUT;
+export const SETUP_TIMEOUT = 20 * 1000; // 20 sec
 
 
 export const SIMPLE = 'simple.sil';
@@ -188,10 +186,6 @@ export default class TestHelper {
         await TestHelper.executeCommand('viper.selectBackend', backend)
     }
 
-    public static async startViperToolsUpdate(): Promise<void> {
-        await TestHelper.executeCommand('viper.updateViperTools');
-    }
-
     public static executeCommand(command: string, args?): Thenable<unknown> {
         TestHelper.log(command + (args ? ' ' + args : ''));
         return vscode.commands.executeCommand(command, args);
@@ -320,12 +314,6 @@ export default class TestHelper {
         });
     }
 
-    public static waitForViperToolsUpdate(): Promise<void> {
-        return new Promise(resolve => {
-            TestHelper.callbacks.viperUpdateComplete = () => { resolve(); }
-        });
-    }
-
     /**
      * Promise is resolved with true if timeout is hit, otherwise if event happens before timeout returned promise is resolved with false
      */
@@ -368,8 +356,7 @@ class UnitTestCallbackImpl implements UnitTestCallback {
     logFileOpened: () => void = () => { };
     allFilesVerified: (verified: number, total: number) => void = () => { };
     ideIsIdle: () => void = () => { };
-    internalErrorDetected: () => void = () => { this.errorDetected = true; }
-    viperUpdateComplete: () => void = () => { };
+    internalErrorDetected: () => void = () => { this.errorDetected = true; };
     verificationStopped: (success: boolean) => void = () => { };
     verificationStarted: (backend: string, filename: string) => void = () => { };
 }

@@ -41,7 +41,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<ViperA
     return internalActivate(context)
         .catch(async err => {
             // give the user the choice what to do:
-            Log.hint(`Activating the Viper-IDE extension has failed: ${err}`, `Viper`, true, true);
+            Log.hint(`Activating the Viper-IDE extension has failed: ${err}`, `Viper`, true);
             // we resolve the promise here such that e.g. updating Viper-IDE actually works:
             return State.viperApi;
         });
@@ -320,11 +320,6 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
     //remove diagnostics of open file
     context.subscriptions.push(vscode.commands.registerCommand('viper.removeDiagnostics', () => removeDiagnostics(true)));
 
-    //automatic installation and updating of viper tools
-    context.subscriptions.push(vscode.commands.registerCommand('viper.updateViperTools', () => {
-        State.addToWorklist(new Task({ type: TaskType.UpdateViperTools, uri: null, manuallyTriggered: true }));
-    }));
-
     // show currently active (Viper) settings
     context.subscriptions.push(vscode.commands.registerCommand('viper.showSettings', async () => {
         const settings = vscode.workspace.getConfiguration("viperSettings");
@@ -334,14 +329,14 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
 }
 
 function showNotReadyHint(): void {
-    Log.hint(`Extension is not yet ready.`, `Viper`, false, true, true);
+    Log.hint(`Extension is not yet ready.`, `Viper`, false, true);
 }
 
 function registerClientHandlers(): void {
     State.client.onNotification(Commands.StateChange, (params: StateChangeParams) => State.verificationController.handleStateChange(params));
         
     State.client.onNotification(Commands.Hint, (data: HintMessage) => {
-        Log.hint(data.message, "Viper", data.showSettingsButton, data.showViperToolsUpdateButton);
+        Log.hint(data.message, "Viper", data.showSettingsButton);
     });
         
     State.client.onNotification(Commands.Log, (params: LogParams) => {

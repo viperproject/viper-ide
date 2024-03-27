@@ -205,22 +205,18 @@ export class Log {
         }
     }
 
-    public static hint(message: string, tag: string = "Viper", showSettingsButton = false, showViperToolsUpdateButton = false, showRestartButton = false): void {
+    public static hint(message: string, tag: string = "Viper", showSettingsButton = false, showRestartButton = false): void {
         Log.log("H: " + tag + ": " + message, LogLevel.Debug);
 
         const settingsButton: vscode.MessageItem = { title: "Open Settings" };
-        const updateButton: vscode.MessageItem = { title: "Update ViperTools" };
         const restartButton: vscode.MessageItem = { title: "Restart Viper-IDE" };
         const buttons: vscode.MessageItem[] = [];
         if (showSettingsButton) buttons.push(settingsButton);
-        if (showViperToolsUpdateButton) buttons.push(updateButton);
         if (showRestartButton) buttons.push(restartButton);
         vscode.window.showInformationMessage(`${tag}: ${message}`, ...buttons).then(async (choice) => {
             try {
                 if (choice && choice.title === settingsButton.title) {
                     await vscode.commands.executeCommand("workbench.action.openGlobalSettings");
-                } else if (choice && choice.title === updateButton.title) {
-                    await vscode.commands.executeCommand("viper.updateViperTools");
                 } else if (choice && choice.title === restartButton.title) {
                     await restart();
                 }
