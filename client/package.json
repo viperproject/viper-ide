@@ -74,7 +74,8 @@
 		"compile": "npm-run-all --sequential clean webpack-development download-dependencies",
 		"watch": "npm-run-all --sequential clean download-dependencies webpack-development-watch",
 		"run-test": "node ./dist/test/runTest.js",
-		"test": "npm-run-all --sequential clean tsc \"download-dependencies -- {1}\" run-test --",
+		"pretest": "npm-run-all --sequential clean tsc \"download-dependencies -- {1}\"",
+		"test": "npm-run-all --sequential pretest run-test --",
 		"vsce-package": "vsce package",
 		"package": "npm-run-all --sequential clean webpack-production \"download-dependencies -- {1}\" \"vsce-package -- {@}\" --"
 	},
