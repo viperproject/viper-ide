@@ -1,7 +1,7 @@
 {
 	"name": "viper",
 	"displayName": "Viper",
-	"version": "5.0.0",
+	"version": "4.2.2",
 	"publisher": "viper-admin",
 	"description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
 	"license": "SEE LICENSE IN LICENSE.txt",
@@ -34,54 +34,52 @@
 		"automatic deduction"
 	],
 	"devDependencies": {
-		"@types/glob": "^8.1.0",
 		"@types/glob-to-regexp": "^0.4.4",
 		"@types/mocha": "^10.0.6",
-		"@types/node": "^20.11.14",
-		"@types/semver": "^7.5.6",
+		"@types/node": "^20.12.2",
+		"@types/semver": "^7.5.8",
 		"@types/tmp": "^0.2.6",
 		"@types/vscode": "^1.82.0",
-		"@typescript-eslint/eslint-plugin": "^6.20.0",
-		"@typescript-eslint/parser": "^6.20.0",
+		"@typescript-eslint/eslint-plugin": "^7.5.0",
+		"@typescript-eslint/parser": "^7.5.0",
 		"@viperproject/locate-java-home": "^1.1.15",
 		"@vscode/test-electron": "^2.3.9",
-		"@vscode/vsce": "^2.23.0",
-		"eslint": "^8.56.0",
+		"@vscode/vsce": "^2.24.0",
+		"eslint": "^8.57.0",
 		"eslint-webpack-plugin": "^4.0.1",
 		"glob-to-regexp": "^0.4.1",
-		"mocha": "^10.1.0",
+		"mocha": "^10.3.0",
 		"npm-run-all": "^4.1.5",
 		"rimraf": "^5.0.5",
-		"semver": "^7.3.7",
-		"tmp": "^0.2.1",
+		"semver": "^7.6.0",
+		"tmp": "^0.2.3",
 		"ts-loader": "^9.5.1",
+		"ts-node": "^10.9.2",
 		"typescript": "^5.3.3",
 		"unused-filename": "^3.0.1",
 		"vs-verification-toolbox": "git+https://github.com/viperproject/vs-verification-toolbox.git",
 		"vscode-languageclient": "^9.0.1",
 		"vscode-uri": "^3.0.8",
-		"webpack": "^5.90.0",
-		"webpack-cli": "^5.1.4"
+		"webpack": "^5.90.3",
+		"webpack-cli": "^5.1.4",
+		"yargs": "^17.7.2"
 	},
 	"scripts": {
 		"webpack-production": "webpack --mode production",
 		"webpack-development": "webpack --mode development",
 		"webpack-development-watch": "webpack --mode development --watch",
+		"download-dependencies": "ts-node ./download-dependencies.ts",
 		"tsc": "tsc",
-		"clean": "rimraf dist",
-		"compile": "npm-run-all --sequential clean webpack-development",
-		"watch": "npm-run-all --sequential clean webpack-development-watch",
-		"vscode:prepublish": "npm-run-all --sequential clean webpack-production",
-		"test-compile": "npm-run-all --sequential clean tsc",
-		"pretest": "npm run test-compile",
-		"test": "node ./dist/test/runTest.js",
-		"package": "vsce package"
+		"clean": "rimraf dist dependencies",
+		"compile": "npm-run-all --sequential clean webpack-development download-dependencies",
+		"watch": "npm-run-all --sequential clean download-dependencies webpack-development-watch",
+		"run-test": "node ./dist/test/runTest.js",
+		"test": "npm-run-all --sequential clean tsc \"download-dependencies -- {1}\" run-test --",
+		"vsce-package": "vsce package",
+		"package": "npm-run-all --sequential clean webpack-production \"download-dependencies -- {1}\" \"vsce-package -- {@}\" --"
 	},
 	"vsce": {
 		"baseImagesUrl": "https://github.com/viperproject/viper-ide/raw/master/client"
-	},
-	"viper": {
-		"prerelease": true
 	},
 	"activationEvents": [
 		"onLanguage:viper"
@@ -126,11 +124,6 @@
 			{
 				"command": "viper.removeDiagnostics",
 				"title": "remove diagnostics caused by this file",
-				"category": "Viper"
-			},
-			{
-				"command": "viper.updateViperTools",
-				"title": "install or update dependencies (command line tools)",
 				"category": "Viper"
 			},
 			{
@@ -183,11 +176,6 @@
 				},
 				{
 					"command": "viper.removeDiagnostics",
-					"when": "resourceLangId == viper",
-					"group": "Viper"
-				},
-				{
-					"command": "viper.updateViperTools",
 					"when": "resourceLangId == viper",
 					"group": "Viper"
 				},
@@ -646,12 +634,11 @@
 					"scope": "window",
 					"type": "string",
 					"enum": [
-						"Stable",
-						"Nightly",
-						"Local"
+						"BuiltIn",
+						"External"
 					],
 					"default": "Stable",
-					"description": "Select the build version of the Viper Tools. The path specified at 'paths.viperToolsPath' will be used for build version 'Local'"
+					"description": "Select the build version of the Viper Tools. The path specified at 'viperSettings.paths.viperToolsPath' will be used for build version 'Local'"
 				},
 				"viper.disableServerVersionCheck": {
 					"scope": "window",

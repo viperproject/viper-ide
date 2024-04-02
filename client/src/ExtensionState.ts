@@ -412,7 +412,6 @@ export interface UnitTestCallback {
     allFilesVerified: (verified: number, total: number) => void;
     ideIsIdle: () => void;
     internalErrorDetected: () => void;
-    viperUpdateComplete: () => void;
     verificationStopped: (success: boolean) => void;
     verificationStarted: (backend: string, filename: string) => void;
 }

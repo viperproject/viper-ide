@@ -19,7 +19,6 @@ import { Helper } from './Helper';
 import { ViperFileState } from './ViperFileState';
 import { Color } from './StatusBar';
 import { Settings } from './Settings';
-import { updateViperTools } from './ViperTools';
 import { restart } from './extension';
 import { ProjectManager } from './ProjectManager';
 
@@ -117,7 +116,7 @@ export class Task implements ITask {
 
 export enum TaskType {
     NoOp = 0, Clear = 1,
-    Save = 2, Verify = 3, StopVerification = 4, UpdateViperTools = 5, StartBackend = 6, FileClosed = 8,
+    Save = 2, Verify = 3, StopVerification = 4, StartBackend = 6, FileClosed = 8,
     Verifying = 30,
     VerificationComplete = 300, VerificationFailed = 301,
     RestartExtension = 800,
@@ -205,9 +204,6 @@ export class VerificationController {
                 for (let i = this.workList.length - 1; i >= 0; i--) {
                     const task = this.workList[i];
                     switch (task.type) {
-                        case TaskType.UpdateViperTools:
-                            clear = i;
-                            break;
                         case TaskType.RestartExtension:
                             clear = i;
                             break;
@@ -368,15 +364,6 @@ export class VerificationController {
                             }
                             task.type = TaskType.NoOp;
                             addNotificationForTask(task, () => task.completeSuccessfully());
-                            break;
-                        case TaskType.UpdateViperTools:
-                            Log.logWithOrigin("workList", "Updating Viper Tools now", LogLevel.LowLevelDebug);
-                            // shutdown ViperServer before updating it to make sure that the JAR is not locked by the OS:
-                            await State.dispose();
-                            await updateViperTools(State.context);
-                            if (State.unitTest) State.unitTest.viperUpdateComplete();
-                            task.markStarted(TaskType.RestartExtension);
-                            Log.logWithOrigin("workList", "RestartExtension", LogLevel.LowLevelDebug);
                             break;
                         case TaskType.RestartExtension:
                             // note that `restart` awaits the disposable of the timer
