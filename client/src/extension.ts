@@ -461,4 +461,5 @@ function removeDiagnostics(activeFileOnly: boolean): void {
         State.diagnosticCollection.clear();
         Log.log(`All diagnostics successfully removed`, LogLevel.Debug);
     }
+    State.hideViperStatusBarItems()
 }
