@@ -21,17 +21,6 @@ on:
           - stable
           - nightly
           - rc
-      viperserver_tag_name:
-        description: 'Tag name of ViperServer release from which server JAR should be downloaded'
-        required: true
-      boogie_tag_name:
-        description: 'Tag name of Boogie release from which the Boogie binaries should be downloaded. Can be set to be "latest"'
-        required: true
-        default: 'latest'
-      z3_version:
-        description: 'Z3 version that should be downloaded and included in a release'
-        required: true
-        default: '4.8.7'
       tag_name:
         description: 'Tag name for stable release.'
         required: true
@@ -55,134 +44,25 @@ env:
   TEST_LOCAL_ON_PUSH_PR_VIPERSERVER_URL: https://polybox.ethz.ch/index.php/s/54sDcqHDJHelKBY/download
 
 jobs:
-  create-viper-tools:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    env:
-      VIPERSERVER_URL: "https://github.com/viperproject/viperserver/releases/download/${{ github.event.inputs.viperserver_tag_name }}/viperserver.jar"
-      WIN_Z3_URL: "https://github.com/Z3Prover/z3/releases/download/z3-${{ github.event.inputs.z3_version }}/z3-${{ github.event.inputs.z3_version }}-x64-win.zip"
-      LINUX_Z3_URL: "https://github.com/Z3Prover/z3/releases/download/z3-${{ github.event.inputs.z3_version }}/z3-${{ github.event.inputs.z3_version }}-x64-ubuntu-16.04.zip"
-      MAC_Z3_URL: "https://github.com/Z3Prover/z3/releases/download/z3-${{ github.event.inputs.z3_version }}/z3-${{ github.event.inputs.z3_version }}-x64-osx-10.14.6.zip"
-      # The non-'4.8.7' URL will only work for '4.9.0' and above (such a version would break the above two URLs though, since they now build for `osx-10.16` and `glibc-2.35`)
-      MAC_ARM_Z3_URL: ${{ github.event.inputs.z3_version == '4.8.7' && 'https://github.com/viperproject/boogie-builder/raw/master/prebuilt_z3/z3-4.8.7-arm64-osx.zip' || format('https://github.com/Z3Prover/z3/releases/download/z3-{0}/z3-{0}-arm64-osx-11.zip', github.event.inputs.z3_version) }}
-      # we fake a ternary operator `a ? b : c` by using `a && b || c` as mentioned here:
-      # https://github.com/actions/runner/issues/409
-      WIN_BOOGIE_URL: ${{ github.event.inputs.boogie_tag_name == 'latest' && 'https://github.com/viperproject/boogie-builder/releases/latest/download/boogie-win.zip' || format('https://github.com/viperproject/boogie-builder/releases/download/{0}/boogie-win.zip', github.event.inputs.boogie_tag_name) }}
-      LINUX_BOOGIE_URL: ${{ github.event.inputs.boogie_tag_name == 'latest' && 'https://github.com/viperproject/boogie-builder/releases/latest/download/boogie-linux.zip' || format('https://github.com/viperproject/boogie-builder/releases/download/{0}/boogie-linux.zip', github.event.inputs.boogie_tag_name) }}
-      MAC_BOOGIE_URL: ${{ github.event.inputs.boogie_tag_name == 'latest' && 'https://github.com/viperproject/boogie-builder/releases/latest/download/boogie-osx.zip' || format('https://github.com/viperproject/boogie-builder/releases/download/{0}/boogie-osx.zip', github.event.inputs.boogie_tag_name) }}
-      MAC_ARM_BOOGIE_URL: ${{ github.event.inputs.boogie_tag_name == 'latest' && 'https://github.com/viperproject/boogie-builder/releases/latest/download/boogie-osx-arm.zip' || format('https://github.com/viperproject/boogie-builder/releases/download/{0}/boogie-osx-arm.zip', github.event.inputs.boogie_tag_name) }}
-      VIPER_IDE_DEPS_REF: "master"
-    steps:
-      - name: Install prerequisites
-        run: sudo apt-get install curl zip unzip
-
-      - name: Create ViperTools folders
-        run: |
-          mkdir ViperToolsWin
-          mkdir ViperToolsLinux
-          mkdir ViperToolsMac
-          mkdir ViperToolsMacARM
-
-      - name: Clone ViperTools template
-        uses: actions/checkout@v4
-        with:
-          repository: viperproject/viper-ide-deps
-          ref: ${{ env.VIPER_IDE_DEPS_REF }}
-          path: template
-
-      - name: Remove .git folder from template and use template
-        run: |
-          rm -r template/.git
-          cp -r template/* ViperToolsWin
-          cp -r template/* ViperToolsLinux
-          cp -r template/* ViperToolsMac
-          cp -r template/* ViperToolsMacARM
-
-      - name: Download ViperServer fat JAR
-        run: curl -L --silent --show-error --fail ${{ env.VIPERSERVER_URL }} --output viperserver.jar
-
-      - name: Copy ViperServer fat JAR to ViperTools
-        run: |
-          cp viperserver.jar ViperToolsWin/backends
-          cp viperserver.jar ViperToolsLinux/backends
-          cp viperserver.jar ViperToolsMac/backends
-          cp viperserver.jar ViperToolsMacARM/backends
-
-      - name: Download Z3
-        run: |
-          curl --fail --silent --show-error -L ${{ env.WIN_Z3_URL }} --output z3-win.zip
-          curl --fail --silent --show-error -L ${{ env.LINUX_Z3_URL }} --output z3-linux.zip
-          curl --fail --silent --show-error -L ${{ env.MAC_Z3_URL }} --output z3-mac.zip
-          curl --fail --silent --show-error -L ${{ env.MAC_ARM_Z3_URL }} --output z3-mac-arm.zip
-
-      - name: Unzip Z3 and copy Z3
-        run: |
-          unzip z3-win.zip -d z3-win
-          unzip z3-linux.zip -d z3-linux
-          unzip z3-mac.zip -d z3-mac
-          unzip z3-mac-arm.zip -d z3-mac-arm
-          mkdir -p ViperToolsWin/z3/bin && cp $(find z3-win -name bin -type d)/z3.exe ViperToolsWin/z3/bin
-          mkdir -p ViperToolsLinux/z3/bin && cp $(find z3-linux -name bin -type d)/z3 ViperToolsLinux/z3/bin
-          mkdir -p ViperToolsMac/z3/bin && cp $(find z3-mac -name bin -type d)/z3 ViperToolsMac/z3/bin
-          mkdir -p ViperToolsMacARM/z3/bin && cp $(find z3-mac-arm -name bin -type d)/z3 ViperToolsMacARM/z3/bin
-
-      - name: Download Boogie
-        run: |
-          curl --fail --silent --show-error -L ${{ env.WIN_BOOGIE_URL }} --output boogie-win.zip
-          curl --fail --silent --show-error -L ${{ env.LINUX_BOOGIE_URL }} --output boogie-linux.zip
-          curl --fail --silent --show-error -L ${{ env.MAC_BOOGIE_URL }} --output boogie-mac.zip
-          curl --fail --silent --show-error -L ${{ env.MAC_ARM_BOOGIE_URL }} --output boogie-mac-arm.zip
-
-      - name: Unzip Boogie and copy Boogie
-        run: |
-          unzip boogie-win.zip -d boogie-win
-          unzip boogie-linux.zip -d boogie-linux
-          unzip boogie-mac.zip -d boogie-mac
-          unzip boogie-mac-arm.zip -d boogie-mac-arm
-          mkdir -p ViperToolsWin/boogie && cp -r boogie-win/binaries-win ViperToolsWin/boogie/Binaries
-          mkdir -p ViperToolsLinux/boogie && cp -r boogie-linux/binaries-linux ViperToolsLinux/boogie/Binaries
-          mkdir -p ViperToolsMac/boogie && cp -r boogie-mac/binaries-osx ViperToolsMac/boogie/Binaries
-          mkdir -p ViperToolsMacARM/boogie && cp -r boogie-mac-arm/binaries-osx-arm ViperToolsMacARM/boogie/Binaries
-
-      - name: Create folder to store all ViperTools platform zip files
-        run: mkdir deploy
-        # note that we change into the tool folder to zip it. This avoids including the parent folder in the zip
-      - name: Zip ViperTools for Windows
-        run: zip -r ../deploy/ViperToolsWin.zip ./*
-        working-directory: ViperToolsWin
-      - name: Zip ViperTools for Linux
-        run: zip -r ../deploy/ViperToolsLinux.zip ./*
-        working-directory: ViperToolsLinux
-      - name: Zip ViperTools for macOS Intel
-        run: zip -r ../deploy/ViperToolsMac.zip ./*
-        working-directory: ViperToolsMac
-      - name: Zip ViperTools for macOS ARM
-        run: zip -r ../deploy/ViperToolsMacARM.zip ./*
-        working-directory: ViperToolsMacARM
-
-      - name: Upload ViperTools zip files
-        uses: actions/upload-artifact@v4
-        with:
-          name: ViperTools
-          path: deploy
-
-
   build-and-test:
-    name: build-and-test - ${{ matrix.os }}
-    needs: create-viper-tools
-    # make the dependency optional in the sense that this job should be executed whenever the dependency was successful or skipped:
-    if: ${{ always() && (contains(needs.create-viper-tools.result, 'success') || contains(needs.create-viper-tools.result, 'skipped')) }}
+    name: build-and-test - ${{ matrix.target }}
     strategy:
       # tests should not be stopped when they fail on one of the OSes:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        target: ["darwin-x64", "darwin-arm64", "linux-x64", "win32-x64"]
         include:
-          - os: macos-latest
+          - target: "darwin-x64"
+            os: macos-latest
             viper-tools-zip-file: "ViperToolsMac.zip"
-          - os: ubuntu-latest
+          - target: "darwin-arm64"
+            os: ubuntu-latest # since GitHub does not have ARM macs, we can't test anyway and use Ubuntu instead for building
+            viper-tools-zip-file: "ViperToolsMacARM.zip"
+          - target: "linux-x64"
+            os: ubuntu-latest
             viper-tools-zip-file: "ViperToolsLinux.zip"
-          - os: windows-latest
+          - target: "win32-x64"
+            os: windows-latest
             viper-tools-zip-file: "ViperToolsWin.zip"
     runs-on: ${{ matrix.os }}
     steps:
@@ -273,8 +153,8 @@ jobs:
         if: ${{ fromJSON(env.TEST_LOCAL_ON_PUSH_PR) || contains(needs.create-viper-tools.result, 'success') }}
         run: |
           mkdir -p client/src/test/data/settings
-          echo '{ 
-            "viperSettings.buildVersion": "Local",
+          echo '{
+            "viperSettings.buildVersion": "External",
             "viperSettings.paths": {
               "v": "674a514867b1",
               "viperToolsPath": {
@@ -284,25 +164,25 @@ jobs:
               }
             },
             "viperserver.trace.server": "verbose"
-          }' > client/src/test/data/settings/ci_local.json
+          }' > client/src/test/data/settings/external.json
         shell: bash
 
       - name: Get config content
         if: ${{ fromJSON(env.TEST_LOCAL_ON_PUSH_PR) || contains(needs.create-viper-tools.result, 'success') }}
-        run: cat client/src/test/data/settings/ci_local.json
+        run: cat client/src/test/data/settings/external.json
         shell: bash
 
       - name: Run tests (headless - non-ubuntu)
-        if: "!startsWith(matrix.os, 'ubuntu')"
-        run: npm test --full-trace
+        if: "!startsWith(matrix.os, 'ubuntu') && matrix.target != 'darwin-arm64'"
+        run: npm run test --full-trace -- --target=${{ matrix.target }}
         working-directory: client
         env:
           VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run tests (headless - ubuntu only)
-        if: startsWith(matrix.os, 'ubuntu')
-        run: xvfb-run -a npm test --full-trace
+        if: startsWith(matrix.os, 'ubuntu') && matrix.target != 'darwin-arm64'
+        run: xvfb-run -a npm run test --full-trace -- --target=${{ matrix.target }}
         working-directory: client
         env:
           VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
@@ -312,11 +192,10 @@ jobs:
         if: ${{ failure() || cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: TestLogs-${{ matrix.os }}
+          name: TestLogs-${{ matrix.target }}
           path: client/logs
 
-      - name: Clean 'dist' folder (ubuntu only)
-        if: startsWith(matrix.os, 'ubuntu')
+      - name: Clean 'dist' folder
         run: npm run clean
         working-directory: client
 
@@ -330,32 +209,46 @@ jobs:
       #   run: npm install
       #   working-directory: client
 
-      - name: List all files that will be packaged (ubuntu only)
-        if: startsWith(matrix.os, 'ubuntu')
-        run: npx @vscode/vsce ls
-        working-directory: client
-
       # use @vscode/vsce to package the extension into a vsix file.
       # sets a special field in package.json to indicate that the package is not a pre-release (it's one
       # by default)
-      - name: Package Viper-IDE extension (ubuntu & stable release only)
-        if: ${{ startsWith(matrix.os, 'ubuntu') && github.event.inputs.type == 'stable' }}
-        run: |
-          npm pkg set viper.prerelease=false --json
-          npm run package -- --out viper-ide.vsix
+      - name: Package Viper-IDE extension (stable release only)
+        if: ${{ github.event.inputs.type == 'stable' }}
+        run: npm run package -- --target=${{ matrix.target }} --out=viper-ide-${{ matrix.target }}.vsix
         working-directory: client
 
-      - name: Package Viper-IDE extension (ubuntu & non-stable release only)
-        if: ${{ startsWith(matrix.os, 'ubuntu') && github.event.inputs.type != 'stable' }}
-        run: npm run package -- --out viper-ide.vsix --pre-release
+      - name: Package Viper-IDE extension (non-stable release only)
+        if: ${{ github.event.inputs.type != 'stable' }}
+        run: npm run package -- --target=${{ matrix.target }} --out=viper-ide-${{ matrix.target }}.vsix --pre-release
         working-directory: client
 
-      - name: Upload packaged Viper-IDE (ubuntu-only)
-        if: startsWith(matrix.os, 'ubuntu')
+      # we have to list the files after packaging because packaging first downloads dependencies
+      - name: List all files that got packaged (ignore 'viper-ide-${{ matrix.target }}.vsix')
+        run: npx @vscode/vsce ls
+        working-directory: client
+
+      - name: Upload packaged Viper-IDE
         uses: actions/upload-artifact@v4
         with:
-          name: viper-ide.vsix
-          path: client/viper-ide.vsix
+          name: viper-ide-${{ matrix.target }}.vsix
+          path: client/viper-ide-${{ matrix.target }}.vsix
+
+      # note that we change into the tool folder to zip it. This avoids including the parent folder in the zip
+      - name: Zip ViperTools (non-windows)
+        if: ${{ !startsWith(matrix.os, 'windows') }}
+        run: zip -r ../${{ matrix.viper-tools-zip-file }} ./*
+        working-directory: client/dependencies/ViperTools
+
+      - name: Zip ViperTools (windows only)
+        if: ${{ startsWith(matrix.os, 'windows') }}
+        run: Compress-Archive -Path ./* -Destination ../${{ matrix.viper-tools-zip-file }}
+        working-directory: client/dependencies/ViperTools
+
+      - name: Upload ViperTools zip files
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.viper-tools-zip-file }}
+          path: client/dependencies/${{ matrix.viper-tools-zip-file }}
 
 
   create-release:
@@ -363,10 +256,6 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     needs: build-and-test
     runs-on: ubuntu-latest
-    env:
-      VIPERSERVER_RELEASE_URL: "https://github.com/viperproject/viperserver/releases/${{ github.event.inputs.viperserver_tag_name }}"
-      Z3_RELEASE_URL: "https://github.com/Z3Prover/z3/releases/z3-${{ github.event.inputs.z3_version }}"
-      BOOGIE_RELEASE_URL: ${{ github.event.inputs.boogie_tag_name == 'latest' && 'https://github.com/viperproject/boogie-builder/releases' || format('https://github.com/viperproject/boogie-builder/releases/{0}', github.event.inputs.boogie_tag_name) }}
     steps:
       # we have to checkout the repo to read client/package.json later on:
       - name: Checkout Viper-IDE
@@ -375,14 +264,25 @@ jobs:
       - name: Download packaged Viper IDE
         uses: actions/download-artifact@v4
         with:
-          name: viper-ide.vsix
+          pattern: viper-ide-*.vsix
+          merge-multiple: true
           path: client
 
       - name: Download ViperTools
         uses: actions/download-artifact@v4
         with:
-          name: ViperTools
-          path: deploy
+          pattern: ViperTools*.zip
+          merge-multiple: true
+
+      - name: Read versions
+        run: |
+          echo "BOOGIE_VERSION=$(cat boogie-version)" >> $GITHUB_ENV
+          echo "BOOGIE_VERSION_URL=https://github.com/viperproject/boogie-builder/releases/$BOOGIE_VERSION" >> $GITHUB_ENV
+          echo "VIPERSERVER_VERSION=$(cat viperserver-version)" >> $GITHUB_ENV
+          echo "VIPERSERVER_VERSION_URL=https://github.com/viperproject/viperserver/releases/$VIPERSERVER_VERSION" >> $GITHUB_ENV
+          echo "Z3_VERSION=$(cat z3-version)" >> $GITHUB_ENV
+          echo "Z3_VERSION_URL=https://github.com/Z3Prover/z3/releases/z3-$Z3_VERSION" >> $GITHUB_ENV
+        working-directory: client
 
       - name: Create release tag
         if: ${{ github.event.inputs.type != 'stable' && github.event.inputs.type != 'rc' }}
@@ -417,9 +317,9 @@ jobs:
           release_name: Nightly Release ${{ env.TAG_NAME }}
           body: |
             Based on
-            - ViperServer release [`${{ github.event.inputs.viperserver_tag_name }}`](${{ env.VIPERSERVER_RELEASE_URL }})
-            - [Z3 `${{ github.event.inputs.z3_version }}`](${{ env.Z3_RELEASE_URL }})
-            - [Boogie release `${{ github.event.inputs.boogie_tag_name }}`](${{ env.BOOGIE_RELEASE_URL }})
+            - ViperServer release [`${{ env.VIPERSERVER_VERSION }}`](${{ env.VIPERSERVER_VERSION_URL }})
+            - [Z3 `${{ env.Z3_VERSION }}`](${{ env.Z3_VERSION_URL }})
+            - [Boogie release `${{ env.BOOGIE_VERSION }}`](${{ env.BOOGIE_VERSION_URL }})
           draft: false
           prerelease: true
 
@@ -440,9 +340,9 @@ jobs:
           release_name: ${{ github.event.inputs.release_name }}
           body: |
             Based on
-            - ViperServer release [`${{ github.event.inputs.viperserver_tag_name }}`](${{ env.VIPERSERVER_RELEASE_URL }})
-            - [Z3 `${{ github.event.inputs.z3_version }}`](${{ env.Z3_RELEASE_URL }})
-            - [Boogie release `${{ github.event.inputs.boogie_tag_name }}`](${{ env.BOOGIE_RELEASE_URL }})
+            - ViperServer release [`${{ env.VIPERSERVER_VERSION }}`](${{ env.VIPERSERVER_VERSION_URL }})
+            - [Z3 `${{ env.Z3_VERSION }}`](${{ env.Z3_VERSION_URL }})
+            - [Boogie release `${{ env.BOOGIE_VERSION }}`](${{ env.BOOGIE_VERSION_URL }})
           draft: true
           prerelease: false
 
@@ -451,14 +351,44 @@ jobs:
         shell: bash
         run: echo "UPLOAD_URL=${{ steps.create_stable_release.outputs.upload_url }}" >> $GITHUB_ENV
 
-      - name: Upload packaged Viper IDE
+      - name: Upload packaged Viper IDE for Linux
         uses: actions/upload-release-asset@v1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: client/viper-ide.vsix
-          asset_name: viper-ide.vsix
+          asset_path: client/viper-ide-linux-x64.vsix
+          asset_name: viper-ide-linux-x64.vsix
+          asset_content_type: application/octet-stream
+
+      - name: Upload packaged Viper IDE for macOS
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: client/viper-ide-darwin-x64.vsix
+          asset_name: viper-ide-darwin-x64.vsix
+          asset_content_type: application/octet-stream
+
+      - name: Upload packaged Viper IDE for macOS ARM
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: client/viper-ide-darwin-arm64.vsix
+          asset_name: viper-ide-darwin-arm64.vsix
+          asset_content_type: application/octet-stream
+
+      - name: Upload packaged Viper IDE for Windows
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: client/viper-ide-win32-x64.vsix
+          asset_name: viper-ide-win32-x64.vsix
           asset_content_type: application/octet-stream
 
       - name: Upload ViperTools for Windows
@@ -467,7 +397,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: deploy/ViperToolsWin.zip
+          asset_path: ViperToolsWin.zip
           asset_name: ViperToolsWin.zip
           asset_content_type: application/zip
 
@@ -477,7 +407,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: deploy/ViperToolsLinux.zip
+          asset_path: ViperToolsLinux.zip
           asset_name: ViperToolsLinux.zip
           asset_content_type: application/zip
 
@@ -487,7 +417,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: deploy/ViperToolsMac.zip
+          asset_path: ViperToolsMac.zip
           asset_name: ViperToolsMac.zip
           asset_content_type: application/zip
 
@@ -497,7 +427,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: deploy/ViperToolsMacARM.zip
+          asset_path: ViperToolsMacARM.zip
           asset_name: ViperToolsMacARM.zip
           asset_content_type: application/zip
 
@@ -523,31 +453,115 @@ jobs:
           echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
 
       # publish 'stable' releases (release-candidates will be released as pre-releases below)
-      - name: Publish the extension to Visual Studio Marketplace
+      - name: Publish the extension to Visual Studio Marketplace for Linux
         uses: HaaLeo/publish-vscode-extension@v1
         if: ${{ github.event.inputs.type == 'stable' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
         with:
           pat: ${{ secrets.VSCE_TOKEN }}
           registryUrl: https://marketplace.visualstudio.com
-          extensionFile: client/viper-ide.vsix
+          extensionFile: client/viper-ide-linux-x64.vsix
           packagePath: ''
 
-      - name: Publish the extension to Open VSX Registry
+      - name: Publish the extension to Visual Studio Marketplace for macOS
+        uses: HaaLeo/publish-vscode-extension@v1
+        if: ${{ github.event.inputs.type == 'stable' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
+        with:
+          pat: ${{ secrets.VSCE_TOKEN }}
+          registryUrl: https://marketplace.visualstudio.com
+          extensionFile: client/viper-ide-darwin-x64.vsix
+          packagePath: ''
+
+      - name: Publish the extension to Visual Studio Marketplace for macOS ARM
+        uses: HaaLeo/publish-vscode-extension@v1
+        if: ${{ github.event.inputs.type == 'stable' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
+        with:
+          pat: ${{ secrets.VSCE_TOKEN }}
+          registryUrl: https://marketplace.visualstudio.com
+          extensionFile: client/viper-ide-darwin-arm64.vsix
+          packagePath: ''
+
+      - name: Publish the extension to Visual Studio Marketplace for Windows
+        uses: HaaLeo/publish-vscode-extension@v1
+        if: ${{ github.event.inputs.type == 'stable' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
+        with:
+          pat: ${{ secrets.VSCE_TOKEN }}
+          registryUrl: https://marketplace.visualstudio.com
+          extensionFile: client/viper-ide-win32-x64.vsix
+          packagePath: ''
+
+      - name: Publish the extension to Open VSX Registry for Linux
         uses: HaaLeo/publish-vscode-extension@v1
         if: ${{ github.event.inputs.type == 'stable' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
         with:
           pat: ${{ secrets.OPEN_VSX_TOKEN }}
           registryUrl: https://open-vsx.org
-          extensionFile: client/viper-ide.vsix
+          extensionFile: client/viper-ide-linux-x64.vsix
+          packagePath: ''
+
+      - name: Publish the extension to Open VSX Registry for macOS
+        uses: HaaLeo/publish-vscode-extension@v1
+        if: ${{ github.event.inputs.type == 'stable' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
+        with:
+          pat: ${{ secrets.OPEN_VSX_TOKEN }}
+          registryUrl: https://open-vsx.org
+          extensionFile: client/viper-ide-darwin-x64.vsix
+          packagePath: ''
+
+      - name: Publish the extension to Open VSX Registry for macOS ARM
+        uses: HaaLeo/publish-vscode-extension@v1
+        if: ${{ github.event.inputs.type == 'stable' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
+        with:
+          pat: ${{ secrets.OPEN_VSX_TOKEN }}
+          registryUrl: https://open-vsx.org
+          extensionFile: client/viper-ide-darwin-arm64.vsix
+          packagePath: ''
+
+      - name: Publish the extension to Open VSX Registry for Windows
+        uses: HaaLeo/publish-vscode-extension@v1
+        if: ${{ github.event.inputs.type == 'stable' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
+        with:
+          pat: ${{ secrets.OPEN_VSX_TOKEN }}
+          registryUrl: https://open-vsx.org
+          extensionFile: client/viper-ide-win32-x64.vsix
           packagePath: ''
 
       # publish 'rc' releases as pre-releases
-      - name: Publish the extension to Visual Studio Marketplace (as pre-release)
+      - name: Publish the extension to Visual Studio Marketplace for Linux (as pre-release)
         uses: HaaLeo/publish-vscode-extension@v1
         if: ${{ github.event.inputs.type == 'rc' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
         with:
           pat: ${{ secrets.VSCE_TOKEN }}
           registryUrl: https://marketplace.visualstudio.com
-          extensionFile: client/viper-ide.vsix
+          extensionFile: client/viper-ide-linux-x64.vsix
+          packagePath: ''
+          preRelease: true
+
+      - name: Publish the extension to Visual Studio Marketplace for macOS (as pre-release)
+        uses: HaaLeo/publish-vscode-extension@v1
+        if: ${{ github.event.inputs.type == 'rc' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
+        with:
+          pat: ${{ secrets.VSCE_TOKEN }}
+          registryUrl: https://marketplace.visualstudio.com
+          extensionFile: client/viper-ide-darwin-x64.vsix
+          packagePath: ''
+          preRelease: true
+
+      - name: Publish the extension to Visual Studio Marketplace for macOS ARM (as pre-release)
+        uses: HaaLeo/publish-vscode-extension@v1
+        if: ${{ github.event.inputs.type == 'rc' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
+        with:
+          pat: ${{ secrets.VSCE_TOKEN }}
+          registryUrl: https://marketplace.visualstudio.com
+          extensionFile: client/viper-ide-darwin-arm64.vsix
+          packagePath: ''
+          preRelease: true
+
+      - name: Publish the extension to Visual Studio Marketplace for Windows (as pre-release)
+        uses: HaaLeo/publish-vscode-extension@v1
+        if: ${{ github.event.inputs.type == 'rc' && env.CURRENT_VERSION != env.LAST_PUBLISHED_VERSION }}
+        with:
+          pat: ${{ secrets.VSCE_TOKEN }}
+          registryUrl: https://marketplace.visualstudio.com
+          extensionFile: client/viper-ide-win32-x64.vsix
           packagePath: ''
           preRelease: true

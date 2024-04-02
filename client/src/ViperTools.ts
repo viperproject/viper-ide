@@ -8,14 +8,14 @@
 
  import * as fs from 'fs';
 import * as vscode from 'vscode';
-import { ConfirmResult, Dependency, DependencyInstaller, GitHubReleaseAsset, GitHubZipExtractor, InstallResult, LocalReference, Location, RemoteZipExtractor, Success, withProgressInWindow } from "vs-verification-toolbox";
+import { ConfirmResult, Dependency, DependencyInstaller, InstallResult, LocalReference, Location, Success, withProgressInWindow } from "vs-verification-toolbox";
 import { Log } from './Log';
 import { LogLevel } from './ViperProtocol';
 import { BuildChannel, Settings } from './Settings';
 import { Helper } from './Helper';
 import { transformRight } from './Either';
+import * as path from 'path';
 
-const buildChannelSubfolderName = "ViperTools";
 
 export async function locateViperTools(context: vscode.ExtensionContext): Promise<Location> {
     const selectedChannel = Settings.getBuildChannel();
@@ -85,36 +85,17 @@ export async function locateViperTools(context: vscode.ExtensionContext): Promis
         .then(setPermissions);
 }
 
-export async function updateViperTools(context: vscode.ExtensionContext): Promise<Location> {
-    async function confirm(): Promise<ConfirmResult> {
-        return ConfirmResult.Continue;
-    }
-    
-    
-    const selectedChannel = Settings.getBuildChannel();
-    const dependency = await getDependency(context);
-    Log.log(`Updating dependencies for build channel ${selectedChannel}`, LogLevel.Debug);
-    const { result: installationResult } = await withProgressInWindow(
-        Texts.updatingViperTools,
-        listener => dependency.install(selectedChannel, true, listener, confirm));
-    if (!(installationResult instanceof Success)) {
-        throw new Error(Texts.viperToolsInstallationDenied);
-    }
-    return installationResult.value;
-}
-
 async function getDependency(context: vscode.ExtensionContext): Promise<Dependency<BuildChannel>> {
     const buildChannelStrings = Object.keys(BuildChannel);
     const buildChannels = buildChannelStrings.map(c =>
         // Convert string to enum. See https://stackoverflow.com/a/17381004/2491528
         BuildChannel[c as keyof typeof BuildChannel]);
     
-    // note that `installDestination` is only used if tools actually have to be downloaded and installed there, i.e. it is 
-    // not used for build channel "Local":
+    // note that `installDestination` is only used when remote dependencies have to be downloaded, which is no longer the case
     const installDestination = Helper.getGlobalStoragePath(context);
     const installers = await Promise.all(buildChannels
         .map<Promise<[BuildChannel, DependencyInstaller]>>(async c => 
-            [c, await getDependencyInstaller(c)])
+            [c, await getDependencyInstaller(c, context)])
         );
     return new Dependency<BuildChannel>(
         installDestination,
@@ -122,80 +103,21 @@ async function getDependency(context: vscode.ExtensionContext): Promise<Dependen
     );
 }
 
-function getDependencyInstaller(buildChannel: BuildChannel): Promise<DependencyInstaller> {
-    if (buildChannel == BuildChannel.Local) {
-        return getLocalDependencyInstaller();
+function getDependencyInstaller(buildChannel: BuildChannel, context: vscode.ExtensionContext): Promise<DependencyInstaller> {
+    if (buildChannel == BuildChannel.External) {
+        return getExternalDependencyInstaller();
     } else {
-        return getRemoteDependencyInstaller(buildChannel);
+        return getBuiltInDependencyInstaller(context);
     }
 }
 
-async function getLocalDependencyInstaller(): Promise<DependencyInstaller> {
+async function getExternalDependencyInstaller(): Promise<DependencyInstaller> {
     const toolsPath = await Settings.getLocalViperToolsPath(true);
     return new LocalReference(toolsPath);
 }
 
-async function getRemoteDependencyInstaller(buildChannel: BuildChannel): Promise<DependencyInstaller> {
-    const viperToolsRawProviderUrl = await Settings.getViperToolsProvider(buildChannel);
-    // note that `viperToolsProvider` might be one of the "special" URLs as specified in the README (i.e. to a GitHub releases asset):
-    const viperToolsProvider = parseGitHubAssetURL(viperToolsRawProviderUrl);
-
-    const folderName = buildChannelSubfolderName; // folder name to which ZIP will be unzipped to
-    if (viperToolsProvider.isGitHubAsset) {
-        // provider is a GitHub release
-        const token = Helper.getGitHubToken();
-        return new GitHubZipExtractor(viperToolsProvider.getUrl, folderName, token);
-    } else {
-        // provider is a regular resource on the Internet
-        const url = await viperToolsProvider.getUrl();
-        return new RemoteZipExtractor(url, folderName);
-    }
-}
-
-/**
- * Takes an url as input and checks whether it's a special URL to a GitHub release asset.
- * This function returns an object that indicates with the `isGitHubAsset` flag whether it is a GitHub asset or not. In addition, the `getUrl` function can
- * be called to lazily construct the URL for downloading the asset.
- */
-function parseGitHubAssetURL(url: string): {isGitHubAsset: boolean, getUrl: () => Promise<string>} {
-    const token = Helper.getGitHubToken();
-    const latestRe = /^github.com\/([^/]+)\/([^/]+)\/releases\/latest\?asset-name=([^/?&]+)(&include-prereleases|)$/;
-    const tagRe = /^github.com\/([^/]+)\/([^/]+)\/releases\/tags\/([^/?]+)\?asset-name=([^/?&]+)$/;
-    const latestReMatches = url.match(latestRe);
-    if (latestReMatches != null) {
-        // match was found
-        const owner = latestReMatches[1];
-        const repo = latestReMatches[2];
-        const assetName = latestReMatches[3];
-        const includePrereleases = latestReMatches[4] === "&include-prereleases";
-        const resolveGitHubUrl: () => Promise<string> = () => GitHubReleaseAsset.getLatestAssetUrl(owner, repo, assetName, includePrereleases, token)
-            .catch(Helper.rethrow(`Retrieving asset URL of latest GitHub release has failed `
-                + `(owner: '${owner}', repo: '${repo}', asset-name: '${assetName}', include-prereleases: ${includePrereleases})`));
-        return {
-            isGitHubAsset: true,
-            getUrl: resolveGitHubUrl,
-        };
-    }
-    const tagReMatches = url.match(tagRe);
-    if (tagReMatches != null) {
-        // match was found
-        const owner = tagReMatches[1];
-        const repo = tagReMatches[2];
-        const tag = tagReMatches[3];
-        const assetName = tagReMatches[4];
-        const resolveGitHubUrl: () => Promise<string> = () => GitHubReleaseAsset.getTaggedAssetUrl(owner, repo, assetName, tag, token)
-            .catch(Helper.rethrow(`Retrieving asset URL of a tagged GitHub release has failed `
-                + `(owner: '${owner}', repo: '${repo}', tag: '${tag}', asset-name: '${assetName}')`));
-        return {
-            isGitHubAsset: true,
-            getUrl: resolveGitHubUrl,
-        };
-    }
-    // no match, return unmodified input URL:
-    return {
-        isGitHubAsset: false,
-        getUrl: () => Promise.resolve(url),
-    };
+async function getBuiltInDependencyInstaller(context: vscode.ExtensionContext): Promise<DependencyInstaller> {
+    return new LocalReference(path.resolve(context.extension.extensionPath, "dependencies", "ViperTools"));
 }
 
 class Texts {
