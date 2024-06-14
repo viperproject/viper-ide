@@ -225,6 +225,11 @@
 				]
 			}
 		],
+		"configurationDefaults": {
+			"[viper]": {
+				"editor.wordSeparators": "`~!@#%^&*()=+[{]}\\|;:'\",.<>/?"
+			}
+		},
 		"themes": [
 			{
 				"label": "Viper-Dark",
