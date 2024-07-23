@@ -97,10 +97,10 @@ suite('ViperIDE Tests', () => {
         this.timeout(2000);
 
         await TestHelper.openFile(SIMPLE);
-        checkAssert(path.basename(Common.uriToString(Helper.getActiveFileUri())), SIMPLE, "active file");
+        checkAssert(path.basename(Common.uriToString(Helper.getActiveVerificationUri())), SIMPLE, "active file");
 
         checkAssert(Helper.formatProgress(12.9), "13%", "formatProgress");
-        checkAssert(Helper.formatSeconds(12.99), "13.0 seconds", "formatSeconds");
+        checkAssert(Helper.formatSeconds(12.99), "13.0s", "formatSeconds");
         checkAssert(Helper.isViperSourceFile("/folder/file.vpr"), true, "isViperSourceFile unix path");
         checkAssert(Helper.isViperSourceFile("..\\.\\folder\\file.sil"), true, "isViperSourceFile relavive windows path");
         checkAssert(!Helper.isViperSourceFile("C:\\absolute\\path\\file.ts"), true, "isViperSourceFile absolute windows path");

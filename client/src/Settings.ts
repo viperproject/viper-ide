@@ -14,7 +14,7 @@ import { Location } from 'vs-verification-toolbox';
 import * as locate_java_home from '@viperproject/locate-java-home';
 import { IJavaHomeInfo } from '@viperproject/locate-java-home/js/es5/lib/interfaces';
 import { Log } from './Log';
-import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, Success, Stage, Backend, LogLevel, Common, ViperServerSettings, VersionedSettings, JavaSettings, AdvancedFeatureSettings, UserPreferences, PathSettings } from './ViperProtocol';
+import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, Success, Stage, Backend, LogLevel, Common, ViperServerSettings, JavaSettings, AdvancedFeatureSettings, UserPreferences, PathSettings } from './ViperProtocol';
 import { combineMessages, Either, flatMap, flatMapAsync, flatten, fold, isLeft, isRight, Level, Messages, newEitherError, newEitherWarning, newLeft, newRight, toRight, transformRight } from './Either';
 import { readdir } from 'fs/promises';
 import { Helper } from './Helper';
@@ -25,7 +25,7 @@ import { Color } from './StatusBar';
 export class Settings {
 
     private static ownPackageJson = vscode.extensions.getExtension("viper-admin.viper").packageJSON;
-    private static defaultConfiguration = Settings.ownPackageJson.contributes.configuration.properties;
+    private static defaultConfiguration = this.initDefaultSettings(Settings.ownPackageJson.contributes.configuration.properties);
     private static lastVersionWithSettingsChange: Versions = {
         viperServerSettingsVersion: "1.0.4",
         verificationBackendsVersion: "1.0.2",
@@ -42,10 +42,29 @@ export class Settings {
     public static isMac = /^darwin/.test(process.platform);
     public static isArm = process.arch === 'arm64';
 
-   
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private static initDefaultSettings(properties: any): object {
+        // Need to turn an object such as `{ "a.b": { "foo": 10 }, "a": { "c": 10 }, ... }`
+        // Into an object such as `{ "a": { "b": { "foo": 10 }, "c": 10 }, ... }`
+        const defaultSettings = {};
+        for (const key in properties) {
+            const parts = key.split(".");
+            let obj = defaultSettings;
+            for (let i = 0; i < parts.length - 1; i++) {
+                const part = parts[i];
+                if (!obj[part]) {
+                    obj[part] = {};
+                }
+                obj = obj[part];
+            }
+            obj[parts[parts.length - 1]] = properties[key].default;
+        }
+        return defaultSettings;
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private static getConfiguration(setting: string): any {
-        return vscode.workspace.getConfiguration("viperSettings").get(setting);
+        return vscode.workspace.getConfiguration("viper").get(setting);
     }
 
     public static async checkAndGetSettings(location: Location): Promise<Either<Messages, unknown>> {
@@ -64,10 +83,10 @@ export class Settings {
     }
 
     private static async checkAndGetViperServerSettings(location: Location): Promise<Either<Messages, ViperServerSettings>> {
-        const settingName = "viperServerSettings";
+        const settingName = "viperServer";
         const settings = Settings.getConfiguration(settingName);
         const checks: Promise<Either<Messages, unknown>>[] = [
-            Settings.checkVersion<ViperServerSettings>(settings, settingName),
+            Settings.checkVersion<ViperServerSettings>(settings),
             // check viperServer path
             Settings.checkViperServerJars(location),
             // check viperServerTimeout
@@ -78,26 +97,61 @@ export class Settings {
             .then(res => isRight(res) ? newRight(settings) : res);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private static builtinBackendToBackend(builtinBackend: BuiltinBackend, type: string): Backend {
+        const preVerificationStages: Stage[] = builtinBackend.preVerificationStages;
+        const verificationStage: Stage = {
+            name: "verify",
+            isVerification: true,
+            mainMethod: builtinBackend.verificationStage.mainMethod,
+            customArguments: builtinBackend.verificationStage.customArguments,
+            onParsingError: builtinBackend.verificationStage.onParsingError,
+            onTypeCheckingError: builtinBackend.verificationStage.onTypeCheckingError,
+            onVerificationError: builtinBackend.verificationStage.onVerificationError,
+            onSuccess: builtinBackend.verificationStage.onSuccess,
+        };
+        const postVerificationStages: Stage[] = builtinBackend.postVerificationStages;
+        const backend: Backend = {
+            name: builtinBackend.name,
+            type,
+            paths: builtinBackend.paths,
+            engine: builtinBackend.engine,
+            timeout: builtinBackend.timeout,
+            stoppingTimeout: builtinBackend.stoppingTimeout,
+            stages: preVerificationStages.concat(verificationStage).concat(postVerificationStages),
+        };
+        return backend;
+    }
     private static async checkAndGetVerificationBackends(location: Location): Promise<Either<Messages, Backend[]>> {
         const settingName = "verificationBackends";
-        const settings = Settings.getConfiguration(settingName);
-        const defaultBackends = Settings.lastVersionWithSettingsChange.defaultSettings[`viperSettings.${settingName}`].default as Backend[];
-        let backends: Backend[] = [];
-        if (!settings.verificationBackends || settings.verificationBackends.length === 0) {
-            backends = defaultBackends;
-        } else {
-            defaultBackends.forEach(defaultBackend => {
-                const customBackend = settings.verificationBackends.filter(backend => backend.name == defaultBackend.name)[0];
-                if (customBackend) {
-                    // merge the backend with the default backend
-                    const mergedBackend = Settings.mergeBackend(customBackend, defaultBackend);
-                    backends.push(mergedBackend);
-                } else {
-                    // add the default backend if there is none with the same name
-                    backends.push(defaultBackend);
-                }
-            });
+        let settings = Settings.getConfiguration(settingName);
+        const defaultSettings = Settings.lastVersionWithSettingsChange.defaultSettings.viper[settingName];
+        const backends: Backend[] = [];
+        if (!settings || !settings.symbolicExecution || !settings.verificationConditionGeneration) {
+            settings = defaultSettings;
         }
+        // Add the built-in backends
+        const se = this.builtinBackendToBackend(settings.symbolicExecution, "silicon");
+        backends.push(se);
+        const vcg = this.builtinBackendToBackend(settings.verificationConditionGeneration, "carbon");
+        backends.push(vcg);
+
+        // Add the user-defined other backends
+        const defaultSe = this.builtinBackendToBackend(defaultSettings.symbolicExecution, "silicon");
+        const defaultVcg = this.builtinBackendToBackend(defaultSettings.verificationConditionGeneration, "carbon");
+        const others: Backend[] = settings.others
+        others.forEach(other => {
+            if (other.type === defaultSe.type) {
+                // merge the backend with the default backend
+                backends.push(Settings.mergeBackend(other, defaultSe));
+            } else if (other.type === defaultVcg.type) {
+                // merge the backend with the default backend
+                backends.push(Settings.mergeBackend(other, defaultVcg));
+            } else {
+                // add the default backend if there is none with the same name
+                backends.push(other);
+            }
+        });
 
         const checks: Promise<Either<Messages, unknown>>[] = [
             // check backends
@@ -105,14 +159,14 @@ export class Settings {
         ];
         return Promise.all(checks)
             .then(combineMessages)
-            .then(res => isRight(res) ? newRight(settings) : res);
+            .then(res => isRight(res) ? newRight(backends) : res);
     }
 
     private static async checkAndGetPaths(location: Location): Promise<Either<Messages, PathSettings>> {
         const settingName = "paths";
         const settings = Settings.getConfiguration(settingName);
         const checks: Promise<Either<Messages, unknown>>[] = [
-            Settings.checkVersion<ViperServerSettings>(settings, settingName),
+            Settings.checkVersion<ViperServerSettings>(settings),
             Settings.checkViperToolsPath(location, Settings.getBuildChannel()),
             Settings.checkZ3Path(location, true),
             Settings.checkBoogiePath(location, true),
@@ -128,7 +182,7 @@ export class Settings {
         const settingName = "preferences";
         const settings = Settings.getConfiguration(settingName);
         const checks: Promise<Either<Messages, unknown>>[] = [
-            Settings.checkVersion<ViperServerSettings>(settings, settingName),
+            Settings.checkVersion<ViperServerSettings>(settings),
             // check viperToolsProvider
             Settings.checkViperToolsProvider(settings),
         ];
@@ -142,7 +196,6 @@ export class Settings {
         const settingName = "javaSettings";
         const settings = Settings.getConfiguration(settingName);
         const checks: Promise<Either<Messages, unknown>>[] = [
-            Settings.checkVersion<ViperServerSettings>(settings, settingName),
             Settings.checkJavaPath(location),
             Settings.checkJavaCustomArgs(settings),
         ];
@@ -156,7 +209,7 @@ export class Settings {
         const settingName = "advancedFeatures";
         const settings = Settings.getConfiguration(settingName);
         const checks: Promise<Either<Messages, unknown>>[] = [
-            Settings.checkVersion<ViperServerSettings>(settings, settingName),
+            Settings.checkVersion<ViperServerSettings>(settings),
             // no additional checks
         ];
         return Promise.all(checks)
@@ -170,15 +223,8 @@ export class Settings {
         return newRight(buildChannel);
     }
 
-    private static async checkVersion<T extends VersionedSettings>(settings: T, settingName: string): Promise<Either<Messages, T>> {
-        const settingVersionName = `${settingName}Version`;
-        if (!(settingVersionName in Settings.lastVersionWithSettingsChange)) {
-            return newEitherError(`unable to retrieve version for ${settingName}`);
-        }
-        const lastVersionWithChange = Settings.lastVersionWithSettingsChange[settingVersionName];
-        if (Version.createFromVersion(lastVersionWithChange).compare(Version.createFromHash(settings.v)) > 0) {
-            return newEitherError(`version hash in setting ${settingName} is out-dated. Please update your settings.`);
-        }
+    private static async checkVersion<T>(settings: T): Promise<Either<Messages, T>> {
+        // TODO: remove this
         return newRight(settings);
     }
 
@@ -295,7 +341,7 @@ export class Settings {
 
     /* returns an escaped string */
     private static async checkViperServerJars(location: Location): Promise<Either<Messages, string>> {
-        const settingName = "viperServerSettings";
+        const settingName = "viperServer";
         const isBuildChannelLocal = (Settings.getBuildChannel() === BuildChannel.External);
         let resolvedPaths: Either<Messages, string[]>;
         if (isBuildChannelLocal) {
@@ -464,7 +510,7 @@ export class Settings {
     }
 
     private static mergeBackend(custom: Backend, def: Backend): Backend {
-        if (!custom || !def || custom.name != def.name) return custom;
+        if (!custom || !def || custom.type != def.type) return custom;
         if (!custom.paths) custom.paths = def.paths;
         if (!custom.stages) custom.stages = def.stages
         else {
@@ -610,7 +656,6 @@ export class Settings {
     }
 
     private static async checkBackends(location: Location, backends: Backend[]): Promise<Either<Messages, Backend[]>> {
-        const settingName = "verificationBackends";
         Log.log("Checking backends...", LogLevel.LowLevelDebug);
         if (!backends || backends.length == 0) {
             return newEitherError(`No backend detected, specify at least one backend`);
@@ -623,7 +668,7 @@ export class Settings {
             if (!backend) {
                 return newEitherError(`Empty backend detected`);
             }
-            const versionCheckResult = await Settings.checkVersion<Backend>(backend, settingName);
+            const versionCheckResult = await Settings.checkVersion<Backend>(backend);
             if (isLeft(versionCheckResult)) {
                 return versionCheckResult;
             }
@@ -633,7 +678,7 @@ export class Settings {
             const backendName = "Backend " + backend.name + ":";
             // check for duplicate backends
             if (backendNames.has(backend.name)) {
-                return newEitherError(`Dublicated backend name: ${backend.name}`);
+                return newEitherError(`Duplicated backend name: ${backend.name}`);
             }
             backendNames.add(backend.name);
 
@@ -741,7 +786,7 @@ export class Settings {
         // while checking the stages, we make sure that there is exactly one stage with `isVerification` set to true:
         const verificationStage = backend.stages.filter(stage => stage.isVerification)[0];
         const z3Path = await Settings.getZ3Path(location);
-        const disableCaching = Settings.getConfiguration("viperServerSettings").disableCaching === true;
+        const disableCaching = Settings.getConfiguration("viperServer").disableCaching === true;
         const partiallyReplacedString = verificationStage.customArguments
             // note that we use functions as 2nd argument since we do not want that
             // the special replacement patterns kick in
@@ -889,7 +934,7 @@ export class Settings {
                 Log.log(`no unique workspace folder was found, the operating system's temp ` + 
                     `folder will be used as ViperServer's current working directory. ` +
                     `This behavior can be changed by explicitly specifying a working directory in ` +
-                    `the settings as 'viperSettings.javaSettings.cwd'.`, LogLevel.Info);
+                    `the settings as 'viper.javaSettings.cwd'.`, LogLevel.Info);
                 return os.tmpdir();
             }
           return roots[0].uri.fsPath;
@@ -908,7 +953,7 @@ export class Settings {
     }
 
     public static getServerPolicy(): ServerPolicy {
-        const serverSettings = Settings.getConfiguration("viperServerSettings");
+        const serverSettings = Settings.getConfiguration("viperServer");
         if (serverSettings.viperServerPolicy === "attach") {
             return {create: false, address: serverSettings.viperServerAddress, port: serverSettings.viperServerPort};
         } else {
@@ -935,8 +980,8 @@ export class Settings {
             }
         }
 
-        const configuredArgString = Settings.getConfiguration("viperServerSettings").customArguments;
-        const useBackendSpecificCache = Settings.getConfiguration("viperServerSettings").backendSpecificCache === true;
+        const configuredArgString = Settings.getConfiguration("viperServer").customArguments;
+        const useBackendSpecificCache = Settings.getConfiguration("viperServer").backendSpecificCache === true;
         return configuredArgString
             .replace("$backendSpecificCache$", useBackendSpecificCache ? "--backendSpecificCache" : "")
             .replace("$logLevel$", convertLogLevel(logLevel))
@@ -1147,102 +1192,24 @@ export class Settings {
     }
 }
 
-class Version {
-    private static Key = "VdafSZVOWpe";
+export interface BuiltinBackend {
+    name: string;
+    paths: string[];
+    engine: string;
+    timeout: number;
+    stoppingTimeout: number;
+    preVerificationStages: Stage[];
+    verificationStage: VerificationStage;
+    postVerificationStages: Stage[];
+}
 
-    versionNumbers: number[] = [0, 0, 0];
-    private constructor(versionNumbers?: number[]) {
-        if (versionNumbers) {
-            this.versionNumbers = versionNumbers;
-        }
-    }
-
-    public static createFromVersion(version: string): Version {
-        try {
-            if (version) {
-                if (/\d+(\.\d+)+/.test(version)) {
-                    return new Version(version.split(".").map(x => Number.parseInt(x)));
-                }
-            }
-        } catch (e) {
-            Log.error("Error creating version from Version: " + e);
-        }
-        return new Version();
-    }
-
-    public static createFromHash(hash: string): Version {
-        try {
-            if (hash) {
-                const version = this.decrypt(hash, Version.Key);
-                return this.createFromVersion(version);
-            }
-        } catch (e) {
-            Log.error("Error creating version from hash: " + e);
-        }
-        return new Version();
-    }
-
-    private static encrypt(msg: string, key: string): string {
-        let res = "";
-        let parity = 0;
-        for (let i = 0; i < msg.length; i++) {
-            const keyChar: number = key.charCodeAt(i % key.length);
-            const char: number = msg.charCodeAt(i);
-            const cypher: number = (char ^ keyChar);
-            parity = (parity + cypher % (16 * 16)) % (16 * 16);
-            res += this.pad(cypher);
-        }
-        return res + this.pad(parity);
-    }
-
-    private static pad(n: number): string {
-        const s = n.toString(16);
-        return (s.length == 1 ? "0" : "") + s;
-    }
-
-    private static decrypt(cypher: string, key: string): string {
-        let res = "";
-        let parity = 0;
-        if (!cypher || cypher.length < 2 || cypher.length % 2 != 0) {
-            return "";
-        }
-        for (let i = 0; i < cypher.length - 2; i += 2) {
-            const keyChar: number = key.charCodeAt((i / 2) % key.length);
-            const char: number = (16 * parseInt(cypher.charAt(i), 16)) + parseInt(cypher.charAt(i + 1), 16);
-            parity = (parity + char % (16 * 16)) % (16 * 16);
-            res += String.fromCharCode(char ^ keyChar);
-        }
-        if (parity != (16 * parseInt(cypher.charAt(cypher.length - 2), 16)) + parseInt(cypher.charAt(cypher.length - 1), 16)) {
-            return "";
-        } else {
-            return res;
-        }
-    }
-
-    toString(): string {
-        return this.versionNumbers.join(".");
-    }
-
-    public static testhash(): void {
-        const s = "1.0.0";
-        const en = this.encrypt(s, Version.Key);
-        const de = this.decrypt(en, Version.Key);
-        Log.log("Hash Test: " + s + " -> " + en + " -> " + de, LogLevel.LowLevelDebug);
-    }
-
-    public static hash(version: string): string {
-        return this.encrypt(version, Version.Key);
-    }
-
-    //1: this is larger, -1 other is larger
-    compare(other: Version): number {
-        for (let i = 0; i < this.versionNumbers.length; i++) {
-            if (i >= other.versionNumbers.length) return 1;
-            if (this.versionNumbers[i] > other.versionNumbers[i]) return 1;
-            if (this.versionNumbers[i] < other.versionNumbers[i]) return -1;
-        }
-        return this.versionNumbers.length < other.versionNumbers.length ? -1 : 0;
-    }
+export interface VerificationStage {
+    mainMethod: string;
+    customArguments: string;
+    onParsingError: string;
+    onTypeCheckingError: string;
+    onVerificationError: string;
+    onSuccess: string;
 }
 
 export interface ResolvedPath {
