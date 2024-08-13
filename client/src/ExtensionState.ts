@@ -14,8 +14,9 @@ import * as path from 'path';
 import * as readline from 'readline';
 import * as semver from 'semver';
 import unusedFilename from 'unused-filename';
+import { generateWebsite } from 'viperdoc';
 import { Location } from 'vs-verification-toolbox';
-import { Backend, Commands, Common, GetVersionRequest, LogLevel } from './ViperProtocol';
+import { Backend, Commands, Common, GetVersionRequest, LogLevel, GetDocumentationRequest } from './ViperProtocol';
 import { Log } from './Log';
 import { ViperFileState } from './ViperFileState';
 import { URI } from 'vscode-uri';
@@ -28,7 +29,7 @@ import { combineMessages, Either, Messages, newEitherError, newRight, transformR
 
 export class State {
     public static get MIN_SERVER_VERSION(): string {
-        return "2.0.0"; // has to be a valid semver
+        return "2.0.0"; // has to be a valid server
     }
 
     public static client: LanguageClient;
@@ -204,7 +205,7 @@ export class State {
             synchronize: {
                 // Synchronize the setting section 'viperSettings' to the server
                 configurationSection: 'viperSettings',
-                // Notify the server about file changes to .sil or .vpr files contain in the workspace
+                // Notify the server about file changes to .sil or .vpr files contained in the workspace
                 fileEvents: fileSystemWatcher
             },
             // redirect output while unit testing to the log file as no UI is available, otherwise stick to default behavior, i.e. separate output view
@@ -336,6 +337,12 @@ export class State {
             Log.error("Error disposing state: " + e);
         }
         State.reset();
+    }
+
+    public static async getDocumentation(uri: vscode.Uri): Promise<void> {
+        const params: GetDocumentationRequest = { uri: uri.toString() };
+        const response = await State.client.sendRequest(Commands.GetDocumentation, params);
+        await generateWebsite(uri.fsPath, response.documentation, path.join(this.context.extensionPath, "node_modules", "viperdoc")); 
     }
 }
 

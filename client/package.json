@@ -57,6 +57,7 @@
 		"ts-node": "^10.9.2",
 		"typescript": "^5.4.5",
 		"unused-filename": "^3.0.1",
+    "viperdoc": "git+https://github.com/fnussbaum/viperdoc.git",
 		"vs-verification-toolbox": "git+https://github.com/viperproject/vs-verification-toolbox.git",
 		"vscode-languageclient": "^9.0.1",
 		"vscode-uri": "^3.0.8",
@@ -129,6 +130,11 @@
 			{
 				"command": "viper.flushCacheOfActiveFile",
 				"title": "flush the cache for this file",
+				"category": "Viper"
+			},
+			{
+				"command": "viper.viperdocGenerate",
+				"title": "generate documentation website for this file",
 				"category": "Viper"
 			},
 			{

@@ -64,6 +64,7 @@ export class Commands {
     static FlushCache: RequestType<FlushCacheParams, void, void> = new RequestType("FlushCache");
     //The server requests the identifier at some location in the current file to answer the gotoDefinition request
     static GetIdentifier: RequestType<Position, GetIdentifierResponse, void> = new RequestType("GetIdentifier");
+    static GetDocumentation: RequestType<GetDocumentationRequest, GetDocumentationResponse, void> = new RequestType("GetDocumentation");
 }
 
 //==============================================================================
@@ -339,6 +340,14 @@ export interface FlushCacheParams {
 
 export interface GetIdentifierResponse {
     identifier: string // nullable
+}
+
+export interface GetDocumentationRequest {
+    uri: string,
+}
+
+export interface GetDocumentationResponse {
+    documentation: string // nullable
 }
 
 //Communication between Language Server and Debugger:
