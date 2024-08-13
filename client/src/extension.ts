@@ -320,6 +320,11 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
     //remove diagnostics of open file
     context.subscriptions.push(vscode.commands.registerCommand('viper.removeDiagnostics', () => removeDiagnostics(true)));
 
+    // Viperdoc: generate documentation website
+    context.subscriptions.push(vscode.commands.registerCommand('viper.viperdocGenerate', () => {
+        viperdocGenerate();
+    }));
+
     // show currently active (Viper) settings
     context.subscriptions.push(vscode.commands.registerCommand('viper.showSettings', async () => {
         const settings = vscode.workspace.getConfiguration("viperSettings");
@@ -460,5 +465,12 @@ function removeDiagnostics(activeFileOnly: boolean): void {
     } else {
         State.diagnosticCollection.clear();
         Log.log(`All diagnostics successfully removed`, LogLevel.Debug);
+    }
+}
+
+function viperdocGenerate(): void {
+    if (vscode.window.activeTextEditor) {
+        const uri = vscode.window.activeTextEditor.document.uri;
+        void State.getDocumentation(uri);
     }
 }

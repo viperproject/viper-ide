@@ -42,7 +42,7 @@ export class ViperApi {
         this.verificationTerminatedObservers.push(callback);
     }
 
-    /** Notify a VerificationTermianted event to all observers. */
+    /** Notify a VerificationTerminated event to all observers. */
     public notifyVerificationTerminated(event: VerificationTerminatedEvent): void {
         this.verificationTerminatedObservers.forEach(callback => callback(event))
     }
