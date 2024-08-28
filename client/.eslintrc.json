@@ -8,7 +8,9 @@
         "eslint:recommended",
         "plugin:@typescript-eslint/recommended"
     ],
-    "ignorePatterns": ["webpack.config.js"],
+    "ignorePatterns": [
+        "webpack.config.js"
+    ],
     "parser": "@typescript-eslint/parser",
     "parserOptions": {
         "ecmaVersion": 12,
@@ -23,7 +25,10 @@
             "error"
         ],
         "@typescript-eslint/explicit-function-return-type": [ // require a return type for functions
-            "error", { "allowExpressions": true }
+            "error",
+            {
+                "allowExpressions": true
+            }
         ],
         "@typescript-eslint/no-misused-promises": [ // disallow promises in place where they are unexpected and thus not handled
             "error"
@@ -32,11 +37,29 @@
             "error"
         ],
         "@typescript-eslint/no-empty-function": [
-            "warn", { "allow": ["arrowFunctions"] }
+            "warn",
+            {
+                "allow": [
+                    "arrowFunctions"
+                ]
+            }
         ],
         "@typescript-eslint/no-inferrable-types": [
-            "error", { "ignoreParameters": true, "ignoreProperties": true }
+            "error",
+            {
+                "ignoreParameters": true,
+                "ignoreProperties": true
+            }
         ],
-        "no-inner-declarations": "off"
+        "no-inner-declarations": "off",
+        "no-unused-vars": "off",
+        "@typescript-eslint/no-unused-vars": [
+            "warn",
+            {
+                "argsIgnorePattern": "_",
+                "varsIgnorePattern": "_",
+                "caughtErrorsIgnorePattern": "_"
+            }
+        ]
     }
 }
