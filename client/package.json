@@ -60,7 +60,7 @@
 		"vs-verification-toolbox": "git+https://github.com/viperproject/vs-verification-toolbox.git",
 		"vscode-languageclient": "^9.0.1",
 		"vscode-uri": "^3.0.8",
-		"webpack": "^5.93.0",
+		"webpack": "^5.94.0",
 		"webpack-cli": "^5.1.4",
 		"yargs": "^17.7.2"
 	},
