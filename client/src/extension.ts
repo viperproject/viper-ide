@@ -455,6 +455,7 @@ function removeDiagnostics(activeFileOnly: boolean): void {
         if (vscode.window.activeTextEditor) {
             const uri = vscode.window.activeTextEditor.document.uri;
             State.diagnosticCollection.delete(uri);
+            State.hideViperStatusBarItems()
             Log.log(`Diagnostics successfully removed for file ${uri}`, LogLevel.Debug);
         }
     } else {
