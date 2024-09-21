@@ -254,6 +254,23 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         }
     }));
 
+    context.subscriptions.push(vscode.commands.registerCommand('viper.reformat', () => {
+        if (!State.isReady()) {
+            showNotReadyHint();
+            return;
+        }
+
+        const fileUri = Helper.getActiveFileUri();
+        if (!fileUri) {
+            Log.log("Cannot reformat, no document is open.", LogLevel.Info);
+        } else if (!Helper.isViperSourceFile(fileUri)) {
+            Log.log("Cannot reformat the active file, its not a viper file.", LogLevel.Info);
+        } else {
+            Log.log("Attempting to reformat a file...", LogLevel.Info);
+            State.addToWorklist(new Task({ type: TaskType.Reformat, uri: fileUri, manuallyTriggered: true }));
+        }
+    }));
+
     //verifyAllFilesInWorkspace
     context.subscriptions.push(vscode.commands.registerCommand('viper.verifyAllFilesInWorkspace', async (folder: string) => {
         if (!State.isReady()) {

@@ -13,7 +13,7 @@ import { URI } from 'vscode-uri';
 import { Location } from 'vs-verification-toolbox';
 import { AwaitTimer } from './AwaitTimer';
 import { State } from './ExtensionState';
-import { Common, VerifyParams, TimingInfo, VerificationState, Commands, StateChangeParams, LogLevel, Success, Backend, StopVerificationRequest } from './ViperProtocol';
+import { Common, VerifyParams, TimingInfo, VerificationState, Commands, StateChangeParams, LogLevel, Success, Backend, StopVerificationRequest, ReformatParams } from './ViperProtocol';
 import { Log } from './Log';
 import { Helper } from './Helper';
 import { ViperFileState } from './ViperFileState';
@@ -106,6 +106,7 @@ export class Task implements ITask {
 export enum TaskType {
     NoOp = 0, Clear = 1,
     Save = 2, Verify = 3, StopVerification = 4, StartBackend = 6, FileClosed = 8,
+    Reformat = 20,
     Verifying = 30,
     VerificationComplete = 300, VerificationFailed = 301,
     RestartExtension = 800,
@@ -215,6 +216,10 @@ export class VerificationController {
                                 }
                             }
                             break;
+                        case TaskType.Reformat:
+                            Log.log("Reformatting the file...", LogLevel.Info);
+                            addNotificationForTask(task, () => task.completeFailed(new Error(`reformatting failed.`)));
+                            break;
                         case TaskType.StopVerification:
                             task.type = TaskType.NoOp;
                             // we mark the task as successfully processed. This does not reflect whether 
@@ -305,6 +310,9 @@ export class VerificationController {
                                 }
                                 this.lastCanStartVerificationUri = task.uri;
                             }
+                            break;
+                        case TaskType.Reformat:
+                            await this.reformat(fileState);
                             break;
                         case TaskType.Verifying:
                             if (!State.isVerifying) {
@@ -496,6 +504,15 @@ export class VerificationController {
                 removeRequest: true,
                 error: error
             };
+        }
+    }
+
+    private async reformat(fileState: ViperFileState): Promise<void> {
+        try {
+            const params: ReformatParams = { uri: "test123"};
+            await State.client.sendNotification(Commands.Reformat, params);
+        } catch (e) { 
+            Log.error(`Failed to reformat file: ${e.toString()}`);
         }
     }
 

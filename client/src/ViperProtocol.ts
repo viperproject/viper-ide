@@ -50,6 +50,8 @@ export class Commands {
     static GetVersion: RequestType<GetVersionRequest, GetVersionResponse, void> = new RequestType("GetVersion");
     //Client requests verification for a file
     static Verify: NotificationType<VerifyParams> = new NotificationType("Verify");
+    //Client requests reformatting for a file
+    static Reformat: NotificationType<VerifyParams> = new NotificationType("Reformat");
     //Client tells server to abort the running verification
     static StopVerification: RequestType<StopVerificationRequest, StopVerificationResponse, void> = new RequestType("StopVerification");
     static GetLanguageServerUrl: RequestType0<GetLanguageServerUrlResponse, void> = new RequestType0("GetLanguageServerUrl");
@@ -95,6 +97,10 @@ export interface VerifyParams {
     workspace: string;
     backend: string;
     customArgs: string;
+}
+
+export interface ReformatParams {
+    uri: string
 }
 
 export interface Command {
