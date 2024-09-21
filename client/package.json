@@ -292,9 +292,9 @@
 						"backendSpecificCache": true,
 						"disableCaching": false,
 						"timeout": 5000,
-						"viperServerPolicy": "create",
-						"viperServerAddress": "http://127.0.0.1",
-						"viperServerPort": 12345
+						"viperServerPolicy": "attach",
+						"viperServerAddress": "localhost",
+						"viperServerPort": 62692
 					},
 					"description": "ViperServer-related settings. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-ViperServer"
 				},
@@ -388,7 +388,7 @@
 					"type": "object",
 					"default": {
 						"v": "674a514867b1",
-						"javaBinary": "",
+						"javaBinary": "/usr/bin/java",
 						"customArguments": "-Xmx2048m -Xss128m -cp $backendPaths$ -server $mainMethod$",
 						"cwd": ""
 					},
