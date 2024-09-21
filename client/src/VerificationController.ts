@@ -218,7 +218,6 @@ export class VerificationController {
                             break;
                         case TaskType.Reformat:
                             Log.log("Reformatting the file...", LogLevel.Info);
-                            addNotificationForTask(task, () => task.completeFailed(new Error(`reformatting failed.`)));
                             break;
                         case TaskType.StopVerification:
                             task.type = TaskType.NoOp;
@@ -312,7 +311,9 @@ export class VerificationController {
                             }
                             break;
                         case TaskType.Reformat:
+                            addNotificationForTask(task, () => task.completeSuccessfully());
                             await this.reformat(fileState);
+                            task.type = TaskType.NoOp;
                             break;
                         case TaskType.Verifying:
                             if (!State.isVerifying) {
