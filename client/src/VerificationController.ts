@@ -312,7 +312,7 @@ export class VerificationController {
                             break;
                         case TaskType.Reformat:
                             addNotificationForTask(task, () => task.completeSuccessfully());
-                            await this.reformat(fileState);
+                            await this.reformat(fileState.uri);
                             task.type = TaskType.NoOp;
                             break;
                         case TaskType.Verifying:
@@ -508,10 +508,14 @@ export class VerificationController {
         }
     }
 
-    private async reformat(fileState: ViperFileState): Promise<void> {
+    private async reformat(uri: vscode.Uri): Promise<void> {
         try {
-            const params: ReformatParams = { uri: "test123"};
-            await State.client.sendNotification(Commands.Reformat, params);
+            if (Helper.isViperSourceFile(uri)) {
+                const params: ReformatParams = { uri: uri.toString()};
+                await State.client.sendNotification(Commands.Reformat, params);
+            }   else {
+                Log.error('Cannot reformat a non-viper file.');
+            }
         } catch (e) { 
             Log.error(`Failed to reformat file: ${e.toString()}`);
         }
