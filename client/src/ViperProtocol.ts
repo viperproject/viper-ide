@@ -51,7 +51,7 @@ export class Commands {
     //Client requests verification for a file
     static Verify: NotificationType<VerifyParams> = new NotificationType("Verify");
     //Client requests reformatting for a file
-    static Reformat: NotificationType<VerifyParams> = new NotificationType("Reformat");
+    static Reformat: RequestType<ReformatParams, void, string> = new RequestType("Reformat");
     //Client tells server to abort the running verification
     static StopVerification: RequestType<StopVerificationRequest, StopVerificationResponse, void> = new RequestType("StopVerification");
     static GetLanguageServerUrl: RequestType0<GetLanguageServerUrlResponse, void> = new RequestType0("GetLanguageServerUrl");

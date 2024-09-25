@@ -22,7 +22,7 @@ import * as rimraf from 'rimraf';
 import * as vscode from 'vscode';
 import { URI } from 'vscode-uri';
 import { State } from './ExtensionState';
-import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, VerificationNotStartedParams } from './ViperProtocol';
+import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, VerificationNotStartedParams, ReformatParams } from './ViperProtocol';
 import { Log } from './Log';
 import { Helper } from './Helper';
 import { locateViperTools } from './ViperTools';
@@ -254,22 +254,35 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         }
     }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('viper.reformat', () => {
-        if (!State.isReady()) {
-            showNotReadyHint();
-            return;
-        }
+    context.subscriptions.push(vscode.languages.registerDocumentFormattingEditProvider('viper', {
+        provideDocumentFormattingEdits(document: vscode.TextDocument): Promise<vscode.TextEdit[]> {
+            if (!State.isReady()) {
+                showNotReadyHint();
+                return;
+            }
+    
+            const fileUri = Helper.getActiveFileUri();
 
-        const fileUri = Helper.getActiveFileUri();
-        if (!fileUri) {
-            Log.log("Cannot reformat, no document is open.", LogLevel.Info);
-        } else if (!Helper.isViperSourceFile(fileUri)) {
-            Log.log("Cannot reformat the active file, its not a viper file.", LogLevel.Info);
-        } else {
-            Log.log("Attempting to reformat a file...", LogLevel.Info);
-            State.addToWorklist(new Task({ type: TaskType.Reformat, uri: fileUri, manuallyTriggered: true }));
+            if (!fileUri) {
+                Log.log("Cannot reformat, no document is open.", LogLevel.Info);
+            } else if (!Helper.isViperSourceFile(fileUri)) {
+                Log.log("Cannot reformat the active file, its not a viper file.", LogLevel.Info);
+            } else {
+                Log.log("Attempting to reformat a file...", LogLevel.Info);
+                try {
+                    const params: ReformatParams = { uri: fileUri.toString()};
+                    return State.client.sendRequest(Commands.Reformat, params).then(a => {
+                        const range = new vscode.Range(document.lineAt(0).range.start, document.lineAt(document.lineCount - 1).range.end);
+                        return [vscode.TextEdit.replace(range, a["value"])];
+                    });
+                } catch (e) { 
+                    Log.error(`Failed to reformat file: ${e.toString()}`);
+                }
+            }
+
+            return Promise.resolve([])
         }
-    }));
+    }))
 
     //verifyAllFilesInWorkspace
     context.subscriptions.push(vscode.commands.registerCommand('viper.verifyAllFilesInWorkspace', async (folder: string) => {
