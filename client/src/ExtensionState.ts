@@ -45,6 +45,7 @@ export class State {
     public static verificationController: VerificationController;
 
     public static activeBackend: Backend;
+    public static wasReformatted: boolean;
 
     public static unitTest: UnitTestCallback;
 

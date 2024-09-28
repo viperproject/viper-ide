@@ -272,6 +272,8 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
                 try {
                     const params: ReformatParams = { uri: fileUri.toString()};
                     return State.client.sendRequest(Commands.Reformat, params).then(a => {
+                        Log.log("Reformatting succeeded.", LogLevel.Info);
+                        State.wasReformatted = true;
                         const range = new vscode.Range(document.lineAt(0).range.start, document.lineAt(document.lineCount - 1).range.end);
                         return [vscode.TextEdit.replace(range, a["value"])];
                     });
