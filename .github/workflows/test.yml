@@ -41,7 +41,7 @@ env:
   # note that the following URL is extended with `/${{ matrix.viper-tools-zip-file }}` in the 'build-and-test' job:
   TEST_LOCAL_ON_PUSH_PR_VIPERTOOLS_URL: https://github.com/viperproject/viper-ide/releases/download/v4.3.1
   # the following  URL is not extended and downloading the destination is expected to return the viperserver.jar:
-  TEST_LOCAL_ON_PUSH_PR_VIPERSERVER_URL: https://polybox.ethz.ch/index.php/s/2sRctTahzg4Ly3d
+  TEST_LOCAL_ON_PUSH_PR_VIPERSERVER_URL: https://polybox.ethz.ch/index.php/s/O1NbwyFcmLhg79C
 
 jobs:
   build-and-test:
