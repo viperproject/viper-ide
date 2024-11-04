@@ -4,6 +4,9 @@
 
 ### Changelog
 
+#### v.4.4.2 (Viper v.24.08-release)
+* ViperTools now come bundled directly with the Viper extension and are no longer downloaded separately.
+
 #### v.4.3.1 (Viper v.24.01-release)
 * Minor bug fixes
 
