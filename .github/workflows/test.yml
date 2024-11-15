@@ -253,7 +253,7 @@ jobs:
 
   create-release:
     # this job creates a nightly release or stable draft-release and adds viper-ide.vsix and Viper Tools as release assets
-    if: github.event_name == 'workflow_dispatch'
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
     needs: build-and-test
     runs-on: ubuntu-latest
     steps:
@@ -288,6 +288,9 @@ jobs:
         if: ${{ github.event.inputs.type != 'stable' && github.event.inputs.type != 'rc' }}
         shell: bash
         run: echo "TAG_NAME=$(date +v-%Y-%m-%d-%H%M)" >> $GITHUB_ENV
+
+      - name: Abort test
+        run: exit 1
 
       # use the following action if nightly releases should eventually be deleted
       # - name: Create nightly release
