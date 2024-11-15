@@ -1,7 +1,9 @@
 // A launch configuration that compiles the extension and then opens it inside a new window
 {
     "version": "0.2.0",
-    "configurations": [{
+    "configurations": [
+
+        {
             "name": "Launch",
             "type": "extensionHost",
             "request": "launch",
@@ -32,7 +34,7 @@
             "outFiles": ["${workspaceRoot}/dist/test/**/*.js"],
             "preLaunchTask": {
                 "type": "npm",
-                "script": "pretest"
+                "script": "pre-test"
             }
         }/*,
         {
