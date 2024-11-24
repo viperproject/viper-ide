@@ -276,6 +276,7 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
                             State.wasReformatted = true;
                             const range = new vscode.Range(document.lineAt(0).range.start, document.lineAt(document.lineCount - 1).range.end);
                             return [vscode.TextEdit.replace(range, a["value"])];
+                            // return [];
                         } else  {
                             Log.log("Empty result returned when attempting to reformat. Ignoring.", LogLevel.Info);
                             return [];
