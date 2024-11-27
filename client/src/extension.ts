@@ -31,6 +31,7 @@ import { VerificationController, TaskType, Task } from './VerificationController
 import { ViperApi } from './ViperApi';
 import { Settings } from './Settings';
 import { Location } from 'vs-verification-toolbox';
+import { integer } from 'vscode-languageclient';
 
 let fileSystemWatcher: vscode.FileSystemWatcher;
 
@@ -165,6 +166,14 @@ function toggleAutoVerify(): void {
     State.statusBarItem.update("Auto Verify is " + (State.autoVerify ? "on" : "off"), Color.SUCCESS);
 }
 
+function test(): Promise<integer> {
+    if  (State.autoVerify) {
+        return Promise.resolve("").then(s => {
+            return 2;
+        });
+    }
+}
+
 async function initializeState(location: Location): Promise<void> {
     // set currently open file
     if (vscode.window.activeTextEditor) {
@@ -255,13 +264,20 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
     }));
 
     context.subscriptions.push(vscode.languages.registerDocumentFormattingEditProvider('viper', {
-        provideDocumentFormattingEdits(document: vscode.TextDocument): Promise<vscode.TextEdit[]> {
+        async provideDocumentFormattingEdits(document: vscode.TextDocument): Promise<vscode.TextEdit[]> {
             if (!State.isReady()) {
                 showNotReadyHint();
                 return;
             }
     
             const fileUri = Helper.getActiveFileUri();
+
+            const saved = await document.save();
+
+            if (!saved) {
+                Log.log("Failed to reformat file because it couldn't be saved.", LogLevel.Info);
+                return [];
+            }
 
             if (!fileUri) {
                 Log.log("Cannot reformat, no document is open.", LogLevel.Info);
@@ -276,7 +292,6 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
                             State.wasReformatted = true;
                             const range = new vscode.Range(document.lineAt(0).range.start, document.lineAt(document.lineCount - 1).range.end);
                             return [vscode.TextEdit.replace(range, a["value"])];
-                            // return [];
                         } else  {
                             Log.log("Empty result returned when attempting to reformat. Ignoring.", LogLevel.Info);
                             return [];
@@ -286,8 +301,6 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
                     Log.error(`Failed to reformat file: ${e.toString()}`);
                 }
             }
-
-            return Promise.resolve([])
         }
     }))
 
