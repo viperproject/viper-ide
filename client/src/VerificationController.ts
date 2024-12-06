@@ -504,7 +504,7 @@ export class VerificationController {
             };
         }
     }
-    
+
     private async verify(fileState: ViperFileState, manuallyTriggered: boolean): Promise<void> {
         try {
             //reset timing;

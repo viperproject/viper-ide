@@ -166,14 +166,6 @@ function toggleAutoVerify(): void {
     State.statusBarItem.update("Auto Verify is " + (State.autoVerify ? "on" : "off"), Color.SUCCESS);
 }
 
-function test(): Promise<integer> {
-    if  (State.autoVerify) {
-        return Promise.resolve("").then(s => {
-            return 2;
-        });
-    }
-}
-
 async function initializeState(location: Location): Promise<void> {
     // set currently open file
     if (vscode.window.activeTextEditor) {
@@ -272,6 +264,9 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
     
             const fileUri = Helper.getActiveFileUri();
 
+            // Need to save document first, otherwise if someone types something real quick and
+            // attempts to reformat, the changes might be lost since the file hasn't been written
+            // to disk yet.
             const saved = await document.save();
 
             if (!saved) {
@@ -282,7 +277,7 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
             if (!fileUri) {
                 Log.log("Cannot reformat, no document is open.", LogLevel.Info);
             } else if (!Helper.isViperSourceFile(fileUri)) {
-                Log.log("Cannot reformat the active file, its not a viper file.", LogLevel.Info);
+                Log.log("Cannot reformat the active file, it's not a viper file.", LogLevel.Info);
             } else {
                 Log.log("Attempting to reformat a file...", LogLevel.Info);
                 try {
