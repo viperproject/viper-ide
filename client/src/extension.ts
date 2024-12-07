@@ -245,6 +245,20 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         }
     }));
 
+    class GoCodeLensProvider implements vscode.CodeLensProvider {
+        public provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken):
+            vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
+        console.log("Triggered provideCodeLenses");
+        return [];
+        }
+    
+        public resolveCodeLens?(codeLens: vscode.CodeLens, token: vscode.CancellationToken):
+             vscode.CodeLens | Thenable<vscode.CodeLens> {
+        console.log("Triggered resolveCodeLens");
+        return [];
+        }
+    }
+
     //Command Handlers
     //verify
     context.subscriptions.push(vscode.commands.registerCommand('viper.verify', async () => {
