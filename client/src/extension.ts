@@ -255,6 +255,9 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         }
     }));
 
+    // TODO: See the comment in viperserver for why we currently register a custom formatting
+    // provider instead of registering it inside the LSP and letting the LSP protocol take
+    // care of registering the command.
     context.subscriptions.push(vscode.languages.registerDocumentFormattingEditProvider('viper', {
         async provideDocumentFormattingEdits(document: vscode.TextDocument): Promise<vscode.TextEdit[]> {
             if (!State.isReady()) {
