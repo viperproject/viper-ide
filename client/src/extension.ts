@@ -22,7 +22,7 @@ import * as rimraf from 'rimraf';
 import * as vscode from 'vscode';
 import { URI } from 'vscode-uri';
 import { State } from './ExtensionState';
-import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, VerificationNotStartedParams } from './ViperProtocol';
+import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, VerificationNotStartedParams, GetDefinitionsRequest } from './ViperProtocol';
 import { Log } from './Log';
 import { Helper } from './Helper';
 import { locateViperTools } from './ViperTools';
@@ -197,6 +197,14 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         }
     }));
 
+    context.subscriptions.push(vscode.languages.registerHoverProvider('viper', {
+        provideHover(document, position, token) {
+          return {
+            contents: ['Hover Content']
+          };
+        }
+      }));
+
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
         // basically all settings have some effect on ViperServer
         // only `advancedFeatures` might be fine to ignore but we simply restart ViperServer
@@ -239,7 +247,7 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
 
     //Command Handlers
     //verify
-    context.subscriptions.push(vscode.commands.registerCommand('viper.verify', () => {
+    context.subscriptions.push(vscode.commands.registerCommand('viper.verify', async () => {
         if (!State.isReady()) {
             showNotReadyHint();
             return;
@@ -250,6 +258,10 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         } else if (!Helper.isViperSourceFile(fileUri)) {
             Log.log("Cannot verify the active file, its not a viper file.", LogLevel.Info);
         } else {
+            const request: GetDefinitionsRequest = { uri: fileUri.toString() };
+            const response = await State.client.sendRequest(Commands.GetDefinitions, request);
+            console.log("Response received:", response.definitions);
+
             State.addToWorklist(new Task({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: true }));
         }
     }));

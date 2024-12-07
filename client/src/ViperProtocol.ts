@@ -48,6 +48,7 @@ export class Commands {
 
     //CLIENT TO SERVER
     static GetVersion: RequestType<GetVersionRequest, GetVersionResponse, void> = new RequestType("GetVersion");
+    static GetDefinitions: RequestType<GetDefinitionsRequest, GetDefinitionsResponse, void> = new RequestType("GetDefinitions")
     //Client requests verification for a file
     static Verify: NotificationType<VerifyParams> = new NotificationType("Verify");
     //Client tells server to abort the running verification
@@ -82,6 +83,14 @@ export interface GetVersionRequest {
 export interface GetVersionResponse {
     serverVersion: string,
     error: string | null // error message if client is not supported by server, null otherwise
+}
+
+export interface GetDefinitionsRequest {
+    uri: string
+}
+
+export interface GetDefinitionsResponse {
+    definitions: Definition[]
 }
 
 export interface GetExecutionTraceParams {
