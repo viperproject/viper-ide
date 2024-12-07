@@ -284,13 +284,7 @@ export class VerificationController {
                     const fileState = State.getFileState(task.uri); //might be null
                     switch (task.type) {
                         case TaskType.Verify:
-                            if (State.wasReformatted) {
-                                // If the verification was triggered by a reformatting action,
-                                // we don't want to actually perform it.
-                                task.type = TaskType.NoOp;
-                                addNotificationForTask(task, () => task.completeSuccessfully());
-                                State.wasReformatted = false;
-                            } else if (!State.autoVerify && !task.manuallyTriggered) {
+                            if (!State.autoVerify && !task.manuallyTriggered) {
                                 task.type = TaskType.NoOp;
                                 addNotificationForTask(task, () => task.completeFailed(new Error(`verification is skipped because it got neither manually triggered nor is auto-verification enabled`)));
                             } else {

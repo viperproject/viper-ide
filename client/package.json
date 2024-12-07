@@ -92,11 +92,6 @@
 				"category": "Viper"
 			},
 			{
-				"command": "viper.reformat",
-				"title": "reformat this file",
-				"category": "Viper"
-			},
-			{
 				"command": "viper.selectBackend",
 				"title": "select verification backend",
 				"category": "Viper"
