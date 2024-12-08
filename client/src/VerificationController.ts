@@ -543,7 +543,7 @@ export class VerificationController {
                     const backend = State.activeBackend;
                     const customArgs = await Settings.getCustomArgsForBackend(this.location, backend, uri);
                     if (customArgs.isRight) {
-                        const params: VerifyParams = { uri: uri.toString(), manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.name, customArgs: customArgs.right };
+                        const params: VerifyParams = { uri: uri.toString(), manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.name, verifyTarget: State.verificationTarget, customArgs: customArgs.right };
                         //request verification from Server
                         State.isVerifying = true;
                         await State.client.sendNotification(Commands.Verify, params);

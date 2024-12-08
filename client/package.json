@@ -92,6 +92,11 @@
 				"category": "Viper"
 			},
 			{
+				"command": "viper.setTarget",
+				"title": "set a verification target",
+				"category": "Viper"
+			},
+			{
 				"command": "viper.selectBackend",
 				"title": "select verification backend",
 				"category": "Viper"

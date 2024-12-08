@@ -103,6 +103,7 @@ export interface VerifyParams {
     manuallyTriggered: boolean;
     workspace: string;
     backend: string;
+    verifyTarget: string;
     customArgs: string;
 }
 

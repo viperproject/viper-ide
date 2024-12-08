@@ -197,14 +197,6 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         }
     }));
 
-    context.subscriptions.push(vscode.languages.registerHoverProvider('viper', {
-        provideHover(document, position, token) {
-          return {
-            contents: ['Hover Content']
-          };
-        }
-      }));
-
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
         // basically all settings have some effect on ViperServer
         // only `advancedFeatures` might be fine to ignore but we simply restart ViperServer
@@ -224,6 +216,7 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
                 const uri = editor.document.uri;
                 if (Helper.isViperSourceFile(uri)) {
                     const fileState = State.setLastActiveFile(uri, editor);
+                    State.verificationTarget = "";
                     // show status bar items (in case they were hidden)
                     State.showViperStatusBarItems();
                     if (fileState) {
@@ -245,20 +238,6 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         }
     }));
 
-    class GoCodeLensProvider implements vscode.CodeLensProvider {
-        public provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken):
-            vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
-        console.log("Triggered provideCodeLenses");
-        return [];
-        }
-    
-        public resolveCodeLens?(codeLens: vscode.CodeLens, token: vscode.CancellationToken):
-             vscode.CodeLens | Thenable<vscode.CodeLens> {
-        console.log("Triggered resolveCodeLens");
-        return [];
-        }
-    }
-
     //Command Handlers
     //verify
     context.subscriptions.push(vscode.commands.registerCommand('viper.verify', async () => {
@@ -279,6 +258,16 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
             State.addToWorklist(new Task({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: true }));
         }
     }));
+
+    context.subscriptions.push(vscode.commands.registerCommand('viper.setTarget', async () => {
+        if (!State.isReady()) {
+            showNotReadyHint();
+            return;
+        }
+
+        const selectedTarget = await vscode.window.showInputBox();
+        State.verificationTarget = selectedTarget;
+    }))
 
     //verifyAllFilesInWorkspace
     context.subscriptions.push(vscode.commands.registerCommand('viper.verifyAllFilesInWorkspace', async (folder: string) => {
