@@ -188,6 +188,17 @@ async function initializeState(location: Location): Promise<void> {
     State.statusBarItem.update("ready", Color.READY);
 }
 
+class TestCodeLensProvider implements vscode.CodeLensProvider {
+    public provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken):
+    vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
+        const command: vscode.Command = {
+            title: 'Verify',
+            command: 'viper.verify'
+        };
+        return [new vscode.CodeLens(new vscode.Range(0, 0, 0, 1), command)];
+    }
+}
+
 function registerContextHandlers(context: vscode.ExtensionContext, location: Location): void {
     context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
         try {
@@ -258,6 +269,10 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
             State.addToWorklist(new Task({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: true }));
         }
     }));
+
+    context.subscriptions.push(
+        vscode.languages.registerCodeLensProvider(
+            "viper", new TestCodeLensProvider()));
 
     context.subscriptions.push(vscode.commands.registerCommand('viper.setTarget', async () => {
         if (!State.isReady()) {
