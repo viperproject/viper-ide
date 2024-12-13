@@ -718,9 +718,10 @@ export class VerificationController {
                         }
     
                         let msg = "";
+                        const methodName = State.verificationTarget != "" ? `${State.verificationTarget} in ` : "";
                         switch (params.success) {
                             case Success.Success:
-                                msg = `Successfully verified ${params.filename} in ${Helper.formatSeconds(params.time)} ${warningsMsg("with")}`;
+                                msg = `Successfully verified ${methodName}${params.filename} in ${Helper.formatSeconds(params.time)} ${warningsMsg("with")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(check) " + msg, nofWarnings == 0 ? Color.SUCCESS : Color.WARNING);
                                 if (params.manuallyTriggered > 0) {
@@ -728,35 +729,35 @@ export class VerificationController {
                                 }
                                 break;
                             case Success.ParsingFailed:
-                                msg = `Parsing ${params.filename} failed after ${Helper.formatSeconds(params.time)} ${warningsMsg("with")}`;
+                                msg = `Parsing ${methodName}${params.filename} failed after ${Helper.formatSeconds(params.time)} ${warningsMsg("with")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(x) " + msg, Color.ERROR);
                                 break;
                             case Success.TypecheckingFailed:
-                                msg = `Type checking ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${nofErrors} error${nofErrors == 1 ? "" : "s"} ${warningsMsg("and")}`;
+                                msg = `Type checking ${methodName}${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${nofErrors} error${nofErrors == 1 ? "" : "s"} ${warningsMsg("and")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(x) " + msg, nofErrors == 0 ? Color.WARNING : Color.ERROR);
                                 break;
                             case Success.VerificationFailed:
-                                msg = `Verifying ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${nofErrors} error${nofErrors == 1 ? "" : "s"} ${warningsMsg("and")}`;
+                                msg = `Verifying ${methodName}${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${nofErrors} error${nofErrors == 1 ? "" : "s"} ${warningsMsg("and")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(x) " + msg, nofErrors == 0 ? Color.WARNING : Color.ERROR);
                                 break;
                             case Success.Aborted:
                                 State.statusBarItem.update("Verification aborted", Color.WARNING);
-                                Log.log(`Verifying ${params.filename} was aborted`, LogLevel.Info);
+                                Log.log(`Verifying ${methodName}${params.filename} was aborted`, LogLevel.Info);
                                 break;
                             case Success.Error:
                                 State.statusBarItem.update(`$(x) Internal error - see View->Output->Viper for more info"`, Color.ERROR);
                                 //msg = `Verifying ${params.filename} failed due to an internal error`;
-                                Log.error(`Internal Error: failed to verify ${params.filename}: Reason: ` + (params.error && params.error.length > 0 ? params.error : "Unknown Reason: Set loglevel to 5 and see the viper.log file for more details"));
+                                Log.error(`Internal Error: failed to verify ${methodName}${params.filename}: Reason: ` + (params.error && params.error.length > 0 ? params.error : "Unknown Reason: Set loglevel to 5 and see the viper.log file for more details"));
                                 //Log.hint(msg + moreInfo);
 
                                 if (State.unitTest) State.unitTest.internalErrorDetected();
                                 break;
                             case Success.Timeout:
                                 State.statusBarItem.update("Verification timed out", Color.WARNING);
-                                Log.log(`Verifying ${params.filename} timed out`, LogLevel.Info);
+                                Log.log(`Verifying ${methodName}${params.filename} timed out`, LogLevel.Info);
                                 break;
                         }
 
