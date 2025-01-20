@@ -302,7 +302,12 @@ export class State {
         });
 
         // connect to server
-        return State.connectToServer('localhost', portNr)
+        // we use "127.0.0.1" instead of "localhost" as "localhost" might get resolved
+        // to the IPv6 address "::1", which ViperServer does not seem to support
+        // see https://github.com/node-fetch/node-fetch/issues/1624#issuecomment-1235826631
+        const host = '127.0.0.1';
+        Log.log(`Connecting to ViperServer with hostname ${host} and port ${portNr}`, LogLevel.Info)
+        return State.connectToServer(host, portNr)
             .then(info => ({streamInfo: info, disposable: disposable}));
     }
 
