@@ -48,7 +48,6 @@ export class Commands {
 
     //CLIENT TO SERVER
     static GetVersion: RequestType<GetVersionRequest, GetVersionResponse, void> = new RequestType("GetVersion");
-    static GetDefinitions: RequestType<GetDefinitionsRequest, GetDefinitionsResponse, void> = new RequestType("GetDefinitions")
     //Client requests verification for a file
     static Verify: NotificationType<VerifyParams> = new NotificationType("Verify");
     //Client tells server to abort the running verification
@@ -85,14 +84,6 @@ export interface GetVersionResponse {
     error: string | null // error message if client is not supported by server, null otherwise
 }
 
-export interface GetDefinitionsRequest {
-    uri: string
-}
-
-export interface GetDefinitionsResponse {
-    definitions: Definition[]
-}
-
 export interface GetExecutionTraceParams {
     uri: string;
     clientState: number;
@@ -103,7 +94,7 @@ export interface VerifyParams {
     manuallyTriggered: boolean;
     workspace: string;
     backend: string;
-    verifyTarget: string;
+    verifyTarget?: Position;
     customArgs: string;
 }
 
@@ -174,6 +165,7 @@ export interface StateChangeParams {
     time?: number;
     verificationNeeded?: number;
     uri?: string;
+    currentTarget?: Range;
     stage?: string;
     error?: string;
     diagnostics?: vscode.Diagnostic[]

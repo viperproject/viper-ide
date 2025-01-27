@@ -92,8 +92,8 @@
 				"category": "Viper"
 			},
 			{
-				"command": "viper.setTarget",
-				"title": "set a verification target",
+				"command": "viper.verifyCurrent",
+				"title": "verify the method/function at the current cursor position",
 				"category": "Viper"
 			},
 			{

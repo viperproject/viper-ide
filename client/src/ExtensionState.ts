@@ -48,7 +48,6 @@ export class State {
 
     public static unitTest: UnitTestCallback;
 
-    public static verificationTarget: string = "";
     public static autoVerify = true;
 
     //status bar
@@ -58,6 +57,8 @@ export class State {
     public static abortButton: StatusBar;
     
     public static diagnosticCollection: vscode.DiagnosticCollection;
+
+    public static activeDecoration?: vscode.TextEditorDecorationType;
 
     public static viperApi: ViperApi;
 

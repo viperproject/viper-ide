@@ -26,6 +26,7 @@ export interface ITask {
     type: TaskType;
     uri?: vscode.Uri;
     backend?: Backend;
+    verificationTarget?: vscode.Position;
     manuallyTriggered?: boolean;
     success?: Success;
     timeout?: number;
@@ -38,6 +39,7 @@ export class Task implements ITask {
     type: TaskType;
     uri?: vscode.Uri;
     backend?: Backend;
+    verificationTarget?: vscode.Position;
     manuallyTriggered?: boolean;
     success?: Success;
     timeout?: number;
@@ -51,6 +53,7 @@ export class Task implements ITask {
         this.type = task.type;
         this.uri = task.uri;
         this.backend = task.backend;
+        this.verificationTarget = task.verificationTarget;
         this.manuallyTriggered = task.manuallyTriggered;
         this.success = task.success;
         this.timeout = task.timeout;
@@ -294,7 +297,7 @@ export class VerificationController {
                                     if (State.unitTest) State.unitTest.verificationStarted(State.activeBackend.name, path.basename(task.uri.toString()));
                                     task.markStarted(TaskType.Verifying);
                                     task.timeout = State.activeBackend.timeout;
-                                    await this.verify(fileState, task.manuallyTriggered);
+                                    await this.verify(fileState, task.manuallyTriggered, task.verificationTarget);
                                 } else if (canVerify.reason && (canVerify.reason != this.lastCanStartVerificationReason || (task.uri && !Common.uriEquals(task.uri, this.lastCanStartVerificationUri)))) {
                                     Log.log(canVerify.reason, LogLevel.Info);
                                     this.lastCanStartVerificationReason = canVerify.reason;
@@ -499,7 +502,7 @@ export class VerificationController {
         }
     }
 
-    private async verify(fileState: ViperFileState, manuallyTriggered: boolean): Promise<void> {
+    private async verify(fileState: ViperFileState, manuallyTriggered: boolean, target: vscode.Position): Promise<void> {
         try {
             //reset timing;
             this.verificationStartTime = Date.now();
@@ -543,7 +546,7 @@ export class VerificationController {
                     const backend = State.activeBackend;
                     const customArgs = await Settings.getCustomArgsForBackend(this.location, backend, uri);
                     if (customArgs.isRight) {
-                        const params: VerifyParams = { uri: uri.toString(), manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.name, verifyTarget: State.verificationTarget, customArgs: customArgs.right };
+                        const params: VerifyParams = { uri: uri.toString(), manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.name,verifyTarget: target, customArgs: customArgs.right };
                         //request verification from Server
                         State.isVerifying = true;
                         await State.client.sendNotification(Commands.Verify, params);
@@ -641,6 +644,44 @@ export class VerificationController {
         try {
             Log.log('Changed FROM ' + VerificationState[this.lastState] + " TO: " + VerificationState[params.newState], LogLevel.Info);
             this.lastState = params.newState;
+
+            const diagnostics = params.diagnostics
+                .map(this.translateLsp2VsCodeDiagnosticSeverity);
+            const nofErrors = diagnostics
+                .filter(diag => diag.severity == vscode.DiagnosticSeverity.Error)
+                .length;
+            const nofWarnings = diagnostics.length - nofErrors;
+
+            if (params.currentTarget) {
+                console.log("got a target!: " + params.currentTarget);
+
+                const editor = vscode.window.activeTextEditor;
+                if (editor) {
+                    const color = params.success == Success.Success 
+                        ? 'rgba(17, 89, 24, 0.3)' 
+                        : (nofErrors == 0 ? 'rgba(107, 108, 25, 0.3)' : 'rgba(99, 22, 22, 0.3)');
+
+                    const decorationType = vscode.window.createTextEditorDecorationType({
+                        backgroundColor: color
+                    });
+
+                    const start = new vscode.Position(params.currentTarget.start.line, params.currentTarget.start.character);
+                    const end = new vscode.Position(params.currentTarget.end.line, params.currentTarget.end.character);
+            
+                    const range = new vscode.Range(start, end);
+                    editor.setDecorations(decorationType, [range]);
+
+                    State.activeDecoration = decorationType;
+                }       
+            }   else {
+                console.log("resetting decoration!");
+                
+                if (State.activeDecoration) {
+                    State.activeDecoration.dispose();
+                    State.activeDecoration = null;
+                }
+            }
+
             if (params.progress <= 0) {
                 Log.log("The new state is: " + VerificationState[params.newState], LogLevel.Debug);
             }
@@ -702,13 +743,6 @@ export class VerificationController {
                             verifiedFile.timingInfo = { total: params.time, timings: this.timings };
                         }
 
-                        const diagnostics = params.diagnostics
-                            .map(this.translateLsp2VsCodeDiagnosticSeverity);
-                        const nofErrors = diagnostics
-                            .filter(diag => diag.severity == vscode.DiagnosticSeverity.Error)
-                            .length;
-                        const nofWarnings = diagnostics.length - nofErrors;
-
                         function warningsMsg(separator: string): string {
                             if (nofWarnings == 0) {
                                 return ``;
@@ -718,46 +752,48 @@ export class VerificationController {
                         }
     
                         let msg = "";
-                        const methodName = State.verificationTarget != "" ? `${State.verificationTarget} in ` : "";
                         switch (params.success) {
                             case Success.Success:
-                                msg = `Successfully verified ${methodName}${params.filename} in ${Helper.formatSeconds(params.time)} ${warningsMsg("with")}`;
+                                msg = `Successfully verified ${params.filename} in ${Helper.formatSeconds(params.time)} ${warningsMsg("with")}`;
                                 Log.log(msg, LogLevel.Default);
-                                State.statusBarItem.update("$(check) " + msg, nofWarnings == 0 ? Color.SUCCESS : Color.WARNING);
+                                // In case verification finished with no warnings, but we specified only a specific target
+                                // instead of the whole file, we still want to show the message in yellow, just to make
+                                // the user aware that this is not the whole file.
+                                State.statusBarItem.update("$(check) " + msg, (nofWarnings == 0 && !params.currentTarget) ? Color.SUCCESS : Color.WARNING);
                                 if (params.manuallyTriggered > 0) {
                                     Log.hint(msg);
                                 }
                                 break;
                             case Success.ParsingFailed:
-                                msg = `Parsing ${methodName}${params.filename} failed after ${Helper.formatSeconds(params.time)} ${warningsMsg("with")}`;
+                                msg = `Parsing ${params.filename} failed after ${Helper.formatSeconds(params.time)} ${warningsMsg("with")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(x) " + msg, Color.ERROR);
                                 break;
                             case Success.TypecheckingFailed:
-                                msg = `Type checking ${methodName}${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${nofErrors} error${nofErrors == 1 ? "" : "s"} ${warningsMsg("and")}`;
+                                msg = `Type checking ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${nofErrors} error${nofErrors == 1 ? "" : "s"} ${warningsMsg("and")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(x) " + msg, nofErrors == 0 ? Color.WARNING : Color.ERROR);
                                 break;
                             case Success.VerificationFailed:
-                                msg = `Verifying ${methodName}${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${nofErrors} error${nofErrors == 1 ? "" : "s"} ${warningsMsg("and")}`;
+                                msg = `Verifying ${params.filename} failed after ${Helper.formatSeconds(params.time)} with ${nofErrors} error${nofErrors == 1 ? "" : "s"} ${warningsMsg("and")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(x) " + msg, nofErrors == 0 ? Color.WARNING : Color.ERROR);
                                 break;
                             case Success.Aborted:
                                 State.statusBarItem.update("Verification aborted", Color.WARNING);
-                                Log.log(`Verifying ${methodName}${params.filename} was aborted`, LogLevel.Info);
+                                Log.log(`Verifying ${params.filename} was aborted`, LogLevel.Info);
                                 break;
                             case Success.Error:
                                 State.statusBarItem.update(`$(x) Internal error - see View->Output->Viper for more info"`, Color.ERROR);
                                 //msg = `Verifying ${params.filename} failed due to an internal error`;
-                                Log.error(`Internal Error: failed to verify ${methodName}${params.filename}: Reason: ` + (params.error && params.error.length > 0 ? params.error : "Unknown Reason: Set loglevel to 5 and see the viper.log file for more details"));
+                                Log.error(`Internal Error: failed to verify ${params.filename}: Reason: ` + (params.error && params.error.length > 0 ? params.error : "Unknown Reason: Set loglevel to 5 and see the viper.log file for more details"));
                                 //Log.hint(msg + moreInfo);
 
                                 if (State.unitTest) State.unitTest.internalErrorDetected();
                                 break;
                             case Success.Timeout:
                                 State.statusBarItem.update("Verification timed out", Color.WARNING);
-                                Log.log(`Verifying ${methodName}${params.filename} timed out`, LogLevel.Info);
+                                Log.log(`Verifying ${params.filename} timed out`, LogLevel.Info);
                                 break;
                         }
 
