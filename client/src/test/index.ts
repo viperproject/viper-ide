@@ -38,7 +38,7 @@ export async function run(): Promise<void> {
     });
 
     const filenames = await getTestSuiteFilenames();
-    filenames.forEach(filename => mocha.addFile(path.resolve(TESTS_ROOT, filename)));
+    filenames.reverse().forEach(filename => mocha.addFile(path.resolve(TESTS_ROOT, filename)));
 
     const failures: number = await new Promise(resolve => mocha.run(resolve));
 
