@@ -167,6 +167,7 @@ export interface StateChangeParams {
     stage?: string;
     error?: string;
     diagnostics?: vscode.Diagnostic[]
+    branchFailureDetails?: BranchFailureDetails[]
 }
 
 export interface BackendReadyParams {
@@ -299,6 +300,11 @@ export interface LogParams {
 export interface ProgressParams {
     data: Progress;
     logLevel: LogLevel;
+}
+
+export interface BranchFailureDetails {
+    errorMessage: string; // tree string
+    range: Range;
 }
 
 export interface MyProtocolDecorationOptions {

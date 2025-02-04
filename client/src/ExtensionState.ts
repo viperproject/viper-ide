@@ -57,6 +57,7 @@ export class State {
     public static abortButton: StatusBar;
     
     public static diagnosticCollection: vscode.DiagnosticCollection;
+    public static textDecorators: Map<vscode.Uri, vscode.TextEditorDecorationType>;
 
     public static viperApi: ViperApi;
 
@@ -91,6 +92,7 @@ export class State {
         this.showViperStatusBarItems();
         
         this.diagnosticCollection = vscode.languages.createDiagnosticCollection();
+        this.textDecorators = new Map<vscode.Uri, vscode.TextEditorDecorationType>();
     }
 
     public static showViperStatusBarItems():  void {
@@ -350,6 +352,7 @@ export interface UnitTestCallback {
     internalErrorDetected: () => void;
     verificationStopped: (success: boolean) => void;
     verificationStarted: (backend: string, filename: string) => void;
+    showRedBeams: (textDecoratorRanges: vscode.Range[]) => void
 }
 
 type Disposable = { dispose(): any }; // eslint-disable-line @typescript-eslint/no-explicit-any

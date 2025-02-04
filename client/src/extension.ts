@@ -22,7 +22,7 @@ import * as rimraf from 'rimraf';
 import * as vscode from 'vscode';
 import { URI } from 'vscode-uri';
 import { State } from './ExtensionState';
-import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, VerificationNotStartedParams } from './ViperProtocol';
+import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, VerificationNotStartedParams, BranchFailureDetails } from './ViperProtocol';
 import { Log } from './Log';
 import { Helper } from './Helper';
 import { locateViperTools } from './ViperTools';
@@ -450,15 +450,53 @@ function considerStartingBackend(newBackend: Backend): Promise<void> {
     });
 }
 
-function removeDiagnostics(activeFileOnly: boolean): void {
+export function removeDiagnostics(activeFileOnly: boolean = false): void {
     if (activeFileOnly) {
         if (vscode.window.activeTextEditor) {
             const uri = vscode.window.activeTextEditor.document.uri;
             State.diagnosticCollection.delete(uri);
+            clearRedBeams(activeFileOnly);
             Log.log(`Diagnostics successfully removed for file ${uri}`, LogLevel.Debug);
         }
     } else {
         State.diagnosticCollection.clear();
+        clearRedBeams();
         Log.log(`All diagnostics successfully removed`, LogLevel.Debug);
     }
+}
+
+export function showRedBeams(uri: vscode.Uri, branchFailureDetails: BranchFailureDetails[]): void {
+    const editor = vscode.window.activeTextEditor;
+    const textDecorator = getDecorationType();
+    State.textDecorators.set(uri, textDecorator);
+    const ranges = branchFailureDetails.map(bfd =>
+                                   new vscode.Range(
+                                       new vscode.Position(bfd.range.start.line, bfd.range.start.character),
+                                       new vscode.Position(bfd.range.end.line, bfd.range.end.character)
+                                       )
+                                   );
+    editor.setDecorations(textDecorator, ranges);
+}
+
+function clearRedBeams(activeFileOnly: boolean = false): void {
+    if (activeFileOnly) {
+        const uri = vscode.window.activeTextEditor.document.uri;
+        const textDecorator = State.textDecorators.get(uri);
+        State.textDecorators.delete(uri);
+        textDecorator.dispose();
+    } else {
+        for (const textDecorator of State.textDecorators.values()) {
+          textDecorator.dispose();
+        }
+        State.textDecorators.clear();
+    }
+}
+
+function getDecorationType() : vscode.TextEditorDecorationType {
+    return vscode.window.createTextEditorDecorationType({
+      isWholeLine: true,
+      rangeBehavior: 0,
+      gutterIconPath: State.context.asAbsolutePath(`images/beam.jpg`),
+      overviewRulerColor: "#ff2626"
+    });
 }

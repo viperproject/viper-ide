@@ -19,8 +19,7 @@ import { Helper } from './Helper';
 import { ViperFileState } from './ViperFileState';
 import { Color } from './StatusBar';
 import { Settings } from './Settings';
-import { restart } from './extension';
-
+import { restart, showRedBeams, removeDiagnostics } from './extension';
 
 export interface ITask {
     type: TaskType;
@@ -524,7 +523,7 @@ export class VerificationController {
                     fileState.verifying = true;
 
                     //clear all diagnostics
-                    State.diagnosticCollection.clear();
+                    removeDiagnostics();
 
                     //start progress updater
                     clearInterval(this.progressUpdater);
@@ -661,6 +660,10 @@ export class VerificationController {
                             // vscode uses 0 - 3. Thus convert them:
                             .map(this.translateLsp2VsCodeDiagnosticSeverity);
                         State.diagnosticCollection.set(vscode.Uri.parse(params.uri, false), diagnostics);
+                    }
+                    if (params.branchFailureDetails) {
+                        const uri = vscode.Uri.parse(params.uri, false)
+                        showRedBeams(uri, params.branchFailureDetails);
                     }
                     break;
                 case VerificationState.PostProcessing:
