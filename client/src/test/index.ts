@@ -38,7 +38,12 @@ export async function run(): Promise<void> {
     });
 
     const filenames = await getTestSuiteFilenames();
-    filenames.reverse().forEach(filename => mocha.addFile(path.resolve(TESTS_ROOT, filename)));
+    
+    // Due to how setup works, we have to do the tests in order.
+    // Glob is not consistent in the ordering, so we sort ourselves.
+    filenames.sort();
+
+    filenames.forEach(filename => mocha.addFile(path.resolve(TESTS_ROOT, filename)));
 
     const failures: number = await new Promise(resolve => mocha.run(resolve));
 
