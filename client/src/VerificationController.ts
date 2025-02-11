@@ -340,7 +340,7 @@ export class VerificationController {
                                     if (success) {
                                         State.hideProgress();
                                     } else {
-                                        task.stopFailed
+                                        task.stopFailed();
                                     }
                                 }
                                 //block until verification is complete or failed
