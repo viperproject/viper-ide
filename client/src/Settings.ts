@@ -1128,7 +1128,7 @@ export class Settings {
         try {
             fs.accessSync(path);
             return { path: path, exists: true };
-        } catch (e) {
+        } catch (_) {
             // intentially empty as it simply means that the file does not exist
         }
         if (executable && this.isWin && !path.toLowerCase().endsWith(".exe")) {
