@@ -326,6 +326,12 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         const document = await vscode.workspace.openTextDocument({ language: 'json', content: JSON.stringify(settings, null, 2) });
         await vscode.window.showTextDocument(document, vscode.ViewColumn.Two);
     }));
+
+    // add field declaration
+    context.subscriptions.push(vscode.commands.registerCommand('viper.declareField', async (fieldName) => {
+        const fieldType = await vscode.window.showInputBox({ prompt: 'Enter type: ' });
+        await vscode.window.activeTextEditor.edit(editBuilder => editBuilder.insert(new vscode.Position(0,0), `field ${fieldName} : ${fieldType}`));
+    }));
 }
 
 function showNotReadyHint(): void {
@@ -466,7 +472,6 @@ export function removeDiagnostics(activeFileOnly: boolean = false): void {
 }
 
 export function showRedBeams(uri: vscode.Uri, branchFailureDetails: BranchFailureDetails[]): void {
-    const editor = vscode.window.activeTextEditor;
     const textDecorator = getDecorationType();
     State.textDecorators.set(uri, textDecorator);
     const ranges = branchFailureDetails.map(bfd =>
@@ -475,7 +480,9 @@ export function showRedBeams(uri: vscode.Uri, branchFailureDetails: BranchFailur
                                        new vscode.Position(bfd.range.end.line, bfd.range.end.character)
                                        )
                                    );
-    editor.setDecorations(textDecorator, ranges);
+    vscode.window.activeTextEditor.setDecorations(textDecorator, ranges);
+
+    if (State.unitTest) State.unitTest.showRedBeams(ranges);
 }
 
 function clearRedBeams(activeFileOnly: boolean = false): void {
