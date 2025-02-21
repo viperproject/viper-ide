@@ -475,7 +475,7 @@ export function showRedBeams(uri: vscode.Uri, branchFailureDetails: BranchFailur
     const textDecorator = getDecorationType();
     State.textDecorators.set(uri, textDecorator);
     const decorationOptions = branchFailureDetails.map(bfd => {
-        return { hoverMessage : "Branch fails",
+        return { hoverMessage : new vscode.MarkdownString("Branch fails"),
                 range :    new vscode.Range(
                                new vscode.Position(bfd.range.start.line, bfd.range.start.character),
                                new vscode.Position(bfd.range.end.line, bfd.range.end.character)
