@@ -474,15 +474,17 @@ export function removeDiagnostics(activeFileOnly: boolean = false): void {
 export function showRedBeams(uri: vscode.Uri, branchFailureDetails: BranchFailureDetails[]): void {
     const textDecorator = getDecorationType();
     State.textDecorators.set(uri, textDecorator);
-    const ranges = branchFailureDetails.map(bfd =>
-                                   new vscode.Range(
-                                       new vscode.Position(bfd.range.start.line, bfd.range.start.character),
-                                       new vscode.Position(bfd.range.end.line, bfd.range.end.character)
-                                       )
-                                   );
-    vscode.window.activeTextEditor.setDecorations(textDecorator, ranges);
+    const decorationOptions = branchFailureDetails.map(bfd => {
+        return { hoverMessage : "Branch fails",
+                range :    new vscode.Range(
+                               new vscode.Position(bfd.range.start.line, bfd.range.start.character),
+                               new vscode.Position(bfd.range.end.line, bfd.range.end.character)
+                               )
+               }
+    });
+    vscode.window.activeTextEditor.setDecorations(textDecorator, decorationOptions);
 
-    if (State.unitTest) State.unitTest.showRedBeams(ranges);
+    if (State.unitTest) State.unitTest.showRedBeams(decorationOptions);
 }
 
 function clearRedBeams(activeFileOnly: boolean = false): void {

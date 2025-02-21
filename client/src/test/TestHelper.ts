@@ -12,6 +12,7 @@ import * as myExtension from '../extension';
 import { State, UnitTestCallback } from '../ExtensionState';
 import { Log } from '../Log';
 import { Common, LogLevel, Output } from '../ViperProtocol';
+import * as fs from 'fs';
 
 export const PROJECT_ROOT = path.join(__dirname, "..", "..");
 export const DATA_ROOT = path.join(PROJECT_ROOT, "src", "test", "data");
@@ -26,6 +27,8 @@ export const EMPTY = 'empty.sil';
 export const EMPTY_TXT = 'empty.txt';
 export const LONG = 'longDuration.vpr';
 export const WARNINGS = 'warnings.vpr';
+export const BRANCH1 = 'branch1.vpr'
+export const BRANCH2 = 'branch2.vpr'
 
 
 export default class TestHelper {
@@ -80,7 +83,7 @@ export default class TestHelper {
         Log.logWithOrigin("UnitTest", msg, LogLevel.Verbose);
     }
 
-    private static getTestDataPath(fileName: string): string {
+    public static getTestDataPath(fileName: string): string {
         return path.join(DATA_ROOT, fileName);
     }
 
@@ -336,10 +339,15 @@ export default class TestHelper {
             }, timeoutMs);
         });
     }
+
+    public static getDecorationOptions(): object[] {
+        return TestHelper.callbacks.decorationOptions;
+    }
 }
 
 class UnitTestCallbackImpl implements UnitTestCallback {
     private errorDetected = false;
+    private decorationOptions_ = null;
 
     public get internalError(): boolean {
         return this.errorDetected;
@@ -347,6 +355,10 @@ class UnitTestCallbackImpl implements UnitTestCallback {
 
     public resetInternalError(): void {
         this.errorDetected = false;
+    }
+
+    public get decorationOptions(): object[] {
+        return this.decorationOptions_;
     }
 
     extensionActivated: () => void = () => { };
@@ -359,4 +371,5 @@ class UnitTestCallbackImpl implements UnitTestCallback {
     internalErrorDetected: () => void = () => { this.errorDetected = true; };
     verificationStopped: (success: boolean) => void = () => { };
     verificationStarted: (backend: string, filename: string) => void = () => { };
+    showRedBeams: (decorationOptions: vscode.DecorationOptions[]) => void = (opts) => {this.decorationOptions_ = opts};
 }
