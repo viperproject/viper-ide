@@ -705,7 +705,7 @@ export class VerificationController {
                             verifiedFile.timingInfo = { total: params.time, timings: this.timings };
                         }
 
-                        const diagnostics = params.diagnostics
+                        const diagnostics = (params.diagnostics === undefined ? [] : params.diagnostics)
                             .map(this.translateLsp2VsCodeDiagnosticSeverity);
                         const nofErrors = diagnostics
                             .filter(diag => diag.severity == vscode.DiagnosticSeverity.Error)
