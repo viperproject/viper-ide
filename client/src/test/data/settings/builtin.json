@@ -1,4 +1,4 @@
 {
-    "viperSettings.buildVersion": "BuiltIn",
-    "viperserver.trace.server": "verbose"
+    "viper.buildVersion": "BuiltIn",
+    "viper.viperServer.trace.server": "verbose"
 }

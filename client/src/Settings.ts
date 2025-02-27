@@ -86,7 +86,6 @@ export class Settings {
         const settingName = "viperServer";
         const settings = Settings.getConfiguration(settingName);
         const checks: Promise<Either<Messages, unknown>>[] = [
-            Settings.checkVersion<ViperServerSettings>(settings),
             // check viperServer path
             Settings.checkViperServerJars(location),
             // check viperServerTimeout
@@ -166,7 +165,6 @@ export class Settings {
         const settingName = "paths";
         const settings = Settings.getConfiguration(settingName);
         const checks: Promise<Either<Messages, unknown>>[] = [
-            Settings.checkVersion<ViperServerSettings>(settings),
             Settings.checkViperToolsPath(location, Settings.getBuildChannel()),
             Settings.checkZ3Path(location, true),
             Settings.checkBoogiePath(location, true),
@@ -182,9 +180,7 @@ export class Settings {
         const settingName = "preferences";
         const settings = Settings.getConfiguration(settingName);
         const checks: Promise<Either<Messages, unknown>>[] = [
-            Settings.checkVersion<ViperServerSettings>(settings),
-            // check viperToolsProvider
-            Settings.checkViperToolsProvider(settings),
+            // no checks
         ];
         return Promise.all(checks)
             .then(combineMessages)
@@ -209,8 +205,7 @@ export class Settings {
         const settingName = "advancedFeatures";
         const settings = Settings.getConfiguration(settingName);
         const checks: Promise<Either<Messages, unknown>>[] = [
-            Settings.checkVersion<ViperServerSettings>(settings),
-            // no additional checks
+            // no checks
         ];
         return Promise.all(checks)
             .then(combineMessages)
@@ -221,11 +216,6 @@ export class Settings {
     private static async checkBuildVersion(location: Location): Promise<Either<Messages, BuildChannel>> {
         const buildChannel = Settings.getBuildChannel();
         return newRight(buildChannel);
-    }
-
-    private static async checkVersion<T>(settings: T): Promise<Either<Messages, T>> {
-        // TODO: remove this
-        return newRight(settings);
     }
 
     public static getExtensionVersion(): string {
@@ -278,25 +268,6 @@ export class Settings {
 
     public static getLogLevel(): LogLevel {
         return Settings.getConfiguration("preferences").logLevel || LogLevel.Default;
-    }
-
-    private static async checkViperToolsProvider(settings: UserPreferences): Promise<Either<Messages, { stable: string, nightly: string }>> {
-        const keyMaps = new Map([["stable", "stableViperToolsProvider"], ["nightly", "nightlyViperToolsProvider"]]);
-        const checks = Array.from(keyMaps)
-            .map(([key, value]) => Settings.checkPlatformDependentUrl(value, settings[value]).then<Either<Messages, [string, string]>>(url => transformRight(url, u => [key, u])));
-        return Promise.all(checks)
-            .then(combineMessages)
-            .then(res => transformRight(res, ([[key1, url1], [key2, url2]]) => {
-                if (key1 !== "stable") {
-                    throw new Error(`unexpected key, expected 'stable' but got ${key1}`);
-                }
-                if (key2 !== "nightly") {
-                    throw new Error(`unexpected key, expected 'nightly' but got ${key2}`);
-                }
-                const stableUrl = url1;
-                const nightlyUrl = url2;
-                return { stable: stableUrl, nightly: nightlyUrl };
-            }));
     }
 
     /** 
@@ -667,10 +638,6 @@ export class Settings {
             const backend = backends[i];
             if (!backend) {
                 return newEitherError(`Empty backend detected`);
-            }
-            const versionCheckResult = await Settings.checkVersion<Backend>(backend);
-            if (isLeft(versionCheckResult)) {
-                return versionCheckResult;
             }
             if (!backend.name || backend.name.length == 0) { // name there?
                 return newEitherError(`Every backend setting has to have a name.`);

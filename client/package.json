@@ -506,7 +506,7 @@
 						"linux": "$HOME/.config/Code/User/globalStorage/viper-admin.viper/Local/ViperTools",
 						"mac": "$HOME/Library/Application Support/Code/User/globalStorage/viper-admin.viper/Local/ViperTools"
 					},
-					"markdownDescription": "The path of the Viper Tools folder. This path is only used if `#viper.buildVersion#` `Local` is set. For more information, see [https://github.com/viperproject/viper-ide/wiki/Settings:-Paths](https://github.com/viperproject/viper-ide/wiki/Settings:-Paths)"
+					"markdownDescription": "The path of the Viper Tools folder. This path is only used if `#viper.buildVersion#` `External` is set. For more information, see [https://github.com/viperproject/viper-ide/wiki/Settings:-Paths](https://github.com/viperproject/viper-ide/wiki/Settings:-Paths)"
 				},
 				"viper.paths.z3Executable": {
 					"type": "object",
@@ -553,28 +553,6 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Enable sound effects for certain events."
-				},
-				"viper.preferences.stableViperToolsProvider": {
-					"type": "object",
-					"additionalProperties": "string",
-					"default": {
-						"windows": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsWin.zip",
-						"linux": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsLinux.zip",
-						"mac": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMac.zip",
-						"mac_arm": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMacARM.zip"
-					},
-					"markdownDescription": "A URL pointing to the operation system specific Viper Tools zip-file that is used in build version `Stable`."
-				},
-				"viper.preferences.nightlyViperToolsProvider": {
-					"type": "object",
-					"additionalProperties": "string",
-					"default": {
-						"windows": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsWin.zip&include-prereleases",
-						"linux": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsLinux.zip&include-prereleases",
-						"mac": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMac.zip&include-prereleases",
-						"mac_arm": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMacARM.zip&include-prereleases"
-					},
-					"markdownDescription": "A URL pointing to the operation system specific Viper Tools zip-file that is used in build version `Nightly`."
 				},
 				"viper.javaSettings.javaBinary": {
 					"type": "string",
@@ -638,8 +616,8 @@
 						"BuiltIn",
 						"External"
 					],
-					"default": "Stable",
-					"description": "Select the build version of the Viper Tools. The path specified at 'viperSettings.paths.viperToolsPath' will be used for build version 'Local'"
+					"default": "BuiltIn",
+					"markdownDescription": "Select the build version of the Viper Tools. The path specified at `#viper.paths.viperToolsPath#` will be used for build version `External`"
 				},
 				"viper.disableServerVersionCheck": {
 					"scope": "window",

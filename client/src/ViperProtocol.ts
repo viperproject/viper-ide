@@ -471,12 +471,6 @@ export interface UserPreferences {
     
     // Emit sound effects, indicating reached milestones in a verification process
     enableSoundEffects: boolean; 
-
-    // The URL for downloading the stable ViperTools from
-    stableViperToolsProvider: string | PlatformDependentURL;
-
-    // The URL for downloading the nightly ViperTools from
-    nightlyViperToolsProvider: string | PlatformDependentURL;
 }
 
 export interface JavaSettings {
