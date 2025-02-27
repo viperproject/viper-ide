@@ -1,0 +1,6 @@
+{
+    "viper.buildVersion": "External",
+    "viper.viperServer.serverJars": "/insert-path-here/viperserver/target/scala-2.13",
+    "viper.preferences.logLevel": 5,
+    "viper.viperServer.trace.server": "verbose"
+}

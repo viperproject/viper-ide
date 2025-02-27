@@ -15,8 +15,10 @@ import { Common, LogLevel, Output } from '../ViperProtocol';
 
 export const PROJECT_ROOT = path.join(__dirname, "..", "..");
 export const DATA_ROOT = path.join(PROJECT_ROOT, "src", "test", "data");
-export const SILICON = 'silicon';
-export const CARBON = 'carbon';
+export const SILICON_TYPE = 'silicon';
+export const SILICON_NAME = 'Symbolic Execution (silicon)';
+export const CARBON_TYPE = 'carbon';
+export const CARBON_NAME = 'Verification Condition Generation (carbon)';
 
 export const SETUP_TIMEOUT = 20 * 1000; // 20 sec
 
