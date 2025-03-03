@@ -19,7 +19,7 @@ import { Helper } from './Helper';
 import { ViperFileState } from './ViperFileState';
 import { Color } from './StatusBar';
 import { Settings } from './Settings';
-import { restart, showRedBeams, removeDiagnostics } from './extension';
+import { restart, removeDiagnostics } from './extension';
 
 export interface ITask {
     type: TaskType;
@@ -660,10 +660,6 @@ export class VerificationController {
                             // vscode uses 0 - 3. Thus convert them:
                             .map(this.translateLsp2VsCodeDiagnosticSeverity);
                         State.diagnosticCollection.set(vscode.Uri.parse(params.uri, false), diagnostics);
-                    }
-                    if (params.branchFailureDetails) {
-                        const uri = vscode.Uri.parse(params.uri, false)
-                        showRedBeams(uri, params.branchFailureDetails);
                     }
                     break;
                 case VerificationState.PostProcessing:

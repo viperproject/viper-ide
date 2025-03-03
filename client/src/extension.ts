@@ -340,6 +340,8 @@ function showNotReadyHint(): void {
 
 function registerClientHandlers(): void {
     State.client.onNotification(Commands.StateChange, (params: StateChangeParams) => State.verificationController.handleStateChange(params));
+
+    State.client.onNotification(Commands.BranchFailureDetails, (details: BranchFailureDetails) => showRedBeams(details));
         
     State.client.onNotification(Commands.Hint, (data: HintMessage) => {
         Log.hint(data.message, "Viper", data.showSettingsButton);
@@ -471,15 +473,16 @@ export function removeDiagnostics(activeFileOnly: boolean = false): void {
     }
 }
 
-export function showRedBeams(uri: vscode.Uri, branchFailureDetails: BranchFailureDetails[]): void {
+function showRedBeams(details: BranchFailureDetails): void {
+    const uri = vscode.Uri.parse(details.uri, false)
     const textDecorator = getDecorationType();
     State.textDecorators.set(uri, textDecorator);
-    const decorationOptions = branchFailureDetails.map(bfd => {
+    const decorationOptions = details.ranges.map(r => {
         return { hoverMessage : new vscode.MarkdownString("Branch fails"),
                 range :    new vscode.Range(
-                               new vscode.Position(bfd.range.start.line, bfd.range.start.character),
-                               new vscode.Position(bfd.range.end.line, bfd.range.end.character)
-                               )
+                               new vscode.Position(r.start.line, r.start.character),
+                               new vscode.Position(r.end.line, r.end.character)
+                           )
                }
     });
     vscode.window.activeTextEditor.setDecorations(textDecorator, decorationOptions);

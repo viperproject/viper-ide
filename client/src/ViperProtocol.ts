@@ -28,6 +28,8 @@ export class Commands {
     //SERVER TO CLIENT
     //Server notifies client about a state change
     static StateChange: NotificationType<StateChangeParams> = new NotificationType("StateChange");
+    // Server notifies the client about details of branch failure for displaying red beams
+    static BranchFailureDetails: NotificationType<BranchFailureDetails> = new NotificationType("BranchFailureDetails");
     //LOGGING
     //Log a message to the output
     static Log: NotificationType<LogParams> = new NotificationType("Log");
@@ -167,7 +169,6 @@ export interface StateChangeParams {
     stage?: string;
     error?: string;
     diagnostics?: vscode.Diagnostic[]
-    branchFailureDetails?: BranchFailureDetails[]
 }
 
 export interface BackendReadyParams {
@@ -303,8 +304,9 @@ export interface ProgressParams {
 }
 
 export interface BranchFailureDetails {
-    errorMessage: string; // tree string
-    range: Range;
+    // errorMessage: string; // tree string
+    uri: string;
+    ranges: Range[];
 }
 
 export interface MyProtocolDecorationOptions {
