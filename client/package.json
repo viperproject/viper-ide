@@ -36,7 +36,7 @@
 	"devDependencies": {
 		"@types/glob-to-regexp": "^0.4.4",
 		"@types/mocha": "^10.0.10",
-		"@types/node": "^22.13.8",
+		"@types/node": "^22.13.9",
 		"@types/semver": "^7.5.8",
 		"@types/tmp": "^0.2.6",
 		"@types/vscode": "^1.82.0",
