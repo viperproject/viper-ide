@@ -332,6 +332,15 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         const fieldType = await vscode.window.showInputBox({ prompt: 'Enter type: ' });
         await vscode.window.activeTextEditor.edit(editBuilder => editBuilder.insert(new vscode.Position(0,0), `field ${fieldName} : ${fieldType}`));
     }));
+
+    // display branches of a method explored by verification
+    context.subscriptions.push(vscode.commands.registerCommand('viper.displayExploredBranches', async (path) => {
+      const options = {
+          uri: vscode.Uri.file(path),
+          title: "Explored branches"
+      }
+      await vscode.commands.executeCommand("graphviz-interactive-preview.preview.beside", options)
+    }));
 }
 
 function showNotReadyHint(): void {

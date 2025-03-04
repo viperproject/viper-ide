@@ -81,6 +81,7 @@
 	"vsce": {
 		"baseImagesUrl": "https://github.com/viperproject/viper-ide/raw/master/client"
 	},
+	"extensionDependencies": ["tintinweb.graphviz-interactive-preview"],
 	"activationEvents": [
 		"onLanguage:viper"
 	],
@@ -139,6 +140,11 @@
 			{
 				"command": "viper.declareField",
 				"title": "add field declaration on top of this file",
+				"category": "Viper"
+			},
+			{
+				"command": "viper.displayExploredBranches",
+				"title": "display explored branches of method",
 				"category": "Viper"
 			}
 		],
