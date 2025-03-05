@@ -334,12 +334,21 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
     }));
 
     // display branches of a method explored by verification
-    context.subscriptions.push(vscode.commands.registerCommand('viper.displayExploredBranches', async (path) => {
-      const options = {
-          uri: vscode.Uri.file(path),
-          title: "Explored branches"
+    context.subscriptions.push(vscode.commands.registerCommand('viper.displayExploredBranches', async (methodName, path) => {
+      const dotPreviewExt = vscode.extensions.getExtension('tintinweb.graphviz-interactive-preview');
+      if (dotPreviewExt) {
+        const options = {
+            uri: vscode.Uri.file(path),
+            title: `Method ${methodName} - Explored branches`
+        }
+        await vscode.commands.executeCommand("graphviz-interactive-preview.preview.beside", options);
+      } else {
+          const item: vscode.MessageItem = { title: "Show extension" };
+          const answer = await vscode.window.showErrorMessage("Cannot display explored branches: 'Graphviz interactive preview' extension not installed.", item);
+          if (answer===item) {
+              await vscode.commands.executeCommand('extension.open', 'tintinweb.graphviz-interactive-preview');
+          }
       }
-      await vscode.commands.executeCommand("graphviz-interactive-preview.preview.beside", options)
     }));
 }
 
