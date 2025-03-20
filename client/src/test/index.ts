@@ -18,7 +18,7 @@
 // BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT 
 // OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import glob from 'glob';
+import {glob} from 'glob';
 import Mocha from 'mocha';
 import * as path from 'path';
 
@@ -30,14 +30,19 @@ const TESTS_ROOT = __dirname;
  */
 export async function run(): Promise<void> {
     // Create the mocha test
-	const mocha = new Mocha({
-		ui: 'tdd',
-		// Installing and starting Viper might take some minutes
+    const mocha = new Mocha({
+        ui: 'tdd',
+        // Installing and starting Viper might take some minutes
         timeout: 300_000, // ms
         color: true,
-	});
+    });
 
     const filenames = await getTestSuiteFilenames();
+    
+    // Due to how setup works, we have to do the tests in order.
+    // Glob is not consistent in the ordering, so we sort ourselves.
+    filenames.sort();
+
     filenames.forEach(filename => mocha.addFile(path.resolve(TESTS_ROOT, filename)));
 
     const failures: number = await new Promise(resolve => mocha.run(resolve));
@@ -50,16 +55,10 @@ export async function run(): Promise<void> {
 }
 
 async function getTestSuiteFilenames(): Promise<string[]> {
-	return new Promise((resolve, reject) =>
-        glob(
-            "**/*.test.js",
-            {
-                cwd: TESTS_ROOT,
-            },
-            (err, result) => {
-                if (err) reject(err)
-                else resolve(result)
-            }
-        )
-    );
+    return glob(
+        "**/*.test.js",
+        {
+            cwd: TESTS_ROOT,
+        }
+    )
 }
