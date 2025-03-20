@@ -1,4 +1,4 @@
-[![Test Status](https://github.com/viperproject/viper-ide/workflows/test/badge.svg?branch=master)](https://github.com/viperproject/viper-ide/actions?query=workflow%3Atest+branch%3Amaster)
+[![Test Status](https://github.com/viperproject/viper-ide/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/viperproject/viper-ide/actions?query=workflow%3Atest+branch%3Amaster)
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](./LICENSE)
 
 This VS Code extension provides interactive IDE features for [Viper](http://viper.ethz.ch) — the Verification Infrastructure for Permission-based Reasoning. 
