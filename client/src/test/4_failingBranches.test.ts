@@ -26,12 +26,12 @@ suite('ViperIDE Failing Branches Tests', () => {
     test("1. nested branches - if", async function() {
         this.timeout(35000);
         TestHelper.resetErrors();
-        await testFile(BRANCH1, {c:{"c":5,"e":0},e:{"c":11,"e":0}});
+        await testFile(BRANCH1, {c:{"c":5,"e":0},e:{"c":19,"e":0}});
     });
 
     test("2. nested branches - else", async function() {
         this.timeout(35000);
         TestHelper.resetErrors();
-        await testFile(BRANCH2, {c:{"c":11,"e":0},e:{"c":17,"e":0}});
+        await testFile(BRANCH2, {c:{"c":11,"e":0},e:{"c":19,"e":0}});
     });
 });

@@ -304,7 +304,6 @@ export interface ProgressParams {
 }
 
 export interface BranchFailureDetails {
-    // errorMessage: string; // tree string
     uri: string;
     ranges: Range[];
 }
