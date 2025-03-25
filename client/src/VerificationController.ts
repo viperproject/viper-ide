@@ -653,8 +653,6 @@ export class VerificationController {
             const nofWarnings = diagnostics.length - nofErrors;
 
             if (params.currentTarget) {
-                console.log("got a target!: " + params.currentTarget);
-
                 const editor = vscode.window.activeTextEditor;
                 if (editor) {
                     const color = params.success == Success.Success 
@@ -674,8 +672,6 @@ export class VerificationController {
                     State.activeDecoration = decorationType;
                 }       
             }   else {
-                console.log("resetting decoration!");
-                
                 if (State.activeDecoration) {
                     State.activeDecoration.dispose();
                     State.activeDecoration = null;
