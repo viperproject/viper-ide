@@ -256,7 +256,6 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
     }
 
     context.subscriptions.push(vscode.commands.registerCommand('viper.verify', async () => {
-        console.log("setting to null");
         await verifyInner(null);
     }));
 
