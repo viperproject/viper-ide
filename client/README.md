@@ -128,7 +128,7 @@ ETH Zurich condemns the acts of war in Ukraine ([read more](https://ethz.ch/serv
                     "name": "verify",
                     "isVerification": true,
                     "mainMethod": "core.MyCustomVerificationBackend",
-                    "customArguments": "--z3Exe $z3Exe$ $disableCaching$ $fileToVerify$"
+                    "customArguments": "--z3Exe $z3Exe$ $disableCaching$"
                 }
             ],
             "stoppingTimeout": 5000

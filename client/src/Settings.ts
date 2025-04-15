@@ -759,7 +759,7 @@ export class Settings {
             // the special replacement patterns kick in
             .replace("$z3Exe$", () => `"${z3Path}"`) // escape path
             .replace("$disableCaching$", () => disableCaching ? "--disableCaching" : "")
-            .replace("$fileToVerify$", () => `"${fileUri.fsPath}"`); // escape path
+            .replace("$fileToVerify$", () => `"${fileUri.fsPath}"`); // escape path (not used since v3)
 
         // Note that we need to passes over the string because `replace` does not allow async replace functions.
         // Thus, we use `replace` to search for occurrences of `"$boogieExe$"` (ensuring we use the same match

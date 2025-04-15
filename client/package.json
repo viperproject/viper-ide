@@ -398,7 +398,7 @@
 				},
 				"viper.verificationBackends.symbolicExecution.verificationStage.customArguments": {
 					"type": "string",
-					"default": "--z3Exe $z3Exe$ $disableCaching$ $fileToVerify$",
+					"default": "--z3Exe $z3Exe$ $disableCaching$",
 					"description": "The command line arguments used for starting the stage."
 				},
 				"viper.verificationBackends.symbolicExecution.verificationStage.onParsingError": {
@@ -464,7 +464,7 @@
 				},
 				"viper.verificationBackends.verificationConditionGeneration.verificationStage.customArguments": {
 					"type": "string",
-					"default": "--z3Exe $z3Exe$ --boogieExe $boogieExe$ $disableCaching$ $fileToVerify$",
+					"default": "--z3Exe $z3Exe$ --boogieExe $boogieExe$ $disableCaching$",
 					"description": "The command line arguments used for starting the stage."
 				},
 				"viper.verificationBackends.verificationConditionGeneration.verificationStage.onParsingError": {
