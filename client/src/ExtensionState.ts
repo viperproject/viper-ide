@@ -140,7 +140,7 @@ export class State {
             return;
         }
         const project = ProjectManager.getProject(active[0]) ?? null;
-        State.updateActive(project);
+        State.updateActiveInner(project);
         if (Helper.isViperSourceFile(active[0])) {
             const fileState = State.setLastActiveFile(active[0], active[1]);
             // show status bar items (in case they were hidden)
@@ -162,20 +162,24 @@ export class State {
         }
     }
 
-    public static updateActive(projectUri: ProjectRoot | null): void {
+    public static updateActive(): void {
+        const project = Helper.getActiveProjectUri();
+        State.updateActiveInner(project);
+    }
+    public static updateActiveInner(projectUri: ProjectRoot | null): void {
         if (projectUri) {
             const projectFile = path.basename(projectUri.path);
-            State.statusBarPin.update("$(pinned)", Color.READY, `Unpin from project ${projectFile}`);
-            State.statusBarPin.setCommand("viper.unpinFile");
+            State.statusBarPin.update("$(pinned)", Color.READY, `Unpin project ${projectFile}`);
+            State.statusBarPin.setCommand("viper.unpinProject");
         } else {
             State.statusBarPin.update("", Color.READY);
         }
     }
-    public static unpinFile(uri: vscode.Uri): vscode.Uri | null {
+    public static unpinFile(uri: vscode.Uri): ProjectRoot | null {
         return ProjectManager.removeFromProject(uri);
     }
-    public static unpinAll(uri: vscode.Uri): void {
-        const root = ProjectManager.getProject(uri);
+    public static unpinProject(uri: vscode.Uri): void {
+        const root = ProjectManager.getProject(uri) ?? ProjectManager.asRoot(uri);
         if (root) {
             ProjectManager.resetProject(root);
         }
@@ -237,6 +241,12 @@ export class State {
             result = State.viperFiles.get(uriString);
         }
         return result;
+    }
+
+    public static removeFileState(uri: URI | string | vscode.Uri): void {
+        if (!uri) return;
+        const uriString: string = Common.uriToString(uri);
+        State.viperFiles.delete(uriString);
     }
 
     public static async startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, location: Location): Promise<Either<Messages, void>> {

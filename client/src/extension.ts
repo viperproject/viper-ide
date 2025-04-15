@@ -191,6 +191,12 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         }
     }));
 
+    context.subscriptions.push(vscode.workspace.onDidCloseTextDocument((params) => {
+        State.unpinFile(params.uri);
+        State.updateActive();
+        State.removeFileState(params.uri);
+    }));
+
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
         // basically all settings have some effect on ViperServer
         // only `advancedFeatures` might be fine to ignore but we simply restart ViperServer
@@ -279,11 +285,11 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         }
     }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('viper.unpinFile', () => {
+    context.subscriptions.push(vscode.commands.registerCommand('viper.unpinProject', () => {
         const active = Helper.getActiveFileUri();
         if (active) {
-            State.unpinAll(active[0]);
-            State.updateActive(null);
+            State.unpinProject(active[0]);
+            State.updateActiveInner(null);
             State.addToWorklist(new Task({ type: TaskType.Verify, uri: active[0], manuallyTriggered: false }));
         }
     }));
@@ -373,8 +379,7 @@ function registerClientHandlers(): void {
         params.otherUris.forEach(uri => {
             State.pinFile(projectUri, vscode.Uri.parse(uri));
         });
-        const currProject = Helper.getActiveProjectUri();
-        State.updateActive(currProject);
+        State.updateActive();
     });
 
     State.client.onNotification(Commands.VerificationNotStarted, (params: VerificationNotStartedParams) => {

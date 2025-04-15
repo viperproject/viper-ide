@@ -98,8 +98,8 @@
 				"category": "Viper"
 			},
 			{
-				"command": "viper.unpinFile",
-				"title": "unpin the currently open file",
+				"command": "viper.unpinProject",
+				"title": "unpin the currently open project",
 				"category": "Viper"
 			},
 			{

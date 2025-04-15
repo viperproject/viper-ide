@@ -16,6 +16,9 @@ export class ProjectManager {
     // Entry per file in a project
     private static pinnedTo: Map<string, ProjectRoot> = new Map();
 
+    public static asRoot(file: vscode.Uri): ProjectRoot | undefined {
+        return ProjectManager.projects.has(file.toString()) ? file : undefined;
+    }
     public static getProject(file: vscode.Uri): ProjectRoot | undefined {
         const fileString = file.toString();
         return ProjectManager.pinnedTo.get(fileString);

@@ -750,7 +750,15 @@ export class VerificationController {
                         const nofWarnings = diagnostics.length - nofErrors;
 
                         function errorsMsg(separator: string): string {
-                            return `${separator} ${nofErrors} error${nofErrors == 1 ? "" : "s"}${postfix}`
+                            if (nofErrors != 0) {
+                                return `${separator} ${nofErrors} error${nofErrors == 1 ? "" : "s"}${postfix}`
+                            } else {
+                                // TODO: we can get this message before the project
+                                // setup one meaning that we ignore errors in other
+                                // files (`inSameProject` above returns false).
+                                Log.error(`Status is "${params.success}" but no errors found!`);
+                                return "";
+                            }
                         }
                         function warningsMsg(separator: string): string {
                             switch (nofWarnings) {
@@ -778,12 +786,12 @@ export class VerificationController {
                             case Success.TypecheckingFailed:
                                 msg = `Type checking ${params.filename} failed (${Helper.formatSeconds(params.time)}) ${errorsMsg("with")}${warningsMsg("and")}`;
                                 Log.log(msg, LogLevel.Default);
-                                State.statusBarItem.update("$(x) " + msg, nofErrors == 0 ? Color.WARNING : Color.ERROR);
+                                State.statusBarItem.update("$(x) " + msg, Color.ERROR);
                                 break;
                             case Success.VerificationFailed:
                                 msg = `Verifying ${params.filename} failed (${Helper.formatSeconds(params.time)}) ${errorsMsg("with")}${warningsMsg("and")}`;
                                 Log.log(msg, LogLevel.Default);
-                                State.statusBarItem.update("$(x) " + msg, nofErrors == 0 ? Color.WARNING : Color.ERROR);
+                                State.statusBarItem.update("$(x) " + msg, Color.ERROR);
                                 break;
                             case Success.Aborted:
                                 State.statusBarItem.update("Verification aborted", Color.WARNING);
