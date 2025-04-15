@@ -174,6 +174,12 @@ export class State {
     public static unpinFile(uri: vscode.Uri): vscode.Uri | null {
         return ProjectManager.removeFromProject(uri);
     }
+    public static unpinAll(uri: vscode.Uri): void {
+        const root = ProjectManager.getProject(uri);
+        if (root) {
+            ProjectManager.resetProject(root);
+        }
+    }
     public static pinFile(projectUri: ProjectRoot, fileUri: vscode.Uri): void {
         ProjectManager.addToProject(projectUri, fileUri);
     }

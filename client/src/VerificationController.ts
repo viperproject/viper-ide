@@ -732,7 +732,11 @@ export class VerificationController {
                         if (!State.serverV3()) {
                             State.diagnosticCollection.forEach((uri, diag) => allDiagnostics.push([uri, diag]));
                         } else {
-                            allDiagnostics = vscode.languages.getDiagnostics().filter(diag => ProjectManager.inSameProject(uri, diag[0]));
+                            allDiagnostics = vscode.languages.getDiagnostics().map<[vscode.Uri, vscode.Diagnostic[]]>(diag =>
+                                [diag[0], diag[1].filter(d => d.source == "viper")]
+                            ).filter(diag =>
+                                diag[1].length > 0 || ProjectManager.inSameProject(uri, diag[0])
+                            );
                         }
                         const errorInOpenFile = allDiagnostics.some(
                             fileDiag => fileDiag[0].toString() == params.uri

@@ -282,7 +282,7 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
     context.subscriptions.push(vscode.commands.registerCommand('viper.unpinFile', () => {
         const active = Helper.getActiveFileUri();
         if (active) {
-            State.unpinFile(active[0]);
+            State.unpinAll(active[0]);
             State.updateActive(null);
             State.addToWorklist(new Task({ type: TaskType.Verify, uri: active[0], manuallyTriggered: false }));
         }
