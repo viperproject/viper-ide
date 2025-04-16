@@ -28,17 +28,6 @@ export class ProjectManager {
         const project2 = ProjectManager.getProject(file2) ?? file2;
         return project1.toString() === project2.toString();
     }
-    public static removeFromProject(file: vscode.Uri): ProjectRoot | null {
-        const fileString = file.toString();
-        const oldProject = ProjectManager.getProject(file) ?? null;
-        if (oldProject) {
-            ProjectManager.projects.get(oldProject.toString()).delete(fileString);
-            ProjectManager.pinnedTo.delete(fileString);
-            return oldProject;
-        } else {
-            return null;
-        }
-    }
 
     public static addToProject(projectRoot: ProjectRoot, file: vscode.Uri): void {
         // Root should not be added to itself
@@ -59,14 +48,19 @@ export class ProjectManager {
         }
         ProjectManager.pinnedTo.set(fileString, projectRoot);
     }
-    public static resetProject(projectRoot: ProjectRoot): void {
+    public static resetProject(projectRoot: ProjectRoot | undefined): ProjectRoot | undefined {
+        if (projectRoot === undefined) {
+            return undefined;
+        }
         const projectRootString = projectRoot.toString();
         const project = ProjectManager.projects.get(projectRootString);
-        if (project !== undefined) {
-            project.forEach(file => {
-                ProjectManager.pinnedTo.delete(file);
-            });
-            ProjectManager.projects.delete(projectRootString);
+        if (project === undefined) {
+            return undefined;
         }
+        project.forEach(file => {
+            ProjectManager.pinnedTo.delete(file);
+        });
+        ProjectManager.projects.delete(projectRootString);
+        return projectRoot;
     }
 }

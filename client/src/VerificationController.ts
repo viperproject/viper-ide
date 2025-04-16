@@ -357,10 +357,11 @@ export class VerificationController {
                                 }
                             }
                             break;
+                        // TODO: this task is turned into a NoOp above?
                         case TaskType.FileClosed:
                             if (!fileState.open) {
                                 //if the file has not been reopened in the meantime:
-                                State.viperFiles.delete(task.uri.toString());
+                                State.removeFileState(task.uri.toString());
                             }
                             task.type = TaskType.NoOp;
                             addNotificationForTask(task, () => task.completeSuccessfully());

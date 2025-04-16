@@ -175,8 +175,8 @@ export class State {
             State.statusBarPin.update("", Color.READY);
         }
     }
-    public static unpinFile(uri: vscode.Uri): ProjectRoot | null {
-        return ProjectManager.removeFromProject(uri);
+    public static resetProjectIfRoot(uri: vscode.Uri): boolean {
+        return ProjectManager.resetProject(ProjectManager.asRoot(uri)) !== undefined
     }
     public static unpinProject(uri: vscode.Uri): void {
         const root = ProjectManager.getProject(uri) ?? ProjectManager.asRoot(uri);

@@ -192,9 +192,11 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
     }));
 
     context.subscriptions.push(vscode.workspace.onDidCloseTextDocument((params) => {
-        State.unpinFile(params.uri);
-        State.updateActive();
+        if (State.resetProjectIfRoot(params.uri)) {
+            State.updateActive();
+        }
         State.removeFileState(params.uri);
+        State.addToWorklist(new Task({ type: TaskType.FileClosed, uri: params.uri }));
     }));
 
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
