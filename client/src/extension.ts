@@ -330,7 +330,7 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
     // add field declaration
     context.subscriptions.push(vscode.commands.registerCommand('viper.declareField', async (fieldName) => {
         const fieldType = await vscode.window.showInputBox({ prompt: 'Enter type: ' });
-        await vscode.window.activeTextEditor.edit(editBuilder => editBuilder.insert(new vscode.Position(0,0), `field ${fieldName} : ${fieldType}`));
+        await vscode.window.activeTextEditor.edit(editBuilder => editBuilder.insert(new vscode.Position(0,0), `field ${fieldName} : ${fieldType}\n`));
     }));
 
     // display branches of a method explored by verification
