@@ -20,7 +20,7 @@ export const SILICON_NAME = 'Symbolic Execution (silicon)';
 export const CARBON_TYPE = 'carbon';
 export const CARBON_NAME = 'Verification Condition Generation (carbon)';
 
-export const SETUP_TIMEOUT = 30 * 1000; // 30 sec
+export const SETUP_TIMEOUT = 45 * 1000; // 45 sec, windows runners can be really slow
 
 
 export const SIMPLE = 'simple.sil';

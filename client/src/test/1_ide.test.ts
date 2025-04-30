@@ -39,15 +39,16 @@ suite('ViperIDE Tests', () => {
     });
 
     test("Test warnings", async function() {
-        this.timeout(5000);
+        this.timeout(10000);
 
         const document = await TestHelper.openAndVerify(WARNINGS);
-        //await TestHelper.wait(1000);
-        Log.error("Uri: " + document.uri);
-        //TestHelper.log("Uri: " + document.uri);
-        const all_diag = vscode.languages.getDiagnostics().map( d => d[0]);
         
+        await TestHelper.wait(5000);
+        const all_diag = vscode.languages.getDiagnostics().map( d => d[0]);
+        Log.error("Uri: " + document.uri);
         Log.error("Diagnostic keys: " + all_diag);
+        assert(all_diag.includes(document.uri), "Document not in all diagnostics");
+        
         const diagnostics = vscode.languages.getDiagnostics(document.uri);
         checkAssert(diagnostics.length, 2, `Amount of diagnostics`);
         checkAssert(diagnostics[0].severity, vscode.DiagnosticSeverity.Warning, "First diagnostic");
