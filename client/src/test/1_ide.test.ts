@@ -116,10 +116,10 @@ suite('ViperIDE Tests', () => {
     });
 
     test("Test warnings", async function() {
-        this.timeout(2000);
+        this.timeout(3000);
 
         const document = await TestHelper.openAndVerify(WARNINGS);
-        await TestHelper.wait(5000);
+        await TestHelper.wait(1000);
         assert(document.uri.toString().endsWith(WARNINGS), document.uri + " is wrong");
         const diagnostics = vscode.languages.getDiagnostics(document.uri);
         checkAssert(diagnostics.length, 2, `Amount of diagnostics`);
