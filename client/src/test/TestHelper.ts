@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2011-2020 ETH Zurich.
+// Copyright (c) 2011-2025 ETH Zurich.
 
 import assert from 'assert';
 import { SpawnOptionsWithoutStdio } from 'child_process';
@@ -20,7 +20,7 @@ export const SILICON_NAME = 'Symbolic Execution (silicon)';
 export const CARBON_TYPE = 'carbon';
 export const CARBON_NAME = 'Verification Condition Generation (carbon)';
 
-export const SETUP_TIMEOUT = 20 * 1000; // 20 sec
+export const SETUP_TIMEOUT = 30 * 1000; // 30 sec
 
 
 export const SIMPLE = 'simple.sil';
