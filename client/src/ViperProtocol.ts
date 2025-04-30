@@ -56,7 +56,7 @@ export class Commands {
     // static ShowHeap = "ShowHeap";//ShowHeapParams
     //Request a list of all states that led to the current state
     // static GetExecutionTrace = "GetExecutionTrace";//GetExecutionTraceParams -> trace:ExecutionTrace[]
-    //remove the diagnostics in the file specified by uri
+    //remove the diagnostics in the file specified by uri (or all if uri is null)
     static RemoveDiagnostics: RequestType<RemoveDiagnosticsRequest, RemoveDiagnosticsResponse, void> = new RequestType("RemoveDiagnostics");
     //The server requests the custom file endings specified in the configuration
     static GetViperFileEndings: RequestType0<GetViperFileEndingsResponse, void> = new RequestType0("GetViperFileEndings");
@@ -171,8 +171,7 @@ export interface StateChangeParams {
     verificationNeeded?: number;
     uri?: string;
     stage?: string;
-    error?: string;
-    diagnostics?: vscode.Diagnostic[]
+    error?: string
 }
 
 export interface BackendReadyParams {

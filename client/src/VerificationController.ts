@@ -357,7 +357,7 @@ export class VerificationController {
                                 }
                             }
                             break;
-                        // TODO: this task is turned into a NoOp above?
+                        // FIXME: this task is turned into a NoOp above?
                         case TaskType.FileClosed:
                             if (!fileState.open) {
                                 //if the file has not been reopened in the meantime:
@@ -546,11 +546,6 @@ export class VerificationController {
                     fileState.verified = false;
                     fileState.verifying = true;
 
-                    if (!State.serverV3()) {
-                        //clear all diagnostics
-                        State.diagnosticCollection.clear();
-                    }
-
                     //start progress updater
                     clearInterval(this.progressUpdater);
                     const progress_lambda: () => void = () => {
@@ -681,14 +676,6 @@ export class VerificationController {
                     if (params.progress > 0) {
                         this.addTiming(params.filename, params.progress);
                     }
-                    // only for server version < 3.0
-                    if (params.diagnostics) {
-                        const diagnostics: vscode.Diagnostic[] = params.diagnostics
-                            // for mysterious reasons, LSP defines DiagnosticSeverity levels 1 - 4 while
-                            // vscode uses 0 - 3. Thus convert them:
-                            .map(this.translateLsp2VsCodeDiagnosticSeverity);
-                        State.diagnosticCollection.set(vscode.Uri.parse(params.uri, false), diagnostics);
-                    }
                     break;
                 case VerificationState.PostProcessing:
                     this.addTiming(params.filename, params.progress);
@@ -729,16 +716,11 @@ export class VerificationController {
                             verifiedFile.timingInfo = { total: params.time, timings: this.timings };
                         }
 
-                        let allDiagnostics: [vscode.Uri, readonly vscode.Diagnostic[]][] = [];
-                        if (!State.serverV3()) {
-                            State.diagnosticCollection.forEach((uri, diag) => allDiagnostics.push([uri, diag]));
-                        } else {
-                            allDiagnostics = vscode.languages.getDiagnostics().map<[vscode.Uri, vscode.Diagnostic[]]>(diag =>
-                                [diag[0], diag[1].filter(d => d.source == "viper")]
-                            ).filter(diag =>
-                                diag[1].length > 0 || ProjectManager.inSameProject(uri, diag[0])
-                            );
-                        }
+                        const allDiagnostics: [vscode.Uri, readonly vscode.Diagnostic[]][] = vscode.languages.getDiagnostics().map<[vscode.Uri, vscode.Diagnostic[]]>(diag =>
+                            [diag[0], diag[1].filter(d => d.source == "viper")]
+                        ).filter(diag =>
+                            diag[1].length > 0 || ProjectManager.inSameProject(uri, diag[0])
+                        );
                         const errorInOpenFile = allDiagnostics.some(
                             fileDiag => fileDiag[0].toString() == params.uri
                                 && fileDiag[1].some(diag => diag.severity == vscode.DiagnosticSeverity.Error)
@@ -754,7 +736,7 @@ export class VerificationController {
                             if (nofErrors != 0) {
                                 return `${separator} ${nofErrors} error${nofErrors == 1 ? "" : "s"}${postfix}`
                             } else {
-                                // TODO: we can get this message before the project
+                                // FIXME: we can get this message before the project
                                 // setup one meaning that we ignore errors in other
                                 // files (`inSameProject` above returns false).
                                 Log.error(`Status is "${params.success}" but no errors found!`);

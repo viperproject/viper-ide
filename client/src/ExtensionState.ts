@@ -29,7 +29,7 @@ import { ProjectManager, ProjectRoot } from './ProjectManager';
 
 export class State {
     public static get MIN_SERVER_VERSION(): string {
-        return "2.0.0"; // has to be a valid semver
+        return "3.0.0"; // has to be a valid semver
     }
     public static serverVersion: string;
 
@@ -59,13 +59,7 @@ export class State {
     public static statusBarPin: StatusBar;
     public static abortButton: StatusBar;
 
-    public static diagnosticCollection: vscode.DiagnosticCollection;
-
     public static viperApi: ViperApi;
-
-    public static serverV3(): boolean {
-        return semver.compare(this.serverVersion, "3.0.0") >= 0;
-    }
 
     public static isReady(): boolean {
         if (State.client == null) {
@@ -98,8 +92,6 @@ export class State {
         this.backendStatusBar.setCommand("viper.selectBackend");
         
         this.showViperStatusBarItems();
-
-        this.diagnosticCollection = vscode.languages.createDiagnosticCollection();
     }
 
     public static showViperStatusBarItems():  void {

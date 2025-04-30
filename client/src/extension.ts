@@ -22,7 +22,7 @@ import * as rimraf from 'rimraf';
 import * as vscode from 'vscode';
 import { URI } from 'vscode-uri';
 import { State } from './ExtensionState';
-import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, Range, VerificationNotStartedParams, SetupProjectParams } from './ViperProtocol';
+import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, Range, VerificationNotStartedParams, SetupProjectParams, RemoveDiagnosticsResponse } from './ViperProtocol';
 import { Log } from './Log';
 import { Helper } from './Helper';
 import { locateViperTools } from './ViperTools';
@@ -135,7 +135,7 @@ async function internalShutdown(): Promise<vscode.ExtensionContext> {
     const context = State.context;
     // remove diagnostics as otherwise VSCode will show diagnostics of the extension's
     // current and next run
-    removeDiagnostics(false);
+    await removeDiagnostics(false);
     await deactivate();
     while (context.subscriptions.length > 0) {
         // remove first element (this avoid that we might dispose a subscription multiple times):
@@ -309,7 +309,7 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
     context.subscriptions.push(vscode.commands.registerCommand('viper.openLogFile', openLogFile));
 
     //remove diagnostics of open file
-    context.subscriptions.push(vscode.commands.registerCommand('viper.removeDiagnostics', () => removeDiagnostics(true)));
+    context.subscriptions.push(vscode.commands.registerCommand('viper.removeDiagnostics', async () => await removeDiagnostics(true)));
 
     // show currently active (Viper) settings
     context.subscriptions.push(vscode.commands.registerCommand('viper.showSettings', async () => {
@@ -461,25 +461,16 @@ function considerStartingBackend(newBackend: Backend): Promise<void> {
     });
 }
 
-function removeDiagnostics(activeFileOnly: boolean): void {
+async function removeDiagnostics(activeFileOnly: boolean): Promise<RemoveDiagnosticsResponse> {
+    let uri: string = null;
     if (activeFileOnly) {
         const active = Helper.getActiveFileUri();
         if (active) {
-            if (!State.serverV3()) {
-                State.diagnosticCollection.delete(active[0]);
-                Log.log(`Diagnostics successfully removed for file ${active[0]}`, LogLevel.Debug);
-            } else {
-                // TODO: this should send a message to viperserver
-                Log.log(`[DEACTIVATED] Diagnostics successfully removed for file ${active[0]}`, LogLevel.Debug);
-            }
-        }
-    } else {
-        if (!State.serverV3()) {
-            State.diagnosticCollection.clear();
-            Log.log(`All diagnostics successfully removed`, LogLevel.Debug);
+            uri = active[0].toString();
         } else {
-            // TODO: this should send a message to viperserver
-            Log.log(`[DEACTIVATED] All diagnostics successfully removed`, LogLevel.Debug);
+            return Promise.resolve({ success: false });
         }
     }
+    Log.log(`Requesting diagnostics removal for ${uri}`, LogLevel.Debug);
+    return State.client.sendRequest(Commands.RemoveDiagnostics, { uri })
 }
