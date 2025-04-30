@@ -38,6 +38,23 @@ suite('ViperIDE Tests', () => {
         assert (!TestHelper.hasObservedInternalError());
     });
 
+    test("Test warnings", async function() {
+        this.timeout(5000);
+
+        const document = await TestHelper.openAndVerify(WARNINGS);
+        //await TestHelper.wait(1000);
+        Log.error("Uri: " + document.uri);
+        //TestHelper.log("Uri: " + document.uri);
+        const all_diag = vscode.languages.getDiagnostics().map( d => d[0]);
+        
+        Log.error("Diagnostic keys: " + all_diag);
+        const diagnostics = vscode.languages.getDiagnostics(document.uri);
+        checkAssert(diagnostics.length, 2, `Amount of diagnostics`);
+        checkAssert(diagnostics[0].severity, vscode.DiagnosticSeverity.Warning, "First diagnostic");
+        checkAssert(diagnostics[1].severity, vscode.DiagnosticSeverity.Warning, "Second diagnostic");
+    });
+
+
     test("Test closing files", async function() {
         this.timeout(30000);
         TestHelper.resetErrors();
@@ -113,19 +130,6 @@ suite('ViperIDE Tests', () => {
         await TestHelper.executeCommand('viper.openLogFile');
         await opened;
         await TestHelper.closeFile();
-    });
-
-    test("Test warnings", async function() {
-        this.timeout(3000);
-
-        const document = await TestHelper.openAndVerify(WARNINGS);
-        //await TestHelper.wait(1000);
-        Log.error("Uri: " + document.uri);
-        TestHelper.log("Uri: " + document.uri);
-        const diagnostics = vscode.languages.getDiagnostics(document.uri);
-        checkAssert(diagnostics.length, 2, `Amount of diagnostics`);
-        checkAssert(diagnostics[0].severity, vscode.DiagnosticSeverity.Warning, "First diagnostic");
-        checkAssert(diagnostics[1].severity, vscode.DiagnosticSeverity.Warning, "Second diagnostic");
     });
 });
 
