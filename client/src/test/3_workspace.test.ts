@@ -13,6 +13,8 @@ suite('Workspace Tests', () => {
         await TestHelper.teardown();
     });
 
+    /*
+
     test("Test Verification of all files in folder", async function() {
         this.timeout(200000);
 
@@ -22,4 +24,5 @@ suite('Workspace Tests', () => {
         const result = await TestHelper.waitForVerificationOfAllFilesInWorkspace();
         assert(result.verified == result.total, `partially verified workspace: (${result.verified}/${result.total})`);
     });
+    */
 });

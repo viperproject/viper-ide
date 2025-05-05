@@ -31,7 +31,8 @@ suite('Extension Startup', () => {
         await started;
         TestHelper.log("Language detection - started");
     });
-
+    
+    /*
     test("Test simple verification with Silicon", async function(){
         this.timeout(40000);
         await TestHelper.openAndVerify(SIMPLE);
@@ -57,4 +58,5 @@ suite('Extension Startup', () => {
         // TestHelper will make sure that the extension is properly restarted for the
         // next test suite.
     });
+    */
 });

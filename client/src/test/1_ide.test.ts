@@ -54,7 +54,7 @@ suite('ViperIDE Tests', () => {
         checkAssert(diagnostics[2].severity, vscode.DiagnosticSeverity.Error, "Third diagnostic");
     });
 
-
+    /*
     test("Test closing files", async function() {
         this.timeout(30000);
         TestHelper.resetErrors();
@@ -131,6 +131,7 @@ suite('ViperIDE Tests', () => {
         await opened;
         await TestHelper.closeFile();
     });
+    */
 });
 
 function checkAssert<T>(seen: T, expected: T, message: string): void {

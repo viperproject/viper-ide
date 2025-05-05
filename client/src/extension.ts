@@ -397,6 +397,14 @@ function registerClientHandlers(): void {
             Log.error("Error handling verification not started request: " + e);
         }
     });
+
+    // TODO Remove this
+    State.client.onNotification("textDocument/publishDiagnostics", (params) => {
+        if(params.uri.includes("warnings")){
+            Log.error(`URI: ${params.uri}`);
+            Log.error(`Count: ${params.diagnostics.length}`);
+        }
+    });
 }
 
 async function flushCache(allFiles: boolean): Promise<void> {
