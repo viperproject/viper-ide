@@ -731,6 +731,9 @@ export class VerificationController {
                             .filter(diag => diag.severity == vscode.DiagnosticSeverity.Error)
                             .length;
                         const nofWarnings = diagnostics.length - nofErrors;
+                        
+                        // TODO Remove this
+                        Log.error(`Found ${nofErrors} errors and ${nofWarnings} warnings in ${params.filename}`);
 
                         function errorsMsg(separator: string): string {
                             if (nofErrors != 0) {

@@ -42,33 +42,16 @@ suite('ViperIDE Tests', () => {
         this.timeout(30000);
 
         const document = await TestHelper.openAndVerify(WARNINGS);
-        
-        Log.error("- uri.toString(): " + document.uri.toString());
-        Log.error("- uri.fsPath: " + document.uri.fsPath);
-        Log.error("- uri.path: " + document.uri.path);
-        
-        const all_diag = vscode.languages.getDiagnostics()
-        
-        all_diag.forEach( d => {
-            if(d[0].toString().includes("warnings")) {
-            Log.error("- uri.toString(): " + d[0].toString());
-            Log.error("- uri.fsPath: " + d[0].fsPath);
-            Log.error("- uri.path: " + d[0].path);
-            Log.error("- uris match: " + (d[0] === document.uri));
-            Log.error("- uris match: " + (d[0] == document.uri));
-            }
-        });
 
+        const all_diag = vscode.languages.getDiagnostics()
         const num_diag = all_diag.reduce((a, d) => a += d[1].length, 0);
         Log.error("Total amount of diagnostics: " + num_diag);
-
-        //Log.error("Diagnostic keys: " + all_diag);
-        //assert(all_diag.includes(document.uri.path), "Document not in all diagnostics");
         
         const diagnostics = vscode.languages.getDiagnostics(document.uri);
         checkAssert(diagnostics.length, 3, `Amount of diagnostics`);
         checkAssert(diagnostics[0].severity, vscode.DiagnosticSeverity.Warning, "First diagnostic");
         checkAssert(diagnostics[1].severity, vscode.DiagnosticSeverity.Warning, "Second diagnostic");
+        checkAssert(diagnostics[2].severity, vscode.DiagnosticSeverity.Error, "Third diagnostic");
     });
 
 
