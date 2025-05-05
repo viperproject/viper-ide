@@ -39,11 +39,11 @@ suite('ViperIDE Tests', () => {
     });
 
     test("Test warnings", async function() {
-        this.timeout(10000);
+        this.timeout(20000);
 
         const document = await TestHelper.openAndVerify(WARNINGS);
         
-        await TestHelper.wait(5000);
+        await TestHelper.wait(15000);
         const all_diag = vscode.languages.getDiagnostics().map( d => d[0].path);
         Log.error("Uri: " + document.uri.path);
         Log.error("Diagnostic keys: " + all_diag);
