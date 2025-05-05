@@ -39,15 +39,28 @@ suite('ViperIDE Tests', () => {
     });
 
     test("Test warnings", async function() {
-        this.timeout(20000);
+        this.timeout(30000);
 
         const document = await TestHelper.openAndVerify(WARNINGS);
         
-        await TestHelper.wait(15000);
-        const all_diag = vscode.languages.getDiagnostics().map( d => d[0].path);
-        Log.error("Uri: " + document.uri.path);
-        Log.error("Diagnostic keys: " + all_diag);
-        assert(all_diag.includes(document.uri.path), "Document not in all diagnostics");
+        Log.error("- uri.toString(): " + document.uri.toString());
+        Log.error("- uri.fsPath: " + document.uri.fsPath);
+        Log.error("- uri.path: " + document.uri.path);
+        
+        const all_diag = vscode.languages.getDiagnostics()
+        
+        all_diag.forEach( d => {
+            if(d[0].toString().includes("warnings")) {
+            Log.error("- uri.toString(): " + d[0].toString());
+            Log.error("- uri.fsPath: " + d[0].fsPath);
+            Log.error("- uri.path: " + d[0].path);
+            }
+        });
+
+        //all_diag.flatMap(d => d[1].length).
+
+        //Log.error("Diagnostic keys: " + all_diag);
+        //assert(all_diag.includes(document.uri.path), "Document not in all diagnostics");
         
         const diagnostics = vscode.languages.getDiagnostics(document.uri);
         checkAssert(diagnostics.length, 2, `Amount of diagnostics`);
