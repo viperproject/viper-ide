@@ -44,10 +44,10 @@ suite('ViperIDE Tests', () => {
         const document = await TestHelper.openAndVerify(WARNINGS);
         
         await TestHelper.wait(5000);
-        const all_diag = vscode.languages.getDiagnostics().map( d => d[0]);
-        Log.error("Uri: " + document.uri);
+        const all_diag = vscode.languages.getDiagnostics().map( d => d[0].path);
+        Log.error("Uri: " + document.uri.path);
         Log.error("Diagnostic keys: " + all_diag);
-        assert(all_diag.includes(document.uri), "Document not in all diagnostics");
+        assert(all_diag.includes(document.uri.path), "Document not in all diagnostics");
         
         const diagnostics = vscode.languages.getDiagnostics(document.uri);
         checkAssert(diagnostics.length, 2, `Amount of diagnostics`);
