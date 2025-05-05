@@ -401,8 +401,9 @@ function registerClientHandlers(): void {
     // TODO Remove this
     State.client.onNotification("textDocument/publishDiagnostics", (params) => {
         if(params.uri.includes("warnings")){
-            Log.error(`URI: ${params.uri}`);
-            Log.error(`Count: ${params.diagnostics.length}`);
+            Log.error(`Received ${params.diagnostics.length} warnings for ${params.uri}:`);
+            params.diagnostics.forEach((diag) => {
+                Log.error(`Message: ${diag.message}`);});
         }
     });
 }
