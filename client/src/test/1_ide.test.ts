@@ -43,9 +43,9 @@ suite('ViperIDE Tests', () => {
 
         const document = await TestHelper.openAndVerify(WARNINGS);
 
-        const all_diag = vscode.languages.getDiagnostics()
-        const num_diag = all_diag.reduce((a, d) => a += d[1].length, 0);
-        Log.error("Total amount of diagnostics: " + num_diag);
+        //const all_diag = vscode.languages.getDiagnostics()
+        //const num_diag = all_diag.reduce((a, d) => a += d[1].length, 0);
+        //Log.error("Total amount of diagnostics: " + num_diag);
         
         const diagnostics = vscode.languages.getDiagnostics(document.uri);
         checkAssert(diagnostics.length, 3, `Amount of diagnostics`);

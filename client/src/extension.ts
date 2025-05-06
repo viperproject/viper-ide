@@ -317,6 +317,19 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         const document = await vscode.workspace.openTextDocument({ language: 'json', content: JSON.stringify(settings, null, 2) });
         await vscode.window.showTextDocument(document, vscode.ViewColumn.Two);
     }));
+
+    // TODO Remove this
+    context.subscriptions.push(
+        vscode.languages.onDidChangeDiagnostics((event) => {
+
+            for (const uri of event.uris) {
+                if(uri.path.includes("warnings")){
+                const diagnostics = vscode.languages.getDiagnostics(uri);
+                Log.error(`Diagnostics changed for ${uri.toString()} - count: ${diagnostics.length}`);
+                }
+            }
+        })
+    );
 }
 
 function showNotReadyHint(): void {
@@ -395,15 +408,6 @@ function registerClientHandlers(): void {
             State.addToWorklist(new Task({ type: TaskType.VerificationFailed, uri: URI.parse(params.uri), manuallyTriggered: true }));
         } catch (e) {
             Log.error("Error handling verification not started request: " + e);
-        }
-    });
-
-    // TODO Remove this
-    State.client.onNotification("textDocument/publishDiagnostics", (params) => {
-        if(params.uri.includes("warnings")){
-            Log.error(`Received ${params.diagnostics.length} warnings for ${params.uri}:`);
-            params.diagnostics.forEach((diag) => {
-                Log.error(`Message: ${diag.message}`);});
         }
     });
 }
