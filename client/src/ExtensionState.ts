@@ -58,6 +58,8 @@ export class State {
     
     public static diagnosticCollection: vscode.DiagnosticCollection;
 
+    public static activeDecoration?: vscode.TextEditorDecorationType;
+
     public static viperApi: ViperApi;
 
     public static isReady(): boolean {

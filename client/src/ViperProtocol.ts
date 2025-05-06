@@ -94,6 +94,7 @@ export interface VerifyParams {
     manuallyTriggered: boolean;
     workspace: string;
     backend: string;
+    verifyTarget?: Position;
     customArgs: string;
 }
 
@@ -164,6 +165,7 @@ export interface StateChangeParams {
     time?: number;
     verificationNeeded?: number;
     uri?: string;
+    currentTarget?: Range;
     stage?: string;
     error?: string;
     diagnostics?: vscode.Diagnostic[]
