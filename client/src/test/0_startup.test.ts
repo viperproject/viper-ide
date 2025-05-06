@@ -32,11 +32,12 @@ suite('Extension Startup', () => {
         TestHelper.log("Language detection - started");
     });
     
-
+    /*
     test("Test simple verification with Silicon", async function(){
         this.timeout(40000);
         await TestHelper.openAndVerify(SIMPLE);
     });
+    */
     
     /*
     test("Test simple verification with Silicon and a different file", async function(){

@@ -279,7 +279,26 @@ export class State {
                 fileEvents: fileSystemWatcher
             },
             // redirect output while unit testing to the log file as no UI is available, otherwise stick to default behavior, i.e. separate output view
-            traceOutputChannel: State.unitTest ? traceOutputForCi : undefined
+            traceOutputChannel: State.unitTest ? traceOutputForCi : undefined,
+
+            // TODO Remove
+            middleware: {
+                sendRequest: async (type, params, token, next) => {
+                    if(JSON.stringify(params).includes(`warnings`)){
+                        const method = typeof type === 'string' ? type : type.method;
+                        Log.error(`LSP Request -> ${method}: ${JSON.stringify(params)}`);
+                    }
+                    return await next(type, params, token);
+                },
+
+                sendNotification: (type, next, params) => {
+                    if(JSON.stringify(params).includes(`warnings`)){
+                        const method = typeof type === 'string' ? type : type.method;
+                        Log.error(`LSP Notification -> ${method}: ${JSON.stringify(params)}`);
+                    }
+                    return next(type, params);
+                }
+            }
         }
 
         // the ID `viperserver` has to match the first part of `viperServer.trace.server` controlling the amount of tracing

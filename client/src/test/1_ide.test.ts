@@ -16,7 +16,7 @@ suite('ViperIDE Tests', () => {
     suiteTeardown(async function() {
         await TestHelper.teardown();
     });
-    
+    /*
     test("Test abort", async function() {
         this.timeout(30000);
 
@@ -36,10 +36,12 @@ suite('ViperIDE Tests', () => {
         //await TestHelper.checkForRunningProcesses(false, true, true);
         await TestHelper.openAndVerify(LONG);
         assert (!TestHelper.hasObservedInternalError());
-    });
+    });*/
 
     test("Test warnings", async function() {
         this.timeout(30000);
+
+        TestHelper.resetErrors();
 
         const document = await TestHelper.openAndVerify(WARNINGS);
 

@@ -480,10 +480,12 @@ async function removeDiagnostics(activeFileOnly: boolean): Promise<RemoveDiagnos
         const active = Helper.getActiveFileUri();
         if (active) {
             uri = active[0].toString();
+            // TODO Revert
+            Log.error(`Requesting diagnostics removal for ${uri}`);
+            //Log.log(`Requesting diagnostics removal for ${uri}`, LogLevel.Debug);
+            return State.client.sendRequest(Commands.RemoveDiagnostics, { uri })
         } else {
             return Promise.resolve({ success: false });
         }
     }
-    Log.log(`Requesting diagnostics removal for ${uri}`, LogLevel.Debug);
-    return State.client.sendRequest(Commands.RemoveDiagnostics, { uri })
 }
