@@ -22,7 +22,7 @@ import * as rimraf from 'rimraf';
 import * as vscode from 'vscode';
 import { URI } from 'vscode-uri';
 import { State } from './ExtensionState';
-import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, VerificationNotStartedParams } from './ViperProtocol';
+import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, VerificationNotStartedParams, BranchFailureDetails } from './ViperProtocol';
 import { Log } from './Log';
 import { Helper } from './Helper';
 import { locateViperTools } from './ViperTools';
@@ -326,6 +326,30 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         const document = await vscode.workspace.openTextDocument({ language: 'json', content: JSON.stringify(settings, null, 2) });
         await vscode.window.showTextDocument(document, vscode.ViewColumn.Two);
     }));
+
+    // add field declaration
+    context.subscriptions.push(vscode.commands.registerCommand('viper.declareField', async (fieldName) => {
+        const fieldType = await vscode.window.showInputBox({ prompt: 'Enter type: ' });
+        await vscode.window.activeTextEditor.edit(editBuilder => editBuilder.insert(new vscode.Position(0,0), `field ${fieldName} : ${fieldType}\n`));
+    }));
+
+    // display branches of a method explored by verification
+    context.subscriptions.push(vscode.commands.registerCommand('viper.displayExploredBranches', async (methodName, path) => {
+      const dotPreviewExt = vscode.extensions.getExtension('tintinweb.graphviz-interactive-preview');
+      if (dotPreviewExt) {
+        const options = {
+            uri: vscode.Uri.file(path),
+            title: `Method ${methodName} - Explored branches`
+        }
+        await vscode.commands.executeCommand("graphviz-interactive-preview.preview.beside", options);
+      } else {
+          const item: vscode.MessageItem = { title: "Show extension" };
+          const answer = await vscode.window.showErrorMessage("Cannot display explored branches: 'Graphviz interactive preview' extension not installed.", item);
+          if (answer===item) {
+              await vscode.commands.executeCommand('extension.open', 'tintinweb.graphviz-interactive-preview');
+          }
+      }
+    }));
 }
 
 function showNotReadyHint(): void {
@@ -334,6 +358,8 @@ function showNotReadyHint(): void {
 
 function registerClientHandlers(): void {
     State.client.onNotification(Commands.StateChange, (params: StateChangeParams) => State.verificationController.handleStateChange(params));
+
+    State.client.onNotification(Commands.BranchFailureDetails, (details: BranchFailureDetails) => showRedBeams(details));
         
     State.client.onNotification(Commands.Hint, (data: HintMessage) => {
         Log.hint(data.message, "Viper", data.showSettingsButton);
@@ -450,15 +476,57 @@ function considerStartingBackend(newBackend: Backend): Promise<void> {
     });
 }
 
-function removeDiagnostics(activeFileOnly: boolean): void {
+export function removeDiagnostics(activeFileOnly: boolean = false): void {
     if (activeFileOnly) {
         if (vscode.window.activeTextEditor) {
             const uri = vscode.window.activeTextEditor.document.uri;
             State.diagnosticCollection.delete(uri);
+            clearRedBeams(activeFileOnly);
             Log.log(`Diagnostics successfully removed for file ${uri}`, LogLevel.Debug);
         }
     } else {
         State.diagnosticCollection.clear();
+        clearRedBeams();
         Log.log(`All diagnostics successfully removed`, LogLevel.Debug);
     }
+}
+
+function showRedBeams(details: BranchFailureDetails): void {
+    const uri = vscode.Uri.parse(details.uri, false)
+    const textDecorator = getDecorationType();
+    State.textDecorators.set(uri, textDecorator);
+    const decorationOptions = details.ranges.map(r => {
+        return { hoverMessage : new vscode.MarkdownString("Branch fails"),
+                range :    new vscode.Range(
+                               new vscode.Position(r.start.line, r.start.character),
+                               new vscode.Position(r.end.line, r.end.character)
+                           )
+               }
+    });
+    vscode.window.activeTextEditor.setDecorations(textDecorator, decorationOptions);
+
+    if (State.unitTest) State.unitTest.showRedBeams(decorationOptions);
+}
+
+function clearRedBeams(activeFileOnly: boolean = false): void {
+    if (activeFileOnly) {
+        const uri = vscode.window.activeTextEditor.document.uri;
+        const textDecorator = State.textDecorators.get(uri);
+        State.textDecorators.delete(uri);
+        textDecorator.dispose();
+    } else {
+        for (const textDecorator of State.textDecorators.values()) {
+          textDecorator.dispose();
+        }
+        State.textDecorators.clear();
+    }
+}
+
+function getDecorationType() : vscode.TextEditorDecorationType {
+    return vscode.window.createTextEditorDecorationType({
+      isWholeLine: true,
+      rangeBehavior: 0,
+      gutterIconPath: State.context.asAbsolutePath(`images/beam.jpg`),
+      overviewRulerColor: "#ff2626"
+    });
 }

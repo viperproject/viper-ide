@@ -19,8 +19,7 @@ import { Helper } from './Helper';
 import { ViperFileState } from './ViperFileState';
 import { Color } from './StatusBar';
 import { Settings } from './Settings';
-import { restart } from './extension';
-
+import { restart, removeDiagnostics } from './extension';
 
 export interface ITask {
     type: TaskType;
@@ -524,7 +523,7 @@ export class VerificationController {
                     fileState.verifying = true;
 
                     //clear all diagnostics
-                    State.diagnosticCollection.clear();
+                    removeDiagnostics();
 
                     //start progress updater
                     clearInterval(this.progressUpdater);
@@ -702,7 +701,7 @@ export class VerificationController {
                             verifiedFile.timingInfo = { total: params.time, timings: this.timings };
                         }
 
-                        const diagnostics = params.diagnostics
+                        const diagnostics = (params.diagnostics === undefined ? [] : params.diagnostics)
                             .map(this.translateLsp2VsCodeDiagnosticSeverity);
                         const nofErrors = diagnostics
                             .filter(diag => diag.severity == vscode.DiagnosticSeverity.Error)

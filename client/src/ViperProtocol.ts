@@ -28,6 +28,8 @@ export class Commands {
     //SERVER TO CLIENT
     //Server notifies client about a state change
     static StateChange: NotificationType<StateChangeParams> = new NotificationType("StateChange");
+    // Server notifies the client about details of branch failure for displaying red beams
+    static BranchFailureDetails: NotificationType<BranchFailureDetails> = new NotificationType("BranchFailureDetails");
     //LOGGING
     //Log a message to the output
     static Log: NotificationType<LogParams> = new NotificationType("Log");
@@ -299,6 +301,11 @@ export interface LogParams {
 export interface ProgressParams {
     data: Progress;
     logLevel: LogLevel;
+}
+
+export interface BranchFailureDetails {
+    uri: string;
+    ranges: Range[];
 }
 
 export interface MyProtocolDecorationOptions {
