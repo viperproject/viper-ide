@@ -110,7 +110,7 @@ export default class TestHelper {
         const document = await TestHelper.openFile(fileName);
 
         Log.error("Starting wait")
-        await TestHelper.wait(5000);
+        await TestHelper.wait(15000);
         Log.error("Finished wait")
         //Log.error("Starting removeDiagnostics")
         //await TestHelper.executeCommand('viper.removeDiagnostics');

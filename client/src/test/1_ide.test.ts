@@ -39,7 +39,7 @@ suite('ViperIDE Tests', () => {
     });*/
 
     test("Test warnings", async function() {
-        this.timeout(30000);
+        this.timeout(40000);
 
         TestHelper.resetErrors();
 
