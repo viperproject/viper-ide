@@ -109,13 +109,14 @@ export default class TestHelper {
         // open file, ...
         const document = await TestHelper.openFile(fileName);
 
-        await TestHelper.wait(2000);
+        await TestHelper.wait(5000);
 
         const verified = TestHelper.waitForVerification(fileName);
         // ... send verification command to server...
         TestHelper.log("openAndVerify: file is open, now executing the verify command");
         await TestHelper.verify();
         TestHelper.log("openAndVerify: file is open, verify command has been executed");
+        
         // ... and wait for result notification from server
         await verified;
         TestHelper.log("openAndVerify: file is verified");
