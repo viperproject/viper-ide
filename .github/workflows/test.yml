@@ -153,9 +153,10 @@ jobs:
         if: ${{ fromJSON(env.TEST_LOCAL_ON_PUSH_PR) || contains(needs.create-viper-tools.result, 'success') }}
         run: |
           mkdir -p client/src/test/data/settings
+
           echo '{
-            "viperSettings.buildVersion": "External",
-            "viperSettings.paths": {
+            "viper.buildVersion": "External",
+            "viper.paths": {
               "v": "674a514867b1",
               "viperToolsPath": {
                 "windows": "${{ env.EXTRACTED_TOOLS_PATH }}",
@@ -163,7 +164,7 @@ jobs:
                 "mac": "${{ env.EXTRACTED_TOOLS_PATH }}"
               }
             },
-            "viperserver.trace.server": "verbose"
+            "viper.viperserver.trace.server": "verbose"
           }' > client/src/test/data/settings/external.json
         shell: bash
 

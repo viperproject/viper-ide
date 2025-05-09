@@ -38,7 +38,7 @@ async function main(): Promise<void> {
 	const vscode_version = fs.readFileSync(path.join(DATA_ROOT, "vscode-version")).toString().trim();
 	console.info(`Tests will use VS Code version '${vscode_version}'`);
 	console.info("Reading list of settings...");
-	const settings_list = fs.readdirSync(path.join(DATA_ROOT, "settings")).sort();
+	const settings_list = fs.readdirSync(path.join(DATA_ROOT, "settings", "test")).sort();
 	assert(settings_list.length > 0, "There are no settings to test");
 
 	let firstIteration = true;
@@ -52,7 +52,7 @@ async function main(): Promise<void> {
 		firstIteration = false;
 		
 		console.info(`Testing with settings '${settings_file}'...`);
-		const settings_path = path.join(DATA_ROOT, "settings", settings_file);
+		const settings_path = path.join(DATA_ROOT, "settings", "test", settings_file);
 		
 		// The folder containing the Extension Manifest package.json
 		// Passed to `--extensionDevelopmentPath`

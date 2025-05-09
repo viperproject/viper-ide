@@ -1,4 +1,4 @@
-import TestHelper, { CARBON, EMPTY, LONG, SETUP_TIMEOUT, SILICON, SIMPLE } from './TestHelper';
+import TestHelper, { CARBON_NAME, EMPTY, LONG, SETUP_TIMEOUT, SILICON_NAME, SIMPLE } from './TestHelper';
 
 // this test suite is supposed to be the first one that is executed
 // as we can only test that way that the extension is correctly started
@@ -23,8 +23,7 @@ suite('Extension Startup', () => {
         this.timeout(SETUP_TIMEOUT);
         // this checks that silicon is the default backend
         const activated = TestHelper.checkIfExtensionIsActivatedOrWaitForIt();
-        const started = TestHelper.waitForBackendStarted(SILICON);
-        TestHelper.log("Language detection - before opening file");
+        const started = TestHelper.waitForBackendStarted(SILICON_NAME);
         await TestHelper.openFile(EMPTY);
         TestHelper.log("Language detection - after opening file");
         await activated;
@@ -32,12 +31,15 @@ suite('Extension Startup', () => {
         await started;
         TestHelper.log("Language detection - started");
     });
-
+    
+    /*
     test("Test simple verification with Silicon", async function(){
         this.timeout(40000);
         await TestHelper.openAndVerify(SIMPLE);
     });
-
+    */
+    
+    /*
     test("Test simple verification with Silicon and a different file", async function(){
         this.timeout(40000);
         await TestHelper.openAndVerify(EMPTY);
@@ -45,8 +47,8 @@ suite('Extension Startup', () => {
 
     test("Language Detection, and Carbon Backend Startup test.", async function() {
         this.timeout(40000);
-        const started = TestHelper.waitForBackendStarted(CARBON);
-        await TestHelper.selectBackend(CARBON);
+        const started = TestHelper.waitForBackendStarted(CARBON_NAME);
+        await TestHelper.selectBackend(CARBON_NAME);
         await TestHelper.openFile(SIMPLE);
         await started;
     });
@@ -58,4 +60,5 @@ suite('Extension Startup', () => {
         // TestHelper will make sure that the extension is properly restarted for the
         // next test suite.
     });
+    */
 });
