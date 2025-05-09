@@ -109,6 +109,8 @@ export default class TestHelper {
         // open file, ...
         const document = await TestHelper.openFile(fileName);
 
+        await TestHelper.wait(2000);
+
         const verified = TestHelper.waitForVerification(fileName);
         // ... send verification command to server...
         TestHelper.log("openAndVerify: file is open, now executing the verify command");
