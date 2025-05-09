@@ -109,16 +109,21 @@ export default class TestHelper {
         // open file, ...
         const document = await TestHelper.openFile(fileName);
 
-        await TestHelper.wait(5000);
+        //Log.error("Starting wait")
+        //await TestHelper.wait(5000);
+        //Log.error("Finished wait")
+        //Log.error("Starting removeDiagnostics")
+        //await TestHelper.executeCommand('viper.removeDiagnostics');
+        //await TestHelper.wait(5000);
+        //Log.error("Finished removeDiagnostics")
 
-        const verified = TestHelper.waitForVerification(fileName);
         // ... send verification command to server...
         TestHelper.log("openAndVerify: file is open, now executing the verify command");
         await TestHelper.verify();
         TestHelper.log("openAndVerify: file is open, verify command has been executed");
         
         // ... and wait for result notification from server
-        await verified;
+        await TestHelper.waitForVerification(fileName);
         TestHelper.log("openAndVerify: file is verified");
         return document;
     }
