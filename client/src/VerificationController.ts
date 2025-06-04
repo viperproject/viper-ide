@@ -566,11 +566,7 @@ export class VerificationController {
                         const content = fileState.editor.document.getText()
                         const params: VerifyParams = { uri: uri.toString(), content, manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.type, customArgs: customArgs.right };
                         //request verification from Server
-                        State.isVerifying = true;
-                        
-                        // TODO Remove this
-                        Log.error("Requesting verification of " + params.uri);
-                        
+                        State.isVerifying = true;                        
                         await State.client.sendNotification(Commands.Verify, params);
                     } else {
                         await Settings.handleSettingsCheckResult(customArgs);

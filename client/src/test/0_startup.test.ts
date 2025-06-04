@@ -24,6 +24,7 @@ suite('Extension Startup', () => {
         // this checks that silicon is the default backend
         const activated = TestHelper.checkIfExtensionIsActivatedOrWaitForIt();
         const started = TestHelper.waitForBackendStarted(SILICON_NAME);
+        TestHelper.log("Language detection - before opening file");
         await TestHelper.openFile(EMPTY);
         TestHelper.log("Language detection - after opening file");
         await activated;
@@ -31,15 +32,12 @@ suite('Extension Startup', () => {
         await started;
         TestHelper.log("Language detection - started");
     });
-    
-    /*
+
     test("Test simple verification with Silicon", async function(){
         this.timeout(40000);
         await TestHelper.openAndVerify(SIMPLE);
     });
-    */
-    
-    /*
+
     test("Test simple verification with Silicon and a different file", async function(){
         this.timeout(40000);
         await TestHelper.openAndVerify(EMPTY);
@@ -60,5 +58,4 @@ suite('Extension Startup', () => {
         // TestHelper will make sure that the extension is properly restarted for the
         // next test suite.
     });
-    */
 });

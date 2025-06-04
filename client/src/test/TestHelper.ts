@@ -109,16 +109,7 @@ export default class TestHelper {
         // open file, ...
         const document = await TestHelper.openFile(fileName);
 
-        Log.error("Starting wait")
-        await TestHelper.wait(15000);
-        Log.error("Finished wait")
-        //Log.error("Starting removeDiagnostics")
-        //await TestHelper.executeCommand('viper.removeDiagnostics');
-        //await TestHelper.wait(5000);
-        //Log.error("Finished removeDiagnostics")
-
         // ... send verification command to server...
-        Log.error("openAndVerify: file is open, now executing the verify command");
         await TestHelper.verify();
         TestHelper.log("openAndVerify: file is open, verify command has been executed");
         
@@ -179,9 +170,7 @@ export default class TestHelper {
             // no processes found
             return Promise.resolve();
         } else {
-            // TODO revert this
-            return Promise.resolve();
-            //return Promise.reject(new Error(`The following processes have been found: ${outputMsgs.join(', ')}`));
+            return Promise.reject(new Error(`The following processes have been found: ${outputMsgs.join(', ')}`));
         }
     }
 

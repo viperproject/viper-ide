@@ -16,7 +16,7 @@ suite('ViperIDE Tests', () => {
     suiteTeardown(async function() {
         await TestHelper.teardown();
     });
-    /*
+
     test("Test abort", async function() {
         this.timeout(30000);
 
@@ -36,27 +36,8 @@ suite('ViperIDE Tests', () => {
         //await TestHelper.checkForRunningProcesses(false, true, true);
         await TestHelper.openAndVerify(LONG);
         assert (!TestHelper.hasObservedInternalError());
-    });*/
-
-    test("Test warnings", async function() {
-        this.timeout(40000);
-
-        TestHelper.resetErrors();
-
-        const document = await TestHelper.openAndVerify(WARNINGS);
-
-        //const all_diag = vscode.languages.getDiagnostics()
-        //const num_diag = all_diag.reduce((a, d) => a += d[1].length, 0);
-        //Log.error("Total amount of diagnostics: " + num_diag);
-        
-        const diagnostics = vscode.languages.getDiagnostics(document.uri);
-        checkAssert(diagnostics.length, 3, `Amount of diagnostics`);
-        checkAssert(diagnostics[0].severity, vscode.DiagnosticSeverity.Warning, "First diagnostic");
-        checkAssert(diagnostics[1].severity, vscode.DiagnosticSeverity.Warning, "Second diagnostic");
-        checkAssert(diagnostics[2].severity, vscode.DiagnosticSeverity.Error, "Third diagnostic");
     });
 
-    /*
     test("Test closing files", async function() {
         this.timeout(30000);
         TestHelper.resetErrors();
@@ -133,7 +114,19 @@ suite('ViperIDE Tests', () => {
         await opened;
         await TestHelper.closeFile();
     });
-    */
+
+    test("Test warnings", async function() {
+        this.timeout(3000);
+        TestHelper.resetErrors();
+
+        const document = await TestHelper.openAndVerify(WARNINGS);
+
+        const diagnostics = vscode.languages.getDiagnostics(document.uri);
+        checkAssert(diagnostics.length, 3, `Amount of diagnostics`);
+        checkAssert(diagnostics[0].severity, vscode.DiagnosticSeverity.Warning, "First diagnostic");
+        checkAssert(diagnostics[1].severity, vscode.DiagnosticSeverity.Warning, "Second diagnostic");
+        checkAssert(diagnostics[2].severity, vscode.DiagnosticSeverity.Error, "Third diagnostic");
+    });
 });
 
 function checkAssert<T>(seen: T, expected: T, message: string): void {

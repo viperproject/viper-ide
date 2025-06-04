@@ -12,8 +12,6 @@ suite('ViperIDE Stress Tests', () => {
         await TestHelper.teardown();
     });
 
-    /*
-
     test("1. multiple fast verification requests", async function() {
         this.timeout(15000);
 
@@ -88,5 +86,4 @@ suite('ViperIDE Stress Tests', () => {
         await TestHelper.selectBackend(SILICON_NAME);
         await siliconVerified;
     });
-    */
 });

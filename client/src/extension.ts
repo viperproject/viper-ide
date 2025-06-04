@@ -317,19 +317,6 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         const document = await vscode.workspace.openTextDocument({ language: 'json', content: JSON.stringify(settings, null, 2) });
         await vscode.window.showTextDocument(document, vscode.ViewColumn.Two);
     }));
-
-    // TODO Remove this
-    context.subscriptions.push(
-        vscode.languages.onDidChangeDiagnostics((event) => {
-
-            for (const uri of event.uris) {
-                if(uri.path.includes("warnings")){
-                const diagnostics = vscode.languages.getDiagnostics(uri);
-                Log.error(`Diagnostics changed for ${uri.toString()} - count: ${diagnostics.length}`);
-                }
-            }
-        })
-    );
 }
 
 function showNotReadyHint(): void {
@@ -480,9 +467,7 @@ async function removeDiagnostics(activeFileOnly: boolean): Promise<RemoveDiagnos
         const active = Helper.getActiveFileUri();
         if (active) {
             uri = active[0].toString();
-            // TODO Revert
-            Log.error(`Requesting diagnostics removal for ${uri}`);
-            //Log.log(`Requesting diagnostics removal for ${uri}`, LogLevel.Debug);
+            Log.log(`Requesting diagnostics removal for ${uri}`, LogLevel.Debug);
             return State.client.sendRequest(Commands.RemoveDiagnostics, { uri })
         } else {
             return Promise.resolve({ success: false });
