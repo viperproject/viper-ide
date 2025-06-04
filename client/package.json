@@ -39,9 +39,9 @@
 		"@types/node": "^22.15.29",
 		"@types/semver": "^7.7.0",
 		"@types/tmp": "^0.2.6",
-		"@types/vscode": "^1.82.0",
-		"@typescript-eslint/eslint-plugin": "^8.33.0",
-		"@typescript-eslint/parser": "^8.31.1",
+		"@types/vscode": "^1.100.0",
+		"@typescript-eslint/eslint-plugin": "^8.33.1",
+		"@typescript-eslint/parser": "^8.33.1",
 		"@viperproject/locate-java-home": "^1.1.17",
 		"@vscode/test-electron": "^2.5.2",
 		"@vscode/vsce": "^3.4.2",
@@ -56,13 +56,13 @@
 		"ts-loader": "^9.5.2",
 		"ts-node": "^10.9.2",
 		"typescript": "^5.8.3",
-		"unused-filename": "^3.0.1",
+		"unused-filename": "^4.0.1",
 		"vs-verification-toolbox": "git+https://github.com/viperproject/vs-verification-toolbox.git",
 		"vscode-languageclient": "^9.0.1",
 		"vscode-uri": "^3.1.0",
 		"webpack": "^5.99.9",
 		"webpack-cli": "^6.0.1",
-		"yargs": "^18.0.0"
+		"yargs": "^17.7.2"
 	},
 	"scripts": {
 		"webpack-production": "webpack --mode production",
