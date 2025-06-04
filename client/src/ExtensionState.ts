@@ -13,7 +13,7 @@ import * as net from 'net';
 import * as path from 'path';
 import * as readline from 'readline';
 import * as semver from 'semver';
-import unusedFilename from 'unused-filename';
+import { unusedFilename } from 'unused-filename';
 import { Location } from 'vs-verification-toolbox';
 import { Backend, Commands, Common, GetVersionRequest, LogLevel } from './ViperProtocol';
 import { Log } from './Log';
