@@ -12,8 +12,6 @@ method test()
     var rat: Rational
     // causes a type-checker warning:
     assert Nil() == Nil()
-    assert 1 ==1
-    assert
 }
 
 

@@ -38,6 +38,18 @@ suite('ViperIDE Tests', () => {
         assert (!TestHelper.hasObservedInternalError());
     });
 
+        test("Test warnings", async function() {
+        this.timeout(2000);
+
+        const document = await TestHelper.openAndVerify(WARNINGS);
+
+        const diagnostics = vscode.languages.getDiagnostics(document.uri);
+        checkAssert(diagnostics.length, 3, `Amount of diagnostics`);
+        checkAssert(diagnostics[0].severity, vscode.DiagnosticSeverity.Warning, "First diagnostic");
+        checkAssert(diagnostics[1].severity, vscode.DiagnosticSeverity.Warning, "Second diagnostic");
+        checkAssert(diagnostics[2].severity, vscode.DiagnosticSeverity.Error, "Third diagnostic");
+    });
+
     test("Test closing files", async function() {
         this.timeout(30000);
         TestHelper.resetErrors();
@@ -113,19 +125,6 @@ suite('ViperIDE Tests', () => {
         await TestHelper.executeCommand('viper.openLogFile');
         await opened;
         await TestHelper.closeFile();
-    });
-
-    test("Test warnings", async function() {
-        this.timeout(3000);
-        TestHelper.resetErrors();
-
-        const document = await TestHelper.openAndVerify(WARNINGS);
-
-        const diagnostics = vscode.languages.getDiagnostics(document.uri);
-        checkAssert(diagnostics.length, 3, `Amount of diagnostics`);
-        checkAssert(diagnostics[0].severity, vscode.DiagnosticSeverity.Warning, "First diagnostic");
-        checkAssert(diagnostics[1].severity, vscode.DiagnosticSeverity.Warning, "Second diagnostic");
-        checkAssert(diagnostics[2].severity, vscode.DiagnosticSeverity.Error, "Third diagnostic");
     });
 });
 
