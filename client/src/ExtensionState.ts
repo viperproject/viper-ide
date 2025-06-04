@@ -13,7 +13,7 @@ import * as net from 'net';
 import * as path from 'path';
 import * as readline from 'readline';
 import * as semver from 'semver';
-import { unusedFilename } from 'unused-filename';
+import  unusedFilename  from 'unused-filename';
 import { Location } from 'vs-verification-toolbox';
 import { Backend, Commands, Common, GetVersionRequest, LogLevel } from './ViperProtocol';
 import { Log } from './Log';
@@ -235,6 +235,7 @@ export class State {
         const javaPath = await Settings.getJavaPath(location);
         const cwd = await Settings.getJavaCwd();
         const logDirectory = Helper.getLogDir();
+        //const { unusedFilename } = await import('unused-filename');
         const serverLogFile = await unusedFilename(path.join(logDirectory, "viperserver.log"));
         const processArgs = await Settings.getServerJavaArgs(location, "viper.server.ViperServerRunner");
         const serverArgs = await Settings.getServerArgs(Log.logLevel, serverLogFile);
