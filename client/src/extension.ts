@@ -22,7 +22,7 @@ import * as rimraf from 'rimraf';
 import * as vscode from 'vscode';
 import { URI } from 'vscode-uri';
 import { State } from './ExtensionState';
-import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, VerificationNotStartedParams } from './ViperProtocol';
+import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, VerificationNotStartedParams, ReformatParams } from './ViperProtocol';
 import { Log } from './Log';
 import { Helper } from './Helper';
 import { locateViperTools } from './ViperTools';
@@ -31,6 +31,7 @@ import { VerificationController, TaskType, Task } from './VerificationController
 import { ViperApi } from './ViperApi';
 import { Settings } from './Settings';
 import { Location } from 'vs-verification-toolbox';
+import { integer } from 'vscode-languageclient';
 
 let fileSystemWatcher: vscode.FileSystemWatcher;
 
@@ -253,6 +254,52 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
             State.addToWorklist(new Task({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: true }));
         }
     }));
+
+    // TODO: See the comment in viperserver for why we currently register a custom formatting
+    // provider instead of registering it inside the LSP and letting the LSP protocol take
+    // care of registering the command.
+    context.subscriptions.push(vscode.languages.registerDocumentFormattingEditProvider('viper', {
+        async provideDocumentFormattingEdits(document: vscode.TextDocument): Promise<vscode.TextEdit[]> {
+            if (!State.isReady()) {
+                showNotReadyHint();
+                return;
+            }
+    
+            const fileUri = Helper.getActiveFileUri();
+
+            // Need to save document first, otherwise if someone types something real quick and
+            // attempts to reformat, the changes might be lost since the file hasn't been written
+            // to disk yet.
+            const saved = await document.save();
+
+            if (!saved) {
+                Log.log("Failed to reformat file because it couldn't be saved.", LogLevel.Info);
+                return [];
+            }
+
+            if (!fileUri) {
+                Log.log("Cannot reformat, no document is open.", LogLevel.Info);
+            } else if (!Helper.isViperSourceFile(fileUri)) {
+                Log.log("Cannot reformat the active file, it's not a viper file.", LogLevel.Info);
+            } else {
+                Log.log("Attempting to reformat a file...", LogLevel.Info);
+                try {
+                    const params: ReformatParams = { uri: fileUri.toString()};
+                    return State.client.sendRequest(Commands.Reformat, params).then(a => {
+                        if (a["value"]) {
+                            const range = new vscode.Range(document.lineAt(0).range.start, document.lineAt(document.lineCount - 1).range.end);
+                            return [vscode.TextEdit.replace(range, a["value"])];
+                        } else  {
+                            Log.log("Empty result returned when attempting to reformat. Ignoring.", LogLevel.Info);
+                            return [];
+                        }
+                    });
+                } catch (e) { 
+                    Log.error(`Failed to reformat file: ${e.toString()}`);
+                }
+            }
+        }
+    }))
 
     //verifyAllFilesInWorkspace
     context.subscriptions.push(vscode.commands.registerCommand('viper.verifyAllFilesInWorkspace', async (folder: string) => {

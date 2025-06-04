@@ -13,7 +13,7 @@ import { URI } from 'vscode-uri';
 import { Location } from 'vs-verification-toolbox';
 import { AwaitTimer } from './AwaitTimer';
 import { State } from './ExtensionState';
-import { Common, VerifyParams, TimingInfo, VerificationState, Commands, StateChangeParams, LogLevel, Success, Backend, StopVerificationRequest } from './ViperProtocol';
+import { Common, VerifyParams, TimingInfo, VerificationState, Commands, StateChangeParams, LogLevel, Success, Backend, StopVerificationRequest, ReformatParams } from './ViperProtocol';
 import { Log } from './Log';
 import { Helper } from './Helper';
 import { ViperFileState } from './ViperFileState';
