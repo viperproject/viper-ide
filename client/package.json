@@ -1,7 +1,7 @@
 {
 	"name": "viper",
 	"displayName": "Viper",
-	"version": "4.5.2",
+	"version": "5.0.0",
 	"publisher": "viper-admin",
 	"description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
 	"license": "SEE LICENSE IN LICENSE.txt",
@@ -74,8 +74,8 @@
 		"compile": "npm-run-all --sequential clean webpack-development download-dependencies",
 		"watch": "npm-run-all --sequential clean download-dependencies webpack-development-watch",
 		"run-test": "node ./dist/test/runTest.js",
-		"pre-test": "npm-run-all --sequential clean tsc download-dependencies",
-		"test": "npm-run-all --sequential clean tsc \"download-dependencies -- {1}\" run-test --",
+		"pre-test": "npm-run-all --sequential clean tsc \"download-dependencies -- {1}\"",
+		"test": "npm-run-all --sequential pre-test run-test --",
 		"vsce-package": "vsce package",
 		"package": "npm-run-all --sequential clean webpack-production \"download-dependencies -- {1}\" \"vsce-package -- {@}\" --"
 	},
@@ -95,6 +95,11 @@
 			{
 				"command": "viper.selectBackend",
 				"title": "select verification backend",
+				"category": "Viper"
+			},
+			{
+				"command": "viper.unpinProject",
+				"title": "unpin the currently open project",
 				"category": "Viper"
 			},
 			{
@@ -226,18 +231,6 @@
 				]
 			}
 		],
-		"themes": [
-			{
-				"label": "Viper-Dark",
-				"uiTheme": "vs-dark",
-				"path": "./themes/Viper (Dark).tmTheme"
-			},
-			{
-				"label": "Viper-Light",
-				"uiTheme": "vs",
-				"path": "./themes/Viper (Light).tmTheme"
-			}
-		],
 		"snippets": [
 			{
 				"language": "viper",
@@ -270,163 +263,93 @@
 				"when": "resourceLangId == viper"
 			}
 		],
+        "configurationDefaults": {
+            "[viper]": {
+                "editor.semanticHighlighting.enabled": true
+            }
+        },
+		"semanticTokenTypes": [
+            {
+                "id": "constant",
+                "description": "Style for constant literals",
+                "superType": "keyword"
+            }
+		],
+		"semanticTokenModifiers": [
+            {
+                "id": "controlFlow",
+                "description": "Style for control-flow related tokens"
+            }
+		],
+        "semanticTokenScopes": [
+            {
+                "language": "viper",
+				"scopes": {
+                    "constant": [
+                        "constant.language.constant.viper"
+                    ],
+                    "keyword": [
+                        "keyword.other.viper"
+                    ],
+                    "keyword.controlFlow": [
+                        "keyword.control.viper"
+                    ],
+                    "*.modification": [
+                        "markup.underline"
+                    ]
+				}
+			}
+		],
 		"configuration": {
 			"type": "object",
 			"title": "Viper",
 			"properties": {
-				"viperSettings.viperServerSettings": {
-					"type": "object",
-					"default": {
-						"v": "674a514867b1",
-						"serverJars": {
-							"windows": [
-								"$viperTools$/backends"
-							],
-							"linux": [
-								"$viperTools$/backends"
-							],
-							"mac": [
-								"$viperTools$/backends"
-							]
-						},
-						"customArguments": "--serverMode LSP --singleClient $backendSpecificCache$ --logLevel $logLevel$ --logFile $logFile$",
-						"backendSpecificCache": true,
-						"disableCaching": false,
-						"timeout": 5000,
-						"viperServerPolicy": "create",
-						"viperServerAddress": "http://127.0.0.1",
-						"viperServerPort": 12345
-					},
-					"description": "ViperServer-related settings. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-ViperServer"
+				"viper.viperServer.serverJars": {
+					"type": ["string", "array", "object"],
+					"additionalProperties": ["string", "array"],
+					"default": "$viperTools$/backends",
+					"markdownDescription": "A list of all the jar files required for the ViperServer. The paths can point to a folder or a jar file. Allowed formats are: String, [String], BackendSpecific(String), BackendSpecific([String]). Backend specific can look like e.g. `{ \"windows\": [\"$viperTools$/backends\"], \"linux\": [\"$viperTools$/backends\"], \"mac\": [\"$viperTools$/backends\"] }`"
 				},
-				"viperSettings.verificationBackends": {
-					"type": "array",
-					"default": [
-						{
-							"v": "674a514867b1",
-							"name": "silicon",
-							"type": "silicon",
-							"paths": [],
-							"engine": "ViperServer",
-							"timeout": 100000,
-							"stages": [
-								{
-									"name": "verify",
-									"isVerification": true,
-									"mainMethod": "viper.silicon.SiliconRunner",
-									"customArguments": "--z3Exe $z3Exe$ $disableCaching$ $fileToVerify$"
-								}
-							],
-							"stoppingTimeout": 5000
-						},
-						{
-							"v": "674a514867b1",
-							"name": "carbon",
-							"type": "carbon",
-							"paths": [],
-							"engine": "ViperServer",
-							"timeout": 100000,
-							"stages": [
-								{
-									"name": "verify",
-									"isVerification": true,
-									"mainMethod": "viper.carbon.Carbon",
-									"customArguments": "--z3Exe $z3Exe$ --boogieExe $boogieExe$ $disableCaching$ $fileToVerify$"
-								}
-							],
-							"stoppingTimeout": 5000
-						}
-					],
-					"description": "The list of verification backends. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Verification-Backends"
-				},
-				"viperSettings.paths": {
-					"type": "object",
-					"default": {
-						"v": "674a514867b1",
-						"viperToolsPath": {
-							"windows": "%APPDATA%\\Roaming\\Code\\User\\globalStorage\\viper-admin.viper\\Local\\ViperTools",
-							"linux": "$HOME/.config/Code/User/globalStorage/viper-admin.viper/Local/ViperTools",
-							"mac": "$HOME/Library/Application Support/Code/User/globalStorage/viper-admin.viper/Local/ViperTools"
-						},
-						"z3Executable": {
-							"windows": "$viperTools$/z3/bin/z3.exe",
-							"linux": "$viperTools$/z3/bin/z3",
-							"mac": "$viperTools$/z3/bin/z3"
-						},
-						"boogieExecutable": {
-							"windows": "$viperTools$/boogie/Binaries/Boogie.exe",
-							"linux": "$viperTools$/boogie/Binaries/Boogie",
-							"mac": "$viperTools$/boogie/Binaries/Boogie"
-						},
-						"sfxPrefix": "$viperTools$/resources/sfx"
-					},
-					"description": "Paths to the dependencies. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Paths"
-				},
-				"viperSettings.preferences": {
-					"type": "object",
-					"default": {
-						"v": "674a514867b1",
-						"logLevel": 3,
-						"autoVerifyAfterBackendChange": true,
-						"showProgress": true,
-						"enableSoundEffects": false,
-						"stableViperToolsProvider": {
-							"windows": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsWin.zip",
-							"linux": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsLinux.zip",
-							"mac": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMac.zip",
-							"mac_arm": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMacARM.zip"
-						},
-						"nightlyViperToolsProvider": {
-							"windows": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsWin.zip&include-prereleases",
-							"linux": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsLinux.zip&include-prereleases",
-							"mac": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMac.zip&include-prereleases",
-							"mac_arm": "github.com/viperproject/viper-ide/releases/latest?asset-name=ViperToolsMacARM.zip&include-prereleases"
-						}
-					},
-					"description": "General user preferences. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Preferences"
-				},
-				"viperSettings.javaSettings": {
-					"type": "object",
-					"default": {
-						"v": "674a514867b1",
-						"javaBinary": "",
-						"customArguments": "-Xmx2048m -Xss128m -cp $backendPaths$ -server $mainMethod$",
-						"cwd": ""
-					},
-					"description": "Settings used for running Java commands. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Java-Settings"
-				},
-				"viperSettings.advancedFeatures": {
-					"type": "object",
-					"default": {
-						"v": "674a514867b1",
-						"enabled": false,
-						"showSymbolicState": false,
-						"simpleMode": true,
-						"darkGraphs": true,
-						"showOldState": true,
-						"showPartialExecutionTree": true,
-						"compareStates": true,
-						"verificationBufferSize": 102400
-					},
-					"description": "Settings concerning the advanced features. For more information, see https://github.com/viperproject/viper-ide/wiki/Settings:-Advanced-Features"
-				},
-				"viperSettings.buildVersion": {
-					"scope": "window",
+				"viper.viperServer.customArguments": {
 					"type": "string",
-					"enum": [
-						"BuiltIn",
-						"External"
-					],
-					"default": "BuiltIn",
-					"description": "Select the build version of the Viper Tools. The path specified at 'viperSettings.paths.viperToolsPath' will be used for build version 'External'"
+					"default": "--serverMode LSP --singleClient $backendSpecificCache$ --logLevel $logLevel$ --logFile $logFile$",
+					"description": "The command line arguments used for starting the Viper Server."
 				},
-				"viperSettings.disableServerVersionCheck": {
-					"scope": "window",
+				"viper.viperServer.backendSpecificCache": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Use a separate cache for both backends, the option `$backendSpecificCache$` turns into `\"--backendSpecificCache\"` or `\"\"`, depending on this setting."
+				},
+				"viper.viperServer.disableCaching": {
 					"type": "boolean",
 					"default": false,
-					"description": "Disables the server's version check. Note that the client's version check can be disabled by providing '--disableVersionCheck' as an additional custom argument in 'viperServerSettings'."
+					"description": "Disable the cache and completely reverify all files."
 				},
-				"viperserver.trace.server": {
+				"viper.viperServer.timeout": {
+					"type": "number",
+					"default": 5000,
+					"description": "The time after which the startup of the ViperServer is considered failed.."
+				},
+				"viper.viperServer.viperServerPolicy": {
+					"type": "string",
+					"enum": [
+						"attach",
+						"create"
+					],
+					"default": "create",
+					"description": "Specifies whether ViperServer should be started by the IDE or whether the IDE should attach to an existing instance of ViperServer."
+				},
+				"viper.viperServer.viperServerAddress": {
+					"type": "string",
+					"default": "http://127.0.0.1",
+					"description": "Specifies the address part of the URL that ViperServer is running on."
+				},
+				"viper.viperServer.viperServerPort": {
+					"type": "number",
+					"default": 12345,
+					"markdownDescription": "Specifies the port part of the URL that ViperServer is running on. Only needed if `#viper.viperServer.viperServerPolicy#` is set to `attach`."
+				},
+				"viper.viperServer.trace.server": {
 					"scope": "window",
 					"type": "string",
 					"enum": [
@@ -436,6 +359,271 @@
 					],
 					"default": "off",
 					"description": "Traces the communication between VS Code and the ViperServer language server."
+				},
+
+				"viper.verificationBackends.symbolicExecution.name": {
+					"type": "string",
+					"default": "Symbolic Execution (silicon)",
+					"description": "The name displayed in the IDE."
+				},
+				"viper.verificationBackends.symbolicExecution.paths": {
+					"type": "array",
+					"default": [],
+					"description": "A list of all jar-dependencies."
+				},
+				"viper.verificationBackends.symbolicExecution.engine": {
+					"type": "string",
+					"default": "ViperServer",
+					"description": "The engine to run the backend with."
+				},
+				"viper.verificationBackends.symbolicExecution.timeout": {
+					"type": "number",
+					"default": 100000,
+					"description": "The number of milliseconds after which the verification is expected to yield no useful result and is terminated."
+				},
+				"viper.verificationBackends.symbolicExecution.stoppingTimeout": {
+					"type": "number",
+					"default": 5000,
+					"description": "The number of milliseconds after which the ViperServer is expected to have terminated."
+				},
+				"viper.verificationBackends.symbolicExecution.preVerificationStages": {
+					"type": "array",
+					"default": [],
+					"description": "A list of stages represent the individual steps involved in the verification. These are the stages that are executed before the verification stage."
+				},
+				"viper.verificationBackends.symbolicExecution.verificationStage.mainMethod": {
+					"type": "string",
+					"default": "viper.silicon.SiliconRunner",
+					"description": "The main method to invoke when starting the stage."
+				},
+				"viper.verificationBackends.symbolicExecution.verificationStage.customArguments": {
+					"type": "string",
+					"default": "--z3Exe $z3Exe$ $disableCaching$",
+					"description": "The command line arguments used for starting the stage."
+				},
+				"viper.verificationBackends.symbolicExecution.verificationStage.onParsingError": {
+					"type": "string",
+					"default": "",
+					"description": "The name of the follow-up stage in case of a parsing error"
+				},
+				"viper.verificationBackends.symbolicExecution.verificationStage.onTypeCheckingError": {
+					"type": "string",
+					"default": "",
+					"description": "The name of the follow-up stage in case of a type checking error"
+				},
+				"viper.verificationBackends.symbolicExecution.verificationStage.onVerificationError": {
+					"type": "string",
+					"default": "",
+					"description": "The name of the follow-up stage in case of a verification error"
+				},
+				"viper.verificationBackends.symbolicExecution.verificationStage.onSuccess": {
+					"type": "string",
+					"default": "",
+					"description": "The name of the stage to start in case of a success"
+				},
+				"viper.verificationBackends.symbolicExecution.postVerificationStages": {
+					"type": "array",
+					"default": [],
+					"description": "A list of stages represent the individual steps involved in the verification. These are the stages that are executed after the verification stage."
+				},
+
+				"viper.verificationBackends.verificationConditionGeneration.name": {
+					"type": "string",
+					"default": "Verification Condition Generation (carbon)",
+					"description": "The name displayed in the IDE."
+				},
+				"viper.verificationBackends.verificationConditionGeneration.paths": {
+					"type": "array",
+					"default": [],
+					"description": "A list of all jar-dependencies."
+				},
+				"viper.verificationBackends.verificationConditionGeneration.engine": {
+					"type": "string",
+					"default": "ViperServer",
+					"description": "The engine to run the backend with."
+				},
+				"viper.verificationBackends.verificationConditionGeneration.timeout": {
+					"type": "number",
+					"default": 100000,
+					"description": "The number of milliseconds after which the verification is expected to yield no useful result and is terminated."
+				},
+				"viper.verificationBackends.verificationConditionGeneration.stoppingTimeout": {
+					"type": "number",
+					"default": 5000,
+					"description": "The number of milliseconds after which the ViperServer is expected to have terminated."
+				},
+				"viper.verificationBackends.verificationConditionGeneration.preVerificationStages": {
+					"type": "array",
+					"default": [],
+					"description": "A list of stages represent the individual steps involved in the verification. These are the stages that are executed before the verification stage."
+				},
+				"viper.verificationBackends.verificationConditionGeneration.verificationStage.mainMethod": {
+					"type": "string",
+					"default": "viper.carbon.Carbon",
+					"description": "The main method to invoke when starting the stage."
+				},
+				"viper.verificationBackends.verificationConditionGeneration.verificationStage.customArguments": {
+					"type": "string",
+					"default": "--z3Exe $z3Exe$ --boogieExe $boogieExe$ $disableCaching$",
+					"description": "The command line arguments used for starting the stage."
+				},
+				"viper.verificationBackends.verificationConditionGeneration.verificationStage.onParsingError": {
+					"type": "string",
+					"default": "",
+					"description": "The name of the follow-up stage in case of a parsing error"
+				},
+				"viper.verificationBackends.verificationConditionGeneration.verificationStage.onTypeCheckingError": {
+					"type": "string",
+					"default": "",
+					"description": "The name of the follow-up stage in case of a type checking error"
+				},
+				"viper.verificationBackends.verificationConditionGeneration.verificationStage.onVerificationError": {
+					"type": "string",
+					"default": "",
+					"description": "The name of the follow-up stage in case of a verification error"
+				},
+				"viper.verificationBackends.verificationConditionGeneration.verificationStage.onSuccess": {
+					"type": "string",
+					"default": "",
+					"description": "The name of the stage to start in case of a success"
+				},
+				"viper.verificationBackends.verificationConditionGeneration.postVerificationStages": {
+					"type": "array",
+					"default": [],
+					"description": "A list of stages represent the individual steps involved in the verification. These are the stages that are executed after the verification stage."
+				},
+				"viper.verificationBackends.others": {
+					"type": "array",
+					"default": [],
+					"markdownDescription": "Other verification backends can be configured here. For more information, see [https://github.com/viperproject/viper-ide/wiki/Settings:-Verification-Backends](https://github.com/viperproject/viper-ide/wiki/Settings:-Verification-Backends)"
+				},
+
+				"viper.paths.viperToolsPath": {
+					"type": "object",
+					"additionalProperties": "string",
+					"default": {
+						"windows": "%APPDATA%\\Roaming\\Code\\User\\globalStorage\\viper-admin.viper\\Local\\ViperTools",
+						"linux": "$HOME/.config/Code/User/globalStorage/viper-admin.viper/Local/ViperTools",
+						"mac": "$HOME/Library/Application Support/Code/User/globalStorage/viper-admin.viper/Local/ViperTools"
+					},
+					"markdownDescription": "The path of the Viper Tools folder. This path is only used if `#viper.buildVersion#` `External` is set. For more information, see [https://github.com/viperproject/viper-ide/wiki/Settings:-Paths](https://github.com/viperproject/viper-ide/wiki/Settings:-Paths)"
+				},
+				"viper.paths.z3Executable": {
+					"type": "object",
+					"additionalProperties": "string",
+					"default": {
+						"windows": "$viperTools$/z3/bin/z3.exe",
+						"linux": "$viperTools$/z3/bin/z3",
+						"mac": "$viperTools$/z3/bin/z3"
+					},
+					"markdownDescription": "The path to the z3 executable."
+				},
+				"viper.paths.boogieExecutable": {
+					"type": "object",
+					"additionalProperties": "string",
+					"default": {
+						"windows": "$viperTools$/boogie/Binaries/Boogie.exe",
+						"linux": "$viperTools$/boogie/Binaries/Boogie",
+						"mac": "$viperTools$/boogie/Binaries/Boogie"
+					},
+					"markdownDescription": "The path to the boogie executable."
+				},
+				"viper.paths.sfxPrefix": {
+					"type": "string",
+					"default": "$viperTools$/resources/sfx",
+					"markdownDescription": "The path to the sfx resources."
+				},
+				"viper.preferences.logLevel": {
+					"type": "number",
+					"enum": [1, 2, 3, 4, 5],
+					"default": 3,
+					"description": "The verbosity of the output. 1: Default, 2: Info, 3: Verbose, 4: Debug, 5: LowLevelDebug"
+				},
+				"viper.preferences.autoVerifyAfterBackendChange": {
+					"type": "boolean",
+					"default": true,
+					"description": "Should a restart of the backend trigger an automatic re-verification of the open file?"
+				},
+				"viper.preferences.showProgress": {
+					"type": "boolean",
+					"default": true,
+					"description": "Use a progress bar to display the progress of running operations. The progress is shown in the status bar."
+				},
+				"viper.preferences.enableSoundEffects": {
+					"type": "boolean",
+					"default": false,
+					"description": "Enable sound effects for certain events."
+				},
+				"viper.javaSettings.javaBinary": {
+					"type": "string",
+					"default": "",
+					"description": "Path to the JAVA installation. If blank, Viper-IDE tries to locate it and issues a warning if not a unique one has been found. Note that this setting is not is filled in by the IDE but stays blank (if it was blank before) -- instead, the located path to the JAVA installation is only used internally."
+				},
+				"viper.javaSettings.customArguments": {
+					"type": "string",
+					"default": "-Xmx2048m -Xss128m -cp $backendPaths$ -server $mainMethod$",
+					"description": "The command line arguments used for starting the Viper server."
+				},
+				"viper.javaSettings.cwd": {
+					"type": "string",
+					"default": "",
+					"description": "ViperServer's current working directory. If blank, the operating system's temp folder will be used as ViperServer's current working directory."
+				},
+				"viper.advancedFeatures.enabled": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Enable the advanced features. For more information, see [https://github.com/viperproject/viper-ide/wiki/Settings:-Advanced-Features](https://github.com/viperproject/viper-ide/wiki/Settings:-Advanced-Features)"
+				},
+				"viper.advancedFeatures.showSymbolicState": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Include the knowledge about the symbolic state, such as symbolic variable names, into the state preview."
+				},
+				"viper.advancedFeatures.simpleMode": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Use the simplified version of the state preview best suited for diagnosing a failed verification. When disabled, the extended state preview is shown, that provides inside into the internals of the verification and is therefore useful for diagnosing the verification tools."
+				},
+				"viper.advancedFeatures.darkGraphs": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Use colors matching the Viper Dark color theme."
+				},
+				"viper.advancedFeatures.showOldState": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Include the old state into the state preview."
+				},
+				"viper.advancedFeatures.showPartialExecutionTree": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Include the partial execution tree into the state preview. The partial execution tree is useful for understanding the underlying verification process."
+				},
+				"viper.advancedFeatures.compareStates": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Allow the user to directly compare two states. The previews of both states are shown next to each other."
+				},
+				"viper.advancedFeatures.verificationBufferSize": {
+					"type": "number",
+					"default": 102400,
+					"markdownDescription": "The buffer size of the channel used for transmitting the verification information in kB."
+				},
+				"viper.buildVersion": {
+					"scope": "window",
+					"type": "string",
+					"enum": [
+						"BuiltIn",
+						"External"
+					],
+					"default": "BuiltIn",
+					"markdownDescription": "Select the build version of the Viper Tools. The path specified at `#viper.paths.viperToolsPath#` will be used for build version `External`"
+				},
+				"viper.disableServerVersionCheck": {
+					"scope": "window",
+					"type": "boolean",
+					"default": false,
+					"description": "Disables the server's version check. Note that the client's version check can be disabled by providing '--disableVersionCheck' as an additional custom argument in 'viperServer'."
 				}
 			}
 		}
