@@ -1,7 +1,7 @@
 {
 	"name": "viper",
 	"displayName": "Viper",
-	"version": "5.0.0",
+	"version": "5.0.1-0",
 	"publisher": "viper-admin",
 	"description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
 	"license": "SEE LICENSE IN LICENSE.txt",
@@ -263,40 +263,40 @@
 				"when": "resourceLangId == viper"
 			}
 		],
-        "configurationDefaults": {
-            "[viper]": {
-                "editor.semanticHighlighting.enabled": true
-            }
-        },
+		"configurationDefaults": {
+			"[viper]": {
+				"editor.semanticHighlighting.enabled": true
+			}
+		},
 		"semanticTokenTypes": [
-            {
-                "id": "constant",
-                "description": "Style for constant literals",
-                "superType": "keyword"
-            }
+			{
+				"id": "constant",
+				"description": "Style for constant literals",
+				"superType": "keyword"
+			}
 		],
 		"semanticTokenModifiers": [
-            {
-                "id": "controlFlow",
-                "description": "Style for control-flow related tokens"
-            }
+			{
+				"id": "controlFlow",
+				"description": "Style for control-flow related tokens"
+			}
 		],
-        "semanticTokenScopes": [
-            {
-                "language": "viper",
+		"semanticTokenScopes": [
+			{
+				"language": "viper",
 				"scopes": {
-                    "constant": [
-                        "constant.language.constant.viper"
-                    ],
-                    "keyword": [
-                        "keyword.other.viper"
-                    ],
-                    "keyword.controlFlow": [
-                        "keyword.control.viper"
-                    ],
-                    "*.modification": [
-                        "markup.underline"
-                    ]
+					"constant": [
+						"constant.language.constant.viper"
+					],
+					"keyword": [
+						"keyword.other.viper"
+					],
+					"keyword.controlFlow": [
+						"keyword.control.viper"
+					],
+					"*.modification": [
+						"markup.underline"
+					]
 				}
 			}
 		],
@@ -305,8 +305,15 @@
 			"title": "Viper",
 			"properties": {
 				"viper.viperServer.serverJars": {
-					"type": ["string", "array", "object"],
-					"additionalProperties": ["string", "array"],
+					"type": [
+						"string",
+						"array",
+						"object"
+					],
+					"additionalProperties": [
+						"string",
+						"array"
+					],
 					"default": "$viperTools$/backends",
 					"markdownDescription": "A list of all the jar files required for the ViperServer. The paths can point to a folder or a jar file. Allowed formats are: String, [String], BackendSpecific(String), BackendSpecific([String]). Backend specific can look like e.g. `{ \"windows\": [\"$viperTools$/backends\"], \"linux\": [\"$viperTools$/backends\"], \"mac\": [\"$viperTools$/backends\"] }`"
 				},
@@ -360,7 +367,6 @@
 					"default": "off",
 					"description": "Traces the communication between VS Code and the ViperServer language server."
 				},
-
 				"viper.verificationBackends.symbolicExecution.name": {
 					"type": "string",
 					"default": "Symbolic Execution (silicon)",
@@ -426,7 +432,6 @@
 					"default": [],
 					"description": "A list of stages represent the individual steps involved in the verification. These are the stages that are executed after the verification stage."
 				},
-
 				"viper.verificationBackends.verificationConditionGeneration.name": {
 					"type": "string",
 					"default": "Verification Condition Generation (carbon)",
@@ -497,7 +502,6 @@
 					"default": [],
 					"markdownDescription": "Other verification backends can be configured here. For more information, see [https://github.com/viperproject/viper-ide/wiki/Settings:-Verification-Backends](https://github.com/viperproject/viper-ide/wiki/Settings:-Verification-Backends)"
 				},
-
 				"viper.paths.viperToolsPath": {
 					"type": "object",
 					"additionalProperties": "string",
@@ -535,7 +539,13 @@
 				},
 				"viper.preferences.logLevel": {
 					"type": "number",
-					"enum": [1, 2, 3, 4, 5],
+					"enum": [
+						1,
+						2,
+						3,
+						4,
+						5
+					],
 					"default": 3,
 					"description": "The verbosity of the output. 1: Default, 2: Info, 3: Verbose, 4: Debug, 5: LowLevelDebug"
 				},

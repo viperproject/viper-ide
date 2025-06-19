@@ -359,7 +359,7 @@ export class VerificationController {
                             break;
                         // FIXME: this task is turned into a NoOp above?
                         case TaskType.FileClosed:
-                            if (!fileState.open) {
+                            if (fileState && !fileState.open) {
                                 //if the file has not been reopened in the meantime:
                                 State.removeFileState(task.uri.toString());
                             }
