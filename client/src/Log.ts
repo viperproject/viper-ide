@@ -9,7 +9,7 @@
 import * as vscode from "vscode";
 import * as path from 'path';
 import * as fs from 'fs';
-import unusedFilename from 'unused-filename';
+import  unusedFilename  from 'unused-filename';
 import { Progress, LogLevel } from './ViperProtocol';
 import { Helper } from './Helper';
 import { State } from './ExtensionState';
@@ -33,6 +33,7 @@ export class Log {
             Log.updateSettings();
             if (!this.logFile) {
                 const logDirectory = Helper.getLogDir();
+                //const { unusedFilename } = await import('unused-filename');
                 this.logFilePath = await unusedFilename(path.join(logDirectory, "viper.log"));
                 Log.log('The logFile is located at: "' + this.logFilePath + '"', LogLevel.Info)
                 try {

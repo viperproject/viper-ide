@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2011-2020 ETH Zurich.
+// Copyright (c) 2011-2025 ETH Zurich.
 
 import assert from 'assert';
 import { SpawnOptionsWithoutStdio } from 'child_process';
@@ -15,10 +15,12 @@ import { Common, LogLevel, Output } from '../ViperProtocol';
 
 export const PROJECT_ROOT = path.join(__dirname, "..", "..");
 export const DATA_ROOT = path.join(PROJECT_ROOT, "src", "test", "data");
-export const SILICON = 'silicon';
-export const CARBON = 'carbon';
+export const SILICON_TYPE = 'silicon';
+export const SILICON_NAME = 'Symbolic Execution (silicon)';
+export const CARBON_TYPE = 'carbon';
+export const CARBON_NAME = 'Verification Condition Generation (carbon)';
 
-export const SETUP_TIMEOUT = 20 * 1000; // 20 sec
+export const SETUP_TIMEOUT = 45 * 1000; // 45 sec, windows runners can be really slow
 
 
 export const SIMPLE = 'simple.sil';
@@ -107,13 +109,12 @@ export default class TestHelper {
         // open file, ...
         const document = await TestHelper.openFile(fileName);
 
-        const verified = TestHelper.waitForVerification(fileName);
         // ... send verification command to server...
-        TestHelper.log("openAndVerify: file is open, now executing the verify command");
         await TestHelper.verify();
         TestHelper.log("openAndVerify: file is open, verify command has been executed");
+        
         // ... and wait for result notification from server
-        await verified;
+        await TestHelper.waitForVerification(fileName);
         TestHelper.log("openAndVerify: file is verified");
         return document;
     }

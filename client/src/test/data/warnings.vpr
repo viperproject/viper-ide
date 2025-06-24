@@ -13,3 +13,9 @@ method test()
     // causes a type-checker warning:
     assert Nil() == Nil()
 }
+
+
+method test2()
+{
+    assert false
+}

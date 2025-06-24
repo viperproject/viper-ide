@@ -3,7 +3,7 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at http://mozilla.org/MPL/2.0/.
   *
-  * Copyright (c) 2011-2020 ETH Zurich.
+  * Copyright (c) 2011-2024 ETH Zurich.
   */
 
 import * as vscode from 'vscode';
@@ -13,6 +13,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { Log } from './Log';
 import { Common, LogLevel } from './ViperProtocol';
+import { ProjectManager, ProjectRoot } from './ProjectManager';
 
 export class Helper {
     public static viperFileEndings: string[];
@@ -39,17 +40,37 @@ export class Helper {
     }
 
     ///might be null
-    public static getActiveFileUri(): vscode.Uri | null {
+    public static getActiveFileUri(): [vscode.Uri, vscode.TextEditor] | null {
         if (vscode.window.activeTextEditor) {
-            return vscode.window.activeTextEditor.document.uri;
+            return [vscode.window.activeTextEditor.document.uri, vscode.window.activeTextEditor];
+        } else {
+            return null;
+        }
+    }
+    /// Returns the project uri if we are in a project,
+    /// otherwise null
+    public static getActiveProjectUri(): ProjectRoot | null {
+        const activeFileUri = Helper.getActiveFileUri();
+        if (activeFileUri) {
+            return ProjectManager.getProject(activeFileUri[0]) ?? null;
+        } else {
+            return null;
+        }
+    }
+    /// Returns the project uri if we are in a project,
+    /// otherwise the uri of the active file
+    public static getActiveVerificationUri(): vscode.Uri | null {
+        const activeFileUri = Helper.getActiveFileUri();
+        if (activeFileUri) {
+            return ProjectManager.getProject(activeFileUri[0]) ?? activeFileUri[0];
         } else {
             return null;
         }
     }
 
     public static formatSeconds(time: number): string {
-        if (!time) return "0 seconds";
-        return time.toFixed(1) + " seconds";
+        if (!time) return "0s";
+        return time.toFixed(1) + "s";
     }
 
     public static formatProgress(progress: number): string {

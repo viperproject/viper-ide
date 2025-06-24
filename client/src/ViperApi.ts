@@ -22,7 +22,7 @@ export class VerificationTerminatedEvent {
 class ViperConfiguration {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public get(id: string): any {
-        return vscode.workspace.getConfiguration('viperSettings').get(id);
+        return vscode.workspace.getConfiguration().get(id);
     }
 }
 
