@@ -4,6 +4,9 @@
 
 ### Changelog
 
+#### v.5.1.0 (Viper v.25.08-release) 
+* Much improved IDE experience
+
 #### v.4.5.2 (Viper v.25.02-release)
 
 #### v.4.4.2 (Viper v.24.08-release)
