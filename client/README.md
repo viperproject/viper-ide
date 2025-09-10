@@ -4,8 +4,14 @@
 
 ### Changelog
 
-#### v.5.1.0 (Viper v.25.08-release) 
-* Much improved IDE experience
+#### v.5.1.1 (Viper v.25.08-release) 
+* Significantly enhanced IDE experience:
+  * Enabled semantic code actions such as Show / Jump to Definitions, Find References or Rename Symbols
+  * Improved autocomplete
+  * Show inferred triggers
+  * Show parameter names in method calls
+  * Show parser errors without triggering full verification
+* Reworked extension settings. Some custom settings have been renamed and may need to be updated.
 
 #### v.4.5.2 (Viper v.25.02-release)
 
