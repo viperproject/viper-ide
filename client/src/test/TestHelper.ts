@@ -5,13 +5,13 @@
 // Copyright (c) 2011-2025 ETH Zurich.
 
 import assert from 'assert';
-import { SpawnOptionsWithoutStdio } from 'child_process';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as myExtension from '../extension';
 import { State, UnitTestCallback } from '../ExtensionState';
 import { Log } from '../Log';
-import { Common, LogLevel, Output } from '../ViperProtocol';
+import { LogLevel } from '../ViperProtocol';
+import psList from 'ps-list';
 
 export const PROJECT_ROOT = path.join(__dirname, "..", "..");
 export const DATA_ROOT = path.join(PROJECT_ROOT, "src", "test", "data");
@@ -128,44 +128,33 @@ export default class TestHelper {
     }
 
     public static async checkForRunningProcesses(checkJava: boolean, checkBoogie: boolean, checkZ3: boolean): Promise<void> {
-        const options: SpawnOptionsWithoutStdio = {
-            shell: true
-        };
-        const outputs: Output[] = [];
-        // note for pgrep on macOS and linux:
-        // the pgrep command might show up in the list of running commands. Simply using `-f java.*Viper` can thus lead to false
-        // positives as it matches the command line of just this pgrep command. Two different solutions to this problem are
-        // described here: https://serverfault.com/q/367921
-        // either one can use `-f [j]ava.*Viper` or `-f [^]]java.*Viper` to avoid this problem. As we do have a static string to match
-        // against, we have opted for the first variant.
-        // note that we add `|| true` on macOS and Linux because `pgrep` exits with code 1 if no process is found.
-        if (State.isWin) {
-            function getArgs(whereCond: string): string[] {
-                return ['process', 'where', whereCond, 'get', 'ParentProcessId,ProcessId,Name,CommandLine'];
-            }
-            if (checkZ3) outputs.push(await Common.spawn('wmic', getArgs('name="z3.exe"'), options));
-            if (checkJava) outputs.push(await Common.spawn('wmic', getArgs('(CommandLine like "%Viper%" and name="java.exe")'), options));
-            if (checkBoogie) outputs.push(await Common.spawn('wmic', getArgs('name="Boogie.exe"'), options));
-        } else if (State.isMac) {
-            if (checkZ3) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$UID"', 'z3', '||', 'true'], options));
-            if (checkJava) outputs.push(await Common.spawn('pgrep', ['-l', '-u', '"$UID"', '-f', '"[j]ava.*Viper"', '||', 'true'], options));
-            if (checkBoogie) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$UID"', 'Boogie', '||', 'true'], options));
-        } else {
-            if (checkZ3) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$(whoami)"', 'z3', '||', 'true'], options));
-            if (checkJava) outputs.push(await Common.spawn('pgrep', ['-l', '-u', '"$(whoami)"', '-f', '"[j]ava.*Viper"', '||', 'true'], options));
-            if (checkBoogie) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$(whoami)"', 'Boogie', '||', 'true'], options));
-        }
-        const outputMsgs = outputs
-            .map(out => {
-                const stringData = out.stdout.replace(/[\n\r]/g, " ");
-                if (/^.*?(\d+).*/.test(stringData)) {
-                    const outputMsg = `Process found: '${out.stdout}'`;
-                    TestHelper.log(outputMsg);
-                    return [outputMsg];
-                } else {
-                    return [];
+        const outputMsgs: string[] = [];
+        const allProcesses = await psList();
+
+        function checkProcess(name: string, checkCmd?: (cmd: string) => boolean): void {
+            const processes = allProcesses.filter(proc => proc.name === name);
+            for (const proc of processes) {
+                if (checkCmd && proc.cmd && !checkCmd(proc.cmd.toLowerCase())) {
+                    continue;
                 }
-            }).reduce((prev, cur) => prev.concat(cur), []);
+                const outputMsg = `Process found: pid=${proc.pid}, name=${proc.name}, cmd=${proc.cmd}`;
+                TestHelper.log(outputMsg);
+                outputMsgs.push(outputMsg);
+            }
+        }
+
+        if (checkZ3) {
+            checkProcess(State.isWin ? 'z3.exe' : 'z3');
+        }
+
+        if (checkJava) {
+            checkProcess(State.isWin ? 'java.exe' : 'java', (cmd) => cmd.includes('viper'));
+        }
+
+        if (checkBoogie) {
+            checkProcess(State.isWin ? 'Boogie.exe' : 'Boogie');
+        }
+
         if (outputMsgs.length == 0) {
             // no processes found
             return Promise.resolve();
