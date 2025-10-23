@@ -50,6 +50,7 @@
 		"glob-to-regexp": "^0.4.1",
 		"mocha": "^11.7.4",
 		"npm-run-all": "^4.1.5",
+		"ps-list": "^9.0.0",
 		"rimraf": "^6.0.1",
 		"semver": "^7.7.3",
 		"tmp": "^0.2.5",
@@ -62,8 +63,7 @@
 		"vscode-uri": "^3.1.0",
 		"webpack": "^5.102.1",
 		"webpack-cli": "^6.0.1",
-		"yargs": "^18.0.0",
-		"ps-list": "^9.0.0"
+		"yargs": "^17.7.2"
 	},
 	"scripts": {
 		"webpack-production": "webpack --mode production",
@@ -638,5 +638,11 @@
 				}
 			}
 		}
+	},
+	"dependencies": {
+		"@octokit/rest": "19.0.13"
+	},
+	"overrides": {
+		"@octokit/rest": "19.0.13"
 	}
 }
