@@ -8,7 +8,8 @@
         "outDir": "./dist",
         "rootDir": "src",
         "sourceMap": true,
-        "esModuleInterop": true
+        "esModuleInterop": true,
+        "skipLibCheck": true
     },
     "include": [
         "src/**/*.ts"
