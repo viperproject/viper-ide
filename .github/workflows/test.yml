@@ -72,7 +72,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '18' # Should match the version in client/src/test/data/vscode-version
+          node-version: '22' # Should match the version in client/src/test/data/vscode-version
 
       - name: Setup Java JDK
         uses: actions/setup-java@v5
