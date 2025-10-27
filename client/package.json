@@ -241,8 +241,8 @@
 		"keybindings": [
 			{
 				"command": "viper.selectBackend",
-				"key": "ctrl+l",
-				"mac": "cmd+l",
+				"key": "ctrl+alt+b",
+				"mac": "cmd+alt+b",
 				"when": "resourceLangId == viper"
 			},
 			{
@@ -253,8 +253,8 @@
 			},
 			{
 				"command": "viper.stopVerification",
-				"key": "ctrl+h",
-				"mac": "cmd+h",
+				"key": "shift+f5",
+				"mac": "shift+f5",
 				"when": "resourceLangId == viper"
 			},
 			{
