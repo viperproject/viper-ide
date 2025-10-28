@@ -656,8 +656,8 @@ export class Settings {
 
             backend.engine = Settings.resolveEngine(backend.engine);
             // check engine and type
-            if (Settings.useViperServer(backend) && !Settings.isSupportedType(backend.type)) {
-                return newEitherError(`${backendName} the backend type ${backend.type} is not supported, try one of these: ${Settings.supportedTypes.join(", ")}`);
+            if (Settings.useViperServer(backend) && !backend.type) {
+                return newEitherError(`${backendName} the backend type cannot be empty. It must either be 'silicon', 'carbon', or the class name of the custom backend you are using.`);
             }
 
             const stages: Set<string> = new Set<string>();
@@ -741,13 +741,6 @@ export class Settings {
         const res = await Settings.checkAndGetVerificationBackends(location);
         return toRight(res);
     }
-
-    private static isSupportedType(type: string): boolean {
-        if (!type) return false;
-        return Settings.supportedTypes.includes(type.toLowerCase());
-    }
-
-    private static supportedTypes: string[] = ["silicon", "carbon", "other"];
 
     public static async getCustomArgsForBackend(location: Location, backend: Backend, fileUri: vscode.Uri): Promise<Either<Messages, string>> {
         // while checking the stages, we make sure that there is exactly one stage with `isVerification` set to true:
