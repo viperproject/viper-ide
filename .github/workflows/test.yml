@@ -67,7 +67,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Viper-IDE
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Node.js
         uses: actions/setup-node@v6
@@ -260,7 +260,7 @@ jobs:
     steps:
       # we have to checkout the repo to read client/package.json later on:
       - name: Checkout Viper-IDE
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Download packaged Viper IDE
         uses: actions/download-artifact@v6
