@@ -43,7 +43,7 @@ jobs:
           echo "LATEST_VIPERSERVER_RELEASE=$LATEST_VIPERSERVER_RELEASE" >> $GITHUB_ENV
       - name: Open a pull request
         id: pr
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         if: env.CURRENT_VIPERSERVER_VERSION != env.LATEST_VIPERSERVER_RELEASE
         with:
           # Use viper-admin's token to workaround a restriction of GitHub.
