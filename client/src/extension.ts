@@ -221,7 +221,7 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
 
     //Command Handlers
     //verify
-    context.subscriptions.push(vscode.commands.registerCommand('viper.verify', () => {
+    const verifyInner = async (target: vscode.Position): Promise<void> => {
         if (!State.isReady()) {
             showNotReadyHint();
             return;
@@ -232,8 +232,23 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         } else if (!Helper.isViperSourceFile(fileUri)) {
             Log.log("Cannot verify the active file, its not a viper file.", LogLevel.Info);
         } else {
-            State.addToWorklist(new Task({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: true }));
+            State.addToWorklist(new Task({ type: TaskType.Verify, verificationTarget: target, uri: fileUri, manuallyTriggered: true }));
         }
+    }
+
+    context.subscriptions.push(vscode.commands.registerCommand('viper.verify', async () => {
+        await verifyInner(null);
+    }));
+
+    context.subscriptions.push(vscode.commands.registerCommand('viper.verifyCurrent', async () => {
+        const editor = vscode.window.activeTextEditor;
+
+        if (!editor) {
+            Log.hint('No active editor found.');
+            return;
+        }
+
+        await verifyInner(editor.selection.active);
     }));
 
     //verifyAllFilesInWorkspace
