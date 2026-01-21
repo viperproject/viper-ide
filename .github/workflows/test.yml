@@ -37,11 +37,11 @@ on:
 # in particular, they control whether Viper-IDE is tested against certain ViperTools and a ViperServer JAR on push and pull requests
 # this is particularly useful during debugging / testing as a new Viper-IDE release is not necessary for every change to the ViperServer JAR
 env:
-  TEST_LOCAL_ON_PUSH_PR: false
+  TEST_LOCAL_ON_PUSH_PR: true
   # note that the following URL is extended with `/${{ matrix.viper-tools-zip-file }}` in the 'build-and-test' job:
-  TEST_LOCAL_ON_PUSH_PR_VIPERTOOLS_URL: https://github.com/viperproject/viper-ide/releases/download/v-2022-09-21-1611
+  TEST_LOCAL_ON_PUSH_PR_VIPERTOOLS_URL: https://github.com/viperproject/viper-ide/releases/download/v4.3.1
   # the following  URL is not extended and downloading the destination is expected to return the viperserver.jar:
-  TEST_LOCAL_ON_PUSH_PR_VIPERSERVER_URL: https://polybox.ethz.ch/index.php/s/54sDcqHDJHelKBY/download
+  TEST_LOCAL_ON_PUSH_PR_VIPERSERVER_URL: https://polybox.ethz.ch/index.php/s/2sRctTahzg4Ly3d
 
 jobs:
   build-and-test:
