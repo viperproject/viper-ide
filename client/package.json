@@ -1,7 +1,7 @@
 {
 	"name": "viper",
 	"displayName": "Viper",
-	"version": "5.2.0",
+	"version": "5.3.0",
 	"publisher": "viper-admin",
 	"description": "This extension provides interactive IDE features for verifying programs in Viper (Verification Infrastructure for Permission-based Reasoning).",
 	"license": "SEE LICENSE IN LICENSE.txt",
@@ -320,13 +320,18 @@
 				},
 				"viper.viperServer.customArguments": {
 					"type": "string",
-					"default": "--serverMode LSP --singleClient $backendSpecificCache$ --logLevel $logLevel$ --logFile $logFile$",
+					"default": "--serverMode LSP --singleClient $backendSpecificCache$ $presentationMode$ --logLevel $logLevel$ --logFile $logFile$",
 					"description": "The command line arguments used for starting the Viper Server."
 				},
 				"viper.viperServer.backendSpecificCache": {
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "Use a separate cache for both backends, the option `$backendSpecificCache$` turns into `\"--backendSpecificCache\"` or `\"\"`, depending on this setting."
+				},
+				"viper.viperServer.presentationMode": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Disable most LSP features, namely those that can be distracting during presentations. The option `$presentationMode$` turns into `\"--presentationMode\"` or `\"\"`, depending on this setting."
 				},
 				"viper.viperServer.disableCaching": {
 					"type": "boolean",

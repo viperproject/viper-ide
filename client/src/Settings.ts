@@ -942,8 +942,10 @@ export class Settings {
 
         const configuredArgString = Settings.getConfiguration("viperServer").customArguments;
         const useBackendSpecificCache = Settings.getConfiguration("viperServer").backendSpecificCache === true;
+        const presentationMode = Settings.getConfiguration("viperServer").presentationMode === true;
         return configuredArgString
             .replace("$backendSpecificCache$", useBackendSpecificCache ? "--backendSpecificCache" : "")
+            .replace("$presentationMode$", presentationMode ? "--presentationMode" : "")
             .replace("$logLevel$", convertLogLevel(logLevel))
             // note that we use functions as 2nd argument since we do not want that
             // the special replacement patterns kick in

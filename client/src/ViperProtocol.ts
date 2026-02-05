@@ -396,6 +396,8 @@ export interface ViperServerSettings {
     customArguments: string;
     //it set to false, cached errors are reused across backends
     backendSpecificCache: boolean;
+    //if set to true, most LSP features are disabled to avoid distractions during presentations
+    presentationMode: boolean;
     //disable the caching mechanism
     disableCaching: boolean;
     //After timeout ms the startup of the viperServer is expected to have failed and thus aborted

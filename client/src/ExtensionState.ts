@@ -29,7 +29,7 @@ import { ProjectManager, ProjectRoot } from './ProjectManager';
 
 export class State {
     public static get MIN_SERVER_VERSION(): string {
-        return "3.0.0"; // has to be a valid semver
+        return "3.1.0"; // has to be a valid semver
     }
     public static serverVersion: string;
 
