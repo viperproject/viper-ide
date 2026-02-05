@@ -34,54 +34,6 @@
         ],
         "description": "Loop invariant"
     },
-    "Method": {
-        "prefix": "method",
-        "body": [
-            "method ${1:foo}(${2}) returns ${5:(res:Int)}",
-            "\trequires ${3:true}",
-            "\tensures ${4:true}",
-            "{",
-            "\t${6:assert true}",
-            "}"
-        ],
-        "description": "Method"
-    },
-    "Predicate": {
-        "prefix": "predicate",
-        "body": [
-            "predicate ${1:foo}(${2:xs:Ref})",
-            "{",
-            "\t${3:acc(xs.next)}",
-            "}"
-        ],
-        "description": "Predicate"
-    },
-    "Function": {
-        "prefix": "function",
-        "body": [
-            "function ${1:foo}(${2:x:Int}): ${3:Bool}",
-            "\trequires ${4:true}",
-            "\tensures ${5:true}",
-            "{",
-            "\t${6}",
-            "}"
-        ],
-        "description": "Function"
-    },
-    "Domain": {
-        "prefix": "domain",
-        "body": [
-            "domain ${1:MyType[T]} {",
-            "\tfunction ${2:oper(m:MyType[T])}: ${3:Bool}",
-            "\taxiom ${4:ax_MyType} {",
-                "\t\tforall ${5:m:MyType[T]} :: ",
-                "\t\t\t{ ${6:oper(m)} }",
-                "\t\t\t\t${7:oper(m) == true}",    
-            "\t}",
-            "}"
-        ],
-        "description": "Domain"
-    },
     "Axiom": {
         "prefix": "axiom",
         "body": [
