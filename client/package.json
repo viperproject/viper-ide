@@ -320,7 +320,7 @@
 				},
 				"viper.viperServer.customArguments": {
 					"type": "string",
-					"default": "--serverMode LSP --singleClient $backendSpecificCache$ $presentationMode$ --logLevel $logLevel$ --logFile $logFile$",
+					"default": "--serverMode LSP --singleClient $backendSpecificCache$ $beginnerMode$ --logLevel $logLevel$ --logFile $logFile$",
 					"description": "The command line arguments used for starting the Viper Server."
 				},
 				"viper.viperServer.backendSpecificCache": {
@@ -328,10 +328,10 @@
 					"default": true,
 					"markdownDescription": "Use a separate cache for both backends, the option `$backendSpecificCache$` turns into `\"--backendSpecificCache\"` or `\"\"`, depending on this setting."
 				},
-				"viper.viperServer.presentationMode": {
+				"viper.viperServer.beginnerMode": {
 					"type": "boolean",
-					"default": false,
-					"markdownDescription": "Disable most LSP features, namely those that can be distracting during presentations. The option `$presentationMode$` turns into `\"--presentationMode\"` or `\"\"`, depending on this setting."
+					"default": true,
+					"markdownDescription": "Disable some advanced features that can be confusing for beginners. The option `$beginnerMode$` turns into `\"--beginnerMode\"` or `\"\"`, depending on this setting."
 				},
 				"viper.viperServer.disableCaching": {
 					"type": "boolean",
