@@ -147,8 +147,8 @@ export class VerificationController {
     private lastState: VerificationState = VerificationState.Stopped;
 
     //for autoverify all viper files in workspace
-    private _verifyingAllFiles = false;
-    public get isVerifyingAllFiles(): boolean { return this._verifyingAllFiles; }
+    private verifyingAllFiles = false;
+    public get isVerifyingAllFiles(): boolean { return this.verifyingAllFiles; }
     private allFilesToAutoVerify: URI[];
     private nextFileToAutoVerify: number;
     private autoVerificationResults: string[];
@@ -585,9 +585,9 @@ export class VerificationController {
 
     /** the boolean success indicates whether stopping was successful */
     private async stopVerification(uriToStop: string, manuallyTriggered: boolean): Promise<boolean> {
-        if (this._verifyingAllFiles) {
+        if (this.verifyingAllFiles) {
             this.printAllVerificationResults();
-            this._verifyingAllFiles = false;
+            this.verifyingAllFiles = false;
         }
         if (State.client) {
             if (State.isVerifying) {
@@ -626,7 +626,7 @@ export class VerificationController {
     }
 
     private getTotalProgress(): string {
-        return this._verifyingAllFiles ? ` (${this.nextFileToAutoVerify}/${this.allFilesToAutoVerify.length})` : "";
+        return this.verifyingAllFiles ? ` (${this.nextFileToAutoVerify}/${this.allFilesToAutoVerify.length})` : "";
     }
 
     public addTiming(filename: string, paramProgress: number): void {
@@ -813,7 +813,7 @@ export class VerificationController {
                         }
                         State.addToWorklist(new Task({ type: TaskType.VerificationComplete, uri: uri, manuallyTriggered: false }));
                     }
-                    if (this._verifyingAllFiles) {
+                    if (this.verifyingAllFiles) {
                         this.autoVerificationResults.push(`${Success[params.success]}: ${URI.parse(params.uri).fsPath}`);
                         this.autoVerifyFile();
                     }
@@ -862,7 +862,7 @@ export class VerificationController {
 
     public async verifyAllFilesInWorkspace(folder: string | null): Promise<void> {
         this.autoVerificationStartTime = Date.now();
-        this._verifyingAllFiles = true;
+        this.verifyingAllFiles = true;
         this.autoVerificationResults = [];
         if (!State.isBackendReady) {
             Log.error("The backend must be running before verifying all files in the workspace")
@@ -906,7 +906,7 @@ export class VerificationController {
     }
 
     private autoVerifyFile(): void {
-        if (this.nextFileToAutoVerify < this.allFilesToAutoVerify.length && this._verifyingAllFiles) {
+        if (this.nextFileToAutoVerify < this.allFilesToAutoVerify.length && this.verifyingAllFiles) {
             const currFile = this.allFilesToAutoVerify[this.nextFileToAutoVerify];
             Log.log("AutoVerify " + path.basename(currFile.toString()), LogLevel.Info);
             this.nextFileToAutoVerify++;
@@ -916,7 +916,7 @@ export class VerificationController {
                 .then(document => vscode.window.showTextDocument(document))
                 .then(Helper.identity, err => Log.error(`Error while auto verifying files: ${err}`));
         } else {
-            this._verifyingAllFiles = false;
+            this.verifyingAllFiles = false;
             this.printAllVerificationResults();
         }
     }
