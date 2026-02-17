@@ -147,7 +147,8 @@ export class VerificationController {
     private lastState: VerificationState = VerificationState.Stopped;
 
     //for autoverify all viper files in workspace
-    private verifyingAllFiles = false;
+    private _verifyingAllFiles = false;
+    public get isVerifyingAllFiles(): boolean { return this._verifyingAllFiles; }
     private allFilesToAutoVerify: URI[];
     private nextFileToAutoVerify: number;
     private autoVerificationResults: string[];
@@ -584,9 +585,9 @@ export class VerificationController {
 
     /** the boolean success indicates whether stopping was successful */
     private async stopVerification(uriToStop: string, manuallyTriggered: boolean): Promise<boolean> {
-        if (this.verifyingAllFiles) {
+        if (this._verifyingAllFiles) {
             this.printAllVerificationResults();
-            this.verifyingAllFiles = false;
+            this._verifyingAllFiles = false;
         }
         if (State.client) {
             if (State.isVerifying) {
@@ -625,7 +626,7 @@ export class VerificationController {
     }
 
     private getTotalProgress(): string {
-        return this.verifyingAllFiles ? ` (${this.nextFileToAutoVerify}/${this.allFilesToAutoVerify.length})` : "";
+        return this._verifyingAllFiles ? ` (${this.nextFileToAutoVerify}/${this.allFilesToAutoVerify.length})` : "";
     }
 
     public addTiming(filename: string, paramProgress: number): void {
@@ -812,7 +813,7 @@ export class VerificationController {
                         }
                         State.addToWorklist(new Task({ type: TaskType.VerificationComplete, uri: uri, manuallyTriggered: false }));
                     }
-                    if (this.verifyingAllFiles) {
+                    if (this._verifyingAllFiles) {
                         this.autoVerificationResults.push(`${Success[params.success]}: ${URI.parse(params.uri).fsPath}`);
                         this.autoVerifyFile();
                     }
@@ -861,7 +862,7 @@ export class VerificationController {
 
     public async verifyAllFilesInWorkspace(folder: string | null): Promise<void> {
         this.autoVerificationStartTime = Date.now();
-        this.verifyingAllFiles = true;
+        this._verifyingAllFiles = true;
         this.autoVerificationResults = [];
         if (!State.isBackendReady) {
             Log.error("The backend must be running before verifying all files in the workspace")
@@ -905,21 +906,17 @@ export class VerificationController {
     }
 
     private autoVerifyFile(): void {
-        if (this.nextFileToAutoVerify < this.allFilesToAutoVerify.length && this.verifyingAllFiles) {
+        if (this.nextFileToAutoVerify < this.allFilesToAutoVerify.length && this._verifyingAllFiles) {
             const currFile = this.allFilesToAutoVerify[this.nextFileToAutoVerify];
             Log.log("AutoVerify " + path.basename(currFile.toString()), LogLevel.Info);
             this.nextFileToAutoVerify++;
+            // Just open the file — handleOpenedFile will add the Verify task.
+            // This avoids duplicate Verify tasks (one from here, one from the editor change event).
             vscode.workspace.openTextDocument(currFile)
                 .then(document => vscode.window.showTextDocument(document))
-                .then(() => {
-                    // set `manuallyTriggered` to true such that all files get reverified in case they have already
-                    // been verified. This is sensible as this action is the immediate result of the user executing
-                    // the verify all files in workspace command.
-                    State.addToWorklist(new Task({ type: TaskType.Verify, uri: currFile, manuallyTriggered: true }));
-                })
                 .then(Helper.identity, err => Log.error(`Error while auto verifying files: ${err}`));
         } else {
-            this.verifyingAllFiles = false;
+            this._verifyingAllFiles = false;
             this.printAllVerificationResults();
         }
     }
