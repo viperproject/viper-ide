@@ -30,6 +30,10 @@ on:
         required: true
         default: '-'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # note that release-candidate builds are treated like 'stable' builds for now except that there is no deployment to the marketplaces in the end.
 # in the future, this should be changed such that release-candidates result in a prerelease (like nightly builds).
 
@@ -65,6 +69,7 @@ jobs:
             os: windows-latest
             viper-tools-zip-file: "ViperToolsWin.zip"
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
       - name: Checkout Viper-IDE
         uses: actions/checkout@v6
@@ -98,6 +103,19 @@ jobs:
 
       - run: npm ci --cache .npm --prefer-offline
         working-directory: client
+
+      - name: Cache ViperTools dependencies
+        uses: actions/cache@v5
+        id: deps-cache
+        with:
+          path: client/dependencies
+          key: vipertools-${{ matrix.target }}-${{ hashFiles('client/boogie-version', 'client/viperserver-version', 'client/z3-version') }}
+
+      - name: Cache VS Code test binary
+        uses: actions/cache@v5
+        with:
+          path: client/.vscode-test
+          key: vscode-test-${{ matrix.target }}-${{ hashFiles('client/src/test/data/vscode-version') }}
 
       # there are two different scenarios in which different stuff should be tested:
       # - regular changes to Viper-IDE: the normal test configuration should be used, which tests against the latest stable and
@@ -173,9 +191,23 @@ jobs:
         run: cat client/src/test/data/settings/external.json
         shell: bash
 
+      - name: Clean dist folder for test build
+        run: npx rimraf dist
+        working-directory: client
+
+      - name: Compile TypeScript
+        run: npm run tsc
+        working-directory: client
+
+      - name: Download dependencies
+        run: npx ts-node ./download-dependencies.ts --target=${{ matrix.target }}
+        working-directory: client
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run tests (headless - non-ubuntu)
         if: "!startsWith(matrix.os, 'ubuntu') && matrix.target != 'darwin-arm64'"
-        run: npm run test --full-trace -- --target=${{ matrix.target }}
+        run: node ./dist/test/runTest.js
         working-directory: client
         env:
           VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
@@ -183,7 +215,7 @@ jobs:
 
       - name: Run tests (headless - ubuntu only)
         if: startsWith(matrix.os, 'ubuntu') && matrix.target != 'darwin-arm64'
-        run: xvfb-run -a npm run test --full-trace -- --target=${{ matrix.target }}
+        run: xvfb-run -a node ./dist/test/runTest.js
         working-directory: client
         env:
           VIPER_IDE_LOG_DIR: ${{ github.workspace }}/client/logs
@@ -196,31 +228,25 @@ jobs:
           name: TestLogs-${{ matrix.target }}
           path: client/logs
 
-      - name: Clean 'dist' folder
-        run: npm run clean
+      - name: Clean dist folder only (preserve dependencies)
+        run: npx rimraf dist
         working-directory: client
 
-      # `npm run package` resp. `@vscode/vsce` complains that it cannot find 
-      # locate-java-home and vs-verification-toolbox dependencies (the two non-npm dependencies).
-      # this seems related to https://github.com/npm/cli/issues/791
-      # the current workaround is to `run npm install` first:
-      # this workaround is only necessary when using node 14
-      # - name: Run 'npm install' as a workaround to later being able to package Viper-IDE (ubuntu only)
-      #   if: startsWith(matrix.os, 'ubuntu')
-      #   run: npm install
-      #   working-directory: client
+      - name: Build for production
+        run: npm run webpack-production
+        working-directory: client
 
       # use @vscode/vsce to package the extension into a vsix file.
       # sets a special field in package.json to indicate that the package is not a pre-release (it's one
       # by default)
       - name: Package Viper-IDE extension (stable release only)
         if: ${{ github.event.inputs.type == 'stable' }}
-        run: npm run package -- --target=${{ matrix.target }} --out=viper-ide-${{ matrix.target }}.vsix
+        run: npx @vscode/vsce package --target=${{ matrix.target }} --out=viper-ide-${{ matrix.target }}.vsix
         working-directory: client
 
       - name: Package Viper-IDE extension (non-stable release only)
         if: ${{ github.event.inputs.type != 'stable' }}
-        run: npm run package -- --target=${{ matrix.target }} --out=viper-ide-${{ matrix.target }}.vsix --pre-release
+        run: npx @vscode/vsce package --target=${{ matrix.target }} --out=viper-ide-${{ matrix.target }}.vsix --pre-release
         working-directory: client
 
       # we have to list the files after packaging because packaging first downloads dependencies

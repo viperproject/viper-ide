@@ -90,6 +90,13 @@ async function main() {
     }
     // TS now infers that `argv.target` is of type `Target`
 
+    // Skip downloads if dependencies are already fully populated (e.g. restored from CI cache)
+    const viperServerJarPath = path.resolve(viperServerOutputDir, 'viperserver.jar');
+    if (await fs.pathExists(viperServerJarPath)) {
+      console.log(`Dependencies already present (found ${viperServerJarPath}), skipping download.`);
+      return;
+    }
+
     await rimraf.rimraf(templateOutputDir);
 
     const boogieVersion = (await fs.readFile(boogieVersionFile)).toString().trim();
