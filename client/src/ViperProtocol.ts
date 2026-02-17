@@ -396,6 +396,8 @@ export interface ViperServerSettings {
     customArguments: string;
     //it set to false, cached errors are reused across backends
     backendSpecificCache: boolean;
+    //if set to true, some advanced features are disabled that can be confusing for beginners
+    beginnerMode: boolean;
     //disable the caching mechanism
     disableCaching: boolean;
     //After timeout ms the startup of the viperServer is expected to have failed and thus aborted
