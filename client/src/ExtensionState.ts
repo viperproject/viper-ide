@@ -141,7 +141,10 @@ export class State {
             const activeState = project ? State.getFileState(project) : fileState;
             if (activeState) {
                 const isVerifyingAll = State.verificationController?.isVerifyingAllFiles ?? false;
-                if (!activeState.verified || isVerifyingAll) {
+                if (!activeState.verified || isVerifyingAll || State.isVerifying) {
+                    // Reset verified so canStartVerification doesn't reject with
+                    // "not manuallyTriggered and file is verified"
+                    activeState.verified = false;
                     Log.log("The active text editor changed, consider reverification of " + activeState.name(), LogLevel.Debug);
                     // When verifying all files in workspace, set manuallyTriggered to true so that
                     // already-verified files get reverified and auto-verify being off is overridden.
