@@ -113,6 +113,16 @@
 				"category": "Viper"
 			},
 			{
+				"command": "viper.toggleInferenceOnVerificationError",
+				"title": "toggle inference on verification error",
+				"category": "Viper"
+			},
+			{
+				"command": "viper.quickfix",
+				"title": "apply quickfix",
+				"category": "Viper"
+			},
+			{
 				"command": "viper.openLogFile",
 				"title": "open current logFile",
 				"category": "Viper"
@@ -404,7 +414,7 @@
 				},
 				"viper.verificationBackends.symbolicExecution.verificationStage.customArguments": {
 					"type": "string",
-					"default": "--z3Exe $z3Exe$ $disableCaching$",
+					"default": "--z3Exe $z3Exe$ $disableCaching$ $inferenceOnVerificationError$",
 					"description": "The command line arguments used for starting the stage."
 				},
 				"viper.verificationBackends.symbolicExecution.verificationStage.onParsingError": {
@@ -634,6 +644,11 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Disables the server's version check. Note that the client's version check can be disabled by providing '--disableVersionCheck' as an additional custom argument in 'viperServer'."
+				},
+				"viper.advancedFeatures.inferenceOnVerificationError": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Determines whether inference should be performed on verification error."
 				}
 			}
 		}
