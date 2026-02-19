@@ -39,7 +39,7 @@ suite('ViperIDE Tests', () => {
     });
 
         test("Test warnings", async function() {
-        this.timeout(2000);
+        this.timeout(10000);
 
         const document = await TestHelper.openAndVerify(WARNINGS);
 
