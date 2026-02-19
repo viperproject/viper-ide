@@ -4,6 +4,12 @@
 
 ### Changelog
 
+#### v.5.3.1 (Viper v.26.02-release) 
+* Several improvements to autocomplete and inlays
+  * Improved autocomplete by removing unwanted suggestions
+  * Removed duplicate inlays and hover hints
+  * Added beginner mode that disables some advanced IDE features that can be confusing for beginners, particularly inlays; this mode is enabled by default and can be disabled in the settings in VSCode 
+
 #### v.5.1.1 (Viper v.25.08-release) 
 * Significantly enhanced IDE experience:
   * Enabled semantic code actions such as Show / Jump to Definitions, Find References or Rename Symbols
