@@ -331,7 +331,7 @@
 				"viper.viperServer.beginnerMode": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Disable some advanced features that can be confusing for beginners. The option `$beginnerMode$` turns into `\"--beginnerMode\"` or `\"\"`, depending on this setting."
+					"markdownDescription": "Disable some advanced IDE features that can be confusing for beginners. The option `$beginnerMode$` turns into `\"--beginnerMode\"` or `\"\"`, depending on this setting."
 				},
 				"viper.viperServer.disableCaching": {
 					"type": "boolean",
