@@ -15,7 +15,7 @@ import * as readline from 'readline';
 import * as semver from 'semver';
 import  unusedFilename  from 'unused-filename';
 import { Location } from 'vs-verification-toolbox';
-import { Backend, Commands, Common, GetVersionRequest, InferenceResultsParams, LogLevel } from './ViperProtocol';
+import { Backend, Commands, Common, GetVersionRequest, LogLevel } from './ViperProtocol';
 import { Log } from './Log';
 import { ViperFileState } from './ViperFileState';
 import { URI } from 'vscode-uri';
@@ -26,7 +26,6 @@ import { ViperApi } from './ViperApi';
 import { Settings } from './Settings';
 import { combineMessages, Either, Messages, newEitherError, newRight, transformRight } from "./Either";
 import { ProjectManager, ProjectRoot } from './ProjectManager';
-import { InferenceProvider } from "./Inference";
 
 export class State {
     public static get MIN_SERVER_VERSION(): string {
@@ -59,11 +58,6 @@ export class State {
      * `viper.toggleInferenceOnVerificationError`.
      */
     public static enableInferenceOnVerificationError = true;
-    /**
-     * Maps file URIs to their latest {@linkcode InferenceResultsParams inference results}.
-     */
-    public static inferenceResults: Map<string, InferenceResultsParams> = new Map<string, InferenceResultsParams>();
-    public static InferenceProvider: InferenceProvider = new InferenceProvider();
 
     //status bar
     public static statusBarItem: StatusBar;

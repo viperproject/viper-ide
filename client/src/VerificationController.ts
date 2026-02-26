@@ -116,9 +116,9 @@ export class Task implements ITask {
 
 export enum TaskType {
     NoOp = 0, Clear = 1,
-    Save = 2, Verify = 3, StopVerification = 4, Infer = 5, StopInference = 6, StartBackend = 7, FileClosed = 8,
-    Verifying = 30, VerificationComplete = 300, VerificationFailed = 301,
-    Infering = 50, InferenceComplete = 500, InferenceFailed = 501,
+    Save = 2, Verify = 3, StopVerification = 4, StartBackend = 6, FileClosed = 8,
+    Verifying = 30,
+    VerificationComplete = 300, VerificationFailed = 301,
     RestartExtension = 800,
 }
 
@@ -777,11 +777,7 @@ export class VerificationController {
                             case Success.VerificationFailed:
                                 msg = `Verifying ${params.filename} failed (${Helper.formatSeconds(params.time)}) ${errorsMsg("with")}${warningsMsg("and")}`;
                                 Log.log(msg, LogLevel.Default);
-                                State.statusBarItem.update("$(x) " + msg, Color.ERROR);/*
-                                if(this.enableInference && params.inferenceResults) {
-                                    State.inferenceResults.set(params.uri, params.inferenceResults);
-                                    Log.log(`Inference results for ${params.filename} have been stored.`, LogLevel.Info);
-                                }*/
+                                State.statusBarItem.update("$(x) " + msg, Color.ERROR);
                                 break;
                             case Success.Aborted:
                                 State.statusBarItem.update("Verification aborted", Color.WARNING);

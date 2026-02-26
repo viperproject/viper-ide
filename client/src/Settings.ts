@@ -270,10 +270,6 @@ export class Settings {
         return Settings.getConfiguration("preferences").logLevel || LogLevel.Default;
     }
 
-    public static isInferenceOnVerificationErrorEnabled(): boolean {
-        return (Settings.getConfiguration("advancedFeatures").inferenceOnVerificationError === true);
-    }
-
     /** 
      * `location` is only needed if build channel is different from 'External'.
      * In the case that the build channel is 'External', `null` can be passed.

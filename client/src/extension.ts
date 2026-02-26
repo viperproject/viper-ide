@@ -31,7 +31,6 @@ import { VerificationController, TaskType, Task } from './VerificationController
 import { ViperApi } from './ViperApi';
 import { Settings } from './Settings';
 import { Location } from 'vs-verification-toolbox';
-import { InferenceProvider } from './Inference';
 
 let fileSystemWatcher: vscode.FileSystemWatcher;
 
@@ -193,13 +192,7 @@ async function initializeState(location: Location): Promise<void> {
 }
 
 function registerContextHandlers(context: vscode.ExtensionContext, location: Location): void {
-    
-    
-    /*context.subscriptions.push(vscode.languages.registerCodeActionsProvider(
-        { scheme: 'file', language: 'viper' },
-        State.InferenceProvider
-    ));*/
-    
+
     context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
         try {
             State.addToWorklist(new Task({ type: TaskType.Save, uri: params.uri }));
@@ -336,23 +329,6 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         const settings = vscode.workspace.getConfiguration("viper");
         const document = await vscode.workspace.openTextDocument({ language: 'json', content: JSON.stringify(settings, null, 2) });
         await vscode.window.showTextDocument(document, vscode.ViewColumn.Two);
-    }));
-    
-    //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-    //infer specification
-    context.subscriptions.push(vscode.commands.registerCommand('viper.quickfix', () => {
-        if (!State.isReady()) {
-            showNotReadyHint();
-            return;
-        }
-        const fileUri = Helper.getActiveVerificationUri();
-        if (!fileUri) {
-            Log.log("Cannot infer specifications, no document is open.", LogLevel.Info);
-        } else if (!Helper.isViperSourceFile(fileUri)) {
-            Log.log("Cannot verify the active file, its not a viper file.", LogLevel.Info);
-        } else {
-            Log.log("Quickfix command triggered", LogLevel.Info);
-        }
     }));
 }
 
