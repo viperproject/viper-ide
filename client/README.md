@@ -4,7 +4,7 @@
 
 ### Changelog
 
-#### v.5.3.1 (Viper v.26.02-release) 
+#### v.5.3.2 (Viper v.26.02-release) 
 * Several improvements to autocomplete and inlays
   * Improved autocomplete by removing unwanted suggestions
   * Removed duplicate inlays and hover hints
