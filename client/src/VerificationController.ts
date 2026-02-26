@@ -116,9 +116,9 @@ export class Task implements ITask {
 
 export enum TaskType {
     NoOp = 0, Clear = 1,
-    Save = 2, Verify = 3, StopVerification = 4, StartBackend = 6, FileClosed = 8,
-    Verifying = 30,
-    VerificationComplete = 300, VerificationFailed = 301,
+    Save = 2, Verify = 3, StopVerification = 4, Infer = 5, StopInference = 6, StartBackend = 7, FileClosed = 8,
+    Verifying = 30, VerificationComplete = 300, VerificationFailed = 301,
+    Infering = 50, InferenceComplete = 500, InferenceFailed = 501,
     RestartExtension = 800,
 }
 
@@ -152,6 +152,9 @@ export class VerificationController {
     private nextFileToAutoVerify: number;
     private autoVerificationResults: string[];
     private autoVerificationStartTime: number;
+    
+    //for inference
+    private enableInference = State.enableInferenceOnVerificationError;
 
     public addToWorklist(task: Task): void {
         this.workList.push(task);
@@ -564,7 +567,7 @@ export class VerificationController {
                     const customArgs = await Settings.getCustomArgsForBackend(this.location, backend, uri);
                     if (customArgs.isRight) {
                         const content = fileState.editor.document.getText()
-                        const params: VerifyParams = { uri: uri.toString(), content, manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.type, customArgs: customArgs.right };
+                        const params: VerifyParams = { uri: uri.toString(), content, manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.type, customArgs: customArgs.right, enableInference: this.enableInference };
                         //request verification from Server
                         State.isVerifying = true;                        
                         await State.client.sendNotification(Commands.Verify, params);
@@ -774,7 +777,11 @@ export class VerificationController {
                             case Success.VerificationFailed:
                                 msg = `Verifying ${params.filename} failed (${Helper.formatSeconds(params.time)}) ${errorsMsg("with")}${warningsMsg("and")}`;
                                 Log.log(msg, LogLevel.Default);
-                                State.statusBarItem.update("$(x) " + msg, Color.ERROR);
+                                State.statusBarItem.update("$(x) " + msg, Color.ERROR);/*
+                                if(this.enableInference && params.inferenceResults) {
+                                    State.inferenceResults.set(params.uri, params.inferenceResults);
+                                    Log.log(`Inference results for ${params.filename} have been stored.`, LogLevel.Info);
+                                }*/
                                 break;
                             case Success.Aborted:
                                 State.statusBarItem.update("Verification aborted", Color.WARNING);

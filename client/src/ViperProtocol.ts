@@ -100,6 +100,7 @@ export interface VerifyParams {
     workspace: string;
     backend: string;
     customArgs: string;
+    enableInference: boolean;
 }
 
 export interface Command {
@@ -159,6 +160,18 @@ export enum Success {
     Timeout = 7
 }
 
+/**
+ * Indicates the action to be performed for an line of code.
+ * - Add: The inferred specification should be added.
+ * - Remove: The inferred specification should be removed.
+ * - Edit: The inferred specification should replace an existing one.
+ */
+export enum InferenceAction {
+    Add = 0,
+    Remove = 1,
+    Edit = 2
+}
+
 export interface StateChangeParams {
     newState: VerificationState;
     progress?: number;
@@ -172,6 +185,32 @@ export interface StateChangeParams {
     uri?: string;
     stage?: string;
     error?: string
+    workspaceEdits?: vscode.WorkspaceEdit[];
+}
+
+/**
+ * Result of specification inference for a single line in a file.
+ * @param line The line number the result refers to.
+ * @param action The {@linkcode InferenceAction action} to be performed (add, remove, edit).
+ * @param content The content of the inferred specification.
+ */
+export interface InferenceResult {
+    line: number;
+    action: InferenceAction;
+    content: string;
+}
+
+/**
+ * Contains results of specification inference for a file. Sent from the server to the client after inference is
+ * complete.
+ * @param uri The URI of the file the inference results refer to.
+ * @param results The list of {@linkcode InferenceResult inference results} for the file.
+ * @param success Whether the inference process was successful.
+ */
+export interface InferenceResultsParams {
+    uri: string;
+    results: InferenceResult[];
+    success: boolean;
 }
 
 export interface BackendReadyParams {

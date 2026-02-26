@@ -270,6 +270,10 @@ export class Settings {
         return Settings.getConfiguration("preferences").logLevel || LogLevel.Default;
     }
 
+    public static isInferenceOnVerificationErrorEnabled(): boolean {
+        return (Settings.getConfiguration("advancedFeatures").inferenceOnVerificationError === true);
+    }
+
     /** 
      * `location` is only needed if build channel is different from 'External'.
      * In the case that the build channel is 'External', `null` can be passed.
@@ -754,13 +758,14 @@ export class Settings {
         const verificationStage = backend.stages.filter(stage => stage.isVerification)[0];
         const z3Path = await Settings.getZ3Path(location);
         const disableCaching = Settings.getConfiguration("viperServer").disableCaching === true;
+        const inferenceOnVerificationError = Settings.getConfiguration("advancedFeatures").inferenceOnVerificationError === true;
         const partiallyReplacedString = verificationStage.customArguments
             // note that we use functions as 2nd argument since we do not want that
             // the special replacement patterns kick in
             .replace("$z3Exe$", () => `"${z3Path}"`) // escape path
             .replace("$disableCaching$", () => disableCaching ? "--disableCaching" : "")
-            .replace("$fileToVerify$", () => `"${fileUri.fsPath}"`); // escape path (not used since v3)
-
+            .replace("$fileToVerify$", () => `"${fileUri.fsPath}"`) // escape path (not used since v3)
+            .replace("$inferenceOnVerificationError$", () => inferenceOnVerificationError ? "--inferenceMode=onError" : "--inferenceMode=off");
         // Note that we need to passes over the string because `replace` does not allow async replace functions.
         // Thus, we use `replace` to search for occurrences of `"$boogieExe$"` (ensuring we use the same match
         // algorithm under the hood) and await the Boogie path only in the case we need it.
