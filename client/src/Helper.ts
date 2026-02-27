@@ -32,6 +32,9 @@ export class Helper {
 
     public static isViperSourceFile(uri: string | vscode.Uri): boolean {
         if (!uri) return false;
+        // Filter out non-file URIs (e.g., _preview, untitled, vscode-diff, etc.)
+        const uriObject = typeof uri === 'string' ? vscode.Uri.parse(uri) : uri;
+        if (uriObject.scheme !== 'file') return false;
         const uriString = Common.uriToString(uri);
         return this.viperFileEndings.some(globPattern => {
             const regex = globToRexep(globPattern);

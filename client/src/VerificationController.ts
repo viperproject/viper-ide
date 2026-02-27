@@ -148,6 +148,7 @@ export class VerificationController {
 
     //for autoverify all viper files in workspace
     private verifyingAllFiles = false;
+    public get isVerifyingAllFiles(): boolean { return this.verifyingAllFiles; }
     private allFilesToAutoVerify: URI[];
     private nextFileToAutoVerify: number;
     private autoVerificationResults: string[];
@@ -596,6 +597,12 @@ export class VerificationController {
                 State.statusBarItem.update("aborting", Color.WARNING);
                 const params: StopVerificationRequest = { uri: uriToStop };
                 const response = await State.client.sendRequest(Commands.StopVerification, params);
+                if (!response.success && !State.isVerifying) {
+                    // The verification completed while we were trying to stop it.
+                    // This is expected — treat as success to avoid the stoppingTimeout stall.
+                    Log.log("Stop request returned failure, but verification has already completed. Treating as success.", LogLevel.Debug);
+                    return true;
+                }
                 return response.success;
             } else {
                 const msg = "Cannot stop the verification, no verification is running.";
@@ -903,14 +910,10 @@ export class VerificationController {
             const currFile = this.allFilesToAutoVerify[this.nextFileToAutoVerify];
             Log.log("AutoVerify " + path.basename(currFile.toString()), LogLevel.Info);
             this.nextFileToAutoVerify++;
+            // Just open the file — handleOpenedFile will add the Verify task.
+            // This avoids duplicate Verify tasks (one from here, one from the editor change event).
             vscode.workspace.openTextDocument(currFile)
                 .then(document => vscode.window.showTextDocument(document))
-                .then(() => {
-                    // set `manuallyTriggered` to true such that all files get reverified in case they have already
-                    // been verified. This is sensible as this action is the immediate result of the user executing
-                    // the verify all files in workspace command.
-                    State.addToWorklist(new Task({ type: TaskType.Verify, uri: currFile, manuallyTriggered: true }));
-                })
                 .then(Helper.identity, err => Log.error(`Error while auto verifying files: ${err}`));
         } else {
             this.verifyingAllFiles = false;

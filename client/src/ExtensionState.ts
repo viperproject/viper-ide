@@ -140,9 +140,15 @@ export class State {
             // Get the file state for the root of the project if we are in a project
             const activeState = project ? State.getFileState(project) : fileState;
             if (activeState) {
-                if (!activeState.verified) {
+                const isVerifyingAll = State.verificationController?.isVerifyingAllFiles ?? false;
+                if (!activeState.verified || isVerifyingAll || State.isVerifying) {
+                    // Reset verified so canStartVerification doesn't reject with
+                    // "not manuallyTriggered and file is verified"
+                    activeState.verified = false;
                     Log.log("The active text editor changed, consider reverification of " + activeState.name(), LogLevel.Debug);
-                    State.addToWorklist(new Task({ type: TaskType.Verify, uri: activeState.uri, manuallyTriggered: false }));
+                    // When verifying all files in workspace, set manuallyTriggered to true so that
+                    // already-verified files get reverified and auto-verify being off is overridden.
+                    State.addToWorklist(new Task({ type: TaskType.Verify, uri: activeState.uri, manuallyTriggered: isVerifyingAll }));
                 } else {
                     Log.log("Don't reverify, the file is already verified", LogLevel.Debug);
                 }
