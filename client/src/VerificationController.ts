@@ -144,6 +144,10 @@ export class VerificationController {
     private lastProgress: number;
     private lastState: VerificationState = VerificationState.Stopped;
 
+    //for autoverify all viper files in workspace
+    private verifyingAllFiles = false;
+    public get isVerifyingAllFiles(): boolean { return this.verifyingAllFiles; }
+
     public addToWorklist(task: Task): void {
         this.workList.push(task);
     }
@@ -582,6 +586,12 @@ export class VerificationController {
                 State.statusBarItem.update("aborting", Color.WARNING);
                 const params: StopVerificationRequest = { uri: uriToStop };
                 const response = await State.client.sendRequest(Commands.StopVerification, params);
+                if (!response.success && !State.isVerifying) {
+                    // The verification completed while we were trying to stop it.
+                    // This is expected — treat as success to avoid the stoppingTimeout stall.
+                    Log.log("Stop request returned failure, but verification has already completed. Treating as success.", LogLevel.Debug);
+                    return true;
+                }
                 return response.success;
             } else {
                 const msg = "Cannot stop the verification, no verification is running.";
@@ -830,7 +840,6 @@ export class VerificationController {
             || success === Success.TypecheckingFailed
             || success === Success.VerificationFailed;
     }
-
 }
 
 enum LspDiagnosticSeverity {
