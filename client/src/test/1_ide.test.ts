@@ -43,7 +43,7 @@ suite('ViperIDE Tests', () => {
 
         const document = await TestHelper.openAndVerify(WARNINGS);
 
-        const diagnostics = vscode.languages.getDiagnostics(document.uri);
+        const diagnostics = await waitForDiagnostics(document.uri, 3, 1000);
         checkAssert(diagnostics.length, 3, `Amount of diagnostics`);
         checkAssert(diagnostics[0].severity, vscode.DiagnosticSeverity.Warning, "First diagnostic");
         checkAssert(diagnostics[1].severity, vscode.DiagnosticSeverity.Warning, "Second diagnostic");
@@ -130,4 +130,31 @@ suite('ViperIDE Tests', () => {
 
 function checkAssert<T>(seen: T, expected: T, message: string): void {
     assert(expected === seen, message + ": Expected: " + expected + " Seen: " + seen);
+}
+
+
+// Diagnostics are published via a separate LSP notification (textDocument/publishDiagnostics)
+// that may be processed after the verification completion state change, so we poll.
+function waitForDiagnostics(uri: vscode.Uri, expectedCount: number, timeoutMs: number): Promise<vscode.Diagnostic[]> {
+    return new Promise((resolve, reject) => {
+        const diagnostics = vscode.languages.getDiagnostics(uri);
+        if (diagnostics.length >= expectedCount) {
+            return resolve(diagnostics);
+        }
+        const subscription = vscode.languages.onDidChangeDiagnostics(e => {
+            if (e.uris.some(u => u.toString() === uri.toString())) {
+                const diags = vscode.languages.getDiagnostics(uri);
+                if (diags.length >= expectedCount) {
+                    clearTimeout(timer);
+                    subscription.dispose();
+                    resolve(diags);
+                }
+            }
+        });
+        const timer = setTimeout(() => {
+            subscription.dispose();
+            const diags = vscode.languages.getDiagnostics(uri);
+            reject(new Error(`Timed out waiting for ${expectedCount} diagnostics, got ${diags.length}`));
+        }, timeoutMs);
+    });
 }
