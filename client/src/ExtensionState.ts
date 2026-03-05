@@ -418,7 +418,6 @@ export interface UnitTestCallback {
     backendStarted: (backend: string) => void;
     verificationComplete: (backend: string, filename: string) => void;
     logFileOpened: () => void;
-    allFilesVerified: (verified: number, total: number) => void;
     ideIsIdle: () => void;
     internalErrorDetected: () => void;
     verificationStopped: (success: boolean) => void;

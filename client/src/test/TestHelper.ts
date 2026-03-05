@@ -240,15 +240,6 @@ export default class TestHelper {
         });
     }
 
-    public static waitForVerificationOfAllFilesInWorkspace(): Promise<{verified: number, total: number}> {
-        return new Promise(resolve => {
-            TestHelper.callbacks.allFilesVerified = (verified, total) => {
-                TestHelper.log(`Verification of all files completed: ${verified} of ${total}`);
-                resolve({verified: verified, total: total});
-            }
-        });
-    }
-
     public static waitForAbort(): Promise<void> {
         return new Promise((resolve, reject) => {
             TestHelper.callbacks.verificationStopped = (success: boolean) => {
@@ -344,7 +335,6 @@ class UnitTestCallbackImpl implements UnitTestCallback {
     backendStarted: (backend: string) => void = () => { };
     verificationComplete: (backend: string, filename: string) => void = () => { };
     logFileOpened: () => void = () => { };
-    allFilesVerified: (verified: number, total: number) => void = () => { };
     ideIsIdle: () => void = () => { };
     internalErrorDetected: () => void = () => { this.errorDetected = true; };
     verificationStopped: (success: boolean) => void = () => { };

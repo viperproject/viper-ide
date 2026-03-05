@@ -119,11 +119,6 @@
 				"category": "Viper"
 			},
 			{
-				"command": "viper.verifyAllFilesInWorkspace",
-				"title": "verify all files in this workspace",
-				"category": "Viper"
-			},
-			{
 				"command": "viper.removeDiagnostics",
 				"title": "remove diagnostics caused by this file",
 				"category": "Viper"
@@ -168,11 +163,6 @@
 				},
 				{
 					"command": "viper.openLogFile",
-					"when": "resourceLangId == viper",
-					"group": "Viper"
-				},
-				{
-					"command": "viper.verifyAllFilesInWorkspace",
 					"when": "resourceLangId == viper",
 					"group": "Viper"
 				},
