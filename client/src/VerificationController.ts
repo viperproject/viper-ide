@@ -8,23 +8,26 @@
 
 import { readdir } from 'fs/promises';
 import * as path from 'path';
-import * as vscode from 'vscode';
+import { createRequire } from 'node:module';
+import type { Diagnostic, Uri } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 import { URI } from 'vscode-uri';
 import { Location } from 'vs-verification-toolbox';
-import { AwaitTimer } from './AwaitTimer';
-import { State } from './ExtensionState';
-import { Common, VerifyParams, TimingInfo, VerificationState, Commands, StateChangeParams, LogLevel, Success, Backend, StopVerificationRequest } from './ViperProtocol';
-import { Log } from './Log';
-import { Helper } from './Helper';
-import { ViperFileState } from './ViperFileState';
-import { Color } from './StatusBar';
-import { Settings } from './Settings';
-import { restart } from './extension';
-import { ProjectManager } from './ProjectManager';
+import { AwaitTimer } from './AwaitTimer.js';
+import { State } from './ExtensionState.js';
+import { Common, VerifyParams, TimingInfo, VerificationState, Commands, StateChangeParams, LogLevel, Success, Backend, StopVerificationRequest } from './ViperProtocol.js';
+import { Log } from './Log.js';
+import { Helper } from './Helper.js';
+import { ViperFileState } from './ViperFileState.js';
+import { Color } from './StatusBar.js';
+import { Settings } from './Settings.js';
+import { restart } from './extension.js';
+import { ProjectManager } from './ProjectManager.js';
 
 export interface ITask {
     type: TaskType;
-    uri?: vscode.Uri;
+    uri?: Uri;
     backend?: Backend;
     manuallyTriggered?: boolean;
     success?: Success;
@@ -36,7 +39,7 @@ export interface ITask {
 
 export class Task implements ITask {
     type: TaskType;
-    uri?: vscode.Uri;
+    uri?: Uri;
     backend?: Backend;
     manuallyTriggered?: boolean;
     success?: Success;
@@ -132,7 +135,7 @@ export interface CheckResult {
 export class VerificationController {
 
     private lastCanStartVerificationReason: string;
-    private lastCanStartVerificationUri: vscode.Uri;
+    private lastCanStartVerificationUri: Uri;
 
     private location: Location;
     private controller: AwaitTimer;
@@ -179,8 +182,8 @@ export class VerificationController {
                 let clear = -1;
                 let verificationComplete = false;
                 let verificationFailed = false;
-                let completedOrFailedFileUri: vscode.Uri;
-                let uriOfFoundVerfy: vscode.Uri;
+                let completedOrFailedFileUri: Uri;
+                let uriOfFoundVerfy: Uri;
                 let startBackendFound = false;
 
                 /** 
@@ -716,7 +719,7 @@ export class VerificationController {
                             verifiedFile.timingInfo = { total: params.time, timings: this.timings };
                         }
 
-                        const allDiagnostics: [vscode.Uri, readonly vscode.Diagnostic[]][] = vscode.languages.getDiagnostics().map<[vscode.Uri, vscode.Diagnostic[]]>(diag =>
+                        const allDiagnostics: [Uri, readonly Diagnostic[]][] = vscode.languages.getDiagnostics().map<[Uri, Diagnostic[]]>(diag =>
                             [diag[0], diag[1].filter(d => d.source == "viper")]
                         ).filter(diag =>
                             diag[1].length > 0 || ProjectManager.inSameProject(uri, diag[0])
@@ -827,7 +830,7 @@ export class VerificationController {
         }
     }
 
-    private translateLsp2VsCodeDiagnosticSeverity(diagnostic: vscode.Diagnostic): vscode.Diagnostic {
+    private translateLsp2VsCodeDiagnosticSeverity(diagnostic: Diagnostic): Diagnostic {
         switch (diagnostic.severity.valueOf()) {
             case LspDiagnosticSeverity.Error.valueOf():
                 diagnostic.severity = vscode.DiagnosticSeverity.Error;
@@ -863,7 +866,7 @@ export class VerificationController {
         }
         const endings = "{" + Helper.viperFileEndings.join(",") + "}";
 
-        let uris: vscode.Uri[];
+        let uris: Uri[];
         if (folder) {
             uris = await this.getAllViperFilesInDir(folder);
         } else {
@@ -882,7 +885,7 @@ export class VerificationController {
 
     //non recursive at the moment
     //TODO: implement recursively getting files
-    private async getAllViperFilesInDir(folder: string): Promise<vscode.Uri[]> {
+    private async getAllViperFilesInDir(folder: string): Promise<Uri[]> {
         const files = await readdir(folder);
         return files
             .map(file => path.join(folder, file))

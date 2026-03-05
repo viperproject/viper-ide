@@ -7,10 +7,13 @@
   */
 
 import * as child_process from 'child_process';
-import * as vscode from 'vscode';
+import { createRequire } from 'node:module';
+import type { Uri as VscodeUri } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 import { NotificationType, RequestType0, RequestType } from 'vscode-jsonrpc';
 import { URI } from 'vscode-uri';
-import { Log } from './Log';
+import { Log } from './Log.js';
 
 //==============================================================================
 // These commands are used to distinguish the different message types.
@@ -663,7 +666,7 @@ export class Common {
         return platformIndependentPath;
     }
 
-    public static uriToString(uri: string | vscode.Uri): string {
+    public static uriToString(uri: string | VscodeUri): string {
         if (!uri) return null;
         if (typeof uri === "string") {
             return uri;
@@ -672,7 +675,7 @@ export class Common {
         }
     }
 
-    public static uriToObject(uri: string | vscode.Uri): vscode.Uri {
+    public static uriToObject(uri: string | VscodeUri): VscodeUri {
         if (!uri) return null;
         if (typeof uri === "string") {
             return vscode.Uri.parse(uri);
@@ -687,7 +690,7 @@ export class Common {
         return platformIndependentUri;
     }
 
-    public static uriEquals(a: string | vscode.Uri, b: string | vscode.Uri): boolean {
+    public static uriEquals(a: string | VscodeUri, b: string | VscodeUri): boolean {
         if (!a || !b) return false;
         return this.uriToString(a) === this.uriToString(b);
     }

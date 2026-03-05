@@ -6,14 +6,17 @@
   * Copyright (c) 2011-2024 ETH Zurich.
   */
 
-import * as vscode from 'vscode';
+import { createRequire } from 'node:module';
+import type { ExtensionContext, TextEditor, Uri } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 import * as fs from 'fs';
 import globToRexep from 'glob-to-regexp';
 import * as path from 'path';
 import * as os from 'os';
-import { Log } from './Log';
-import { Common, LogLevel } from './ViperProtocol';
-import { ProjectManager, ProjectRoot } from './ProjectManager';
+import { Log } from './Log.js';
+import { Common, LogLevel } from './ViperProtocol.js';
+import { ProjectManager, ProjectRoot } from './ProjectManager.js';
 
 export class Helper {
     public static viperFileEndings: string[];
@@ -30,7 +33,7 @@ export class Helper {
         }
     }
 
-    public static isViperSourceFile(uri: string | vscode.Uri): boolean {
+    public static isViperSourceFile(uri: string | Uri): boolean {
         if (!uri) return false;
         const uriString = Common.uriToString(uri);
         return this.viperFileEndings.some(globPattern => {
@@ -40,7 +43,7 @@ export class Helper {
     }
 
     ///might be null
-    public static getActiveFileUri(): [vscode.Uri, vscode.TextEditor] | null {
+    public static getActiveFileUri(): [Uri, TextEditor] | null {
         if (vscode.window.activeTextEditor) {
             return [vscode.window.activeTextEditor.document.uri, vscode.window.activeTextEditor];
         } else {
@@ -59,7 +62,7 @@ export class Helper {
     }
     /// Returns the project uri if we are in a project,
     /// otherwise the uri of the active file
-    public static getActiveVerificationUri(): vscode.Uri | null {
+    public static getActiveVerificationUri(): Uri | null {
         const activeFileUri = Helper.getActiveFileUri();
         if (activeFileUri) {
             return ProjectManager.getProject(activeFileUri[0]) ?? activeFileUri[0];
@@ -81,7 +84,7 @@ export class Helper {
     /**
      * Returns the path to the global storage location provided by VSCode to the extension
      */
-    public static getGlobalStoragePath(context: vscode.ExtensionContext): string {
+    public static getGlobalStoragePath(context: ExtensionContext): string {
         return context.globalStorageUri.fsPath;
     }
 

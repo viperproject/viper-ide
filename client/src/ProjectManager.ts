@@ -6,9 +6,12 @@
   * Copyright (c) 2024 ETH Zurich.
   */
 
-import * as vscode from 'vscode';
+import { createRequire } from 'node:module';
+import type { Uri } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 
-export type ProjectRoot = vscode.Uri;
+export type ProjectRoot = Uri;
 
 export class ProjectManager {
     // Entry per project
@@ -16,20 +19,20 @@ export class ProjectManager {
     // Entry per file in a project
     private static pinnedTo: Map<string, ProjectRoot> = new Map();
 
-    public static asRoot(file: vscode.Uri): ProjectRoot | undefined {
+    public static asRoot(file: Uri): ProjectRoot | undefined {
         return ProjectManager.projects.has(file.toString()) ? file : undefined;
     }
-    public static getProject(file: vscode.Uri): ProjectRoot | undefined {
+    public static getProject(file: Uri): ProjectRoot | undefined {
         const fileString = file.toString();
         return ProjectManager.pinnedTo.get(fileString);
     }
-    public static inSameProject(file1: vscode.Uri, file2: vscode.Uri): boolean {
+    public static inSameProject(file1: Uri, file2: Uri): boolean {
         const project1 = ProjectManager.getProject(file1) ?? file1;
         const project2 = ProjectManager.getProject(file2) ?? file2;
         return project1.toString() === project2.toString();
     }
 
-    public static addToProject(projectRoot: ProjectRoot, file: vscode.Uri): void {
+    public static addToProject(projectRoot: ProjectRoot, file: Uri): void {
         // Root should not be added to itself
         if (projectRoot === file) {
             return;
