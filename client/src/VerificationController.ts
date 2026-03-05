@@ -893,8 +893,8 @@ export class VerificationController {
         const files = await readdir(folder);
         return files
             .map(file => path.join(folder, file))
-            .filter(filePath => Helper.isViperSourceFile(filePath))
-            .map(filePath => Common.uriToObject(Common.pathToUri(filePath)));
+            .map(filePath => Common.uriToObject(Common.pathToUri(filePath)))
+            .filter(uri => Helper.isViperSourceFile(uri));
     }
 
     private printAllVerificationResults(): void {
