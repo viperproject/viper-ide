@@ -6,10 +6,8 @@
   * Copyright (c) 2011-2024 ETH Zurich.
   */
 
-import { readdir } from 'fs/promises';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { URI } from 'vscode-uri';
 import { Location } from 'vs-verification-toolbox';
 import { AwaitTimer } from './AwaitTimer';
 import { State } from './ExtensionState';
@@ -149,10 +147,6 @@ export class VerificationController {
     //for autoverify all viper files in workspace
     private verifyingAllFiles = false;
     public get isVerifyingAllFiles(): boolean { return this.verifyingAllFiles; }
-    private allFilesToAutoVerify: URI[];
-    private nextFileToAutoVerify: number;
-    private autoVerificationResults: string[];
-    private autoVerificationStartTime: number;
 
     public addToWorklist(task: Task): void {
         this.workList.push(task);
@@ -551,8 +545,7 @@ export class VerificationController {
                     clearInterval(this.progressUpdater);
                     const progress_lambda: () => void = () => {
                         const progress = this.getProgress(this.lastProgress)
-                        const totalProgress = this.getTotalProgress();
-                        Log.progress({ domain: "Verification of " + fileState.name(), progress: progress, postfix: totalProgress }, LogLevel.Debug);
+                        Log.progress({ domain: "Verification of " + fileState.name(), progress: progress }, LogLevel.Debug);
                     }
                     progress_lambda()
                     this.progressUpdater = setInterval(progress_lambda, 333);
@@ -585,10 +578,6 @@ export class VerificationController {
 
     /** the boolean success indicates whether stopping was successful */
     private async stopVerification(uriToStop: string, manuallyTriggered: boolean): Promise<boolean> {
-        if (this.verifyingAllFiles) {
-            this.printAllVerificationResults();
-            this.verifyingAllFiles = false;
-        }
         if (State.client) {
             if (State.isVerifying) {
                 clearInterval(this.progressUpdater);
@@ -625,14 +614,10 @@ export class VerificationController {
         }
     }
 
-    private getTotalProgress(): string {
-        return this.verifyingAllFiles ? ` (${this.nextFileToAutoVerify}/${this.allFilesToAutoVerify.length})` : "";
-    }
-
     public addTiming(filename: string, paramProgress: number): void {
         this.timings.push(Date.now() - this.verificationStartTime);
         const progress = this.getProgress(paramProgress || 0);
-        Log.progress({ domain: "Verification of " + filename, progress: progress, postfix: this.getTotalProgress() }, LogLevel.Debug);
+        Log.progress({ domain: "Verification of " + filename, progress: progress }, LogLevel.Debug);
     }
 
     private getProgress(progress: number): number {
@@ -813,10 +798,6 @@ export class VerificationController {
                         }
                         State.addToWorklist(new Task({ type: TaskType.VerificationComplete, uri: uri, manuallyTriggered: false }));
                     }
-                    if (this.verifyingAllFiles) {
-                        this.autoVerificationResults.push(`${Success[params.success]}: ${URI.parse(params.uri).fsPath}`);
-                        this.autoVerifyFile();
-                    }
                     break;
                 case VerificationState.Stopping:
                     State.statusBarItem.update('preparing', Color.ACTIVE);
@@ -858,67 +839,6 @@ export class VerificationController {
             || success === Success.ParsingFailed
             || success === Success.TypecheckingFailed
             || success === Success.VerificationFailed;
-    }
-
-    public async verifyAllFilesInWorkspace(folder: string | null): Promise<void> {
-        this.autoVerificationStartTime = Date.now();
-        this.verifyingAllFiles = true;
-        this.autoVerificationResults = [];
-        if (!State.isBackendReady) {
-            Log.error("The backend must be running before verifying all files in the workspace")
-            return;
-        }
-        const endings = "{" + Helper.viperFileEndings.join(",") + "}";
-
-        let uris: vscode.Uri[];
-        if (folder) {
-            uris = await this.getAllViperFilesInDir(folder);
-        } else {
-            uris = await vscode.workspace.findFiles('**/' + endings, '');
-        }
-
-        if (!uris) {
-            Log.error(`cannot start verifying all files in directory, uris is ${uris}`);
-        } else {
-            Log.log(`Starting to verify ${uris.length} viper files.`, LogLevel.Info);
-            this.allFilesToAutoVerify = uris;
-            this.nextFileToAutoVerify = 0;
-            this.autoVerifyFile();
-        }
-    }
-
-    //non recursive at the moment
-    //TODO: implement recursively getting files
-    private async getAllViperFilesInDir(folder: string): Promise<vscode.Uri[]> {
-        const files = await readdir(folder);
-        return files
-            .map(file => path.join(folder, file))
-            .map(filePath => Common.uriToObject(Common.pathToUri(filePath)))
-            .filter(uri => Helper.isViperSourceFile(uri));
-    }
-
-    private printAllVerificationResults(): void {
-        Log.log("Verified " + this.autoVerificationResults.length + " files (" + Helper.formatSeconds((Date.now() - this.autoVerificationStartTime) / 1000) + ")", LogLevel.Info);
-        this.autoVerificationResults.forEach(res => {
-            Log.log("Verification Result: " + res, LogLevel.Info);
-        });
-        if (State.unitTest) State.unitTest.allFilesVerified(this.autoVerificationResults.length, this.allFilesToAutoVerify.length);
-    }
-
-    private autoVerifyFile(): void {
-        if (this.nextFileToAutoVerify < this.allFilesToAutoVerify.length && this.verifyingAllFiles) {
-            const currFile = this.allFilesToAutoVerify[this.nextFileToAutoVerify];
-            Log.log("AutoVerify " + path.basename(currFile.toString()), LogLevel.Info);
-            this.nextFileToAutoVerify++;
-            // Just open the file — handleOpenedFile will add the Verify task.
-            // This avoids duplicate Verify tasks (one from here, one from the editor change event).
-            vscode.workspace.openTextDocument(currFile)
-                .then(document => vscode.window.showTextDocument(document))
-                .then(Helper.identity, err => Log.error(`Error while auto verifying files: ${err}`));
-        } else {
-            this.verifyingAllFiles = false;
-            this.printAllVerificationResults();
-        }
     }
 }
 

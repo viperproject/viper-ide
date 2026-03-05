@@ -236,16 +236,6 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         }
     }));
 
-    //verifyAllFilesInWorkspace
-    context.subscriptions.push(vscode.commands.registerCommand('viper.verifyAllFilesInWorkspace', async (folder: string) => {
-        if (!State.isReady()) {
-            showNotReadyHint()
-            return;
-        }
-
-        await State.verificationController.verifyAllFilesInWorkspace(folder);
-    }));
-
     //toggleAutoVerify
     context.subscriptions.push(vscode.commands.registerCommand('viper.toggleAutoVerify', () => toggleAutoVerify()));
 

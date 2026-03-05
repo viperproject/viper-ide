@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { Helper } from '../Helper';
 import { Log } from '../Log';
 import { Common } from '../ViperProtocol';
-import TestHelper, { EMPTY_TXT, LONG, SETUP_TIMEOUT, SIMPLE, WARNINGS } from './TestHelper';
+import TestHelper, { CARBON_NAME, EMPTY_TXT, LONG, SETUP_TIMEOUT, SILICON_NAME, SIMPLE, WARNINGS } from './TestHelper';
 
 suite('ViperIDE Tests', () => {
 
@@ -125,6 +125,18 @@ suite('ViperIDE Tests', () => {
         await TestHelper.executeCommand('viper.openLogFile');
         await opened;
         await TestHelper.closeFile();
+    });
+
+    test("Test simple verification with carbon", async function() {
+        this.timeout(35000);
+
+        await TestHelper.openFile(SIMPLE);
+        const carbonVerified = TestHelper.waitForVerification(SIMPLE, CARBON_NAME);
+        await TestHelper.selectBackend(CARBON_NAME);
+        await carbonVerified;
+        const siliconVerified = TestHelper.waitForVerification(SIMPLE, SILICON_NAME);
+        await TestHelper.selectBackend(SILICON_NAME);
+        await siliconVerified;
     });
 });
 
