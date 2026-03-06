@@ -6,14 +6,17 @@
 
 import assert from 'assert';
 import * as path from 'path';
-import * as vscode from 'vscode';
-import * as myExtension from '../extension';
-import { State, UnitTestCallback } from '../ExtensionState';
-import { Log } from '../Log';
-import { LogLevel } from '../ViperProtocol';
+import { createRequire } from 'node:module';
+import type { ExtensionContext, TextDocument } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
+import * as myExtension from '../extension.js';
+import { State, UnitTestCallback } from '../ExtensionState.js';
+import { Log } from '../Log.js';
+import { LogLevel } from '../ViperProtocol.js';
 import psList from 'ps-list';
 
-export const PROJECT_ROOT = path.join(__dirname, "..", "..");
+export const PROJECT_ROOT = path.join(import.meta.dirname, "..", "..");
 export const DATA_ROOT = path.join(PROJECT_ROOT, "src", "test", "data");
 export const SILICON_TYPE = 'silicon';
 export const SILICON_NAME = 'Symbolic Execution (silicon)';
@@ -32,7 +35,7 @@ export const WARNINGS = 'warnings.vpr';
 
 export default class TestHelper {
     private static callbacks: UnitTestCallbackImpl = null;
-    private static context: vscode.ExtensionContext = null;
+    private static context: ExtensionContext = null;
 
     /**
      * Configures the state used for unit tests.
@@ -86,7 +89,7 @@ export default class TestHelper {
         return path.join(DATA_ROOT, fileName);
     }
 
-    public static async openFile(fileName: string): Promise<vscode.TextDocument> {
+    public static async openFile(fileName: string): Promise<TextDocument> {
         const filePath = TestHelper.getTestDataPath(fileName);
         TestHelper.log("Open " + filePath);
         const document = await vscode.workspace.openTextDocument(filePath);
@@ -105,7 +108,7 @@ export default class TestHelper {
         await TestHelper.executeCommand('workbench.action.closeAllEditors');
     }
     
-    public static async openAndVerify(fileName: string): Promise<vscode.TextDocument> {
+    public static async openAndVerify(fileName: string): Promise<TextDocument> {
         // open file, ...
         const document = await TestHelper.openFile(fileName);
 

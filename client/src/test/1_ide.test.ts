@@ -1,10 +1,12 @@
 import assert from 'assert';
 import * as path from 'path';
-import * as vscode from 'vscode';
-import { Helper } from '../Helper';
-import { Log } from '../Log';
-import { Common } from '../ViperProtocol';
-import TestHelper, { EMPTY_TXT, LONG, SETUP_TIMEOUT, SIMPLE, WARNINGS } from './TestHelper';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
+import { Helper } from '../Helper.js';
+import { Log } from '../Log.js';
+import { Common } from '../ViperProtocol.js';
+import TestHelper, { EMPTY_TXT, LONG, SETUP_TIMEOUT, SIMPLE, WARNINGS } from './TestHelper.js';
 
 suite('ViperIDE Tests', () => {
 

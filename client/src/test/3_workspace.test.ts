@@ -1,6 +1,6 @@
 import assert from 'assert';
-import { Common } from '../ViperProtocol';
-import TestHelper, { DATA_ROOT, SETUP_TIMEOUT } from './TestHelper';
+import { Common } from '../ViperProtocol.js';
+import TestHelper, { DATA_ROOT, SETUP_TIMEOUT } from './TestHelper.js';
 
 suite('Workspace Tests', () => {
 

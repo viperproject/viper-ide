@@ -9,17 +9,23 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as pathHelper from 'path';
-import * as vscode from 'vscode';
+import { createRequire } from 'node:module';
+import type { Uri } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 import { Location } from 'vs-verification-toolbox';
-import * as locate_java_home from '@viperproject/locate-java-home';
-import { IJavaHomeInfo } from '@viperproject/locate-java-home/js/es5/lib/interfaces';
-import { Log } from './Log';
-import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, Success, Stage, Backend, LogLevel, Common, ViperServerSettings, JavaSettings, AdvancedFeatureSettings, UserPreferences, PathSettings } from './ViperProtocol';
-import { combineMessages, Either, flatMap, flatMapAsync, flatten, fold, isRight, Level, Messages, newEitherError, newEitherWarning, newLeft, newRight, toRight, transformRight } from './Either';
+import type { IJavaHomeInfo } from '@viperproject/locate-java-home/js/es5/lib/interfaces';
+const locate_java_home = require('@viperproject/locate-java-home').default as (
+    options: { version: string; mustBe64Bit: boolean },
+    callback: (err: Error | null, javaHomes: IJavaHomeInfo[]) => void
+) => void;
+import { Log } from './Log.js';
+import { Versions, PlatformDependentURL, PlatformDependentPath, PlatformDependentListOfPaths, Success, Stage, Backend, LogLevel, Common, ViperServerSettings, JavaSettings, AdvancedFeatureSettings, UserPreferences, PathSettings } from './ViperProtocol.js';
+import { combineMessages, Either, flatMap, flatMapAsync, flatten, fold, isRight, Level, Messages, newEitherError, newEitherWarning, newLeft, newRight, toRight, transformRight } from './Either.js';
 import { readdir } from 'fs/promises';
-import { Helper } from './Helper';
-import { State } from './ExtensionState';
-import { Color } from './StatusBar';
+import { Helper } from './Helper.js';
+import { State } from './ExtensionState.js';
+import { Color } from './StatusBar.js';
 
 
 export class Settings {
@@ -740,7 +746,7 @@ export class Settings {
         return toRight(res);
     }
 
-    public static async getCustomArgsForBackend(location: Location, backend: Backend, fileUri: vscode.Uri): Promise<Either<Messages, string>> {
+    public static async getCustomArgsForBackend(location: Location, backend: Backend, fileUri: Uri): Promise<Either<Messages, string>> {
         // while checking the stages, we make sure that there is exactly one stage with `isVerification` set to true:
         const verificationStage = backend.stages.filter(stage => stage.isVerification)[0];
         const z3Path = await Settings.getZ3Path(location);
@@ -864,7 +870,7 @@ export class Settings {
               version: `>=${minJavaVersion}`,
               mustBe64Bit: true
             };
-            locate_java_home.default(options, (err, javaHomes) => {
+            locate_java_home(options, (err, javaHomes) => {
               if (err) {
                 reject(err.message);
               } else {
