@@ -6,10 +6,7 @@
   * Copyright (c) 2024 ETH Zurich.
   */
 
-import { createRequire } from 'node:module';
 import type { Uri } from 'vscode';
-const require = createRequire(import.meta.url);
-const vscode = require('vscode') as typeof import('vscode');
 
 export type ProjectRoot = Uri;
 

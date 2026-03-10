@@ -8,10 +8,7 @@
 
 import * as child_process from "child_process";
 import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node.js';
-import { createRequire } from 'node:module';
 import type { ExtensionContext, FileSystemWatcher, OutputChannel, TextEditor, Uri } from 'vscode';
-const require = createRequire(import.meta.url);
-const vscode = require('vscode') as typeof import('vscode');
 import * as net from 'net';
 import * as path from 'path';
 import * as readline from 'readline';
