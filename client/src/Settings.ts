@@ -102,7 +102,6 @@ export class Settings {
             .then(res => isRight(res) ? newRight(settings) : res);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private static builtinBackendToBackend(builtinBackend: BuiltinBackend, type: string): Backend {
         const preVerificationStages: Stage[] = builtinBackend.preVerificationStages;
         const verificationStage: Stage = {
@@ -193,7 +192,6 @@ export class Settings {
             .then(res => isRight(res) ? newRight(settings) : res);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     private static async checkAndGetJavaSettings(location: Location): Promise<Either<Messages, JavaSettings>> {
         const settingName = "javaSettings";
         const settings = Settings.getConfiguration(settingName);
