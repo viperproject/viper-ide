@@ -1,5 +1,5 @@
 import assert from 'assert';
-import TestHelper, { CARBON_NAME, SETUP_TIMEOUT, SILICON_NAME, SIMPLE } from './TestHelper';
+import TestHelper, { CARBON_NAME, SETUP_TIMEOUT, SILICON_NAME, SIMPLE } from './TestHelper.js';
 
 suite('ViperIDE Stress Tests', () => {
 

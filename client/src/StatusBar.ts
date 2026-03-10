@@ -6,16 +6,19 @@
   * Copyright (c) 2011-2024 ETH Zurich.
   */
 
-import * as vscode from "vscode";
-import { Helper } from './Helper';
-import { Settings } from "./Settings";
+import { createRequire } from 'node:module';
+import type { ExtensionContext, StatusBarItem } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
+import { Helper } from './Helper.js';
+import { Settings } from "./Settings.js";
 
 export class StatusBar {
 
-    private elem: vscode.StatusBarItem
+    private elem: StatusBarItem
     public command: string;
 
-    constructor(priority, context: vscode.ExtensionContext) {
+    constructor(priority, context: ExtensionContext) {
         this.elem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, priority);
         context.subscriptions.push(this.elem);
     }

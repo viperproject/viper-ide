@@ -1,10 +1,13 @@
 import assert from 'assert';
 import * as path from 'path';
-import * as vscode from 'vscode';
-import { Helper } from '../Helper';
-import { Log } from '../Log';
-import { Common } from '../ViperProtocol';
-import TestHelper, { EMPTY_TXT, LONG, SETUP_TIMEOUT, SIMPLE, WARNINGS } from './TestHelper';
+import type { Diagnostic, Uri } from 'vscode';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
+import { Helper } from '../Helper.js';
+import { Log } from '../Log.js';
+import { Common } from '../ViperProtocol.js';
+import TestHelper, { EMPTY_TXT, LONG, SETUP_TIMEOUT, SIMPLE, WARNINGS } from './TestHelper.js';
 
 suite('ViperIDE Tests', () => {
 
@@ -135,7 +138,7 @@ function checkAssert<T>(seen: T, expected: T, message: string): void {
 
 // Diagnostics are published via a separate LSP notification (textDocument/publishDiagnostics)
 // that may be processed after the verification completion state change, so we poll.
-function waitForDiagnostics(uri: vscode.Uri, expectedCount: number, timeoutMs: number): Promise<vscode.Diagnostic[]> {
+function waitForDiagnostics(uri: Uri, expectedCount: number, timeoutMs: number): Promise<Diagnostic[]> {
     return new Promise((resolve, reject) => {
         const diagnostics = vscode.languages.getDiagnostics(uri);
         if (diagnostics.length >= expectedCount) {
