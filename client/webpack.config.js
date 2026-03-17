@@ -35,6 +35,9 @@ const config = {
         filename: 'extension.js',
         module: true,
         chunkFormat: 'module',
+        library: {
+            type: 'module',
+        },
     },
     experiments: {
         outputModule: true,
