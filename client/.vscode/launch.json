@@ -1,4 +1,15 @@
-// A launch configuration that compiles the extension and then opens it inside a new window
+// To use a locally built ViperServer, set:
+//   "viper.buildVersion": "External",
+//   "viper.viperServer.serverJars": "/path/to/viperserver/target/scala-2.13/viperserver.jar"\
+// in your VS Code user settings.json.
+//
+// To debug ViperServer (e.g. from IntelliJ), add the following to your
+// VS Code user settings.json, then attach a Remote JVM Debug in IntelliJ
+// on localhost:5005.
+//
+// Debug ViperServer:
+//   "viper.javaSettings.customArguments": "-Xmx2048m -Xss128m -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -cp $backendPaths$ -server $mainMethod$"
+//
 {
     "version": "0.2.0",
     "configurations": [
@@ -12,25 +23,6 @@
                 "--extensionDevelopmentPath=${workspaceRoot}",
                 "--disable-extensions"
             ],
-            "sourceMaps": true,
-            "outFiles": ["${workspaceRoot}/dist/**/*.js"],
-            "preLaunchTask": {
-                "type": "npm",
-                "script": "compile"
-            }
-        },
-        {
-            "name": "Debug Extension + ViperServer",
-            "type": "extensionHost",
-            "request": "launch",
-            "runtimeExecutable": "${execPath}",
-            "args": [
-                "--extensionDevelopmentPath=${workspaceRoot}",
-                "--disable-extensions"
-            ],
-            "env": {
-                "VIPER_SERVER_DEBUG_PORT": "5005"
-            },
             "sourceMaps": true,
             "outFiles": ["${workspaceRoot}/dist/**/*.js"],
             "preLaunchTask": {
