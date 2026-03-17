@@ -909,7 +909,11 @@ export class Settings {
     public static async getServerJavaArgs(location: Location, mainMethod: string): Promise<string> {
         const configuredArgString = Settings.getConfiguration("javaSettings").customArguments;
         const serverJars = await Settings.getViperServerJars(location); // `viperServerJars()` already returns an escaped string
-        return configuredArgString
+        const debugPort = process.env.VIPER_SERVER_DEBUG_PORT;
+        const debugArgs = debugPort
+            ? `-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:${debugPort} `
+            : "";
+        return debugArgs + configuredArgString
             // note that we use functions as 2nd argument since we do not want that
             // the special replacement patterns kick in
             .replace("$backendPaths$", () => serverJars)

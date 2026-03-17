@@ -4,16 +4,33 @@
     "configurations": [
 
         {
-            "name": "Launch",
+            "name": "Debug Extension",
             "type": "extensionHost",
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": [
-                "--extensionDevelopmentPath=${workspaceRoot}" /*,
-                "--profile-temp",
-                "--disable-extensions",
-                "${workspaceRoot}/src/test/data" */
+                "--extensionDevelopmentPath=${workspaceRoot}",
+                "--disable-extensions"
             ],
+            "sourceMaps": true,
+            "outFiles": ["${workspaceRoot}/dist/**/*.js"],
+            "preLaunchTask": {
+                "type": "npm",
+                "script": "compile"
+            }
+        },
+        {
+            "name": "Debug Extension + ViperServer",
+            "type": "extensionHost",
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceRoot}",
+                "--disable-extensions"
+            ],
+            "env": {
+                "VIPER_SERVER_DEBUG_PORT": "5005"
+            },
             "sourceMaps": true,
             "outFiles": ["${workspaceRoot}/dist/**/*.js"],
             "preLaunchTask": {
@@ -28,7 +45,7 @@
             "runtimeExecutable": "${execPath}",
             "args": [
                 "--extensionDevelopmentPath=${workspaceRoot}",
-                "--extensionTestsPath=${workspaceRoot}/dist/test"
+                "--extensionTestsPath=${workspaceRoot}/dist/test/index.js"
             ],
             "sourceMaps": true,
             "outFiles": ["${workspaceRoot}/dist/test/**/*.js"],
@@ -36,22 +53,6 @@
                 "type": "npm",
                 "script": "pre-test"
             }
-        }/*,
-        {
-            "name": "Run Server",
-            "type": "node",
-            "request": "launch",
-            "runtimeArgs": [
-                "--nolazy"
-            ],
-            "program": "${workspaceRoot}/src/debug.ts",
-            "stopOnEntry": false,
-            "args": [
-                "--server=4711"
-            ],
-            "sourceMaps": true,
-            "outFiles": ["${workspaceRoot}/out/** / * . j s "],
-            "cwd": "${workspaceRoot}"
-        }*/
+        }
     ]
 }
