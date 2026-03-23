@@ -52,13 +52,6 @@ export class State {
 
     public static autoVerify = true;
 
-    //inference
-    /**
-     * Determines whether inference should be performed on verification error. Can be toggled via the command
-     * `viper.toggleInferenceOnVerificationError`.
-     */
-    public static enableInferenceOnVerificationError = true;
-
     //status bar
     public static statusBarItem: StatusBar;
     public static statusBarProgress: StatusBar;

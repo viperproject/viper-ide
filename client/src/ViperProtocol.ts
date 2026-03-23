@@ -100,7 +100,6 @@ export interface VerifyParams {
     workspace: string;
     backend: string;
     customArgs: string;
-    enableInference: boolean;
 }
 
 export interface Command {
