@@ -192,7 +192,6 @@ async function initializeState(location: Location): Promise<void> {
 }
 
 function registerContextHandlers(context: vscode.ExtensionContext, location: Location): void {
-
     context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
         try {
             State.addToWorklist(new Task({ type: TaskType.Save, uri: params.uri }));

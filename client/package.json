@@ -118,11 +118,6 @@
 				"category": "Viper"
 			},
 			{
-				"command": "viper.quickfix",
-				"title": "apply quickfix",
-				"category": "Viper"
-			},
-			{
 				"command": "viper.openLogFile",
 				"title": "open current logFile",
 				"category": "Viper"
@@ -329,7 +324,7 @@
 				},
 				"viper.viperServer.customArguments": {
 					"type": "string",
-					"default": "--serverMode LSP --singleClient $backendSpecificCache$ --logLevel $logLevel$ --logFile $logFile$",
+					"default": "--serverMode LSP --singleClient $backendSpecificCache$ $methodInference$ --logLevel $logLevel$ --logFile $logFile$",
 					"description": "The command line arguments used for starting the Viper Server."
 				},
 				"viper.viperServer.backendSpecificCache": {
@@ -649,6 +644,11 @@
 					"type": "boolean",
 					"default": false,
 					"markdownDescription": "Determines whether inference should be performed on verification error."
+				},
+				"viper.advancedFeatures.methodInference": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Toggle option to infer specifications for methods."
 				}
 			}
 		}

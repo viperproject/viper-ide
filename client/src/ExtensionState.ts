@@ -57,7 +57,7 @@ export class State {
      * Determines whether inference should be performed on verification error. Can be toggled via the command
      * `viper.toggleInferenceOnVerificationError`.
      */
-    public static enableInferenceOnVerificationError = true;
+    public static enableInferenceOnVerificationError = false;
 
     //status bar
     public static statusBarItem: StatusBar;
