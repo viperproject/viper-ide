@@ -3,7 +3,7 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at http://mozilla.org/MPL/2.0/.
   *
-  * Copyright (c) 2011-2019 ETH Zurich.
+  * Copyright (c) 2011-2024 ETH Zurich.
   */
 
 // The module 'vscode' contains the VS Code extensibility API
@@ -19,35 +19,38 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as rimraf from 'rimraf';
-import * as vscode from 'vscode';
+import { createRequire } from 'node:module';
+import type { ExtensionContext, FileSystemWatcher } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 import { URI } from 'vscode-uri';
-import { State } from './ExtensionState';
-import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, VerificationNotStartedParams } from './ViperProtocol';
-import { Log } from './Log';
-import { Helper } from './Helper';
-import { locateViperTools } from './ViperTools';
-import { Color } from './StatusBar';
-import { VerificationController, TaskType, Task } from './VerificationController';
-import { ViperApi } from './ViperApi';
-import { Settings } from './Settings';
+import { State } from './ExtensionState.js';
+import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, Range, VerificationNotStartedParams, SetupProjectParams, RemoveDiagnosticsResponse } from './ViperProtocol.js';
+import { Log } from './Log.js';
+import { Helper } from './Helper.js';
+import { locateViperTools } from './ViperTools.js';
+import { Color } from './StatusBar.js';
+import { VerificationController, TaskType, Task } from './VerificationController.js';
+import { ViperApi } from './ViperApi.js';
+import { Settings } from './Settings.js';
 import { Location } from 'vs-verification-toolbox';
 
-let fileSystemWatcher: vscode.FileSystemWatcher;
+let fileSystemWatcher: FileSystemWatcher;
 
 let activated = false;
 
 // this method is called when your extension is activated
-export async function activate(context: vscode.ExtensionContext): Promise<ViperApi> {
+export async function activate(context: ExtensionContext): Promise<ViperApi> {
     return internalActivate(context)
         .catch(async err => {
             // give the user the choice what to do:
-            Log.hint(`Activating the Viper-IDE extension has failed: ${err}`, `Viper`, true, true);
+            Log.hint(`Activating the Viper-IDE extension has failed: ${err}`, `Viper`, true);
             // we resolve the promise here such that e.g. updating Viper-IDE actually works:
             return State.viperApi;
         });
 }
 
-async function internalActivate(context: vscode.ExtensionContext): Promise<ViperApi> {
+async function internalActivate(context: ExtensionContext): Promise<ViperApi> {
     if (activated) {
         throw new Error(`Viper-IDE extension is already activated`);
     }
@@ -82,7 +85,7 @@ export function isActivated(): boolean {
     return activated;
 }
 
-async function cleanViperToolsIfRequested(context: vscode.ExtensionContext): Promise<void> {
+async function cleanViperToolsIfRequested(context: ExtensionContext): Promise<void> {
     // start of in a clean state by wiping Viper Tools if this was requested via
 	// environment variables. In particular, this is used for the extension tests.
 	if (Helper.cleanInstall()) {
@@ -126,16 +129,16 @@ async function internalDeactivate(): Promise<void> {
 }
 
 /** deactivates and disposes extension and returns the extension context */
-export async function shutdown(): Promise<vscode.ExtensionContext> {
+export async function shutdown(): Promise<ExtensionContext> {
     return internalShutdown()
         .catch(Helper.rethrow(`Shutting down the Viper-IDE extension has failed`));
 }
 
-async function internalShutdown(): Promise<vscode.ExtensionContext> {
+async function internalShutdown(): Promise<ExtensionContext> {
     const context = State.context;
     // remove diagnostics as otherwise VSCode will show diagnostics of the extension's
     // current and next run
-    removeDiagnostics(false);
+    await removeDiagnostics(false);
     await deactivate();
     while (context.subscriptions.length > 0) {
         // remove first element (this avoid that we might dispose a subscription multiple times):
@@ -167,13 +170,7 @@ function toggleAutoVerify(): void {
 
 async function initializeState(location: Location): Promise<void> {
     // set currently open file
-    if (vscode.window.activeTextEditor) {
-        const uri = vscode.window.activeTextEditor.document.uri;
-        State.setLastActiveFile(uri, vscode.window.activeTextEditor);
-        // this file is automatically verified as soon as the backend got started
-    } else {
-        Log.log("No active text editor found", LogLevel.Info);
-    }
+    State.handleOpenedFile();
     
     // get backends from configuration and pick first one as the 'default' backend:
     const backends = await Settings.getVerificationBackends(location);
@@ -188,7 +185,7 @@ async function initializeState(location: Location): Promise<void> {
     State.statusBarItem.update("ready", Color.READY);
 }
 
-function registerContextHandlers(context: vscode.ExtensionContext, location: Location): void {
+function registerContextHandlers(context: ExtensionContext, location: Location): void {
     context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
         try {
             State.addToWorklist(new Task({ type: TaskType.Save, uri: params.uri }));
@@ -197,11 +194,19 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         }
     }));
 
+    context.subscriptions.push(vscode.workspace.onDidCloseTextDocument((params) => {
+        if (State.resetProjectIfRoot(params.uri)) {
+            State.updateActive();
+        }
+        State.removeFileState(params.uri);
+        State.addToWorklist(new Task({ type: TaskType.FileClosed, uri: params.uri }));
+    }));
+
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
         // basically all settings have some effect on ViperServer
         // only `advancedFeatures` might be fine to ignore but we simply restart ViperServer
         // for every configuration change:
-        if (event.affectsConfiguration("viperSettings")) {
+        if (event.affectsConfiguration("viper")) {
             Log.updateSettings();
             Log.log(`Viper settings have been changed -> schedule an extension restart`, LogLevel.Info);
             State.addToWorklist(new Task({ type: TaskType.RestartExtension, uri: null, manuallyTriggered: false }));
@@ -211,27 +216,7 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
     //trigger verification texteditorChange
     context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(async () => {
         try {
-            const editor = vscode.window.activeTextEditor;
-            if (editor) {
-                const uri = editor.document.uri;
-                if (Helper.isViperSourceFile(uri)) {
-                    const fileState = State.setLastActiveFile(uri, editor);
-                    // show status bar items (in case they were hidden)
-                    State.showViperStatusBarItems();
-                    if (fileState) {
-                        if (!fileState.verified) {
-                            Log.log("The active text editor changed, consider reverification of " + fileState.name(), LogLevel.Debug);
-                            State.addToWorklist(new Task({ type: TaskType.Verify, uri: uri, manuallyTriggered: false }));
-                        } else {
-                            Log.log("Don't reverify, the file is already verified", LogLevel.Debug);
-                        }
-                        Log.log("Active viper file changed to " + fileState.name(), LogLevel.Info);
-                    }
-                } else {
-                    // hide status bar items (in case they are shown):
-                    State.hideViperStatusBarItems();
-                }
-            }
+            State.handleOpenedFile();
         } catch (e) {
             Log.error("Error handling active text editor change: " + e);
         }
@@ -244,7 +229,7 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
             showNotReadyHint();
             return;
         }
-        const fileUri = Helper.getActiveFileUri();
+        const fileUri = Helper.getActiveVerificationUri();
         if (!fileUri) {
             Log.log("Cannot verify, no document is open.", LogLevel.Info);
         } else if (!Helper.isViperSourceFile(fileUri)) {
@@ -305,6 +290,15 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         }
     }));
 
+    context.subscriptions.push(vscode.commands.registerCommand('viper.unpinProject', () => {
+        const active = Helper.getActiveFileUri();
+        if (active) {
+            State.unpinProject(active[0]);
+            State.updateActiveInner(null);
+            State.addToWorklist(new Task({ type: TaskType.Verify, uri: active[0], manuallyTriggered: false }));
+        }
+    }));
+
     //stopVerification
     context.subscriptions.push(vscode.commands.registerCommand('viper.stopVerification', () => {
         if (!State.isReady()) {
@@ -318,30 +312,25 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
     context.subscriptions.push(vscode.commands.registerCommand('viper.openLogFile', openLogFile));
 
     //remove diagnostics of open file
-    context.subscriptions.push(vscode.commands.registerCommand('viper.removeDiagnostics', () => removeDiagnostics(true)));
-
-    //automatic installation and updating of viper tools
-    context.subscriptions.push(vscode.commands.registerCommand('viper.updateViperTools', () => {
-        State.addToWorklist(new Task({ type: TaskType.UpdateViperTools, uri: null, manuallyTriggered: true }));
-    }));
+    context.subscriptions.push(vscode.commands.registerCommand('viper.removeDiagnostics', async () => await removeDiagnostics(true)));
 
     // show currently active (Viper) settings
     context.subscriptions.push(vscode.commands.registerCommand('viper.showSettings', async () => {
-        const settings = vscode.workspace.getConfiguration("viperSettings");
+        const settings = vscode.workspace.getConfiguration("viper");
         const document = await vscode.workspace.openTextDocument({ language: 'json', content: JSON.stringify(settings, null, 2) });
         await vscode.window.showTextDocument(document, vscode.ViewColumn.Two);
     }));
 }
 
 function showNotReadyHint(): void {
-    Log.hint(`Extension is not yet ready.`, `Viper`, false, true, true);
+    Log.hint(`Extension is not yet ready.`, `Viper`, false, true);
 }
 
 function registerClientHandlers(): void {
     State.client.onNotification(Commands.StateChange, (params: StateChangeParams) => State.verificationController.handleStateChange(params));
         
     State.client.onNotification(Commands.Hint, (data: HintMessage) => {
-        Log.hint(data.message, "Viper", data.showSettingsButton, data.showViperToolsUpdateButton);
+        Log.hint(data.message, "Viper", data.showSettingsButton);
     });
         
     State.client.onNotification(Commands.Log, (params: LogParams) => {
@@ -361,21 +350,41 @@ function registerClientHandlers(): void {
     State.client.onRequest(Commands.GetIdentifier, (position: Position) => {
         try {
             const range = vscode.window.activeTextEditor.document.getWordRangeAtPosition(new vscode.Position(position.line, position.character))
-            const res = vscode.window.activeTextEditor.document.getText(range);
-            if(res.indexOf(" ")> 0) {
+            const identifier = vscode.window.activeTextEditor.document.getText(range);
+            if (identifier.indexOf(" ") > 0) {
                 return { identifier: null };
             }
-            Log.log(`GetIdentifier: ${res}`, LogLevel.LowLevelDebug);
-            return { identifier: res };
+            Log.log(`GetIdentifier: ${identifier}`, LogLevel.LowLevelDebug);
+            return { identifier };
         } catch (e) {
             Log.error("Error getting indentifier: " + e);
             return { identifier: null };
         }
     });
 
+    State.client.onRequest(Commands.GetRange, (range: Range) => {
+        const inputRange = new vscode.Range(
+            new vscode.Position(range.start.line, range.start.character),
+            new vscode.Position(range.end.line, range.end.character)
+        );
+        const rangeText = vscode.window.activeTextEditor.document.getText(inputRange);
+        Log.log(`GetRange: ${rangeText}`, LogLevel.LowLevelDebug);
+        return { range: rangeText };
+    });
+
     State.client.onRequest(Commands.GetViperFileEndings, () => {
         Helper.loadViperFileExtensions();
         return { fileEndings: Helper.viperFileEndings};
+    });
+
+    State.client.onRequest(Commands.SetupProject, (params: SetupProjectParams) => {
+        Log.log(`Setup project with root at ${params.projectUri} containing ${params.otherUris.length} files`, LogLevel.Debug);
+        const projectUri = vscode.Uri.parse(params.projectUri);
+        State.unpinAllInProject(projectUri);
+        params.otherUris.forEach(uri => {
+            State.pinFile(projectUri, vscode.Uri.parse(uri));
+        });
+        State.updateActive();
     });
 
     State.client.onNotification(Commands.VerificationNotStarted, (params: VerificationNotStartedParams) => {
@@ -410,7 +419,7 @@ async function flushCache(allFiles: boolean): Promise<void> {
             const params: FlushCacheParams = { uri: null, backend: backend.name };
             await State.client.sendRequest(Commands.FlushCache, params);
         } else {
-            const fileUri = Helper.getActiveFileUri();
+            const fileUri = Helper.getActiveVerificationUri();
             if (!fileUri) {
                 Log.hint("Cannot flush cache, no active viper file found");
                 return;
@@ -455,15 +464,16 @@ function considerStartingBackend(newBackend: Backend): Promise<void> {
     });
 }
 
-function removeDiagnostics(activeFileOnly: boolean): void {
+async function removeDiagnostics(activeFileOnly: boolean): Promise<RemoveDiagnosticsResponse> {
+    let uri: string = null;
     if (activeFileOnly) {
-        if (vscode.window.activeTextEditor) {
-            const uri = vscode.window.activeTextEditor.document.uri;
-            State.diagnosticCollection.delete(uri);
-            Log.log(`Diagnostics successfully removed for file ${uri}`, LogLevel.Debug);
+        const active = Helper.getActiveFileUri();
+        if (active) {
+            uri = active[0].toString();
+            Log.log(`Requesting diagnostics removal for ${uri}`, LogLevel.Debug);
+            return State.client.sendRequest(Commands.RemoveDiagnostics, { uri })
+        } else {
+            return Promise.resolve({ success: false });
         }
-    } else {
-        State.diagnosticCollection.clear();
-        Log.log(`All diagnostics successfully removed`, LogLevel.Debug);
     }
 }

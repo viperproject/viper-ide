@@ -7,22 +7,25 @@
   */
  
 
-import * as vscode from 'vscode';
-import { State } from './ExtensionState';
-import { ViperFileState } from './ViperFileState';
-import { Success } from './ViperProtocol';
-import { LanguageClient } from 'vscode-languageclient/node';
+import { createRequire } from 'node:module';
+import type { Uri } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
+import { State } from './ExtensionState.js';
+import { ViperFileState } from './ViperFileState.js';
+import { Success } from './ViperProtocol.js';
+import { LanguageClient } from 'vscode-languageclient/node.js';
 
 export class VerificationTerminatedEvent {
     status: Success;
-    filename: vscode.Uri;
+    filename: Uri;
     message: string; 
 }
 
 class ViperConfiguration {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public get(id: string): any {
-        return vscode.workspace.getConfiguration('viperSettings').get(id);
+        return vscode.workspace.getConfiguration().get(id);
     }
 }
 

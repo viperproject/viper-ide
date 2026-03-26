@@ -6,13 +6,16 @@
   * Copyright (c) 2011-2020 ETH Zurich.
   */
 
-import * as vscode from 'vscode';
+import { createRequire } from 'node:module';
+import type { TextEditor, Uri } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 import * as path from 'path';
-import { Success,TimingInfo } from './ViperProtocol';
+import { Success,TimingInfo } from './ViperProtocol.js';
 
 export class ViperFileState {
 
-    constructor(uri: vscode.Uri) {
+    constructor(uri: Uri) {
         this.verified = false;
         this.success = Success.None;
         this.verifying = false;
@@ -22,7 +25,7 @@ export class ViperFileState {
         this.initializeEditor();
     }
 
-    uri: vscode.Uri;
+    uri: Uri;
     verified: boolean;
     success: Success;
     verifying: boolean;
@@ -31,7 +34,7 @@ export class ViperFileState {
 
     timingInfo:TimingInfo;
 
-    editor: vscode.TextEditor;
+    editor: TextEditor;
 
     public fileOpened(): void {
         this.open = true;
@@ -51,7 +54,7 @@ export class ViperFileState {
         });
     }
 
-    public setEditor(editor: vscode.TextEditor): void {
+    public setEditor(editor: TextEditor): void {
         if (!this.editor) {
             this.editor = editor;
         } else {

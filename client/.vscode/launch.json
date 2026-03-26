@@ -1,16 +1,27 @@
-// A launch configuration that compiles the extension and then opens it inside a new window
+// To use a locally built ViperServer, set:
+//   "viper.buildVersion": "External",
+//   "viper.viperServer.serverJars": "/path/to/viperserver/target/scala-2.13/viperserver.jar"\
+// in your VS Code user settings.json.
+//
+// To debug ViperServer (e.g. from IntelliJ), add the following to your
+// VS Code user settings.json, then attach a Remote JVM Debug in IntelliJ
+// on localhost:5005.
+//
+// Debug ViperServer:
+//   "viper.javaSettings.customArguments": "-Xmx2048m -Xss128m -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -cp $backendPaths$ -server $mainMethod$"
+//
 {
     "version": "0.2.0",
-    "configurations": [{
-            "name": "Launch",
+    "configurations": [
+
+        {
+            "name": "Debug Extension",
             "type": "extensionHost",
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": [
-                "--extensionDevelopmentPath=${workspaceRoot}" /*,
-                "--profile-temp",
-                "--disable-extensions",
-                "${workspaceRoot}/src/test/data" */
+                "--extensionDevelopmentPath=${workspaceRoot}",
+                "--disable-extensions"
             ],
             "sourceMaps": true,
             "outFiles": ["${workspaceRoot}/dist/**/*.js"],
@@ -26,30 +37,14 @@
             "runtimeExecutable": "${execPath}",
             "args": [
                 "--extensionDevelopmentPath=${workspaceRoot}",
-                "--extensionTestsPath=${workspaceRoot}/dist/test"
+                "--extensionTestsPath=${workspaceRoot}/dist/test/index.js"
             ],
             "sourceMaps": true,
             "outFiles": ["${workspaceRoot}/dist/test/**/*.js"],
             "preLaunchTask": {
                 "type": "npm",
-                "script": "pretest"
+                "script": "pre-test"
             }
-        }/*,
-        {
-            "name": "Run Server",
-            "type": "node",
-            "request": "launch",
-            "runtimeArgs": [
-                "--nolazy"
-            ],
-            "program": "${workspaceRoot}/src/debug.ts",
-            "stopOnEntry": false,
-            "args": [
-                "--server=4711"
-            ],
-            "sourceMaps": true,
-            "outFiles": ["${workspaceRoot}/out/** / * . j s "],
-            "cwd": "${workspaceRoot}"
-        }*/
+        }
     ]
 }

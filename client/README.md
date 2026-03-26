@@ -4,6 +4,29 @@
 
 ### Changelog
 
+#### v.5.3.2 (Viper v.26.02-release) 
+* Several improvements to autocomplete and inlays
+  * Improved autocomplete by removing unwanted suggestions
+  * Removed duplicate inlays and hover hints
+  * Added beginner mode that disables some advanced IDE features that can be confusing for beginners, particularly inlays; this mode is enabled by default and can be disabled in the settings in VSCode 
+
+#### v.5.1.1 (Viper v.25.08-release) 
+* Significantly enhanced IDE experience:
+  * Enabled semantic code actions such as Show / Jump to Definitions, Find References or Rename Symbols
+  * Improved autocomplete
+  * Show inferred triggers
+  * Show parameter names in method calls
+  * Show parser errors without triggering full verification
+* Reworked extension settings. Some custom settings have been renamed and may need to be updated.
+
+#### v.4.5.2 (Viper v.25.02-release)
+
+#### v.4.4.2 (Viper v.24.08-release)
+* ViperTools now come bundled directly with the Viper extension and are no longer downloaded separately.
+
+#### v.4.3.1 (Viper v.24.01-release)
+* Minor bug fixes
+
 #### v.4.2.2 (Viper v.23.07-release)
 * Includes ViperTools for ARM Macs
 
@@ -122,7 +145,7 @@ ETH Zurich condemns the acts of war in Ukraine ([read more](https://ethz.ch/serv
                     "name": "verify",
                     "isVerification": true,
                     "mainMethod": "core.MyCustomVerificationBackend",
-                    "customArguments": "--z3Exe $z3Exe$ $disableCaching$ $fileToVerify$"
+                    "customArguments": "--z3Exe $z3Exe$ $disableCaching$"
                 }
             ],
             "stoppingTimeout": 5000

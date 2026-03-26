@@ -1,4 +1,4 @@
-[![Test Status](https://github.com/viperproject/viper-ide/workflows/test/badge.svg?branch=master)](https://github.com/viperproject/viper-ide/actions?query=workflow%3Atest+branch%3Amaster)
+[![Test Status](https://github.com/viperproject/viper-ide/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/viperproject/viper-ide/actions?query=workflow%3Atest+branch%3Amaster)
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](./LICENSE)
 
 This VS Code extension provides interactive IDE features for [Viper](http://viper.ethz.ch) — the Verification Infrastructure for Permission-based Reasoning. 
@@ -14,7 +14,3 @@ Please **always** refer to the official [installation instructions](http://viper
 ### Using Viper ###
 
 If you would like to learn more about Viper, please start with our extensive [tutorial](http://viper.ethz.ch/tutorial/). 
-
-### Debugging verification failures ###
-
-[Lizard](https://github.com/viperproject/lizard) is a (visual) verification debugger prototype for Viper IDE. It aims at simplifying the understanding of verification failures by converting SMT models to counterexample diagrams that are shown next to the code. 

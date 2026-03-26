@@ -6,15 +6,18 @@
   * Copyright (c) 2011-2020 ETH Zurich.
   */
 
-import * as vscode from "vscode";
+import { createRequire } from 'node:module';
+import type { MessageItem } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 import * as path from 'path';
 import * as fs from 'fs';
-import unusedFilename from 'unused-filename';
-import { Progress, LogLevel } from './ViperProtocol';
-import { Helper } from './Helper';
-import { State } from './ExtensionState';
-import { Settings } from "./Settings";
-import { restart } from "./extension";
+import { unusedFilename } from 'unused-filename';
+import { Progress, LogLevel } from './ViperProtocol.js';
+import { Helper } from './Helper.js';
+import { State } from './ExtensionState.js';
+import { Settings } from "./Settings.js";
+import { restart } from "./extension.js";
 
 export class Log {
     static logFilePath: string;
@@ -205,22 +208,18 @@ export class Log {
         }
     }
 
-    public static hint(message: string, tag: string = "Viper", showSettingsButton = false, showViperToolsUpdateButton = false, showRestartButton = false): void {
+    public static hint(message: string, tag: string = "Viper", showSettingsButton = false, showRestartButton = false): void {
         Log.log("H: " + tag + ": " + message, LogLevel.Debug);
 
-        const settingsButton: vscode.MessageItem = { title: "Open Settings" };
-        const updateButton: vscode.MessageItem = { title: "Update ViperTools" };
-        const restartButton: vscode.MessageItem = { title: "Restart Viper-IDE" };
-        const buttons: vscode.MessageItem[] = [];
+        const settingsButton: MessageItem = { title: "Open Settings" };
+        const restartButton: MessageItem = { title: "Restart Viper-IDE" };
+        const buttons: MessageItem[] = [];
         if (showSettingsButton) buttons.push(settingsButton);
-        if (showViperToolsUpdateButton) buttons.push(updateButton);
         if (showRestartButton) buttons.push(restartButton);
         vscode.window.showInformationMessage(`${tag}: ${message}`, ...buttons).then(async (choice) => {
             try {
                 if (choice && choice.title === settingsButton.title) {
                     await vscode.commands.executeCommand("workbench.action.openGlobalSettings");
-                } else if (choice && choice.title === updateButton.title) {
-                    await vscode.commands.executeCommand("viper.updateViperTools");
                 } else if (choice && choice.title === restartButton.title) {
                     await restart();
                 }

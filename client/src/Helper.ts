@@ -3,16 +3,20 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at http://mozilla.org/MPL/2.0/.
   *
-  * Copyright (c) 2011-2020 ETH Zurich.
+  * Copyright (c) 2011-2024 ETH Zurich.
   */
 
-import * as vscode from 'vscode';
+import { createRequire } from 'node:module';
+import type { ExtensionContext, TextEditor, Uri } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 import * as fs from 'fs';
 import globToRexep from 'glob-to-regexp';
 import * as path from 'path';
 import * as os from 'os';
-import { Log } from './Log';
-import { Common, LogLevel } from './ViperProtocol';
+import { Log } from './Log.js';
+import { Common, LogLevel } from './ViperProtocol.js';
+import { ProjectManager, ProjectRoot } from './ProjectManager.js';
 
 export class Helper {
     public static viperFileEndings: string[];
@@ -29,8 +33,11 @@ export class Helper {
         }
     }
 
-    public static isViperSourceFile(uri: string | vscode.Uri): boolean {
+    public static isViperSourceFile(uri: string | Uri): boolean {
         if (!uri) return false;
+        // Filter out non-file URIs (e.g., _preview, untitled, vscode-diff, etc.)
+        const uriObject = typeof uri === 'string' ? vscode.Uri.parse(uri) : uri;
+        if (uriObject.scheme !== 'file') return false;
         const uriString = Common.uriToString(uri);
         return this.viperFileEndings.some(globPattern => {
             const regex = globToRexep(globPattern);
@@ -39,17 +46,37 @@ export class Helper {
     }
 
     ///might be null
-    public static getActiveFileUri(): vscode.Uri | null {
+    public static getActiveFileUri(): [Uri, TextEditor] | null {
         if (vscode.window.activeTextEditor) {
-            return vscode.window.activeTextEditor.document.uri;
+            return [vscode.window.activeTextEditor.document.uri, vscode.window.activeTextEditor];
+        } else {
+            return null;
+        }
+    }
+    /// Returns the project uri if we are in a project,
+    /// otherwise null
+    public static getActiveProjectUri(): ProjectRoot | null {
+        const activeFileUri = Helper.getActiveFileUri();
+        if (activeFileUri) {
+            return ProjectManager.getProject(activeFileUri[0]) ?? null;
+        } else {
+            return null;
+        }
+    }
+    /// Returns the project uri if we are in a project,
+    /// otherwise the uri of the active file
+    public static getActiveVerificationUri(): Uri | null {
+        const activeFileUri = Helper.getActiveFileUri();
+        if (activeFileUri) {
+            return ProjectManager.getProject(activeFileUri[0]) ?? activeFileUri[0];
         } else {
             return null;
         }
     }
 
     public static formatSeconds(time: number): string {
-        if (!time) return "0 seconds";
-        return time.toFixed(1) + " seconds";
+        if (!time) return "0s";
+        return time.toFixed(1) + "s";
     }
 
     public static formatProgress(progress: number): string {
@@ -60,7 +87,7 @@ export class Helper {
     /**
      * Returns the path to the global storage location provided by VSCode to the extension
      */
-    public static getGlobalStoragePath(context: vscode.ExtensionContext): string {
+    public static getGlobalStoragePath(context: ExtensionContext): string {
         return context.globalStorageUri.fsPath;
     }
 
