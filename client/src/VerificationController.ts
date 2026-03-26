@@ -729,7 +729,7 @@ export class VerificationController {
                         const allDiagnostics: [Uri, readonly Diagnostic[]][] = vscode.languages.getDiagnostics().map<[Uri, Diagnostic[]]>(diag =>
                             [diag[0], diag[1].filter(d => d.source == "viper")]
                         ).filter(diag =>
-                            diag[1].length > 0 || ProjectManager.inSameProject(uri, diag[0])
+                            ProjectManager.inSameProject(uri, diag[0])
                         );
                         const errorInOpenFile = allDiagnostics.some(
                             fileDiag => fileDiag[0].toString() == params.uri
