@@ -7,7 +7,7 @@
   */
 
 import { createRequire } from 'node:module';
-import type { ExtensionContext, StatusBarItem } from 'vscode';
+import type { ExtensionContext, MarkdownString, StatusBarItem } from 'vscode';
 const require = createRequire(import.meta.url);
 const vscode = require('vscode') as typeof import('vscode');
 import { Helper } from './Helper.js';
@@ -23,7 +23,7 @@ export class StatusBar {
         context.subscriptions.push(this.elem);
     }
 
-    public update(text: string, color: string, tooltip: string = null): StatusBar {
+    public update(text: string, color: string, tooltip: MarkdownString = null): StatusBar {
         this.elem.text = text;
         if (color == Color.ERROR) {
             this.elem.color = "white";
@@ -43,11 +43,11 @@ export class StatusBar {
         this.elem.command = command;
     }
 
-    public updateProgressBar(progress: number, tooltip: string = null): StatusBar {
+    public updateProgressBar(progress: number, tooltip: MarkdownString = null): StatusBar {
         return this.update(this.progressBarText(progress), Color.PROGRESS_BAR, tooltip);
     }
-    public updateProgressLabel(progressLabel: string, progress: number, postfix?: string): StatusBar {
-        return this.update(progressLabel + " " + Helper.formatProgress(progress) + (postfix ? " " + postfix : ""), Color.PROGRESS_BAR);
+    public updateProgressLabel(progressLabel: string, progress: number, postfix?: string, tooltip: MarkdownString = null): StatusBar {
+        return this.update(progressLabel + " " + Helper.formatProgress(progress) + (postfix ? " " + postfix : ""), Color.PROGRESS_BAR, tooltip);
     }
 
     public show(): StatusBar {
