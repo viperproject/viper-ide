@@ -149,6 +149,11 @@ export class VerificationController {
     private lastProgress: number;
     private lastState: VerificationState = VerificationState.Stopped;
 
+    //for progress tooltip
+    private allEntities: string[] = [];
+    private verifiedEntities = new Set<string>();
+    private failedEntities = new Set<string>();
+
     //for autoverify all viper files in workspace
     private verifyingAllFiles = false;
     public get isVerifyingAllFiles(): boolean { return this.verifyingAllFiles; }
@@ -550,12 +555,17 @@ export class VerificationController {
                     fileState.verified = false;
                     fileState.verifying = true;
 
+                    //reset progress tooltip state
+                    this.allEntities = [];
+                    this.verifiedEntities = new Set();
+                    this.failedEntities = new Set();
+
                     //start progress updater
                     clearInterval(this.progressUpdater);
                     const progress_lambda: () => void = () => {
                         const progress = this.getProgress(this.lastProgress)
                         const totalProgress = this.getTotalProgress();
-                        Log.progress({ domain: "Verification of " + fileState.name(), progress: progress, postfix: totalProgress }, LogLevel.Debug);
+                        Log.progress({ domain: "Verification of " + fileState.name(), progress: progress, postfix: totalProgress, tooltip: this.buildProgressTooltip() }, LogLevel.Debug);
                     }
                     progress_lambda()
                     this.progressUpdater = setInterval(progress_lambda, 333);
@@ -632,10 +642,21 @@ export class VerificationController {
         return this.verifyingAllFiles ? ` (${this.nextFileToAutoVerify}/${this.allFilesToAutoVerify.length})` : "";
     }
 
+    private buildProgressTooltip(): import('vscode').MarkdownString | null {
+        if (this.allEntities.length === 0) return null;
+        const md = new vscode.MarkdownString();
+        md.isTrusted = false;
+        for (const name of this.allEntities) {
+            const icon = this.verifiedEntities.has(name) ? '✅' : this.failedEntities.has(name) ? '❌' : '⬜';
+            md.appendMarkdown(`${icon} \`${name}\`  \n`);
+        }
+        return md;
+    }
+
     public addTiming(filename: string, paramProgress: number): void {
         this.timings.push(Date.now() - this.verificationStartTime);
         const progress = this.getProgress(paramProgress || 0);
-        Log.progress({ domain: "Verification of " + filename, progress: progress, postfix: this.getTotalProgress() }, LogLevel.Debug);
+        Log.progress({ domain: "Verification of " + filename, progress: progress, postfix: this.getTotalProgress(), tooltip: this.buildProgressTooltip() }, LogLevel.Debug);
     }
 
     private getProgress(progress: number): number {
@@ -683,6 +704,15 @@ export class VerificationController {
                 case VerificationState.VerificationRunning:
                     State.abortButton.show();
                     State.statusBarProgress.show();
+                    if (params.allEntities?.length) {
+                        this.allEntities = params.allEntities;
+                    }
+                    if (params.verifiedEntity) {
+                        this.verifiedEntities.add(params.verifiedEntity);
+                    }
+                    if (params.failedEntity) {
+                        this.failedEntities.add(params.failedEntity);
+                    }
                     if (params.progress > 0) {
                         this.addTiming(params.filename, params.progress);
                     }

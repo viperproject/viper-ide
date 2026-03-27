@@ -6,6 +6,9 @@
   * Copyright (c) 2011-2024 ETH Zurich.
   */
 
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 import * as child_process from "child_process";
 import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node.js';
 import type { ExtensionContext, FileSystemWatcher, OutputChannel, TextEditor, Uri } from 'vscode';
@@ -167,7 +170,7 @@ export class State {
     public static updateActiveInner(projectUri: ProjectRoot | null): void {
         if (projectUri) {
             const projectFile = path.basename(projectUri.path);
-            State.statusBarPin.update("$(pinned)", Color.READY, `Unpin project ${projectFile}`);
+            State.statusBarPin.update("$(pinned)", Color.READY, new vscode.MarkdownString(`Unpin project ${projectFile}`));
             State.statusBarPin.setCommand("viper.unpinProject");
         } else {
             State.statusBarPin.update("", Color.READY);
