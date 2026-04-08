@@ -59,6 +59,8 @@ export class State {
     public static statusBarPin: StatusBar;
     public static abortButton: StatusBar;
 
+    public static activeDecoration?: vscode.TextEditorDecorationType;
+
     public static viperApi: ViperApi;
 
     public static isReady(): boolean {
