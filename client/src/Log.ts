@@ -156,8 +156,8 @@ export class Log {
         const label = data.domain + ": " + Helper.formatProgress(progress) + (data.postfix ? ' ' + data.postfix : '');
         this.lastProgress = { msg: label, logLevel: logLevel };
 
-        State.statusBarProgress.updateProgressBar(progress, null);
-        State.statusBarItem.updateProgressLabel(data.domain, progress, data.postfix);
+        State.statusBarProgress.updateProgressBar(progress, data.tooltip);
+        State.statusBarItem.updateProgressLabel(data.domain, progress, data.postfix, data.tooltip);
     }
 
     private static prefix(logLevel: LogLevel): string {

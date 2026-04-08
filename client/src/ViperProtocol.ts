@@ -8,7 +8,7 @@
 
 import * as child_process from 'child_process';
 import { createRequire } from 'node:module';
-import type { Uri as VscodeUri } from 'vscode';
+import type { MarkdownString, Uri as VscodeUri } from 'vscode';
 const require = createRequire(import.meta.url);
 const vscode = require('vscode') as typeof import('vscode');
 import { NotificationType, RequestType0, RequestType } from 'vscode-jsonrpc';
@@ -174,7 +174,10 @@ export interface StateChangeParams {
     verificationNeeded?: number;
     uri?: string;
     stage?: string;
-    error?: string
+    error?: string;
+    allEntities?: string[];
+    verifiedEntity?: string;
+    failedEntity?: string;
 }
 
 export interface BackendReadyParams {
@@ -535,6 +538,7 @@ export interface Progress {
     total?: number;
     progress?: number;
     postfix?: string;
+    tooltip?: MarkdownString;
 }
 
 export interface Versions {
