@@ -564,7 +564,7 @@ export class VerificationController {
                     const customArgs = await Settings.getCustomArgsForBackend(this.location, backend, uri);
                     if (customArgs.isRight) {
                         const content = fileState.editor.document.getText()
-                        const params: VerifyParams = { uri: uri.toString(), content, manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.type, customArgs: customArgs.right};
+                        const params: VerifyParams = { uri: uri.toString(), content, manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.type, customArgs: customArgs.right };
                         //request verification from Server
                         State.isVerifying = true;                        
                         await State.client.sendNotification(Commands.Verify, params);
