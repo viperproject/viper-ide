@@ -15,4 +15,3 @@
     "typescript.implementationsCodeLens.enabled": true, 
     "typescript.tsc.autoDetect": "off",
     "window.title": "${dirty}${activeEditorShort}${separator}$Viper IDE$"
-}
