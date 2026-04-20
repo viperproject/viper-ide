@@ -142,6 +142,8 @@ export class InferenceResultsCodeLensProvider implements vscode.CodeLensProvider
 export class InferenceController{
     private inferenceMode = false;
     private inferring = false;
+    private requestUpdate = true;
+    private disableCodeLenses = false;
     private codeLensProvider: InferenceResultsCodeLensProvider;
     private controller: AwaitTimer;
     private pendingEdits: PendingEdit[] = [];
@@ -415,7 +417,7 @@ export class InferenceController{
      * Processes a timer tick, handling inference requests, results, and queued edits. Updates the UI if necessary. If
      * the controller is not ready or is currently processing inference, the method returns early. Otherwise, it
      * processes any pending inference requests and results, applies accepted edits, discards rejected edits, and updates
-     * the UI based on any document changes that have occurred.
+     * the UI based on any inference state and document changes that have occurred.
      * @returns A promise that resolves when the timer tick processing is complete.
      */
     private async processTimerTick(): Promise<void> {
@@ -423,8 +425,12 @@ export class InferenceController{
             return;
         }
 
-        if(State.isVerifying || State.isInferring) {
+        if(!this.disableCodeLenses && (State.isVerifying || State.isInferring)) {
             this.codeLensProvider.clear();
+            this.disableCodeLenses = true;
+        } else if(this.disableCodeLenses && !State.isVerifying && !State.isInferring) {
+            this.requestUpdate = true;
+            this.disableCodeLenses = false;
         }
 
         await this.processInferenceRequests();
@@ -432,10 +438,17 @@ export class InferenceController{
         await this.processQueuedEdits(this.acceptedEdits, edit => this.handleInferenceAccept(edit));
         await this.processQueuedEdits(this.rejectedEdits, edit => this.handleInferenceReject(edit));
 
-        if(!State.isVerifying && !State.isInferring) {
-            await this.updateUI(this.documentChanges.length > 0 ? this.documentChanges : undefined)
-                .catch(error => Log.log(`Error updating UI in inference controller timer: ${error}`, LogLevel.Info));
-            this.documentChanges = [];
+        if(!this.disableCodeLenses) {
+            if(this.requestUpdate){
+                this.requestUpdate = false;
+                await this.updateUI()
+                    .catch(error => Log.log(`Error updating UI in inference controller timer: ${error}`, LogLevel.Info));
+            } else if(this.documentChanges.length > 0) {
+                const changes = [...this.documentChanges];
+                this.documentChanges = this.documentChanges.filter(change => !changes.includes(change));
+                await this.updateUI(changes)
+                    .catch(error => Log.log(`Error updating UI in inference controller timer: ${error}`, LogLevel.Info));
+            }
         }
     }
 
@@ -451,6 +464,7 @@ export class InferenceController{
 
         await this.startInference(this.inferenceRequests);
         this.inferenceRequests = [];
+        this.requestUpdate = true;
     }
 
     /**
@@ -465,6 +479,7 @@ export class InferenceController{
 
         await this.handleInferenceResults(this.inferenceResults);
         this.inferenceResults = [];
+        this.requestUpdate = true;
     }
 
     /**
@@ -484,6 +499,7 @@ export class InferenceController{
             await handler(edit);
         }
         queue.length = 0;
+        this.requestUpdate = true;
     }
 
     /**
