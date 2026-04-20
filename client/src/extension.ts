@@ -22,7 +22,7 @@ import * as rimraf from 'rimraf';
 import * as vscode from 'vscode';
 import { URI } from 'vscode-uri';
 import { State } from './ExtensionState';
-import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, Range, VerificationNotStartedParams, SetupProjectParams, RemoveDiagnosticsResponse } from './ViperProtocol';
+import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, Range, VerificationNotStartedParams, SetupProjectParams, RemoveDiagnosticsResponse, InferenceResultParams, InferenceResult } from './ViperProtocol';
 import { Log } from './Log';
 import { Helper } from './Helper';
 import { locateViperTools } from './ViperTools';
@@ -31,6 +31,7 @@ import { VerificationController, TaskType, Task } from './VerificationController
 import { ViperApi } from './ViperApi';
 import { Settings } from './Settings';
 import { Location } from 'vs-verification-toolbox';
+import { InferenceController } from './InferenceMode';
 
 let fileSystemWatcher: vscode.FileSystemWatcher;
 
@@ -65,6 +66,7 @@ async function internalActivate(context: vscode.ExtensionContext): Promise<Viper
     // check whether settings are correct and expected files exist:
     const settingsResult = await Settings.checkAndGetSettings(location);
     await Settings.handleSettingsCheckResult(settingsResult);
+    State.inferenceController = new InferenceController();
     State.verificationController = new VerificationController(location);
     fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/{' + Helper.viperFileEndings.join(",") + "}");
     const startResult = await State.startLanguageServer(context, fileSystemWatcher, location);
@@ -192,6 +194,14 @@ async function initializeState(location: Location): Promise<void> {
 }
 
 function registerContextHandlers(context: vscode.ExtensionContext, location: Location): void {
+    context.subscriptions.push(vscode.workspace.onDidChangeTextDocument((params) => {
+        if(!State.isReady() || params.document !== vscode.window.activeTextEditor.document) {
+            return;
+        }
+        Log.log(`Document changed: ${params.document.uri.toString()}`, LogLevel.Default);
+        State.inferenceController.addDocumentChanges(params.contentChanges);
+    }));
+
     context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
         try {
             State.addToWorklist(new Task({ type: TaskType.Save, uri: params.uri }));
@@ -253,6 +263,33 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         }
 
         await State.verificationController.verifyAllFilesInWorkspace(folder);
+    }));
+
+    //handle codelens edit (accept or reject changes)
+    context.subscriptions.push(vscode.commands.registerCommand('viper.acceptInferenceEdit', (edit: InferenceResult) => State.inferenceController.addAcceptedEdit(edit)));
+    context.subscriptions.push(vscode.commands.registerCommand('viper.rejectInferenceEdit', (edit: InferenceResult) => State.inferenceController.addRejectedEdit(edit)));
+    context.subscriptions.push(vscode.commands.registerCommand('viper.acceptAllInferenceEdits', (method: string) => State.inferenceController.addMethodAcceptedEdits(method)));
+    context.subscriptions.push(vscode.commands.registerCommand('viper.rejectAllInferenceEdits', (method: string) => State.inferenceController.addMethodRejectedEdits(method)));
+
+    //infer
+    context.subscriptions.push(vscode.commands.registerCommand('viper.infer', (...args) => {
+        
+        const imPrefix = "method:";
+        const methods = args
+            .filter((arg): arg is string => typeof arg === "string" && arg.startsWith(imPrefix))
+            .map(arg => arg.split(":")[1]);
+        if (!State.isReady()) {
+            showNotReadyHint();
+            return;
+        }
+        const fileUri = Helper.getActiveVerificationUri();
+        if (!fileUri) {
+            Log.log("Cannot infer, no document is open.", LogLevel.Info);
+        } else if (!Helper.isViperSourceFile(fileUri)) {
+            Log.log("Cannot infer the active file, its not a viper file.", LogLevel.Info);
+        } else {
+            State.inferenceController.addRequestedInference(methods, fileUri);
+        }
     }));
 
     //toggleAutoVerify
@@ -345,6 +382,8 @@ function registerClientHandlers(): void {
     State.client.onNotification(Commands.Log, (params: LogParams) => {
         Log.log(params.data, params.logLevel, true);
     });
+
+    State.client.onNotification(Commands.InferenceResults, (params: InferenceResultParams) => {State.inferenceController.addInferenceResults(params)});
 
     // When we don't know how to handle a message, we send it to whoever may be using the ViperApi, because this
     // unexpected message may have been destined for them.

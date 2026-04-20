@@ -324,7 +324,7 @@
 				},
 				"viper.viperServer.customArguments": {
 					"type": "string",
-					"default": "--serverMode LSP --singleClient $backendSpecificCache$ $methodInference$ --logLevel $logLevel$ --logFile $logFile$",
+					"default": "--serverMode LSP --singleClient $backendSpecificCache$ --logLevel $logLevel$ --logFile $logFile$",
 					"description": "The command line arguments used for starting the Viper Server."
 				},
 				"viper.viperServer.backendSpecificCache": {
@@ -409,7 +409,7 @@
 				},
 				"viper.verificationBackends.symbolicExecution.verificationStage.customArguments": {
 					"type": "string",
-					"default": "--z3Exe $z3Exe$ $disableCaching$ $inferenceOnVerificationError$",
+					"default": "--z3Exe $z3Exe$ $disableCaching$ $inferenceOnVerificationError$ $methods$",
 					"description": "The command line arguments used for starting the stage."
 				},
 				"viper.verificationBackends.symbolicExecution.verificationStage.onParsingError": {
@@ -576,7 +576,7 @@
 				},
 				"viper.javaSettings.customArguments": {
 					"type": "string",
-					"default": "-Xmx2048m -Xss128m -cp $backendPaths$ -server $mainMethod$",
+					"default": "-Xmx2048m -Xss128m -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -cp $backendPaths$ -server $mainMethod$",
 					"description": "The command line arguments used for starting the Viper server."
 				},
 				"viper.javaSettings.cwd": {

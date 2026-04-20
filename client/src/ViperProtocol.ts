@@ -35,6 +35,8 @@ export class Commands {
     static Hint: NotificationType<HintMessage> = new NotificationType("Hint");
     //Server is notifying client that the verification could not be started
     static VerificationNotStarted: NotificationType<VerificationNotStartedParams> = new NotificationType("VerificationNotStarted");
+    //Server notifies about inference results
+    static InferenceResults: NotificationType<InferenceResultParams> = new NotificationType("InferenceResults");
     //Either server or client request debugging to be stopped
     // static StopDebugging = "StopDebugging";//void
     // static StepsAsDecorationOptions = "StepsAsDecorationOptions";//StepsAsDecorationOptionsResult
@@ -100,7 +102,6 @@ export interface VerifyParams {
     workspace: string;
     backend: string;
     customArgs: string;
-    enableInference: boolean;
 }
 
 export interface Command {
@@ -173,6 +174,19 @@ export interface StateChangeParams {
     uri?: string;
     stage?: string;
     error?: string
+}
+
+export interface InferenceResultParams {
+    inferenceResults: InferenceResult[];
+}
+
+export interface InferenceResult{
+    start_line: number;
+    start_col: number;
+    end_line: number;
+    end_col: number;
+    edit: string;
+    file_uri: string;
 }
 
 export interface BackendReadyParams {

@@ -26,6 +26,7 @@ export interface ITask {
     type: TaskType;
     uri?: vscode.Uri;
     backend?: Backend;
+    methods?: string[];
     manuallyTriggered?: boolean;
     success?: Success;
     timeout?: number;
@@ -38,6 +39,7 @@ export class Task implements ITask {
     type: TaskType;
     uri?: vscode.Uri;
     backend?: Backend;
+    methods?: string[];
     manuallyTriggered?: boolean;
     success?: Success;
     timeout?: number;
@@ -52,6 +54,7 @@ export class Task implements ITask {
         this.type = task.type;
         this.uri = task.uri;
         this.backend = task.backend;
+        this.methods = task.methods;
         this.manuallyTriggered = task.manuallyTriggered;
         this.success = task.success;
         this.timeout = task.timeout;
@@ -270,6 +273,8 @@ export class VerificationController {
                     }
                     if (i < clear && task.type !== TaskType.NoOp && !this.isActive(task.type) && !this.isImportant(task.type)) {
                         // clear the this.workList
+                        if (Settings.isMethodInferenceEnabled())
+                            State.isInferring = false;
                         task.type = TaskType.NoOp;
                         addNotificationForTask(task, () => task.completeFailed(new Error(`task has been cleared`)));
                     }
@@ -305,7 +310,7 @@ export class VerificationController {
                                     if (State.unitTest) State.unitTest.verificationStarted(State.activeBackend.name, path.basename(task.uri.toString()));
                                     task.markStarted(TaskType.Verifying);
                                     task.timeout = State.activeBackend.timeout;
-                                    await this.verify(fileState, task.manuallyTriggered);
+                                    await this.verify(fileState, task.manuallyTriggered, task.methods);
                                 } else if (canVerify.reason && (canVerify.reason != this.lastCanStartVerificationReason || (task.uri && !Common.uriEquals(task.uri, this.lastCanStartVerificationUri)))) {
                                     Log.log(canVerify.reason, LogLevel.Info);
                                     this.lastCanStartVerificationReason = canVerify.reason;
@@ -522,7 +527,7 @@ export class VerificationController {
         }
     }
 
-    private async verify(fileState: ViperFileState, manuallyTriggered: boolean): Promise<void> {
+    private async verify(fileState: ViperFileState, manuallyTriggered: boolean, methods: string[]): Promise<void> {
         try {
             //reset timing;
             this.verificationStartTime = Date.now();
@@ -547,11 +552,14 @@ export class VerificationController {
                     fileState.verifying = true;
 
                     //start progress updater
+                    let msg = "Verification of "
+                    if(State.isInferring)
+                        msg = "Inference of "
                     clearInterval(this.progressUpdater);
                     const progress_lambda: () => void = () => {
                         const progress = this.getProgress(this.lastProgress)
                         const totalProgress = this.getTotalProgress();
-                        Log.progress({ domain: "Verification of " + fileState.name(), progress: progress, postfix: totalProgress }, LogLevel.Debug);
+                        Log.progress({ domain: msg + fileState.name(), progress: progress, postfix: totalProgress }, LogLevel.Debug);
                     }
                     progress_lambda()
                     this.progressUpdater = setInterval(progress_lambda, 333);
@@ -561,11 +569,11 @@ export class VerificationController {
 
                     const workspace = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri.fsPath : path.dirname(fileState.uri.fsPath);
                     const backend = State.activeBackend;
-                    const customArgs = await Settings.getCustomArgsForBackend(this.location, backend, uri);
+                    const customArgs = await Settings.getCustomArgsForBackend(this.location, backend, uri, methods);
                     if (customArgs.isRight) {
                         const content = fileState.editor.document.getText()
                         const enableInference = State.enableInferenceOnVerificationError;
-                        const params: VerifyParams = { uri: uri.toString(), content, manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.type, customArgs: customArgs.right, enableInference: enableInference };
+                        const params: VerifyParams = { uri: uri.toString(), content, manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.type, customArgs: customArgs.right};
                         //request verification from Server
                         State.isVerifying = true;                        
                         await State.client.sendNotification(Commands.Verify, params);
@@ -592,7 +600,11 @@ export class VerificationController {
         if (State.client) {
             if (State.isVerifying) {
                 clearInterval(this.progressUpdater);
-                Log.log("Verification stop request", LogLevel.Debug);
+                if (Settings.isMethodInferenceEnabled() && State.isInferring) {
+                    Log.log("Inference stop request", LogLevel.Debug);
+                } else {
+                    Log.log("Verification stop request", LogLevel.Debug);
+                }
                 State.hideProgress();
                 State.statusBarItem.update("aborting", Color.WARNING);
                 const params: StopVerificationRequest = { uri: uriToStop };
@@ -626,7 +638,10 @@ export class VerificationController {
     public addTiming(filename: string, paramProgress: number): void {
         this.timings.push(Date.now() - this.verificationStartTime);
         const progress = this.getProgress(paramProgress || 0);
-        Log.progress({ domain: "Verification of " + filename, progress: progress, postfix: this.getTotalProgress() }, LogLevel.Debug);
+        let msg = "Verification of "
+        if(State.isInferring)
+            msg = "Inference of "
+        Log.progress({ domain: msg + filename, progress: progress, postfix: this.getTotalProgress() }, LogLevel.Debug);
     }
 
     private getProgress(progress: number): number {
@@ -756,6 +771,9 @@ export class VerificationController {
                         switch (params.success) {
                             case Success.Success:
                                 msg = `Verified ${params.filename} (${Helper.formatSeconds(params.time)})${warningsMsg("with")}`;
+                                if (Settings.isMethodInferenceEnabled() && State.isInferring) {
+                                    msg = `Inferred ${params.filename} (${Helper.formatSeconds(params.time)})${warningsMsg("with")}`;
+                                }
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(check) " + msg, nofWarnings == 0 ? Color.SUCCESS : Color.WARNING);
                                 if (params.manuallyTriggered > 0) {
@@ -774,26 +792,45 @@ export class VerificationController {
                                 break;
                             case Success.VerificationFailed:
                                 msg = `Verifying ${params.filename} failed (${Helper.formatSeconds(params.time)}) ${errorsMsg("with")}${warningsMsg("and")}`;
+                                if (Settings.isMethodInferenceEnabled() && State.isInferring) {
+                                    msg = `Inferring ${params.filename} failed (${Helper.formatSeconds(params.time)}) ${errorsMsg("with")}${warningsMsg("and")}`;
+                                }
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(x) " + msg, Color.ERROR);
                                 break;
                             case Success.Aborted:
-                                State.statusBarItem.update("Verification aborted", Color.WARNING);
-                                Log.log(`Verifying ${params.filename} was aborted`, LogLevel.Info);
+                                if (Settings.isMethodInferenceEnabled() && State.isInferring) {
+                                    State.statusBarItem.update("Inference aborted", Color.WARNING);
+                                    Log.log(`Inferring ${params.filename} was aborted`, LogLevel.Info);
+                                } else {
+                                    State.statusBarItem.update("Verification aborted", Color.WARNING);
+                                    Log.log(`Verifying ${params.filename} was aborted`, LogLevel.Info);
+                                }
                                 break;
                             case Success.Error:
                                 State.statusBarItem.update(`$(x) Internal error - see View->Output->Viper for more info"`, Color.ERROR);
                                 //msg = `Verifying ${params.filename} failed due to an internal error`;
-                                Log.error(`Internal Error: failed to verify ${params.filename}: Reason: ` + (params.error && params.error.length > 0 ? params.error : "Unknown Reason: Set loglevel to 5 and see the viper.log file for more details"));
+                                if (Settings.isMethodInferenceEnabled() && State.isInferring) {
+                                    Log.error(`Internal Error: failed to infer ${params.filename}: Reason: ` + (params.error && params.error.length > 0 ? params.error : "Unknown Reason: Set loglevel to 5 and see the viper.log file for more details"));
+                                } else {
+                                    Log.error(`Internal Error: failed to verify ${params.filename}: Reason: ` + (params.error && params.error.length > 0 ? params.error : "Unknown Reason: Set loglevel to 5 and see the viper.log file for more details"));
+                                }
                                 //Log.hint(msg + moreInfo);
 
                                 if (State.unitTest) State.unitTest.internalErrorDetected();
                                 break;
                             case Success.Timeout:
-                                State.statusBarItem.update("Verification timed out", Color.WARNING);
-                                Log.log(`Verifying ${params.filename} timed out`, LogLevel.Info);
+                                if (Settings.isMethodInferenceEnabled() && State.isInferring) {
+                                    State.statusBarItem.update("Inference timed out", Color.WARNING);
+                                    Log.log(`Inferring ${params.filename} timed out`, LogLevel.Info);
+                                } else {
+                                    State.statusBarItem.update("Verification timed out", Color.WARNING);
+                                    Log.log(`Verifying ${params.filename} timed out`, LogLevel.Info);
+                                }
                                 break;
                         }
+                        if (Settings.isMethodInferenceEnabled())
+                            State.isInferring = false;
 
                         // Notify whoever might be listening
                         State.viperApi.notifyVerificationTerminated({

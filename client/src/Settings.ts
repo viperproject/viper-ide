@@ -266,6 +266,10 @@ export class Settings {
         return (Settings.getConfiguration('preferences').showProgress === true);
     }
 
+    public static isMethodInferenceEnabled(): boolean {
+        return (Settings.getConfiguration("advancedFeatures").methodInference === true);
+    }
+
     public static getLogLevel(): LogLevel {
         return Settings.getConfiguration("preferences").logLevel || LogLevel.Default;
     }
@@ -749,19 +753,29 @@ export class Settings {
 
     private static supportedTypes: string[] = ["silicon", "carbon", "other"];
 
-    public static async getCustomArgsForBackend(location: Location, backend: Backend, fileUri: vscode.Uri): Promise<Either<Messages, string>> {
+    public static async getCustomArgsForBackend(location: Location, backend: Backend, fileUri: vscode.Uri, methods: string[]): Promise<Either<Messages, string>> {
         // while checking the stages, we make sure that there is exactly one stage with `isVerification` set to true:
         const verificationStage = backend.stages.filter(stage => stage.isVerification)[0];
         const z3Path = await Settings.getZ3Path(location);
-        const disableCaching = Settings.getConfiguration("viperServer").disableCaching === true;
+        let disableCaching = Settings.getConfiguration("viperServer").disableCaching === true;
         const inferenceOnVerificationError = Settings.getConfiguration("advancedFeatures").inferenceOnVerificationError === true;
+        const methodInference = Settings.getConfiguration("advancedFeatures").methodInference === true;
+        const specifyMethods = methods !== undefined && methods.length > 0;
+        let inferenceSettings = "--inferenceMode=off";
+        if(specifyMethods && methodInference) {
+            inferenceSettings = "--inferenceMode=full ";
+            disableCaching = true; 
+        } else if (inferenceOnVerificationError) {
+            inferenceSettings = "--inferenceMode=onError";
+        }
         const partiallyReplacedString = verificationStage.customArguments
             // note that we use functions as 2nd argument since we do not want that
             // the special replacement patterns kick in
             .replace("$z3Exe$", () => `"${z3Path}"`) // escape path
             .replace("$disableCaching$", () => disableCaching ? "--disableCaching" : "")
             .replace("$fileToVerify$", () => `"${fileUri.fsPath}"`) // escape path (not used since v3)
-            .replace("$inferenceOnVerificationError$", () => inferenceOnVerificationError ? "--inferenceMode=onError" : "--inferenceMode=off");
+            .replace("$inferenceOnVerificationError$", () => inferenceSettings)
+            .replace("$methods$", () => specifyMethods ? `--includeMethods=(${methods.map(m => `${m}`).join("|")})` : "");
         // Note that we need to passes over the string because `replace` does not allow async replace functions.
         // Thus, we use `replace` to search for occurrences of `"$boogieExe$"` (ensuring we use the same match
         // algorithm under the hood) and await the Boogie path only in the case we need it.
@@ -950,10 +964,8 @@ export class Settings {
 
         const configuredArgString = Settings.getConfiguration("viperServer").customArguments;
         const useBackendSpecificCache = Settings.getConfiguration("viperServer").backendSpecificCache === true;
-        const methodInference = Settings.getConfiguration("advancedFeatures").methodInference === true;
         return configuredArgString
             .replace("$backendSpecificCache$", useBackendSpecificCache ? "--backendSpecificCache" : "")
-            .replace("$methodInference$", methodInference ? "--methodInference" : "")
             .replace("$logLevel$", convertLogLevel(logLevel))
             // note that we use functions as 2nd argument since we do not want that
             // the special replacement patterns kick in

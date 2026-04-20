@@ -26,6 +26,7 @@ import { ViperApi } from './ViperApi';
 import { Settings } from './Settings';
 import { combineMessages, Either, Messages, newEitherError, newRight, transformRight } from "./Either";
 import { ProjectManager, ProjectRoot } from './ProjectManager';
+import { InferenceController } from "./InferenceMode";
 
 export class State {
     public static get MIN_SERVER_VERSION(): string {
@@ -40,11 +41,13 @@ export class State {
     public static viperFiles: Map<string, ViperFileState> = new Map<string, ViperFileState>();
     public static isBackendReady: boolean;
     public static isVerifying: boolean;
+    public static isInferring: boolean;
     public static isWin = /^win/.test(process.platform);
     public static isLinux = /^linux/.test(process.platform);
     public static isMac = /^darwin/.test(process.platform);
     private static lastActiveFileUri: string;
     public static verificationController: VerificationController;
+    public static inferenceController: InferenceController;
 
     public static activeBackend: Backend;
 
