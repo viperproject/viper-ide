@@ -167,15 +167,6 @@ function toggleAutoVerify(): void {
     State.statusBarItem.update("Auto Verify is " + (State.autoVerify ? "on" : "off"), Color.SUCCESS);
 }
 
-/**
- * Toggles whether specification inference should be performed on verification error by inverting
- * {@linkcode State.enableInferenceOnVerificationError} and displaying the current status.
- */
-function toggleInferenceOnVerificationError(): void {
-    State.enableInferenceOnVerificationError = !State.enableInferenceOnVerificationError;
-    State.statusBarItem.update("Inference on verification error is " + (State.enableInferenceOnVerificationError ? "enabled" : "disabled"), Color.SUCCESS);
-}
-
 async function initializeState(location: Location): Promise<void> {
     // set currently open file
     State.handleOpenedFile();
@@ -294,9 +285,6 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
 
     //toggleAutoVerify
     context.subscriptions.push(vscode.commands.registerCommand('viper.toggleAutoVerify', () => toggleAutoVerify()));
-
-    //toggleInferenceOnVerificationError
-    context.subscriptions.push(vscode.commands.registerCommand('viper.toggleInferenceOnVerificationError', () => toggleInferenceOnVerificationError()));
 
     context.subscriptions.push(vscode.commands.registerCommand('viper.flushCache', async () => flushCache(true)));
 

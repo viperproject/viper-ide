@@ -113,11 +113,6 @@
 				"category": "Viper"
 			},
 			{
-				"command": "viper.toggleInferenceOnVerificationError",
-				"title": "toggle inference on verification error",
-				"category": "Viper"
-			},
-			{
 				"command": "viper.openLogFile",
 				"title": "open current logFile",
 				"category": "Viper"
