@@ -763,7 +763,7 @@ export class Settings {
         const specifyMethods = methods !== undefined && methods.length > 0;
         let inferenceSettings = "--inferenceMode=off";
         if(specifyMethods && methodInference) {
-            inferenceSettings = "--inferenceMode=full ";
+            inferenceSettings = "--inferenceMode=full";
             disableCaching = true; 
         } else if (inferenceOnVerificationError) {
             inferenceSettings = "--inferenceMode=onError";

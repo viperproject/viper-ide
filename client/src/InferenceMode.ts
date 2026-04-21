@@ -140,7 +140,6 @@ export class InferenceResultsCodeLensProvider implements vscode.CodeLensProvider
  * updates the UI accordingly based on document changes and inference progress.
  */
 export class InferenceController{
-    private inferenceMode = false;
     private inferring = false;
     private requestUpdate = true;
     private disableCodeLenses = false;
@@ -158,7 +157,7 @@ export class InferenceController{
      * Initializes the InferenceController by setting up the code lens provider and a timer to process inference results
      * and requests. If method inference is not enabled in the settings, the constructor returns early, effectively
      * disabling the inference controller functionality. Otherwise, it registers the code lens provider for Viper files
-     * and starts a timer that ticks every 500 milliseconds to handle inference-related updates.
+     * and starts a timer that ticks every 100 milliseconds to handle inference-related updates.
      * @returns An instance of InferenceController if method inference is enabled, or undefined if it is not enabled in
      * the settings.
      */
@@ -167,7 +166,7 @@ export class InferenceController{
             return undefined;
 
         this.codeLensProvider = new InferenceResultsCodeLensProvider();
-        this.controller = new AwaitTimer(() => this.processTimerTick(), 500);
+        this.controller = new AwaitTimer(() => this.processTimerTick(), 100);
         State.context.subscriptions.push(vscode.languages.registerCodeLensProvider({language: 'viper'}, this.codeLensProvider));
         State.context.subscriptions.push(this.controller);
     }
@@ -183,14 +182,14 @@ export class InferenceController{
     }
 
     /**
-     * Adds requested inference for the specified methods and file URI. If there are no ongoing inference requests and the
-     * inference mode is not already active, the method adds the requested methods to the inference request queue, sets
-     * the inference mode to active, and adds a verification task to the worklist.
+     * Adds requested inference for the specified methods and file URI. If there are no ongoing inference requests and
+     * pending edits, the method adds the requested methods to the inference request queue and adds a verification task
+     * to the worklist.
      * @param methods The list of methods for which inference is requested.
      * @param fileUri The URI of the file for which inference is requested.
      */
     public addRequestedInference(methods: string[], fileUri: vscode.Uri): void {
-        if(this.inferenceRequests.length === 0 && !this.inferenceMode){
+        if(this.inferenceRequests.length + this.pendingEdits.length === 0){
             this.inferenceRequests.push(...methods);
             State.isInferring = true;
             State.addToWorklist(new Task({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: true, methods: methods }));
@@ -198,17 +197,13 @@ export class InferenceController{
     }
 
     /**
-     * Adds inference results to the controller's internal list of inference results. If the list of inference results is
-     * not empty, the inference mode is activated. This method is called when new inference results are received from the
+     * Adds inference results to the controller's internal list of inference results. This method is called when new inference results are received from the
      * server, and it triggers the processing of these results in the next timer tick, which will handle the application
      * of edits and updating of the UI based on the received inference results.
      * @param params The parameters containing the inference results to be added.
      */
     public addInferenceResults(params: InferenceResultParams): void {
         this.inferenceResults.push(...params.inferenceResults);
-        if(this.inferenceResults.length !== 0) {
-            this.inferenceMode = true;
-        }
     }
 
     /**
@@ -338,8 +333,7 @@ export class InferenceController{
      * Removes a pending edit from the list of pending edits and disposes of its associated decorations. If the edit is
      * not found in the list of pending edits, a log message is generated indicating that the edit could not be found.
      * After removing the pending edit, if there are no more pending edits for the associated method, the method is
-     * removed from the includeMethods list, and if there are no more included methods and no pending edits, the
-     * inference mode is deactivated.
+     * removed from the includeMethods list.
      * @param edit The inference result to be removed.
      * @returns A promise that resolves when the removal process is complete.
      */
@@ -356,9 +350,6 @@ export class InferenceController{
         this.pendingEdits.splice(pendingEditIndex, 1);
         if(this.pendingEdits.find(pe => pe.method === pendingEdit.method) === undefined) {
             this.includeMethods = this.includeMethods.filter(method => method !== pendingEdit.method);
-            if(this.includeMethods.length === 0 && this.pendingEdits.length === 0) {
-                this.inferenceMode = false;
-            }
         }
     }
 
