@@ -155,8 +155,10 @@ export class State {
                 Log.log("Active viper file changed to " + activeState.name(), LogLevel.Info);
             }
         } else {
-            // hide status bar items (in case they are shown):
-            State.hideViperStatusBarItems();
+            // hide status bar items (in case they are shown), unless verification is running
+            if (!State.isVerifying) {
+                State.hideViperStatusBarItems();
+            }
         }
     }
 
