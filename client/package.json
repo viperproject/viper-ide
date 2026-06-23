@@ -57,7 +57,7 @@
 		"tmp": "^0.2.7",
 		"ts-loader": "^9.6.2",
 		"tsx": "^4.22.4",
-		"typescript": "^6.0.3",
+		"typescript": "^5.9.3",
 		"unused-filename": "^4.0.1",
 		"vs-verification-toolbox": "git+https://github.com/viperproject/vs-verification-toolbox.git",
 		"vscode-languageclient": "^10.0.0",
