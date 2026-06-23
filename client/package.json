@@ -56,7 +56,7 @@
 		"semver": "^7.7.4",
 		"tmp": "^0.2.7",
 		"ts-loader": "^9.5.4",
-		"tsx": "^4.19.0",
+		"tsx": "^4.22.4",
 		"typescript": "^5.9.3",
 		"unused-filename": "^4.0.1",
 		"vs-verification-toolbox": "git+https://github.com/viperproject/vs-verification-toolbox.git",
