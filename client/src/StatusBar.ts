@@ -16,14 +16,14 @@ import { Settings } from "./Settings.js";
 export class StatusBar {
 
     private elem: StatusBarItem
-    public command: string;
+    public command!: string;
 
-    constructor(priority, context: ExtensionContext) {
+    constructor(priority: number, context: ExtensionContext) {
         this.elem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, priority);
         context.subscriptions.push(this.elem);
     }
 
-    public update(text: string, color: string, tooltip: string = null): StatusBar {
+    public update(text: string, color: string, tooltip?: string): StatusBar {
         this.elem.text = text;
         if (color == Color.ERROR) {
             this.elem.color = "white";
@@ -43,7 +43,7 @@ export class StatusBar {
         this.elem.command = command;
     }
 
-    public updateProgressBar(progress: number, tooltip: string = null): StatusBar {
+    public updateProgressBar(progress: number, tooltip?: string): StatusBar {
         return this.update(this.progressBarText(progress), Color.PROGRESS_BAR, tooltip);
     }
     public updateProgressLabel(progressLabel: string, progress: number, postfix?: string): StatusBar {

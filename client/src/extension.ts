@@ -57,7 +57,7 @@ async function internalActivate(context: ExtensionContext): Promise<ViperApi> {
     
     Helper.loadViperFileExtensions();
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
-    const ownPackageJson = vscode.extensions.getExtension("viper-admin.viper").packageJSON;
+    const ownPackageJson = vscode.extensions.getExtension("viper-admin.viper")!.packageJSON;
     Log.log(`The current version of ${ownPackageJson.displayName} is: v.${ownPackageJson.version}`, LogLevel.Info);
     await Log.initialize();
     State.context = context;
@@ -145,7 +145,7 @@ async function internalShutdown(): Promise<ExtensionContext> {
         const sub = context.subscriptions.shift();
         try {
             // note that everything can be awaited in JS / TS:
-            await sub.dispose();
+            await sub!.dispose();
 		} catch (e) {
 			console.error(e);
 		}
@@ -209,7 +209,7 @@ function registerContextHandlers(context: ExtensionContext, location: Location):
         if (event.affectsConfiguration("viper")) {
             Log.updateSettings();
             Log.log(`Viper settings have been changed -> schedule an extension restart`, LogLevel.Info);
-            State.addToWorklist(new Task({ type: TaskType.RestartExtension, uri: null, manuallyTriggered: false }));
+            State.addToWorklist(new Task({ type: TaskType.RestartExtension, uri: undefined, manuallyTriggered: false }));
         }
     }));
 
@@ -261,7 +261,7 @@ function registerContextHandlers(context: ExtensionContext, location: Location):
         // get all backends from configuration:
         const backends = await Settings.getVerificationBackends(location);
         // user only needs to be asked if there is any choice:
-        let selectedBackend: Backend = null;
+        let selectedBackend: Backend | undefined;
         if (backends.length === 0) {
             // this path should not be possible because we check during startup that at least 1 backend is configured
             throw new Error(`0 verification backends are configured`);
@@ -269,7 +269,7 @@ function registerContextHandlers(context: ExtensionContext, location: Location):
             selectedBackend = backends[0]; // there is no choice
         } else {
             // ask the user
-            let selectedBackendName: string;
+            let selectedBackendName: string | undefined;
             if (selectBackend) {
                 // the user has provided a backend name already so don't ask again
                 selectedBackendName = selectBackend;
@@ -305,7 +305,7 @@ function registerContextHandlers(context: ExtensionContext, location: Location):
             showNotReadyHint();
             return;
         }
-        State.addToWorklist(new Task({ type: TaskType.StopVerification, uri: null, manuallyTriggered: true }));
+        State.addToWorklist(new Task({ type: TaskType.StopVerification, uri: undefined, manuallyTriggered: true }));
     }));
 
     //open logFile
@@ -349,8 +349,8 @@ function registerClientHandlers(): void {
 
     State.client.onRequest(Commands.GetIdentifier, (position: Position) => {
         try {
-            const range = vscode.window.activeTextEditor.document.getWordRangeAtPosition(new vscode.Position(position.line, position.character))
-            const identifier = vscode.window.activeTextEditor.document.getText(range);
+            const range = vscode.window.activeTextEditor!.document.getWordRangeAtPosition(new vscode.Position(position.line, position.character))
+            const identifier = vscode.window.activeTextEditor!.document.getText(range);
             if (identifier.indexOf(" ") > 0) {
                 return { identifier: null };
             }
@@ -367,7 +367,7 @@ function registerClientHandlers(): void {
             new vscode.Position(range.start.line, range.start.character),
             new vscode.Position(range.end.line, range.end.character)
         );
-        const rangeText = vscode.window.activeTextEditor.document.getText(inputRange);
+        const rangeText = vscode.window.activeTextEditor!.document.getText(inputRange);
         Log.log(`GetRange: ${rangeText}`, LogLevel.LowLevelDebug);
         return { range: rangeText };
     });
@@ -464,8 +464,8 @@ function considerStartingBackend(newBackend: Backend): Promise<void> {
     });
 }
 
-async function removeDiagnostics(activeFileOnly: boolean): Promise<RemoveDiagnosticsResponse> {
-    let uri: string = null;
+async function removeDiagnostics(activeFileOnly: boolean): Promise<RemoveDiagnosticsResponse | undefined> {
+    let uri: string;
     if (activeFileOnly) {
         const active = Helper.getActiveFileUri();
         if (active) {

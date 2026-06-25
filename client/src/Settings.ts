@@ -30,7 +30,7 @@ import { Color } from './StatusBar.js';
 
 export class Settings {
 
-    private static ownPackageJson = vscode.extensions.getExtension("viper-admin.viper").packageJSON;
+    private static ownPackageJson = vscode.extensions.getExtension("viper-admin.viper")!.packageJSON;
     private static defaultConfiguration = this.initDefaultSettings(Settings.ownPackageJson.contributes.configuration.properties);
     private static lastVersionWithSettingsChange: Versions = {
         viperServerSettingsVersion: "1.0.4",
@@ -52,16 +52,16 @@ export class Settings {
     private static initDefaultSettings(properties: any): object {
         // Need to turn an object such as `{ "a.b": { "foo": 10 }, "a": { "c": 10 }, ... }`
         // Into an object such as `{ "a": { "b": { "foo": 10 }, "c": 10 }, ... }`
-        const defaultSettings = {};
+        const defaultSettings: Record<string, unknown> = {};
         for (const key in properties) {
             const parts = key.split(".");
-            let obj = defaultSettings;
+            let obj: Record<string, unknown> = defaultSettings;
             for (let i = 0; i < parts.length - 1; i++) {
                 const part = parts[i];
                 if (!obj[part]) {
                     obj[part] = {};
                 }
-                obj = obj[part];
+                obj = obj[part] as Record<string, unknown>;
             }
             obj[parts[parts.length - 1]] = properties[key].default;
         }
@@ -74,7 +74,7 @@ export class Settings {
     }
 
     public static async checkAndGetSettings(location: Location): Promise<Either<Messages, unknown>> {
-        const checks = [
+        const checks: Promise<Either<Messages, unknown>>[] = [
             Settings.checkAndGetViperServerSettings(location),
             Settings.checkAndGetVerificationBackends(location),
             Settings.checkAndGetPaths(location),
@@ -290,7 +290,7 @@ export class Settings {
             const configuredPath = Settings.getConfiguration(settingName).viperToolsPath;
             resolvedPath = await Settings.checkPath(location, configuredPath, `${settingName}.viperToolsPath`, false, true, true, allowMissingPath);
         } else {
-            const path = location.basePath;
+            const path = location!.basePath;
             resolvedPath = await Settings.checkPath(location, path, `ViperTools for build channel ${buildChannel}:`, false, true, true, allowMissingPath);
         }
         // note that `checkPath` already makes sure that the path exists
@@ -448,7 +448,7 @@ export class Settings {
         return toRight(res);
     }
 
-    public static getStage(backend: Backend, name: string): Stage {
+    public static getStage(backend: Backend, name: string): Stage | null {
         if (!name) return null;
         for (let i = 0; i < backend.stages.length; i++) {
             const stage = backend.stages[i];
@@ -457,7 +457,7 @@ export class Settings {
         return null;
     }
 
-    public static getStageFromSuccess(backend: Backend, stage: Stage, success: Success): Stage {
+    public static getStageFromSuccess(backend: Backend, stage: Stage, success: Success): Stage | null {
         switch (success) {
             case Success.ParsingFailed:
                 return this.getStage(backend, stage.onParsingError);
@@ -537,7 +537,7 @@ export class Settings {
     }
 
     /** the returned paths are guaranteed to exist */
-    private static async checkPaths(location: Location, paths: (string | string[] | PlatformDependentPath | PlatformDependentListOfPaths), prefix: string): Promise<Either<Messages, string[]>> {
+    private static async checkPaths(location: Location, paths: (string | string[] | PlatformDependentPath | PlatformDependentListOfPaths | undefined), prefix: string): Promise<Either<Messages, string[]>> {
         const stringPaths: string[] = []
         if (!paths) {
             return newEitherError(`${prefix} paths are missing`);
@@ -583,8 +583,8 @@ export class Settings {
     }
 
     /** `allowMissingPath` set to false (the default) makes this function fail if the path does not exist */
-    private static async checkPath(location: Location,
-                             path: (string | PlatformDependentPath), 
+    private static async checkPath(location: Location | null,
+                             path: (string | PlatformDependentPath),
                              prefix: string, 
                              executable: boolean, 
                              allowPlatformDependentPath: boolean, 
@@ -594,7 +594,7 @@ export class Settings {
             if (!allowMissingPath) {
                 return newEitherError(`${prefix} path is missing`);
             }
-            return newRight({ path: null, exists: false });
+            return newRight({ path: "", exists: false });
         }
         let stringPath: string;
         if (typeof path === "string") {
@@ -607,11 +607,11 @@ export class Settings {
                 return newEitherError(`${prefix} path has wrong type: expected: string, found: ${typeof path} at path: ${JSON.stringify(path)}`);
             }
             if (Settings.isLinux) {
-                stringPath = path.linux;
+                stringPath = path.linux ?? "";
             } else if (Settings.isMac) {
-                stringPath = path.mac;
+                stringPath = path.mac ?? "";
             } else if (Settings.isWin) {
-                stringPath = path.windows;
+                stringPath = path.windows ?? "";
             } else {
                 return newEitherError(`Operation System detection failed, it's not Mac, Windows, or Linux`);
             }
@@ -731,7 +731,7 @@ export class Settings {
             // check verification timeout
             const resolvedTimeout = await Settings.checkTimeout(backend.timeout, `Backend ${backendName}:`);
             if (isRight(resolvedTimeout)) {
-                backend.timeout = resolvedTimeout.right;
+                backend.timeout = resolvedTimeout.right ?? backend.timeout;
             } else {
                 return resolvedTimeout;
             }
@@ -884,7 +884,7 @@ export class Settings {
               }
             });
           } catch (err) {
-            reject(err.message);
+            reject(err instanceof Error ? err.message : String(err));
           }
         });
     }
@@ -987,6 +987,7 @@ export class Settings {
                     return [p];
                 }
             }
+            return [];
         });
         return Promise.all(resultPromises)
             .then(flatten)
@@ -997,7 +998,7 @@ export class Settings {
         return file ? file.trim().endsWith(".jar") : false;
     }
 
-    private static async resolvePath(location: Location, path: string, executable: boolean): Promise<ResolvedPath> {
+    private static async resolvePath(location: Location | null, path: string, executable: boolean): Promise<ResolvedPath> {
         if (!path) {
             return { path: path, exists: false };
         }
@@ -1011,7 +1012,7 @@ export class Settings {
         // handle files in Path env var
         if (resolvedPath.indexOf("/") < 0 && resolvedPath.indexOf("\\") < 0) {
             // its only a filename, try to find it in the path
-            const pathEnvVar: string = process.env.PATH;
+            const pathEnvVar: string | undefined = process.env.PATH;
             if (pathEnvVar) {
                 const pathList: string[] = pathEnvVar.split(Settings.isWin ? ";" : ":");
                 for (let i = 0; i < pathList.length; i++) {
@@ -1034,7 +1035,7 @@ export class Settings {
         }
     }
 
-    private static async expandViperToolsPath(location: Location, path: string): Promise<string> {
+    private static async expandViperToolsPath(location: Location | null, path: string): Promise<string> {
         if (!path) return path;
 
         const regex = /\$viperTools\$/g
@@ -1047,8 +1048,8 @@ export class Settings {
         // note that we invoke `getViperToolsPath` only if there is at least
         // one match. Ptherwise, calling `getViperToolsPath` in all cases
         // results in endless recursion.
-        const toolsPath = await Settings.getViperToolsPath(location);
-        return path.replace(/\$viperTools\$/g, toolsPath);    
+        const toolsPath = await Settings.getViperToolsPath(location!);
+        return path.replace(/\$viperTools\$/g, toolsPath);
     }
 
     // does not check whether the extracted path exists or not
