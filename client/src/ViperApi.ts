@@ -14,12 +14,12 @@ const vscode = require('vscode') as typeof import('vscode');
 import { State } from './ExtensionState.js';
 import { ViperFileState } from './ViperFileState.js';
 import { Success } from './ViperProtocol.js';
-import { LanguageClient } from 'vscode-languageclient/node.js';
+import { LanguageClient } from 'vscode-languageclient/node';
 
 export class VerificationTerminatedEvent {
-    status: Success;
-    filename: Uri;
-    message: string; 
+    status!: Success;
+    filename!: Uri;
+    message!: string;
 }
 
 class ViperConfiguration {
@@ -30,7 +30,7 @@ class ViperConfiguration {
 }
 
 export class ViperApi {
-    private verificationTerminatedObservers: ((VerificationTerminatedEvent) => void)[] = []
+    private verificationTerminatedObservers: ((event: VerificationTerminatedEvent) => void)[] = []
     private serverMessageCallbacks: Map<string, Array<(messageType: string, message: string) => void>> = new Map();
     private languageClient: LanguageClient;
     public configuration: ViperConfiguration;
@@ -41,7 +41,7 @@ export class ViperApi {
     }
 
     /** Register an observer for a VerificationTerminated event */
-    public onVerificationTerminated(callback: (VerificationTerminatedEvent) => void): void {
+    public onVerificationTerminated(callback: (event: VerificationTerminatedEvent) => void): void {
         this.verificationTerminatedObservers.push(callback);
     }
 
@@ -62,7 +62,7 @@ export class ViperApi {
             this.serverMessageCallbacks.set(messageType, []);
         }
 
-        this.serverMessageCallbacks.get(messageType).push(callback);
+        this.serverMessageCallbacks.get(messageType)!.push(callback);
     }
 
     /** Notify the receipt of some `messageType` message.
@@ -92,7 +92,7 @@ export class ViperApi {
     }
 
     // TODO: Don't like this, maybe refactor
-    public getLastActiveFile(): ViperFileState {
+    public getLastActiveFile(): ViperFileState | null {
         return State.getLastActiveFile();
     }
 

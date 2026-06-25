@@ -32,9 +32,9 @@ export class ViperFileState {
     open: boolean;
     changed: boolean;
 
-    timingInfo:TimingInfo;
+    timingInfo!:TimingInfo;
 
-    editor: TextEditor;
+    editor!: TextEditor;
 
     public fileOpened(): void {
         this.open = true;
