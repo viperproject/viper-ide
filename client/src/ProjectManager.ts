@@ -40,11 +40,11 @@ export class ProjectManager {
         if (!ProjectManager.projects.has(projectRootString)) {
             ProjectManager.projects.set(projectRootString, new Set());
         }
-        ProjectManager.projects.get(projectRootString).add(fileString);
+        ProjectManager.projects.get(projectRootString)!.add(fileString);
         // Add to `pinnedTo`
         const oldProject = ProjectManager.getProject(file) ?? null;
         if (oldProject) {
-            ProjectManager.projects.get(oldProject.toString()).delete(fileString);
+            ProjectManager.projects.get(oldProject.toString())!.delete(fileString);
         }
         ProjectManager.pinnedTo.set(fileString, projectRoot);
     }

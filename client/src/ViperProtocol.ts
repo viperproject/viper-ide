@@ -346,12 +346,12 @@ export interface UnhandledViperServerMessageTypeParams {
 }
 
 export interface FlushCacheParams {
-    uri?: string, // nullable (null indicates that the cache for all files should be flushed)
+    uri?: string | null, // nullable (null indicates that the cache for all files should be flushed)
     backend: string // non-null
 }
 
 export interface GetIdentifierResponse {
-    identifier?: string // nullable
+    identifier?: string | null // nullable
 }
 
 export interface GetRangeResponse {
@@ -667,7 +667,6 @@ export class Common {
     }
 
     public static uriToString(uri: string | VscodeUri): string {
-        if (!uri) return null;
         if (typeof uri === "string") {
             return uri;
         } else {
@@ -676,7 +675,6 @@ export class Common {
     }
 
     public static uriToObject(uri: string | VscodeUri): VscodeUri {
-        if (!uri) return null;
         if (typeof uri === "string") {
             return vscode.Uri.parse(uri);
         } else {
@@ -690,14 +688,14 @@ export class Common {
         return platformIndependentUri;
     }
 
-    public static uriEquals(a: string | VscodeUri, b: string | VscodeUri): boolean {
+    public static uriEquals(a: string | VscodeUri | undefined | null, b: string | VscodeUri | undefined | null): boolean {
         if (!a || !b) return false;
         return this.uriToString(a) === this.uriToString(b);
     }
 
     //Helper methods for child processes
-    public static executer(command: string, onData?: (string) => void, 
-                           onError?: (string) => void, onExit?: () => void): child_process.ChildProcess {
+    public static executer(command: string, onData?: (data: string) => void,
+                           onError?: (error: string) => void, onExit?: () => void): child_process.ChildProcess | undefined {
         try {
             Log.logWithOrigin("executer", command, LogLevel.Debug);
             const child: child_process.ChildProcess = child_process.exec(command, function (error, stdout, stderr) {
@@ -729,7 +727,7 @@ export class Common {
         });
     }
 
-    public static spawner(command: string, args: string[]): child_process.ChildProcess {
+    public static spawner(command: string, args: string[]): child_process.ChildProcess | undefined {
         Log.log("spawner: " + command + " " + args.join(" "), LogLevel.Debug);
         try {
             const child = child_process.spawn(command, args, { detached: true });

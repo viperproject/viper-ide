@@ -110,7 +110,7 @@ export class Helper {
     }
 
     public static getGitHubToken(): string {
-        return process.env["GITHUB_TOKEN"];
+        return process.env["GITHUB_TOKEN"]!;
     }
 
     /**

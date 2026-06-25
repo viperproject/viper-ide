@@ -35,6 +35,8 @@
 		"automatic deduction"
 	],
 	"devDependencies": {
+		"@eslint/eslintrc": "^3.3.5",
+		"@eslint/js": "^10.0.1",
 		"@types/glob-to-regexp": "^0.4.4",
 		"@types/mocha": "^10.0.10",
 		"@types/node": "^26.0.0",
@@ -46,9 +48,10 @@
 		"@viperproject/locate-java-home": "^1.1.17",
 		"@vscode/test-electron": "^3.0.0",
 		"@vscode/vsce": "^3.9.2",
-		"eslint": "^9.39.4",
-		"eslint-webpack-plugin": "^5.0.3",
+		"eslint": "^10.5.0",
+		"eslint-webpack-plugin": "^6.0.0",
 		"glob-to-regexp": "^0.4.1",
+		"globals": "^17.7.0",
 		"mocha": "^11.7.6",
 		"npm-run-all": "^4.1.5",
 		"ps-list": "^9.0.0",
@@ -57,10 +60,10 @@
 		"tmp": "^0.2.7",
 		"ts-loader": "^9.6.2",
 		"tsx": "^4.22.4",
-		"typescript": "^5.9.3",
+		"typescript": "^6.0.3",
 		"unused-filename": "^4.0.1",
 		"vs-verification-toolbox": "git+https://github.com/viperproject/vs-verification-toolbox.git",
-		"vscode-languageclient": "^9.0.1",
+		"vscode-languageclient": "^10.0.0",
 		"vscode-uri": "^3.1.0",
 		"webpack": "^5.107.2",
 		"webpack-cli": "^7.0.3",
@@ -644,5 +647,5 @@
 				}
 			}
 		}
-		}
+	}
 }

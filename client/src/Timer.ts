@@ -9,7 +9,7 @@
 export class Timer {
 
     lastExec = Date.now();
-    interval = null;
+    interval: NodeJS.Timeout;
     checkingFrequency = 200;
     constructor(func: () => void, timeout: number) {
         this.interval = setInterval(() => {
