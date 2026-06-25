@@ -173,7 +173,7 @@ export class State {
     public static updateActiveInner(projectUri: ProjectRoot | null): void {
         if (projectUri) {
             const projectFile = path.basename(projectUri.path);
-            State.statusBarPin.update("$(pinned)", Color.READY, `Unpin project ${projectFile}`);
+            State.statusBarPin.update("$(pinned)", Color.READY, new vscode.MarkdownString(`Unpin project ${projectFile}`));
             State.statusBarPin.setCommand("viper.unpinProject");
         } else {
             State.statusBarPin.update("", Color.READY);
