@@ -7,10 +7,13 @@
   */
 
 import * as child_process from 'child_process';
-import * as vscode from 'vscode';
+import { createRequire } from 'node:module';
+import type { Uri as VscodeUri } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 import { NotificationType, RequestType0, RequestType } from 'vscode-jsonrpc';
 import { URI } from 'vscode-uri';
-import { Log } from './Log';
+import { Log } from './Log.js';
 
 //==============================================================================
 // These commands are used to distinguish the different message types.
@@ -343,12 +346,12 @@ export interface UnhandledViperServerMessageTypeParams {
 }
 
 export interface FlushCacheParams {
-    uri?: string, // nullable (null indicates that the cache for all files should be flushed)
+    uri?: string | null, // nullable (null indicates that the cache for all files should be flushed)
     backend: string // non-null
 }
 
 export interface GetIdentifierResponse {
-    identifier?: string // nullable
+    identifier?: string | null // nullable
 }
 
 export interface GetRangeResponse {
@@ -663,8 +666,7 @@ export class Common {
         return platformIndependentPath;
     }
 
-    public static uriToString(uri: string | vscode.Uri): string {
-        if (!uri) return null;
+    public static uriToString(uri: string | VscodeUri): string {
         if (typeof uri === "string") {
             return uri;
         } else {
@@ -672,8 +674,7 @@ export class Common {
         }
     }
 
-    public static uriToObject(uri: string | vscode.Uri): vscode.Uri {
-        if (!uri) return null;
+    public static uriToObject(uri: string | VscodeUri): VscodeUri {
         if (typeof uri === "string") {
             return vscode.Uri.parse(uri);
         } else {
@@ -687,14 +688,14 @@ export class Common {
         return platformIndependentUri;
     }
 
-    public static uriEquals(a: string | vscode.Uri, b: string | vscode.Uri): boolean {
+    public static uriEquals(a: string | VscodeUri | undefined | null, b: string | VscodeUri | undefined | null): boolean {
         if (!a || !b) return false;
         return this.uriToString(a) === this.uriToString(b);
     }
 
     //Helper methods for child processes
-    public static executer(command: string, onData?: (string) => void, 
-                           onError?: (string) => void, onExit?: () => void): child_process.ChildProcess {
+    public static executer(command: string, onData?: (data: string) => void,
+                           onError?: (error: string) => void, onExit?: () => void): child_process.ChildProcess | undefined {
         try {
             Log.logWithOrigin("executer", command, LogLevel.Debug);
             const child: child_process.ChildProcess = child_process.exec(command, function (error, stdout, stderr) {
@@ -726,7 +727,7 @@ export class Common {
         });
     }
 
-    public static spawner(command: string, args: string[]): child_process.ChildProcess {
+    public static spawner(command: string, args: string[]): child_process.ChildProcess | undefined {
         Log.log("spawner: " + command + " " + args.join(" "), LogLevel.Debug);
         try {
             const child = child_process.spawn(command, args, { detached: true });

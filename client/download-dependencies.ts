@@ -6,31 +6,32 @@
   * Copyright (c) 2011-2023 ETH Zurich.
   */
 
-import * as fs from 'fs-extra';
+import fs from 'fs-extra';
 import * as path from 'path';
-// we use 'vs-verification-toolbox/out/dependencies' instead of 'vs-verification-toolbox' to avoid loading exports that
+// we use 'vs-verification-toolbox/out/dependencies/index.js' instead of 'vs-verification-toolbox' to avoid loading exports that
 // depend on 'vscode' since this file should be executed outside of a vscode context, i.e., as a regular node script
-import { Dependency, FileDownloader, GitHubZipExtractor } from 'vs-verification-toolbox/out/dependencies';
-import * as yargs from 'yargs';
+import { Dependency, FileDownloader, GitHubZipExtractor } from 'vs-verification-toolbox/out/dependencies/index.js';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
 import * as rimraf from 'rimraf';
 import { strict as assert } from 'assert';
 
 const templateDownloadUrl = 'https://github.com/viperproject/viper-ide-deps/zipball/master/';
-const templateOutputDir = path.resolve(__dirname, 'dependencies/ViperTools');
+const templateOutputDir = path.resolve(import.meta.dirname, 'dependencies/ViperTools');
 
 const boogieVersionFile = 'boogie-version';
-const boogieOutputDir = path.resolve(__dirname, 'dependencies/ViperTools/boogie');
+const boogieOutputDir = path.resolve(import.meta.dirname, 'dependencies/ViperTools/boogie');
 const boogieLinuxDownloadUrl = (version: string) => `https://github.com/viperproject/boogie-builder/releases/download/${version}/boogie-linux.zip`;
 const boogieWindowsDownloadUrl = (version: string) => `https://github.com/viperproject/boogie-builder/releases/download/${version}/boogie-win.zip`;
 const boogieMacDownloadUrl = (version: string) => `https://github.com/viperproject/boogie-builder/releases/download/${version}/boogie-osx.zip`;
 const boogieMacARMDownloadUrl = (version: string) => `https://github.com/viperproject/boogie-builder/releases/download/${version}/boogie-osx-arm.zip`;
 
 const viperServerVersionFile = 'viperserver-version';
-const viperServerOutputDir = path.resolve(__dirname, 'dependencies/ViperTools/backends');
+const viperServerOutputDir = path.resolve(import.meta.dirname, 'dependencies/ViperTools/backends');
 const viperServerDownloadUrl = (version: string) => `https://github.com/viperproject/viperserver/releases/download/${version}/viperserver.jar`;
 
 const z3VersionFile = 'z3-version';
-const z3OutputDir = path.resolve(__dirname, 'dependencies/ViperTools/z3');
+const z3OutputDir = path.resolve(import.meta.dirname, 'dependencies/ViperTools/z3');
 const z3LinuxDownloadUrl = (version: string) => `https://github.com/Z3Prover/z3/releases/download/z3-${version}/z3-${version}-x64-ubuntu-16.04.zip`;
 const z3WindowsDownloadUrl = (version: string) => `https://github.com/Z3Prover/z3/releases/download/z3-${version}/z3-${version}-x64-win.zip`;
 const z3MacDownloadUrl = (version: string) => `https://github.com/Z3Prover/z3/releases/download/z3-${version}/z3-${version}-x64-osx-10.14.6.zip`;
@@ -43,7 +44,7 @@ const z3MacARMDownloadUrl = (version: string) => {
   }
 }
 
-const tmpFolder = path.resolve(__dirname, 'tmp');
+const tmpFolder = path.resolve(import.meta.dirname, 'tmp');
 
 
 const LinuxOption = 'linux-x64';
@@ -72,7 +73,7 @@ async function main() {
       defaultPlatform = undefined;
     }
 
-    const argv = await yargs
+    const argv = await yargs(hideBin(process.argv))
       .option('target', {
         alias: 't',
         describe: 'Target platform for which dependencies should be downloaded',

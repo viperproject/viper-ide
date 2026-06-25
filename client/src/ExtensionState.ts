@@ -6,26 +6,30 @@
   * Copyright (c) 2011-2024 ETH Zurich.
   */
 
+import { createRequire } from 'node:module';
 import * as child_process from "child_process";
 import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
-import * as vscode from 'vscode';
+import type { ExtensionContext, FileSystemWatcher, LogLevel as VscodeLogLevel, LogOutputChannel, TextEditor, Uri } from 'vscode';
 import * as net from 'net';
 import * as path from 'path';
 import * as readline from 'readline';
 import * as semver from 'semver';
-import  unusedFilename  from 'unused-filename';
+import { unusedFilename } from 'unused-filename';
 import { Location } from 'vs-verification-toolbox';
-import { Backend, Commands, Common, GetVersionRequest, LogLevel } from './ViperProtocol';
-import { Log } from './Log';
-import { ViperFileState } from './ViperFileState';
+import { Backend, Commands, Common, GetVersionRequest, LogLevel } from './ViperProtocol.js';
+import { Log } from './Log.js';
+import { ViperFileState } from './ViperFileState.js';
 import { URI } from 'vscode-uri';
-import { Helper } from './Helper';
-import { Color, StatusBar } from './StatusBar';
-import { VerificationController, Task, TaskType } from './VerificationController';
-import { ViperApi } from './ViperApi';
-import { Settings } from './Settings';
-import { combineMessages, Either, Messages, newEitherError, newRight, transformRight } from "./Either";
-import { ProjectManager, ProjectRoot } from './ProjectManager';
+import { Helper } from './Helper.js';
+import { Color, StatusBar } from './StatusBar.js';
+import { VerificationController, Task, TaskType } from './VerificationController.js';
+import { ViperApi } from './ViperApi.js';
+import { Settings } from './Settings.js';
+import { combineMessages, Either, Messages, newEitherError, newRight, transformRight } from "./Either.js";
+import { ProjectManager, ProjectRoot } from './ProjectManager.js';
+
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 
 export class State {
     public static get MIN_SERVER_VERSION(): string {
@@ -34,7 +38,7 @@ export class State {
     public static serverVersion: string;
 
     public static client: LanguageClient;
-    public static context: vscode.ExtensionContext;
+    public static context: ExtensionContext;
     public static instance: State;
 
     public static viperFiles: Map<string, ViperFileState> = new Map<string, ViperFileState>();
@@ -48,7 +52,7 @@ export class State {
 
     public static activeBackend: Backend;
 
-    public static unitTest: UnitTestCallback;
+    public static unitTest: UnitTestCallback | null;
 
     public static autoVerify = true;
 
@@ -76,7 +80,7 @@ export class State {
         }
     }
 
-    public static initializeStatusBar(context: vscode.ExtensionContext): void {
+    public static initializeStatusBar(context: ExtensionContext): void {
         this.statusBarItem = new StatusBar(10, context);
         this.statusBarItem.update("Hello from Viper", Color.READY);
 
@@ -155,8 +159,10 @@ export class State {
                 Log.log("Active viper file changed to " + activeState.name(), LogLevel.Info);
             }
         } else {
-            // hide status bar items (in case they are shown):
-            State.hideViperStatusBarItems();
+            // hide status bar items (in case they are shown), unless verification is running
+            if (!State.isVerifying) {
+                State.hideViperStatusBarItems();
+            }
         }
     }
 
@@ -173,23 +179,23 @@ export class State {
             State.statusBarPin.update("", Color.READY);
         }
     }
-    public static resetProjectIfRoot(uri: vscode.Uri): boolean {
+    public static resetProjectIfRoot(uri: Uri): boolean {
         return ProjectManager.resetProject(ProjectManager.asRoot(uri)) !== undefined
     }
-    public static unpinProject(uri: vscode.Uri): void {
+    public static unpinProject(uri: Uri): void {
         const root = ProjectManager.getProject(uri) ?? ProjectManager.asRoot(uri);
         if (root) {
             ProjectManager.resetProject(root);
         }
     }
-    public static pinFile(projectUri: ProjectRoot, fileUri: vscode.Uri): void {
+    public static pinFile(projectUri: ProjectRoot, fileUri: Uri): void {
         ProjectManager.addToProject(projectUri, fileUri);
     }
     public static unpinAllInProject(projectUri: ProjectRoot): void {
         ProjectManager.resetProject(projectUri);
     }
 
-    private static setLastActiveFile(uri: URI | string | vscode.Uri, editor: vscode.TextEditor): ViperFileState {
+    private static setLastActiveFile(uri: URI | string | Uri, editor: TextEditor): ViperFileState | null {
         this.lastActiveFileUri = uri.toString();
         const lastActiveFile = this.getFileState(uri);
         if (lastActiveFile) {
@@ -198,7 +204,7 @@ export class State {
         return lastActiveFile;
     }
 
-    public static getLastActiveFile(): ViperFileState {
+    public static getLastActiveFile(): ViperFileState | null {
         if (this.lastActiveFileUri) {
             return this.getFileState(this.lastActiveFileUri);
         } else {
@@ -223,9 +229,9 @@ export class State {
     }
 
     // retrieves the requested file, creating it when needed
-    public static getFileState(uri: URI | string | vscode.Uri): ViperFileState {
+    public static getFileState(uri: URI | string | Uri | undefined): ViperFileState | null {
         if (!uri) return null;
-        const uriObject: vscode.Uri = Common.uriToObject(uri);
+        const uriObject: Uri = Common.uriToObject(uri);
         const uriString: string = Common.uriToString(uri);
 
         if (!Helper.isViperSourceFile(uriString)) {
@@ -236,37 +242,41 @@ export class State {
             result = new ViperFileState(uriObject)
             State.viperFiles.set(uriString, result);
         } else {
-            result = State.viperFiles.get(uriString);
+            result = State.viperFiles.get(uriString)!;
         }
         return result;
     }
 
-    public static removeFileState(uri: URI | string | vscode.Uri): void {
+    public static removeFileState(uri: URI | string | Uri): void {
         if (!uri) return;
         const uriString: string = Common.uriToString(uri);
         State.viperFiles.delete(uriString);
     }
 
-    public static async startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, location: Location): Promise<Either<Messages, void>> {
+    public static async startLanguageServer(context: ExtensionContext, fileSystemWatcher: FileSystemWatcher, location: Location): Promise<Either<Messages, void>> {
         const policy = Settings.getServerPolicy();
         let serverOptions: ServerOptions;
-        let serverDisposable: Disposable;
+        let serverDisposable: Disposable | undefined;
         if (policy.create) {
             const { streamInfo, disposable } = await State.startServerProcess(location);
             serverDisposable = disposable;
             serverOptions = () => Promise.resolve(streamInfo);
         } else {
-            serverOptions = () => State.connectToServer(policy.address, policy.port);
+            serverOptions = () => State.connectToServer(policy.address!, policy.port!);
         }
 
-        const traceOutputForCi: vscode.OutputChannel = {
+        const forward = (value: string): void => Log.logWithOrigin("LSP trace", value, LogLevel.LowLevelDebug);
+        const traceOutputForCi: LogOutputChannel = {
             name: "Output Channel forwarding to log file",
-            append: (value: string) => {
-                Log.logWithOrigin("LSP trace", value, LogLevel.LowLevelDebug);
-            },
-            appendLine: (value: string) => {
-                Log.logWithOrigin("LSP trace", value, LogLevel.LowLevelDebug);
-            },
+            logLevel: vscode.LogLevel.Trace,
+            onDidChangeLogLevel: new vscode.EventEmitter<VscodeLogLevel>().event,
+            append: forward,
+            appendLine: forward,
+            trace: forward,
+            debug: forward,
+            info: forward,
+            warn: forward,
+            error: (error: string | Error) => forward(`${error}`),
             replace: () => {},
             clear: () => {},
             show: () => {},
@@ -293,7 +303,9 @@ export class State {
 
         // Push the disposable to the context's subscriptions so that the
         // client can be deactivated on extension deactivation
-        context.subscriptions.push(serverDisposable);
+        if (serverDisposable) {
+            context.subscriptions.push(serverDisposable);
+        }
 
         // Create the language client, start the client, and wait until it's ready.
         await State.client.start();
@@ -313,10 +325,9 @@ export class State {
         const javaPath = await Settings.getJavaPath(location);
         const cwd = await Settings.getJavaCwd();
         const logDirectory = Helper.getLogDir();
-        //const { unusedFilename } = await import('unused-filename');
         const serverLogFile = await unusedFilename(path.join(logDirectory, "viperserver.log"));
         const processArgs = await Settings.getServerJavaArgs(location, "viper.server.ViperServerRunner");
-        const serverArgs = await Settings.getServerArgs(Log.logLevel, serverLogFile);
+        const serverArgs = await Settings.getServerArgs(Log.logLevel!, serverLogFile);
 
         // spawn ViperServer and get port number on which it is reachable:
         const { port: portNr, disposable: disposable } = await new Promise((resolve:(res: { port: number, disposable: Disposable }) => void, reject) => {

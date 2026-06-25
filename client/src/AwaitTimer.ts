@@ -6,7 +6,7 @@
   * Copyright (c) 2011-2022 ETH Zurich.
   */
 
-import { Log } from "./Log";
+import { Log } from "./Log.js";
 
 /** similar to Timer but awaits the function and only then sets up a new interval */
 export class AwaitTimer {

@@ -19,25 +19,28 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as rimraf from 'rimraf';
-import * as vscode from 'vscode';
+import { createRequire } from 'node:module';
+import type { ExtensionContext, FileSystemWatcher } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 import { URI } from 'vscode-uri';
-import { State } from './ExtensionState';
-import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, Range, VerificationNotStartedParams, SetupProjectParams, RemoveDiagnosticsResponse } from './ViperProtocol';
-import { Log } from './Log';
-import { Helper } from './Helper';
-import { locateViperTools } from './ViperTools';
-import { Color } from './StatusBar';
-import { VerificationController, TaskType, Task } from './VerificationController';
-import { ViperApi } from './ViperApi';
-import { Settings } from './Settings';
+import { State } from './ExtensionState.js';
+import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, Range, VerificationNotStartedParams, SetupProjectParams, RemoveDiagnosticsResponse } from './ViperProtocol.js';
+import { Log } from './Log.js';
+import { Helper } from './Helper.js';
+import { locateViperTools } from './ViperTools.js';
+import { Color } from './StatusBar.js';
+import { VerificationController, TaskType, Task } from './VerificationController.js';
+import { ViperApi } from './ViperApi.js';
+import { Settings } from './Settings.js';
 import { Location } from 'vs-verification-toolbox';
 
-let fileSystemWatcher: vscode.FileSystemWatcher;
+let fileSystemWatcher: FileSystemWatcher;
 
 let activated = false;
 
 // this method is called when your extension is activated
-export async function activate(context: vscode.ExtensionContext): Promise<ViperApi> {
+export async function activate(context: ExtensionContext): Promise<ViperApi> {
     return internalActivate(context)
         .catch(async err => {
             // give the user the choice what to do:
@@ -47,14 +50,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<ViperA
         });
 }
 
-async function internalActivate(context: vscode.ExtensionContext): Promise<ViperApi> {
+async function internalActivate(context: ExtensionContext): Promise<ViperApi> {
     if (activated) {
         throw new Error(`Viper-IDE extension is already activated`);
     }
     
     Helper.loadViperFileExtensions();
     Log.log('The ViperIDE is starting up.', LogLevel.Info);
-    const ownPackageJson = vscode.extensions.getExtension("viper-admin.viper").packageJSON;
+    const ownPackageJson = vscode.extensions.getExtension("viper-admin.viper")!.packageJSON;
     Log.log(`The current version of ${ownPackageJson.displayName} is: v.${ownPackageJson.version}`, LogLevel.Info);
     await Log.initialize();
     State.context = context;
@@ -82,7 +85,7 @@ export function isActivated(): boolean {
     return activated;
 }
 
-async function cleanViperToolsIfRequested(context: vscode.ExtensionContext): Promise<void> {
+async function cleanViperToolsIfRequested(context: ExtensionContext): Promise<void> {
     // start of in a clean state by wiping Viper Tools if this was requested via
 	// environment variables. In particular, this is used for the extension tests.
 	if (Helper.cleanInstall()) {
@@ -126,12 +129,12 @@ async function internalDeactivate(): Promise<void> {
 }
 
 /** deactivates and disposes extension and returns the extension context */
-export async function shutdown(): Promise<vscode.ExtensionContext> {
+export async function shutdown(): Promise<ExtensionContext> {
     return internalShutdown()
         .catch(Helper.rethrow(`Shutting down the Viper-IDE extension has failed`));
 }
 
-async function internalShutdown(): Promise<vscode.ExtensionContext> {
+async function internalShutdown(): Promise<ExtensionContext> {
     const context = State.context;
     // remove diagnostics as otherwise VSCode will show diagnostics of the extension's
     // current and next run
@@ -142,7 +145,7 @@ async function internalShutdown(): Promise<vscode.ExtensionContext> {
         const sub = context.subscriptions.shift();
         try {
             // note that everything can be awaited in JS / TS:
-            await sub.dispose();
+            await sub!.dispose();
 		} catch (e) {
 			console.error(e);
 		}
@@ -182,7 +185,7 @@ async function initializeState(location: Location): Promise<void> {
     State.statusBarItem.update("ready", Color.READY);
 }
 
-function registerContextHandlers(context: vscode.ExtensionContext, location: Location): void {
+function registerContextHandlers(context: ExtensionContext, location: Location): void {
     context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((params) => {
         try {
             State.addToWorklist(new Task({ type: TaskType.Save, uri: params.uri }));
@@ -206,7 +209,7 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         if (event.affectsConfiguration("viper")) {
             Log.updateSettings();
             Log.log(`Viper settings have been changed -> schedule an extension restart`, LogLevel.Info);
-            State.addToWorklist(new Task({ type: TaskType.RestartExtension, uri: null, manuallyTriggered: false }));
+            State.addToWorklist(new Task({ type: TaskType.RestartExtension, uri: undefined, manuallyTriggered: false }));
         }
     }));
 
@@ -248,7 +251,7 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
         // get all backends from configuration:
         const backends = await Settings.getVerificationBackends(location);
         // user only needs to be asked if there is any choice:
-        let selectedBackend: Backend = null;
+        let selectedBackend: Backend | undefined;
         if (backends.length === 0) {
             // this path should not be possible because we check during startup that at least 1 backend is configured
             throw new Error(`0 verification backends are configured`);
@@ -256,7 +259,7 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
             selectedBackend = backends[0]; // there is no choice
         } else {
             // ask the user
-            let selectedBackendName: string;
+            let selectedBackendName: string | undefined;
             if (selectBackend) {
                 // the user has provided a backend name already so don't ask again
                 selectedBackendName = selectBackend;
@@ -292,7 +295,7 @@ function registerContextHandlers(context: vscode.ExtensionContext, location: Loc
             showNotReadyHint();
             return;
         }
-        State.addToWorklist(new Task({ type: TaskType.StopVerification, uri: null, manuallyTriggered: true }));
+        State.addToWorklist(new Task({ type: TaskType.StopVerification, uri: undefined, manuallyTriggered: true }));
     }));
 
     //open logFile
@@ -336,8 +339,8 @@ function registerClientHandlers(): void {
 
     State.client.onRequest(Commands.GetIdentifier, (position: Position) => {
         try {
-            const range = vscode.window.activeTextEditor.document.getWordRangeAtPosition(new vscode.Position(position.line, position.character))
-            const identifier = vscode.window.activeTextEditor.document.getText(range);
+            const range = vscode.window.activeTextEditor!.document.getWordRangeAtPosition(new vscode.Position(position.line, position.character))
+            const identifier = vscode.window.activeTextEditor!.document.getText(range);
             if (identifier.indexOf(" ") > 0) {
                 return { identifier: null };
             }
@@ -354,7 +357,7 @@ function registerClientHandlers(): void {
             new vscode.Position(range.start.line, range.start.character),
             new vscode.Position(range.end.line, range.end.character)
         );
-        const rangeText = vscode.window.activeTextEditor.document.getText(inputRange);
+        const rangeText = vscode.window.activeTextEditor!.document.getText(inputRange);
         Log.log(`GetRange: ${rangeText}`, LogLevel.LowLevelDebug);
         return { range: rangeText };
     });
@@ -451,8 +454,8 @@ function considerStartingBackend(newBackend: Backend): Promise<void> {
     });
 }
 
-async function removeDiagnostics(activeFileOnly: boolean): Promise<RemoveDiagnosticsResponse> {
-    let uri: string = null;
+async function removeDiagnostics(activeFileOnly: boolean): Promise<RemoveDiagnosticsResponse | undefined> {
+    let uri: string;
     if (activeFileOnly) {
         const active = Helper.getActiveFileUri();
         if (active) {

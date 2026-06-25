@@ -1,7 +1,7 @@
 import assert from 'assert';
 import { readdir } from 'fs/promises';
 import { Helper } from '../Helper';
-import TestHelper, { CARBON_NAME, DATA_ROOT, LONG, EMPTY, SETUP_TIMEOUT, SILICON_NAME, SIMPLE } from './TestHelper';
+import TestHelper, { CARBON_NAME, DATA_ROOT, LONG, EMPTY, SETUP_TIMEOUT, SILICON_NAME, SIMPLE } from './TestHelper.js';
 
 suite('ViperIDE Stress Tests', () => {
 

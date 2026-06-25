@@ -22,7 +22,7 @@ import {glob} from 'glob';
 import Mocha from 'mocha';
 import * as path from 'path';
 
-const TESTS_ROOT = __dirname;
+const TESTS_ROOT = import.meta.dirname;
 
 /** 
  * executes all test suites in the current workspace. It is assumed that 

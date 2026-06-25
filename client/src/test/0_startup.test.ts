@@ -1,4 +1,4 @@
-import TestHelper, { CARBON_NAME, EMPTY, LONG, SETUP_TIMEOUT, SILICON_NAME, SIMPLE } from './TestHelper';
+import TestHelper, { CARBON_NAME, EMPTY, LONG, SETUP_TIMEOUT, SILICON_NAME, SIMPLE } from './TestHelper.js';
 
 // this test suite is supposed to be the first one that is executed
 // as we can only test that way that the extension is correctly started

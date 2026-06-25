@@ -7,22 +7,25 @@
   */
 
 import * as path from 'path';
-import * as vscode from 'vscode';
+import { createRequire } from 'node:module';
+import type { Diagnostic, Uri } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 import { Location } from 'vs-verification-toolbox';
-import { AwaitTimer } from './AwaitTimer';
-import { State } from './ExtensionState';
-import { Common, VerifyParams, TimingInfo, VerificationState, Commands, StateChangeParams, LogLevel, Success, Backend, StopVerificationRequest } from './ViperProtocol';
-import { Log } from './Log';
-import { Helper } from './Helper';
-import { ViperFileState } from './ViperFileState';
-import { Color } from './StatusBar';
-import { Settings } from './Settings';
-import { restart } from './extension';
-import { ProjectManager } from './ProjectManager';
+import { AwaitTimer } from './AwaitTimer.js';
+import { State } from './ExtensionState.js';
+import { Common, VerifyParams, TimingInfo, VerificationState, Commands, StateChangeParams, LogLevel, Success, Backend, StopVerificationRequest } from './ViperProtocol.js';
+import { Log } from './Log.js';
+import { Helper } from './Helper.js';
+import { ViperFileState } from './ViperFileState.js';
+import { Color } from './StatusBar.js';
+import { Settings } from './Settings.js';
+import { restart } from './extension.js';
+import { ProjectManager } from './ProjectManager.js';
 
 export interface ITask {
     type: TaskType;
-    uri?: vscode.Uri;
+    uri?: Uri;
     backend?: Backend;
     manuallyTriggered?: boolean;
     success?: Success;
@@ -34,12 +37,12 @@ export interface ITask {
 
 export class Task implements ITask {
     type: TaskType;
-    uri?: vscode.Uri;
+    uri?: Uri;
     backend?: Backend;
     manuallyTriggered?: boolean;
     success?: Success;
     timeout?: number;
-    private startTime?: number = 0;
+    private startTime: number = 0;
     forceRestart?: boolean;
     resolve: () => void;
     reject: (err: Error) => void;
@@ -84,7 +87,7 @@ export class Task implements ITask {
     }
 
     hasTimedOut(): boolean {
-        return this.startTime > 0 && this.timeout > 0 && (Date.now() - this.startTime) > this.timeout;
+        return this.startTime > 0 && this.timeout! > 0 && (Date.now() - this.startTime) > this.timeout!;
     }
 
     /** calls the corresponding callback informing clients that the task has been successfully processed */
@@ -122,26 +125,26 @@ export enum TaskType {
 
 export interface CheckResult {
     result: boolean,
-    reason: string,
+    reason: string | null,
     removeRequest: boolean,
-    error: string
+    error: string | null
 }
 
 export class VerificationController {
 
-    private lastCanStartVerificationReason: string;
-    private lastCanStartVerificationUri: vscode.Uri;
+    private lastCanStartVerificationReason = "";
+    private lastCanStartVerificationUri: Uri | undefined;
 
     private location: Location;
     private controller: AwaitTimer;
     private workList: Task[];
 
     //for timing:
-    private verificationStartTime: number;
-    private timings: number[];
-    private oldTimings: TimingInfo;
-    private progressUpdater;
-    private lastProgress: number;
+    private verificationStartTime = 0;
+    private timings: number[] = [];
+    private oldTimings: TimingInfo | undefined;
+    private progressUpdater: NodeJS.Timeout | undefined;
+    private lastProgress = 0;
     private lastState: VerificationState = VerificationState.Stopped;
 
     //for autoverify all viper files in workspace
@@ -174,8 +177,8 @@ export class VerificationController {
                 let clear = -1;
                 let verificationComplete = false;
                 let verificationFailed = false;
-                let completedOrFailedFileUri: vscode.Uri;
-                let uriOfFoundVerfy: vscode.Uri;
+                let completedOrFailedFileUri: Uri | undefined;
+                let uriOfFoundVerfy: Uri | undefined;
                 let startBackendFound = false;
 
                 /** 
@@ -227,10 +230,10 @@ export class VerificationController {
                             // stopping the verification was actually successful or not
                             addNotificationForTask(task, () => task.completeSuccessfully());
                             stopFound = true;
-                            isStopManuallyTriggered = isStopManuallyTriggered || task.manuallyTriggered;
+                            isStopManuallyTriggered = isStopManuallyTriggered || task.manuallyTriggered!;
                             break;
                         case TaskType.FileClosed:
-                            if (this.workList[0].type === TaskType.Verifying && this.workList[0].uri.toString() === task.uri.toString()) {
+                            if (this.workList[0].type === TaskType.Verifying && this.workList[0].uri!.toString() === task.uri!.toString()) {
                                 stopFound = true;
                             }
                             break;
@@ -297,10 +300,10 @@ export class VerificationController {
                                 const canVerify = this.canStartVerification(task);
                                 if (canVerify.result) {
                                     Log.logWithOrigin("workList", "Verifying", LogLevel.LowLevelDebug);
-                                    if (State.unitTest) State.unitTest.verificationStarted(State.activeBackend.name, path.basename(task.uri.toString()));
+                                    if (State.unitTest) State.unitTest.verificationStarted(State.activeBackend.name, path.basename(task.uri!.toString()));
                                     task.markStarted(TaskType.Verifying);
                                     task.timeout = State.activeBackend.timeout;
-                                    await this.verify(fileState, task.manuallyTriggered);
+                                    await this.verify(fileState!, task.manuallyTriggered!);
                                 } else if (canVerify.reason && (canVerify.reason != this.lastCanStartVerificationReason || (task.uri && !Common.uriEquals(task.uri, this.lastCanStartVerificationUri)))) {
                                     Log.log(canVerify.reason, LogLevel.Info);
                                     this.lastCanStartVerificationReason = canVerify.reason;
@@ -327,10 +330,10 @@ export class VerificationController {
                                     || startBackendFound
                                     || (timedOut && canStopOnTimeout)) {
                                     if (timedOut) {
-                                        Log.hint("Verification of " + path.basename(task.uri.fsPath) + " timed out after " + task.timeout + "ms");
+                                        Log.hint("Verification of " + path.basename(task.uri!.fsPath) + " timed out after " + task.timeout + "ms");
                                     }
-                                    Log.log("Stop the running verification of " + path.basename(task.uri.fsPath) + ` we have ${verifyFound}, ${stopFound}, ${startBackendFound}, ${timedOut}`, LogLevel.Debug);
-                                    const success = await this.stopVerification(task.uri.toString(), isStopManuallyTriggered);
+                                    Log.log("Stop the running verification of " + path.basename(task.uri!.fsPath) + ` we have ${verifyFound}, ${stopFound}, ${startBackendFound}, ${timedOut}`, LogLevel.Debug);
+                                    const success = await this.stopVerification(task.uri!.toString(), isStopManuallyTriggered);
                                     if (State.unitTest) State.unitTest.verificationStopped(success);
                                     if (success) {
                                         State.hideProgress();
@@ -356,7 +359,7 @@ export class VerificationController {
                         case TaskType.FileClosed:
                             if (fileState && !fileState.open) {
                                 //if the file has not been reopened in the meantime:
-                                State.removeFileState(task.uri.toString());
+                                State.removeFileState(task.uri!.toString());
                             }
                             task.type = TaskType.NoOp;
                             addNotificationForTask(task, () => task.completeSuccessfully());
@@ -390,23 +393,23 @@ export class VerificationController {
                         case TaskType.StartBackend:
                             if (!State.isBackendReady || State.activeBackend !== task.backend) {
                                 // the backend has changed
-                                State.activeBackend = task.backend;
+                                State.activeBackend = task.backend!;
                                 // set all files to be not-verified:
                                 State.viperFiles.forEach(file => file.verified = false);
                                 // Get acronym with only characters, numbers or whitespace
-                                const acronym = task.backend.name.split(" ").map(word => word.length > 0 ? word[0] : " ").filter(char => char.match(/[a-zA-Z0-9 ]/)).join("");
+                                const acronym = task.backend!.name.split(" ").map(word => word.length > 0 ? word[0] : " ").filter(char => char.match(/[a-zA-Z0-9 ]/)).join("");
                                 State.backendStatusBar.update(acronym, Color.READY);
                                 // there is no remote task we need to execute on the server and can thus directly set the ready flag:
                                 State.isBackendReady = true;
-                                Log.log(`Backend ${task.backend.name} is now ready`, LogLevel.Debug);
-                                if (State.unitTest) State.unitTest.backendStarted(task.backend.name);
+                                Log.log(`Backend ${task.backend!.name} is now ready`, LogLevel.Debug);
+                                if (State.unitTest) State.unitTest.backendStarted(task.backend!.name);
                                 // reverify the currently open file with the new backend:
                                 const fileUri = Helper.getActiveVerificationUri();
                                 if (fileUri) {
                                     State.addToWorklist(new Task({ type: TaskType.Verify, uri: fileUri, manuallyTriggered: false }));
                                 }
                             } else {
-                                Log.log(`Skipping 'StartBackend' because the same backend (${task.backend.name}) has been selected`, LogLevel.LowLevelDebug);
+                                Log.log(`Skipping 'StartBackend' because the same backend (${task.backend!.name}) has been selected`, LogLevel.LowLevelDebug);
                             }
                             task.type = TaskType.NoOp;
                             addNotificationForTask(task, () => task.completeSuccessfully());
@@ -424,7 +427,7 @@ export class VerificationController {
                     if (task.type === TaskType.NoOp) {
                         const removedTask = this.workList.shift();
                         // sanity check that all tasks are eventually either resolved or rejected:
-                        if (!hasNotificationForTask(removedTask)) {
+                        if (!hasNotificationForTask(removedTask!)) {
                             throw new Error(`There is no notification task for task ${JSON.stringify(removedTask)}`);
                         }
                     } else {
@@ -449,15 +452,15 @@ export class VerificationController {
         fileState.verified = false;
         const uri = ProjectManager.getProject(fileState.uri) ?? fileState.uri;
         const projectState = State.getFileState(uri);
-        projectState.changed = true;
-        projectState.verified = false;
+        projectState!.changed = true;
+        projectState!.verified = false;
         State.addToWorklist(new Task({ type: TaskType.Verify, uri: uri, manuallyTriggered: false }));
     }
 
     private canStartVerification(task: Task): CheckResult {
         try {
             let result = false;
-            let reason: string;
+            let reason: string | null = null;
             let removeRequest = true;
             if (!task.uri) {
                 reason = "Cannot Verify, unknown file uri";
@@ -558,7 +561,7 @@ export class VerificationController {
                     const customArgs = await Settings.getCustomArgsForBackend(this.location, backend, uri);
                     if (customArgs.isRight) {
                         const content = fileState.editor.document.getText()
-                        const params: VerifyParams = { uri: uri.toString(), content, manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.type, customArgs: customArgs.right };
+                        const params: VerifyParams = { uri: uri.toString(), content, manuallyTriggered: manuallyTriggered, workspace: workspace, backend: backend.type, customArgs: customArgs.right! };
                         //request verification from Server
                         State.isVerifying = true;                        
                         await State.client.sendNotification(Commands.Verify, params);
@@ -572,7 +575,7 @@ export class VerificationController {
                 //make sure the worklist is not blocked
                 State.addToWorklist(new Task({ type: TaskType.VerificationFailed, uri: fileState.uri }));
             }
-            Log.error(`Error requesting verification of ${fileState.name()}: ${e.toString()}`);
+            Log.error(`Error requesting verification of ${fileState.name()}: ${e}`);
         }
     }
 
@@ -646,6 +649,7 @@ export class VerificationController {
             return progress;
         } catch (e) {
             Log.error("Error computing progress: " + e);
+            return progress;
         }
     }
 
@@ -654,7 +658,7 @@ export class VerificationController {
         try {
             Log.log('Changed FROM ' + VerificationState[this.lastState] + " TO: " + VerificationState[params.newState], LogLevel.Info);
             this.lastState = params.newState;
-            if (params.progress <= 0) {
+            if (params.progress! <= 0) {
                 Log.log("The new state is: " + VerificationState[params.newState], LogLevel.Debug);
             }
             switch (params.newState) {
@@ -665,12 +669,12 @@ export class VerificationController {
                 case VerificationState.VerificationRunning:
                     State.abortButton.show();
                     State.statusBarProgress.show();
-                    if (params.progress > 0) {
-                        this.addTiming(params.filename, params.progress);
+                    if (params.progress! > 0) {
+                        this.addTiming(params.filename!, params.progress!);
                     }
                     break;
                 case VerificationState.PostProcessing:
-                    this.addTiming(params.filename, params.progress);
+                    this.addTiming(params.filename!, params.progress!);
                     break;
                 case VerificationState.Stage:
                     Log.log("Run " + params.stage + " for " + params.filename, LogLevel.Info);
@@ -685,30 +689,30 @@ export class VerificationController {
                     });
                     State.isVerifying = false;
 
-                    if (params.verificationCompleted < 0 || params.verificationCompleted > 1) {
+                    if (params.verificationCompleted! < 0 || params.verificationCompleted! > 1) {
                         Log.log(`Unexpected value for field 'verificationCompleted' in state change 'ready' message. Expected 0 or 1 but got ${params.verificationCompleted}.`, LogLevel.Info);
                     } else if (params.verificationCompleted == 0) {
                         // the server indicates that there is a follow-up stage after verification
                         State.statusBarItem.update("ready", Color.READY);
                     } else {
-                        const uri = vscode.Uri.parse(params.uri);
+                        const uri = vscode.Uri.parse(params.uri!);
 
                         //since at most one file can be verified at a time, set all to non-verified before potentially setting one to verified 
                         State.viperFiles.forEach(file => file.verified = false);
 
                         const verifiedFile = State.getFileState(params.uri);
-                        verifiedFile.success = params.success;
+                        verifiedFile!.success = params.success!;
                         if (params.success != Success.Aborted && params.success != Success.Error) {
-                            verifiedFile.verified = true;
+                            verifiedFile!.verified = true;
                         }
 
                         //complete the timing measurement
-                        this.addTiming(params.filename, 100);
+                        this.addTiming(params.filename!, 100);
                         if (Settings.showProgress()) {
-                            verifiedFile.timingInfo = { total: params.time, timings: this.timings };
+                            verifiedFile!.timingInfo = { total: params.time!, timings: this.timings };
                         }
 
-                        const allDiagnostics: [vscode.Uri, readonly vscode.Diagnostic[]][] = vscode.languages.getDiagnostics().map<[vscode.Uri, vscode.Diagnostic[]]>(diag =>
+                        const allDiagnostics: [Uri, readonly Diagnostic[]][] = vscode.languages.getDiagnostics().map<[Uri, Diagnostic[]]>(diag =>
                             [diag[0], diag[1].filter(d => d.source == "viper")]
                         ).filter(diag =>
                             diag[1].length > 0 || ProjectManager.inSameProject(uri, diag[0])
@@ -746,25 +750,25 @@ export class VerificationController {
                         let msg = "";
                         switch (params.success) {
                             case Success.Success:
-                                msg = `Verified ${params.filename} (${Helper.formatSeconds(params.time)})${warningsMsg("with")}`;
+                                msg = `Verified ${params.filename} (${Helper.formatSeconds(params.time!)})${warningsMsg("with")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(check) " + msg, nofWarnings == 0 ? Color.SUCCESS : Color.WARNING);
-                                if (params.manuallyTriggered > 0) {
+                                if (params.manuallyTriggered! > 0) {
                                     Log.hint(msg);
                                 }
                                 break;
                             case Success.ParsingFailed:
-                                msg = `Parsing ${params.filename} failed (${Helper.formatSeconds(params.time)})${postfix}${warningsMsg("with")}`;
+                                msg = `Parsing ${params.filename} failed (${Helper.formatSeconds(params.time!)})${postfix}${warningsMsg("with")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(x) " + msg, Color.ERROR);
                                 break;
                             case Success.TypecheckingFailed:
-                                msg = `Type checking ${params.filename} failed (${Helper.formatSeconds(params.time)}) ${errorsMsg("with")}${warningsMsg("and")}`;
+                                msg = `Type checking ${params.filename} failed (${Helper.formatSeconds(params.time!)}) ${errorsMsg("with")}${warningsMsg("and")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(x) " + msg, Color.ERROR);
                                 break;
                             case Success.VerificationFailed:
-                                msg = `Verifying ${params.filename} failed (${Helper.formatSeconds(params.time)}) ${errorsMsg("with")}${warningsMsg("and")}`;
+                                msg = `Verifying ${params.filename} failed (${Helper.formatSeconds(params.time!)}) ${errorsMsg("with")}${warningsMsg("and")}`;
                                 Log.log(msg, LogLevel.Default);
                                 State.statusBarItem.update("$(x) " + msg, Color.ERROR);
                                 break;
@@ -788,13 +792,13 @@ export class VerificationController {
 
                         // Notify whoever might be listening
                         State.viperApi.notifyVerificationTerminated({
-                            status: params.success,
+                            status: params.success!,
                             filename: uri,
                             message: msg
                         });
 
-                        if (State.unitTest && this.verificationCompleted(params.success)) {
-                            State.unitTest.verificationComplete(State.activeBackend.name, params.filename);
+                        if (State.unitTest && this.verificationCompleted(params.success!)) {
+                            State.unitTest.verificationComplete(State.activeBackend.name, params.filename!);
                         }
                         State.addToWorklist(new Task({ type: TaskType.VerificationComplete, uri: uri, manuallyTriggered: false }));
                     }
@@ -815,7 +819,7 @@ export class VerificationController {
         }
     }
 
-    private translateLsp2VsCodeDiagnosticSeverity(diagnostic: vscode.Diagnostic): vscode.Diagnostic {
+    private translateLsp2VsCodeDiagnosticSeverity(diagnostic: Diagnostic): Diagnostic {
         switch (diagnostic.severity.valueOf()) {
             case LspDiagnosticSeverity.Error.valueOf():
                 diagnostic.severity = vscode.DiagnosticSeverity.Error;

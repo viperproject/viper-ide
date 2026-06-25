@@ -7,17 +7,20 @@
   */
 
  import * as fs from 'fs';
-import * as vscode from 'vscode';
+import { createRequire } from 'node:module';
+import type { ExtensionContext } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 import { ConfirmResult, Dependency, DependencyInstaller, InstallResult, LocalReference, Location, Success, withProgressInWindow } from "vs-verification-toolbox";
-import { Log } from './Log';
-import { LogLevel } from './ViperProtocol';
-import { BuildChannel, Settings } from './Settings';
-import { Helper } from './Helper';
-import { transformRight } from './Either';
+import { Log } from './Log.js';
+import { LogLevel } from './ViperProtocol.js';
+import { BuildChannel, Settings } from './Settings.js';
+import { Helper } from './Helper.js';
+import { transformRight } from './Either.js';
 import * as path from 'path';
 
 
-export async function locateViperTools(context: vscode.ExtensionContext): Promise<Location> {
+export async function locateViperTools(context: ExtensionContext): Promise<Location> {
     const selectedChannel = Settings.getBuildChannel();
     const dependency = await getDependency(context);
     Log.log(`Locating dependencies for build channel ${selectedChannel}`, LogLevel.Debug);
@@ -85,7 +88,7 @@ export async function locateViperTools(context: vscode.ExtensionContext): Promis
         .then(setPermissions);
 }
 
-async function getDependency(context: vscode.ExtensionContext): Promise<Dependency<BuildChannel>> {
+async function getDependency(context: ExtensionContext): Promise<Dependency<BuildChannel>> {
     const buildChannelStrings = Object.keys(BuildChannel);
     const buildChannels = buildChannelStrings.map(c =>
         // Convert string to enum. See https://stackoverflow.com/a/17381004/2491528
@@ -103,7 +106,7 @@ async function getDependency(context: vscode.ExtensionContext): Promise<Dependen
     );
 }
 
-function getDependencyInstaller(buildChannel: BuildChannel, context: vscode.ExtensionContext): Promise<DependencyInstaller> {
+function getDependencyInstaller(buildChannel: BuildChannel, context: ExtensionContext): Promise<DependencyInstaller> {
     if (buildChannel == BuildChannel.External) {
         return getExternalDependencyInstaller();
     } else {
@@ -116,7 +119,7 @@ async function getExternalDependencyInstaller(): Promise<DependencyInstaller> {
     return new LocalReference(toolsPath);
 }
 
-async function getBuiltInDependencyInstaller(context: vscode.ExtensionContext): Promise<DependencyInstaller> {
+async function getBuiltInDependencyInstaller(context: ExtensionContext): Promise<DependencyInstaller> {
     return new LocalReference(path.resolve(context.extension.extensionPath, "dependencies", "ViperTools"));
 }
 

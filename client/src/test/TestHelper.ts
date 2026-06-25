@@ -6,14 +6,17 @@
 
 import assert from 'assert';
 import * as path from 'path';
-import * as vscode from 'vscode';
-import * as myExtension from '../extension';
-import { State, UnitTestCallback } from '../ExtensionState';
-import { Log } from '../Log';
-import { LogLevel } from '../ViperProtocol';
+import { createRequire } from 'node:module';
+import type { ExtensionContext, TextDocument } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
+import * as myExtension from '../extension.js';
+import { State, UnitTestCallback } from '../ExtensionState.js';
+import { Log } from '../Log.js';
+import { LogLevel } from '../ViperProtocol.js';
 import psList from 'ps-list';
 
-export const PROJECT_ROOT = path.join(__dirname, "..", "..");
+export const PROJECT_ROOT = path.join(import.meta.dirname, "..", "..");
 export const DATA_ROOT = path.join(PROJECT_ROOT, "src", "test", "data");
 export const SILICON_TYPE = 'silicon';
 export const SILICON_NAME = 'Symbolic Execution (silicon)';
@@ -31,8 +34,8 @@ export const WARNINGS = 'warnings.vpr';
 
 
 export default class TestHelper {
-    private static callbacks: UnitTestCallbackImpl = null;
-    private static context: vscode.ExtensionContext = null;
+    private static callbacks: UnitTestCallbackImpl | null = null;
+    private static context: ExtensionContext | null = null;
 
     /**
      * Configures the state used for unit tests.
@@ -86,7 +89,7 @@ export default class TestHelper {
         return path.join(DATA_ROOT, fileName);
     }
 
-    public static async openFile(fileName: string): Promise<vscode.TextDocument> {
+    public static async openFile(fileName: string): Promise<TextDocument> {
         const filePath = TestHelper.getTestDataPath(fileName);
         TestHelper.log("Open " + filePath);
         const document = await vscode.workspace.openTextDocument(filePath);
@@ -95,7 +98,7 @@ export default class TestHelper {
     }
 
     public static async closeFile(): Promise<void> {
-        const filePath = TestHelper.getTestDataPath(vscode.window.activeTextEditor.document.fileName);
+        const filePath = TestHelper.getTestDataPath(vscode.window.activeTextEditor!.document.fileName);
         TestHelper.log("close " + filePath);
         await TestHelper.executeCommand("workbench.action.closeActiveEditor");
     }
@@ -105,7 +108,7 @@ export default class TestHelper {
         await TestHelper.executeCommand('workbench.action.closeAllEditors');
     }
     
-    public static async openAndVerify(fileName: string): Promise<vscode.TextDocument> {
+    public static async openAndVerify(fileName: string): Promise<TextDocument> {
         // open file, ...
         const document = await TestHelper.openFile(fileName);
 
@@ -120,11 +123,11 @@ export default class TestHelper {
     }
 
     public static resetErrors(): void {
-        TestHelper.callbacks.resetInternalError();
+        TestHelper.callbacks!.resetInternalError();
     }
 
     public static hasObservedInternalError(): boolean {
-        return TestHelper.callbacks.internalError;
+        return TestHelper.callbacks!.internalError;
     }
 
     public static async checkForRunningProcesses(checkJava: boolean, checkBoogie: boolean, checkZ3: boolean): Promise<void> {
@@ -176,14 +179,14 @@ export default class TestHelper {
         await TestHelper.executeCommand('viper.selectBackend', backend)
     }
 
-    public static executeCommand(command: string, args?): Thenable<unknown> {
+    public static executeCommand(command: string, args?: unknown): Thenable<unknown> {
         TestHelper.log(command + (args ? ' ' + args : ''));
         return vscode.commands.executeCommand(command, args);
     }
 
     public static checkIfExtensionIsActivatedOrWaitForIt(): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.extensionActivated = () => {
+            TestHelper.callbacks!.extensionActivated = () => {
                 resolve();
             }
             // check whether activation has already happened in the past:
@@ -195,7 +198,7 @@ export default class TestHelper {
 
     public static waitForExtensionActivation(): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.extensionActivated = () => {
+            TestHelper.callbacks!.extensionActivated = () => {
                 resolve();
             }
         });
@@ -203,13 +206,13 @@ export default class TestHelper {
 
     public static waitForExtensionRestart(): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.extensionRestarted = () => { resolve(); }
+            TestHelper.callbacks!.extensionRestarted = () => { resolve(); }
         });
     }
 
     public static waitForBackendStarted(backend?: string): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.backendStarted = (b: string) => {
+            TestHelper.callbacks!.backendStarted = (b: string) => {
                 TestHelper.log(`Backend ${b} started`);
                 if (!backend || b === backend) {
                     resolve();
@@ -220,7 +223,7 @@ export default class TestHelper {
 
     public static waitForVerificationStart(fileName: string, backend?: string): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.verificationStarted = (b, f) => {
+            TestHelper.callbacks!.verificationStarted = (b, f) => {
                 TestHelper.log(`Verification Started: file: ${f}, backend: ${b}`);
                 if ((!backend || b.toLowerCase() === backend.toLowerCase()) && f === fileName) {
                     resolve();
@@ -231,7 +234,7 @@ export default class TestHelper {
 
     public static waitForVerification(fileName: string, backend?: string): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.verificationComplete = (b, f) => {
+            TestHelper.callbacks!.verificationComplete = (b, f) => {
                 TestHelper.log(`Verification Completed: file: ${f}, backend: ${b}`);
                 if ((!backend || b.toLowerCase() === backend.toLowerCase()) && f === fileName) {
                     resolve();
@@ -242,7 +245,7 @@ export default class TestHelper {
 
     public static waitForAbort(): Promise<void> {
         return new Promise((resolve, reject) => {
-            TestHelper.callbacks.verificationStopped = (success: boolean) => {
+            TestHelper.callbacks!.verificationStopped = (success: boolean) => {
                 TestHelper.log(`verification stopped ${success ? "successfully" : "unsuccessfully"}`);
                 if (success) {
                     resolve();
@@ -256,14 +259,14 @@ export default class TestHelper {
     public static waitForVerificationOrAbort(): Promise<void> {
         let resolved = false
         return new Promise((resolve, reject) => {
-            TestHelper.callbacks.verificationComplete = (b, f) => {
+            TestHelper.callbacks!.verificationComplete = (b, f) => {
                 TestHelper.log(`Verification Completed: file: ${f}, backend: ${b}`);
                 if (!resolved) {
                     resolved = true;
                     resolve();
                 }
             }
-            TestHelper.callbacks.verificationStopped = (success: boolean) => {
+            TestHelper.callbacks!.verificationStopped = (success: boolean) => {
                 TestHelper.log(`verification stopped ${success ? "successfully" : "unsuccessfully"}`);
                 if (!resolved) {
                     resolved = true;
@@ -279,7 +282,7 @@ export default class TestHelper {
 
     public static waitForLogFile(): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.logFileOpened = () => { 
+            TestHelper.callbacks!.logFileOpened = () => { 
                 TestHelper.log("log file opened");
                 resolve(); 
             }
@@ -288,7 +291,7 @@ export default class TestHelper {
 
     public static waitForIdle(): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.ideIsIdle = () => { 
+            TestHelper.callbacks!.ideIsIdle = () => { 
                 TestHelper.log("IDE is idle");
                 resolve(); 
             }
@@ -299,7 +302,7 @@ export default class TestHelper {
      * Promise is resolved with true if timeout is hit, otherwise if event happens before timeout returned promise is resolved with false
      */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    public static waitForTimeout(timeoutMs, event: Promise<any>): Promise<boolean> {
+    public static waitForTimeout(timeoutMs: number, event: Promise<any>): Promise<boolean> {
         return new Promise((resolve, reject) => {
             setTimeout(() => {
                 resolve(true);

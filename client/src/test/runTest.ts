@@ -24,7 +24,7 @@ import * as path from 'path';
 import * as tmp from 'tmp';
 import { runTests } from '@vscode/test-electron';
 
-const PROJECT_ROOT = path.join(__dirname, "..", "..");
+const PROJECT_ROOT = path.join(import.meta.dirname, "..", "..");
 const DATA_ROOT = path.join(PROJECT_ROOT, "src", "test", "data");
 
 // the test setup is as follows:
@@ -60,7 +60,7 @@ async function main(): Promise<void> {
 
 		// The path to the extension test script
 		// Passed to --extensionTestsPath
-		const extensionTestsPath = path.resolve(__dirname, 'index');
+		const extensionTestsPath = path.resolve(import.meta.dirname, 'index.js');
 
 		const tmpWorkspace = tmp.dirSync({ unsafeCleanup: true });
 		try {
