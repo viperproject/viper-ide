@@ -67,7 +67,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Viper-IDE
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install Node.js
         uses: actions/setup-node@v6
@@ -82,7 +82,7 @@ jobs:
       - run: java --version
 
       - name: Cache npm
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: client/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -260,7 +260,7 @@ jobs:
     steps:
       # we have to checkout the repo to read client/package.json later on:
       - name: Checkout Viper-IDE
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Download packaged Viper IDE
         uses: actions/download-artifact@v8
