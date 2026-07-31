@@ -20,12 +20,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as rimraf from 'rimraf';
 import { createRequire } from 'node:module';
-import type { ExtensionContext, FileSystemWatcher } from 'vscode';
+import type { ExtensionContext, FileSystemWatcher, Uri, Position as VscodePosition } from 'vscode';
 const require = createRequire(import.meta.url);
 const vscode = require('vscode') as typeof import('vscode');
 import { URI } from 'vscode-uri';
 import { State } from './ExtensionState.js';
-import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, Range, VerificationNotStartedParams, SetupProjectParams, RemoveDiagnosticsResponse } from './ViperProtocol.js';
+import { HintMessage, Commands, StateChangeParams, LogLevel, LogParams, UnhandledViperServerMessageTypeParams, FlushCacheParams, Backend, Position, Range, VerificationNotStartedParams, SetupProjectParams, RemoveDiagnosticsResponse, DebugSessionStateParams, DebugSessionClosedParams, DebugNode } from './ViperProtocol.js';
 import { Log } from './Log.js';
 import { Helper } from './Helper.js';
 import { locateViperTools } from './ViperTools.js';
@@ -34,6 +34,9 @@ import { VerificationController, TaskType, Task } from './VerificationController
 import { ViperApi } from './ViperApi.js';
 import { Settings } from './Settings.js';
 import { Location } from 'vs-verification-toolbox';
+import { DebugController } from './debug/DebugController.js';
+import { DebugCodeActionProvider } from './debug/DebugCodeActionProvider.js';
+import { DebugNodeElement } from './debug/DebugTreeProvider.js';
 
 let fileSystemWatcher: FileSystemWatcher;
 
@@ -206,7 +209,11 @@ function registerContextHandlers(context: ExtensionContext, location: Location):
         // basically all settings have some effect on ViperServer
         // only `advancedFeatures` might be fine to ignore but we simply restart ViperServer
         // for every configuration change:
-        if (event.affectsConfiguration("viper")) {
+        // Toggling how the debugger renders a proof obligation must not restart the server, which would
+        // throw away the running debug session.
+        const onlyDebuggerView = event.affectsConfiguration("viper.debugger")
+            && !event.affectsConfiguration("viper.debugger.restrictToFailingMember");
+        if (event.affectsConfiguration("viper") && !onlyDebuggerView) {
             Log.updateSettings();
             Log.log(`Viper settings have been changed -> schedule an extension restart`, LogLevel.Info);
             State.addToWorklist(new Task({ type: TaskType.RestartExtension, uri: undefined, manuallyTriggered: false }));
@@ -304,12 +311,55 @@ function registerContextHandlers(context: ExtensionContext, location: Location):
     //remove diagnostics of open file
     context.subscriptions.push(vscode.commands.registerCommand('viper.removeDiagnostics', async () => await removeDiagnostics(true)));
 
+    registerDebuggerHandlers(context, location);
+
     // show currently active (Viper) settings
     context.subscriptions.push(vscode.commands.registerCommand('viper.showSettings', async () => {
         const settings = vscode.workspace.getConfiguration("viper");
         const document = await vscode.workspace.openTextDocument({ language: 'json', content: JSON.stringify(settings, null, 2) });
         await vscode.window.showTextDocument(document, vscode.ViewColumn.Two);
     }));
+}
+
+/** Registers the commands and providers of the verification debugger. */
+function registerDebuggerHandlers(context: ExtensionContext, location: Location): void {
+    State.debugController = new DebugController(location);
+    const controller = State.debugController;
+    context.subscriptions.push(controller);
+
+    context.subscriptions.push(vscode.languages.registerCodeActionsProvider(
+        { scheme: 'file', language: 'viper' },
+        new DebugCodeActionProvider(),
+        { providedCodeActionKinds: DebugCodeActionProvider.providedCodeActionKinds }));
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('viper.debugError',
+            (uri: Uri, position: VscodePosition, message: string) => controller.debugError(uri, position, message)),
+        vscode.commands.registerCommand('viper.stopDebugSession', () => controller.stopSession()),
+        vscode.commands.registerCommand('viper.debugProve', () => controller.prove()),
+        vscode.commands.registerCommand('viper.debugReset', () => controller.reset()),
+        vscode.commands.registerCommand('viper.debugAddAssumption', () => controller.addAssumption(false)),
+        vscode.commands.registerCommand('viper.debugAddFreeAssumption', () => controller.addAssumption(true)),
+        vscode.commands.registerCommand('viper.debugRemoveAssumption',
+            (element: DebugNodeElement) => controller.removeAssumption(element)),
+        vscode.commands.registerCommand('viper.debugSelectFailure', () => controller.selectFailure()),
+        vscode.commands.registerCommand('viper.debugSelectProver', () => controller.selectProver()),
+        vscode.commands.registerCommand('viper.debugSetTimeout', () => controller.setTimeout()),
+        vscode.commands.registerCommand('viper.debugToggleInternal', () => controller.toggle('printInternal')),
+        vscode.commands.registerCommand('viper.debugToggleOldHeaps', () => controller.toggle('printOldHeaps')),
+        vscode.commands.registerCommand('viper.debugToggleAxioms', () => controller.toggle('printAxioms')),
+        vscode.commands.registerCommand('viper.debugToggleTerms',
+            () => controller.toggle('printInternalTermRepresentation')),
+        vscode.commands.registerCommand('viper.debugSetHierarchyLevel', () => controller.setHierarchyLevel()),
+        vscode.commands.registerCommand('viper.debugShowText', () => controller.showAsText()),
+        vscode.commands.registerCommand('viper.debugErrorWithCounterexample',
+            (uri: Uri, position: VscodePosition, message: string) =>
+                controller.debugErrorWithCounterexample(uri, position, message)),
+        vscode.commands.registerCommand('viper.debugCounterexample', () => controller.showCounterexample()),
+        vscode.commands.registerCommand('viper.debugShowCounterexampleText',
+            () => controller.showCounterexampleAsText()),
+        vscode.commands.registerCommand('viper.debugRevealNode', (node: DebugNode) => controller.revealNode(node)),
+    );
 }
 
 function showNotReadyHint(): void {
@@ -375,6 +425,14 @@ function registerClientHandlers(): void {
             State.pinFile(projectUri, vscode.Uri.parse(uri));
         });
         State.updateActive();
+    });
+
+    State.client.onNotification(Commands.DebugSessionState, (params: DebugSessionStateParams) => {
+        State.debugController?.onSessionState(params);
+    });
+
+    State.client.onNotification(Commands.DebugSessionClosed, (params: DebugSessionClosedParams) => {
+        State.debugController?.onSessionClosed(params);
     });
 
     State.client.onNotification(Commands.VerificationNotStarted, (params: VerificationNotStartedParams) => {
