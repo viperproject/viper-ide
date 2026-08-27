@@ -4,6 +4,9 @@
 
 ### Changelog
 
+#### v.5.4.0 (Viper v.26.08-release candidate) 
+* Updated Z3 to version 4.16.0
+
 #### v.5.3.2 (Viper v.26.02-release) 
 * Several improvements to autocomplete and inlays
   * Improved autocomplete by removing unwanted suggestions
