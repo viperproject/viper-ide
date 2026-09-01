@@ -3,36 +3,42 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at http://mozilla.org/MPL/2.0/.
   *
-  * Copyright (c) 2011-2019 ETH Zurich.
+  * Copyright (c) 2011-2024 ETH Zurich.
   */
 
+import { createRequire } from 'node:module';
 import * as child_process from "child_process";
 import { LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
-import * as vscode from 'vscode';
+import type { ExtensionContext, FileSystemWatcher, LogLevel as VscodeLogLevel, LogOutputChannel, TextEditor, Uri } from 'vscode';
 import * as net from 'net';
 import * as path from 'path';
 import * as readline from 'readline';
 import * as semver from 'semver';
-import unusedFilename from 'unused-filename';
+import { unusedFilename } from 'unused-filename';
 import { Location } from 'vs-verification-toolbox';
-import { Backend, Commands, Common, GetVersionRequest, LogLevel } from './ViperProtocol';
-import { Log } from './Log';
-import { ViperFileState } from './ViperFileState';
+import { Backend, Commands, Common, GetVersionRequest, LogLevel } from './ViperProtocol.js';
+import { Log } from './Log.js';
+import { ViperFileState } from './ViperFileState.js';
 import { URI } from 'vscode-uri';
-import { Helper } from './Helper';
-import { Color, StatusBar } from './StatusBar';
-import { VerificationController, Task } from './VerificationController';
-import { ViperApi } from './ViperApi';
-import { Settings } from './Settings';
-import { combineMessages, Either, Messages, newEitherError, newRight, transformRight } from "./Either";
+import { Helper } from './Helper.js';
+import { Color, StatusBar } from './StatusBar.js';
+import { VerificationController, Task, TaskType } from './VerificationController.js';
+import { ViperApi } from './ViperApi.js';
+import { Settings } from './Settings.js';
+import { combineMessages, Either, Messages, newEitherError, newRight, transformRight } from "./Either.js";
+import { ProjectManager, ProjectRoot } from './ProjectManager.js';
+
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 
 export class State {
     public static get MIN_SERVER_VERSION(): string {
-        return "2.0.0"; // has to be a valid semver
+        return "3.1.0"; // has to be a valid semver
     }
+    public static serverVersion: string;
 
     public static client: LanguageClient;
-    public static context: vscode.ExtensionContext;
+    public static context: ExtensionContext;
     public static instance: State;
 
     public static viperFiles: Map<string, ViperFileState> = new Map<string, ViperFileState>();
@@ -46,7 +52,7 @@ export class State {
 
     public static activeBackend: Backend;
 
-    public static unitTest: UnitTestCallback;
+    public static unitTest: UnitTestCallback | null;
 
     public static autoVerify = true;
 
@@ -54,9 +60,8 @@ export class State {
     public static statusBarItem: StatusBar;
     public static statusBarProgress: StatusBar;
     public static backendStatusBar: StatusBar;
+    public static statusBarPin: StatusBar;
     public static abortButton: StatusBar;
-    
-    public static diagnosticCollection: vscode.DiagnosticCollection;
 
     public static viperApi: ViperApi;
 
@@ -75,7 +80,7 @@ export class State {
         }
     }
 
-    public static initializeStatusBar(context: vscode.ExtensionContext): void {
+    public static initializeStatusBar(context: ExtensionContext): void {
         this.statusBarItem = new StatusBar(10, context);
         this.statusBarItem.update("Hello from Viper", Color.READY);
 
@@ -85,17 +90,20 @@ export class State {
         this.statusBarProgress = new StatusBar(9, context);
         this.hideProgress();
 
-        this.backendStatusBar = new StatusBar(12, context);
+        this.statusBarPin = new StatusBar(12, context);
+
+        this.backendStatusBar = new StatusBar(13, context);
         this.backendStatusBar.setCommand("viper.selectBackend");
         
         this.showViperStatusBarItems();
-        
-        this.diagnosticCollection = vscode.languages.createDiagnosticCollection();
     }
 
     public static showViperStatusBarItems():  void {
         if (this.statusBarItem) {
             this.statusBarItem.show();
+        }
+        if (this.statusBarPin) {
+            this.statusBarPin.show();
         }
         // we do not interfere with statusBarProgress and abortButton here, because they are only visible while verifying a file
         if (this.backendStatusBar) {
@@ -106,6 +114,9 @@ export class State {
     public static hideViperStatusBarItems(): void {
         if (this.statusBarItem) {
             this.statusBarItem.hide();
+        }
+        if (this.statusBarPin) {
+            this.statusBarPin.hide();
         }
         // we do not interfere with statusBarProgress and abortButton here, because they are only visible while verifying a file
         if (this.backendStatusBar) {
@@ -118,7 +129,73 @@ export class State {
         this.statusBarProgress.hide().updateProgressBar(0);
     }
 
-    public static setLastActiveFile(uri: URI | string | vscode.Uri, editor: vscode.TextEditor): ViperFileState {
+    public static handleOpenedFile(): void {
+        const active = Helper.getActiveFileUri();
+        if (active == null) {
+            Log.log("No active text editor found", LogLevel.Info);
+            return;
+        }
+        const project = ProjectManager.getProject(active[0]) ?? null;
+        State.updateActiveInner(project);
+        if (Helper.isViperSourceFile(active[0])) {
+            const fileState = State.setLastActiveFile(active[0], active[1]);
+            // show status bar items (in case they were hidden)
+            State.showViperStatusBarItems();
+            // Get the file state for the root of the project if we are in a project
+            const activeState = project ? State.getFileState(project) : fileState;
+            if (activeState) {
+                const isVerifyingAll = State.verificationController?.isVerifyingAllFiles ?? false;
+                if (!activeState.verified || isVerifyingAll || State.isVerifying) {
+                    // Reset verified so canStartVerification doesn't reject with
+                    // "not manuallyTriggered and file is verified"
+                    activeState.verified = false;
+                    Log.log("The active text editor changed, consider reverification of " + activeState.name(), LogLevel.Debug);
+                    // When verifying all files in workspace, set manuallyTriggered to true so that
+                    // already-verified files get reverified and auto-verify being off is overridden.
+                    State.addToWorklist(new Task({ type: TaskType.Verify, uri: activeState.uri, manuallyTriggered: isVerifyingAll }));
+                } else {
+                    Log.log("Don't reverify, the file is already verified", LogLevel.Debug);
+                }
+                Log.log("Active viper file changed to " + activeState.name(), LogLevel.Info);
+            }
+        } else {
+            // hide status bar items (in case they are shown), unless verification is running
+            if (!State.isVerifying) {
+                State.hideViperStatusBarItems();
+            }
+        }
+    }
+
+    public static updateActive(): void {
+        const project = Helper.getActiveProjectUri();
+        State.updateActiveInner(project);
+    }
+    public static updateActiveInner(projectUri: ProjectRoot | null): void {
+        if (projectUri) {
+            const projectFile = path.basename(projectUri.path);
+            State.statusBarPin.update("$(pinned)", Color.READY, `Unpin project ${projectFile}`);
+            State.statusBarPin.setCommand("viper.unpinProject");
+        } else {
+            State.statusBarPin.update("", Color.READY);
+        }
+    }
+    public static resetProjectIfRoot(uri: Uri): boolean {
+        return ProjectManager.resetProject(ProjectManager.asRoot(uri)) !== undefined
+    }
+    public static unpinProject(uri: Uri): void {
+        const root = ProjectManager.getProject(uri) ?? ProjectManager.asRoot(uri);
+        if (root) {
+            ProjectManager.resetProject(root);
+        }
+    }
+    public static pinFile(projectUri: ProjectRoot, fileUri: Uri): void {
+        ProjectManager.addToProject(projectUri, fileUri);
+    }
+    public static unpinAllInProject(projectUri: ProjectRoot): void {
+        ProjectManager.resetProject(projectUri);
+    }
+
+    private static setLastActiveFile(uri: URI | string | Uri, editor: TextEditor): ViperFileState | null {
         this.lastActiveFileUri = uri.toString();
         const lastActiveFile = this.getFileState(uri);
         if (lastActiveFile) {
@@ -127,7 +204,7 @@ export class State {
         return lastActiveFile;
     }
 
-    public static getLastActiveFile(): ViperFileState {
+    public static getLastActiveFile(): ViperFileState | null {
         if (this.lastActiveFileUri) {
             return this.getFileState(this.lastActiveFileUri);
         } else {
@@ -152,9 +229,9 @@ export class State {
     }
 
     // retrieves the requested file, creating it when needed
-    public static getFileState(uri: URI | string | vscode.Uri): ViperFileState {
+    public static getFileState(uri: URI | string | Uri | undefined): ViperFileState | null {
         if (!uri) return null;
-        const uriObject: vscode.Uri = Common.uriToObject(uri);
+        const uriObject: Uri = Common.uriToObject(uri);
         const uriString: string = Common.uriToString(uri);
 
         if (!Helper.isViperSourceFile(uriString)) {
@@ -165,31 +242,41 @@ export class State {
             result = new ViperFileState(uriObject)
             State.viperFiles.set(uriString, result);
         } else {
-            result = State.viperFiles.get(uriString);
+            result = State.viperFiles.get(uriString)!;
         }
         return result;
     }
 
-    public static async startLanguageServer(context: vscode.ExtensionContext, fileSystemWatcher: vscode.FileSystemWatcher, location: Location): Promise<Either<Messages, void>> {
+    public static removeFileState(uri: URI | string | Uri): void {
+        if (!uri) return;
+        const uriString: string = Common.uriToString(uri);
+        State.viperFiles.delete(uriString);
+    }
+
+    public static async startLanguageServer(context: ExtensionContext, fileSystemWatcher: FileSystemWatcher, location: Location): Promise<Either<Messages, void>> {
         const policy = Settings.getServerPolicy();
         let serverOptions: ServerOptions;
-        let serverDisposable: Disposable;
+        let serverDisposable: Disposable | undefined;
         if (policy.create) {
             const { streamInfo, disposable } = await State.startServerProcess(location);
             serverDisposable = disposable;
             serverOptions = () => Promise.resolve(streamInfo);
         } else {
-            serverOptions = () => State.connectToServer(policy.address, policy.port);
+            serverOptions = () => State.connectToServer(policy.address!, policy.port!);
         }
 
-        const traceOutputForCi: vscode.OutputChannel = {
+        const forward = (value: string): void => Log.logWithOrigin("LSP trace", value, LogLevel.LowLevelDebug);
+        const traceOutputForCi: LogOutputChannel = {
             name: "Output Channel forwarding to log file",
-            append: (value: string) => {
-                Log.logWithOrigin("LSP trace", value, LogLevel.LowLevelDebug);
-            },
-            appendLine: (value: string) => {
-                Log.logWithOrigin("LSP trace", value, LogLevel.LowLevelDebug);
-            },
+            logLevel: vscode.LogLevel.Trace,
+            onDidChangeLogLevel: new vscode.EventEmitter<VscodeLogLevel>().event,
+            append: forward,
+            appendLine: forward,
+            trace: forward,
+            debug: forward,
+            info: forward,
+            warn: forward,
+            error: (error: string | Error) => forward(`${error}`),
             replace: () => {},
             clear: () => {},
             show: () => {},
@@ -203,20 +290,22 @@ export class State {
             documentSelector: [{ scheme: 'file', language: 'viper' }],
             synchronize: {
                 // Synchronize the setting section 'viperSettings' to the server
-                configurationSection: 'viperSettings',
+                configurationSection: 'viper',
                 // Notify the server about file changes to .sil or .vpr files contain in the workspace
                 fileEvents: fileSystemWatcher
             },
             // redirect output while unit testing to the log file as no UI is available, otherwise stick to default behavior, i.e. separate output view
-            traceOutputChannel: State.unitTest ? traceOutputForCi : undefined
+            traceOutputChannel: State.unitTest ? traceOutputForCi : undefined,
         }
 
-        // the ID `viperserver` has to match the first part of `viperserver.trace.server` controlling the amount of tracing
+        // the ID `viperserver` has to match the first part of `viperServer.trace.server` controlling the amount of tracing
         State.client = new LanguageClient('viperserver', 'Viper IDE - ViperServer Communication', serverOptions, clientOptions);
 
         // Push the disposable to the context's subscriptions so that the
         // client can be deactivated on extension deactivation
-        context.subscriptions.push(serverDisposable);
+        if (serverDisposable) {
+            context.subscriptions.push(serverDisposable);
+        }
 
         // Create the language client, start the client, and wait until it's ready.
         await State.client.start();
@@ -224,6 +313,7 @@ export class State {
         // check whether client and server are compatible:
         const request: GetVersionRequest = { clientVersion: Settings.getExtensionVersion() };
         const response = await State.client.sendRequest(Commands.GetVersion, request);
+        this.serverVersion = response.serverVersion;
         const checkClient: Either<Messages, void> = response.error ? newEitherError(response.error) : newRight(undefined);
         const serverIsSupported = Settings.disableServerVersionCheck() ? true : semver.compare(response.serverVersion, State.MIN_SERVER_VERSION) >= 0;
         const checkServer: Either<Messages, void> = serverIsSupported ? newRight(undefined) : newEitherError(`Server is not compatible with client - expected at least server version ${State.MIN_SERVER_VERSION} but is ${response.serverVersion}`);
@@ -237,7 +327,7 @@ export class State {
         const logDirectory = Helper.getLogDir();
         const serverLogFile = await unusedFilename(path.join(logDirectory, "viperserver.log"));
         const processArgs = await Settings.getServerJavaArgs(location, "viper.server.ViperServerRunner");
-        const serverArgs = await Settings.getServerArgs(Log.logLevel, serverLogFile);
+        const serverArgs = await Settings.getServerArgs(Log.logLevel!, serverLogFile);
 
         // spawn ViperServer and get port number on which it is reachable:
         const { port: portNr, disposable: disposable } = await new Promise((resolve:(res: { port: number, disposable: Disposable }) => void, reject) => {
@@ -345,10 +435,8 @@ export interface UnitTestCallback {
     backendStarted: (backend: string) => void;
     verificationComplete: (backend: string, filename: string) => void;
     logFileOpened: () => void;
-    allFilesVerified: (verified: number, total: number) => void;
     ideIsIdle: () => void;
     internalErrorDetected: () => void;
-    viperUpdateComplete: () => void;
     verificationStopped: (success: boolean) => void;
     verificationStarted: (backend: string, filename: string) => void;
 }

@@ -131,9 +131,9 @@
                 <string>entity.name.function.silver</string>
               </dict>
             </dict>
-            
+
             <key>match</key>
-            <string>\b(function)\b(\s+([$\w]+(\.\[$\w])?))?</string>
+            <string>\b(unique\s+)?(function)\b(\s+([$\w]+(\.\[$\w])?))?</string>
             <key>name</key>
             <string>meta.function.silver</string>
             <key>patterns</key>

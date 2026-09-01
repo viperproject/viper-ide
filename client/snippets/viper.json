@@ -7,66 +7,32 @@
         "description": "Access permission"
     },
     "Precondition": {
-        "prefix": "precondition",
+        "prefix": "requires",
         "body": [
-            "requires ${1:true)"
+            "requires ${1:true}"
         ],
         "description": "Precondition"
     },
     "Postcondition": {
-        "prefix": "postcondition|ensures",
+        "prefix": "ensures",
         "body": [
-            "ensures $(1:true)"
+            "ensures ${1:true}"
         ],
         "description": "Postcondition"
     },
-    "Method": {
-        "prefix": "method",
+    "Decreases": {
+        "prefix": "decreases",
         "body": [
-            "method ${1:foo}(${2}) returns ${5:(res:Int)}",
-            "\trequires ${3:true}",
-            "\tensures ${4:true}",
-            "{",
-            "\t${6:assert true}",
-            "}"
+            "decreases"
         ],
-        "description": "Method"
+        "description": "Decreases clause"
     },
-    "Predicate": {
-        "prefix": "predicate",
+    "Invariant": {
+        "prefix": "invariant",
         "body": [
-            "predicate ${1:foo}(${2:xs:Ref})",
-            "{",
-            "\t${3:acc(xs.next)}",
-            "}"
+            "invariant ${1:true}"
         ],
-        "description": "Predicate"
-    },
-    "Function": {
-        "prefix": "function",
-        "body": [
-            "function ${1:foo}(${2:x:Int}): ${3:Bool}",
-            "\trequires ${4:true}",
-            "\tensures ${5:true}",
-            "{",
-            "\t${6}",
-            "}"
-        ],
-        "description": "Function"
-    },
-    "Domain": {
-        "prefix": "domain",
-        "body": [
-            "domain ${1:MyType[T]} {",
-            "\tfunction ${2:oper(m:MyType[T])}: ${3:Bool}",
-            "\taxiom ${4:ax_MyType} {",
-                "\t\tforall ${5:m:MyType[T]} :: ",
-                "\t\t\t{ ${6:oper(m)} }",
-                "\t\t\t\t${7:oper(m) == true}",    
-            "\t}",
-            "}"
-        ],
-        "description": "Domain"
+        "description": "Loop invariant"
     },
     "Axiom": {
         "prefix": "axiom",

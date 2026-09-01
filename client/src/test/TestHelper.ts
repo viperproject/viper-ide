@@ -2,25 +2,28 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2011-2020 ETH Zurich.
+// Copyright (c) 2011-2025 ETH Zurich.
 
 import assert from 'assert';
-import { SpawnOptionsWithoutStdio } from 'child_process';
 import * as path from 'path';
-import * as vscode from 'vscode';
-import * as myExtension from '../extension';
-import { State, UnitTestCallback } from '../ExtensionState';
-import { Log } from '../Log';
-import { Common, LogLevel, Output } from '../ViperProtocol';
+import { createRequire } from 'node:module';
+import type { ExtensionContext, TextDocument } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
+import * as myExtension from '../extension.js';
+import { State, UnitTestCallback } from '../ExtensionState.js';
+import { Log } from '../Log.js';
+import { LogLevel } from '../ViperProtocol.js';
+import psList from 'ps-list';
 
-export const PROJECT_ROOT = path.join(__dirname, "..", "..");
+export const PROJECT_ROOT = path.join(import.meta.dirname, "..", "..");
 export const DATA_ROOT = path.join(PROJECT_ROOT, "src", "test", "data");
-export const SILICON = 'silicon';
-export const CARBON = 'carbon';
+export const SILICON_TYPE = 'silicon';
+export const SILICON_NAME = 'Symbolic Execution (silicon)';
+export const CARBON_TYPE = 'carbon';
+export const CARBON_NAME = 'Verification Condition Generation (carbon)';
 
-export const VIPER_TOOLS_TIMEOUT = 2 * 60 * 1000; // 2 min
-// set timeout to a large value such that extension can be started & installed:
-export const SETUP_TIMEOUT = VIPER_TOOLS_TIMEOUT;
+export const SETUP_TIMEOUT = 45 * 1000; // 45 sec, windows runners can be really slow
 
 
 export const SIMPLE = 'simple.sil';
@@ -31,8 +34,8 @@ export const WARNINGS = 'warnings.vpr';
 
 
 export default class TestHelper {
-    private static callbacks: UnitTestCallbackImpl = null;
-    private static context: vscode.ExtensionContext = null;
+    private static callbacks: UnitTestCallbackImpl | null = null;
+    private static context: ExtensionContext | null = null;
 
     /**
      * Configures the state used for unit tests.
@@ -66,7 +69,7 @@ export default class TestHelper {
         this.callbacks = null;
         this.context = await myExtension.shutdown();
         // wait shortly (1s) to ensure that the OS reports the (killed) processes correctly:
-        // await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1000));
         await TestHelper.checkForRunningProcesses(true, true, true);
 
         // at the very end, set `unitTest` to false and dispose log because `Log.dispose()` as part of `deactivate`
@@ -86,7 +89,7 @@ export default class TestHelper {
         return path.join(DATA_ROOT, fileName);
     }
 
-    public static async openFile(fileName: string): Promise<vscode.TextDocument> {
+    public static async openFile(fileName: string): Promise<TextDocument> {
         const filePath = TestHelper.getTestDataPath(fileName);
         TestHelper.log("Open " + filePath);
         const document = await vscode.workspace.openTextDocument(filePath);
@@ -95,7 +98,7 @@ export default class TestHelper {
     }
 
     public static async closeFile(): Promise<void> {
-        const filePath = TestHelper.getTestDataPath(vscode.window.activeTextEditor.document.fileName);
+        const filePath = TestHelper.getTestDataPath(vscode.window.activeTextEditor!.document.fileName);
         TestHelper.log("close " + filePath);
         await TestHelper.executeCommand("workbench.action.closeActiveEditor");
     }
@@ -105,68 +108,56 @@ export default class TestHelper {
         await TestHelper.executeCommand('workbench.action.closeAllEditors');
     }
     
-    public static async openAndVerify(fileName: string): Promise<vscode.TextDocument> {
+    public static async openAndVerify(fileName: string): Promise<TextDocument> {
         // open file, ...
         const document = await TestHelper.openFile(fileName);
 
-        const verified = TestHelper.waitForVerification(fileName);
         // ... send verification command to server...
-        TestHelper.log("openAndVerify: file is open, now executing the verify command");
         await TestHelper.verify();
         TestHelper.log("openAndVerify: file is open, verify command has been executed");
+        
         // ... and wait for result notification from server
-        await verified;
+        await TestHelper.waitForVerification(fileName);
         TestHelper.log("openAndVerify: file is verified");
         return document;
     }
 
     public static resetErrors(): void {
-        TestHelper.callbacks.resetInternalError();
+        TestHelper.callbacks!.resetInternalError();
     }
 
     public static hasObservedInternalError(): boolean {
-        return TestHelper.callbacks.internalError;
+        return TestHelper.callbacks!.internalError;
     }
 
     public static async checkForRunningProcesses(checkJava: boolean, checkBoogie: boolean, checkZ3: boolean): Promise<void> {
-        const options: SpawnOptionsWithoutStdio = {
-            shell: true
-        };
-        const outputs: Output[] = [];
-        // note for pgrep on macOS and linux:
-        // the pgrep command might show up in the list of running commands. Simply using `-f java.*Viper` can thus lead to false
-        // positives as it matches the command line of just this pgrep command. Two different solutions to this problem are
-        // described here: https://serverfault.com/q/367921
-        // either one can use `-f [j]ava.*Viper` or `-f [^]]java.*Viper` to avoid this problem. As we do have a static string to match
-        // against, we have opted for the first variant.
-        // note that we add `|| true` on macOS and Linux because `pgrep` exits with code 1 if no process is found.
-        if (State.isWin) {
-            function getArgs(whereCond: string): string[] {
-                return ['process', 'where', whereCond, 'get', 'ParentProcessId,ProcessId,Name,CommandLine'];
-            }
-            if (checkZ3) outputs.push(await Common.spawn('wmic', getArgs('name="z3.exe"'), options));
-            if (checkJava) outputs.push(await Common.spawn('wmic', getArgs('(CommandLine like "%Viper%" and name="java.exe")'), options));
-            if (checkBoogie) outputs.push(await Common.spawn('wmic', getArgs('name="Boogie.exe"'), options));
-        } else if (State.isMac) {
-            if (checkZ3) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$UID"', 'z3', '||', 'true'], options));
-            if (checkJava) outputs.push(await Common.spawn('pgrep', ['-l', '-u', '"$UID"', '-f', '"[j]ava.*Viper"', '||', 'true'], options));
-            if (checkBoogie) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$UID"', 'Boogie', '||', 'true'], options));
-        } else {
-            if (checkZ3) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$(whoami)"', 'z3', '||', 'true'], options));
-            if (checkJava) outputs.push(await Common.spawn('pgrep', ['-l', '-u', '"$(whoami)"', '-f', '"[j]ava.*Viper"', '||', 'true'], options));
-            if (checkBoogie) outputs.push(await Common.spawn('pgrep', ['-x', '-l', '-u', '"$(whoami)"', 'Boogie', '||', 'true'], options));
-        }
-        const outputMsgs = outputs
-            .map(out => {
-                const stringData = out.stdout.replace(/[\n\r]/g, " ");
-                if (/^.*?(\d+).*/.test(stringData)) {
-                    const outputMsg = `Process found: '${out.stdout}'`;
-                    TestHelper.log(outputMsg);
-                    return [outputMsg];
-                } else {
-                    return [];
+        const outputMsgs: string[] = [];
+        const allProcesses = await psList();
+
+        function checkProcess(name: string, checkCmd?: (cmd: string) => boolean): void {
+            const processes = allProcesses.filter(proc => proc.name === name);
+            for (const proc of processes) {
+                if (checkCmd && proc.cmd && !checkCmd(proc.cmd.toLowerCase())) {
+                    continue;
                 }
-            }).reduce((prev, cur) => prev.concat(cur), []);
+                const outputMsg = `Process found: pid=${proc.pid}, name=${proc.name}, cmd=${proc.cmd}`;
+                TestHelper.log(outputMsg);
+                outputMsgs.push(outputMsg);
+            }
+        }
+
+        if (checkZ3) {
+            checkProcess(State.isWin ? 'z3.exe' : 'z3');
+        }
+
+        if (checkJava) {
+            checkProcess(State.isWin ? 'java.exe' : 'java', (cmd) => cmd.includes('viper'));
+        }
+
+        if (checkBoogie) {
+            checkProcess(State.isWin ? 'Boogie.exe' : 'Boogie');
+        }
+
         if (outputMsgs.length == 0) {
             // no processes found
             return Promise.resolve();
@@ -188,18 +179,14 @@ export default class TestHelper {
         await TestHelper.executeCommand('viper.selectBackend', backend)
     }
 
-    public static async startViperToolsUpdate(): Promise<void> {
-        await TestHelper.executeCommand('viper.updateViperTools');
-    }
-
-    public static executeCommand(command: string, args?): Thenable<unknown> {
+    public static executeCommand(command: string, args?: unknown): Thenable<unknown> {
         TestHelper.log(command + (args ? ' ' + args : ''));
         return vscode.commands.executeCommand(command, args);
     }
 
     public static checkIfExtensionIsActivatedOrWaitForIt(): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.extensionActivated = () => {
+            TestHelper.callbacks!.extensionActivated = () => {
                 resolve();
             }
             // check whether activation has already happened in the past:
@@ -211,7 +198,7 @@ export default class TestHelper {
 
     public static waitForExtensionActivation(): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.extensionActivated = () => {
+            TestHelper.callbacks!.extensionActivated = () => {
                 resolve();
             }
         });
@@ -219,13 +206,13 @@ export default class TestHelper {
 
     public static waitForExtensionRestart(): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.extensionRestarted = () => { resolve(); }
+            TestHelper.callbacks!.extensionRestarted = () => { resolve(); }
         });
     }
 
     public static waitForBackendStarted(backend?: string): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.backendStarted = (b: string) => {
+            TestHelper.callbacks!.backendStarted = (b: string) => {
                 TestHelper.log(`Backend ${b} started`);
                 if (!backend || b === backend) {
                     resolve();
@@ -236,7 +223,7 @@ export default class TestHelper {
 
     public static waitForVerificationStart(fileName: string, backend?: string): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.verificationStarted = (b, f) => {
+            TestHelper.callbacks!.verificationStarted = (b, f) => {
                 TestHelper.log(`Verification Started: file: ${f}, backend: ${b}`);
                 if ((!backend || b.toLowerCase() === backend.toLowerCase()) && f === fileName) {
                     resolve();
@@ -247,7 +234,7 @@ export default class TestHelper {
 
     public static waitForVerification(fileName: string, backend?: string): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.verificationComplete = (b, f) => {
+            TestHelper.callbacks!.verificationComplete = (b, f) => {
                 TestHelper.log(`Verification Completed: file: ${f}, backend: ${b}`);
                 if ((!backend || b.toLowerCase() === backend.toLowerCase()) && f === fileName) {
                     resolve();
@@ -256,18 +243,9 @@ export default class TestHelper {
         });
     }
 
-    public static waitForVerificationOfAllFilesInWorkspace(): Promise<{verified: number, total: number}> {
-        return new Promise(resolve => {
-            TestHelper.callbacks.allFilesVerified = (verified, total) => {
-                TestHelper.log(`Verification of all files completed: ${verified} of ${total}`);
-                resolve({verified: verified, total: total});
-            }
-        });
-    }
-
     public static waitForAbort(): Promise<void> {
         return new Promise((resolve, reject) => {
-            TestHelper.callbacks.verificationStopped = (success: boolean) => {
+            TestHelper.callbacks!.verificationStopped = (success: boolean) => {
                 TestHelper.log(`verification stopped ${success ? "successfully" : "unsuccessfully"}`);
                 if (success) {
                     resolve();
@@ -281,14 +259,14 @@ export default class TestHelper {
     public static waitForVerificationOrAbort(): Promise<void> {
         let resolved = false
         return new Promise((resolve, reject) => {
-            TestHelper.callbacks.verificationComplete = (b, f) => {
+            TestHelper.callbacks!.verificationComplete = (b, f) => {
                 TestHelper.log(`Verification Completed: file: ${f}, backend: ${b}`);
                 if (!resolved) {
                     resolved = true;
                     resolve();
                 }
             }
-            TestHelper.callbacks.verificationStopped = (success: boolean) => {
+            TestHelper.callbacks!.verificationStopped = (success: boolean) => {
                 TestHelper.log(`verification stopped ${success ? "successfully" : "unsuccessfully"}`);
                 if (!resolved) {
                     resolved = true;
@@ -304,7 +282,7 @@ export default class TestHelper {
 
     public static waitForLogFile(): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.logFileOpened = () => { 
+            TestHelper.callbacks!.logFileOpened = () => { 
                 TestHelper.log("log file opened");
                 resolve(); 
             }
@@ -313,16 +291,10 @@ export default class TestHelper {
 
     public static waitForIdle(): Promise<void> {
         return new Promise(resolve => {
-            TestHelper.callbacks.ideIsIdle = () => { 
+            TestHelper.callbacks!.ideIsIdle = () => { 
                 TestHelper.log("IDE is idle");
                 resolve(); 
             }
-        });
-    }
-
-    public static waitForViperToolsUpdate(): Promise<void> {
-        return new Promise(resolve => {
-            TestHelper.callbacks.viperUpdateComplete = () => { resolve(); }
         });
     }
 
@@ -330,7 +302,7 @@ export default class TestHelper {
      * Promise is resolved with true if timeout is hit, otherwise if event happens before timeout returned promise is resolved with false
      */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    public static waitForTimeout(timeoutMs, event: Promise<any>): Promise<boolean> {
+    public static waitForTimeout(timeoutMs: number, event: Promise<any>): Promise<boolean> {
         return new Promise((resolve, reject) => {
             setTimeout(() => {
                 resolve(true);
@@ -366,10 +338,8 @@ class UnitTestCallbackImpl implements UnitTestCallback {
     backendStarted: (backend: string) => void = () => { };
     verificationComplete: (backend: string, filename: string) => void = () => { };
     logFileOpened: () => void = () => { };
-    allFilesVerified: (verified: number, total: number) => void = () => { };
     ideIsIdle: () => void = () => { };
-    internalErrorDetected: () => void = () => { this.errorDetected = true; }
-    viperUpdateComplete: () => void = () => { };
+    internalErrorDetected: () => void = () => { this.errorDetected = true; };
     verificationStopped: (success: boolean) => void = () => { };
     verificationStarted: (backend: string, filename: string) => void = () => { };
 }

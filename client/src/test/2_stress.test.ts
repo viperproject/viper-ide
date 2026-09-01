@@ -1,5 +1,7 @@
 import assert from 'assert';
-import TestHelper, { CARBON, SETUP_TIMEOUT, SILICON, SIMPLE } from './TestHelper';
+import { readdir } from 'fs/promises';
+import { Helper } from '../Helper.js';
+import TestHelper, { CARBON_NAME, DATA_ROOT, LONG, EMPTY, SETUP_TIMEOUT, SILICON_NAME, SIMPLE } from './TestHelper.js';
 
 suite('ViperIDE Stress Tests', () => {
 
@@ -33,17 +35,17 @@ suite('ViperIDE Stress Tests', () => {
 
         TestHelper.resetErrors();
 
-        await TestHelper.selectBackend(CARBON);
+        await TestHelper.selectBackend(CARBON_NAME);
         await TestHelper.openFile(SIMPLE);
         //submit 10 verification requests
         for (let i = 0; i < 10; i++) {
-            await TestHelper.selectBackend(SILICON);
-            await TestHelper.selectBackend(CARBON);
+            await TestHelper.selectBackend(SILICON_NAME);
+            await TestHelper.selectBackend(CARBON_NAME);
         }
 
         await TestHelper.wait(500);
-        await TestHelper.selectBackend(SILICON);
-        await TestHelper.waitForVerification(SIMPLE, SILICON);
+        await TestHelper.selectBackend(SILICON_NAME);
+        await TestHelper.waitForVerification(SIMPLE, SILICON_NAME);
         assert(!TestHelper.hasObservedInternalError());
     });
 
@@ -61,7 +63,7 @@ suite('ViperIDE Stress Tests', () => {
         assert(!TestHelper.hasObservedInternalError());
     });
 
-    test("4. closing all files right after starting verificaiton", async function() {
+    test("4. closing all files right after starting verification", async function() {
         this.timeout(6000);
 
         TestHelper.resetErrors();
@@ -75,15 +77,35 @@ suite('ViperIDE Stress Tests', () => {
         assert(!TestHelper.hasObservedInternalError());
     });
 
-    test("Test simple verification with carbon", async function() {
-        this.timeout(35000);
+    test("5. rapidly switch between files without waiting for verification", async function() {
+        this.timeout(10000);
+
+        TestHelper.resetErrors();
+
+        const files = [SIMPLE, LONG, EMPTY, SIMPLE, LONG, EMPTY, SIMPLE, LONG, EMPTY];
+        for (const file of files) {
+            await TestHelper.openFile(file);
+        }
 
         await TestHelper.openFile(SIMPLE);
-        const carbonVerified = TestHelper.waitForVerification(SIMPLE, CARBON);
-        await TestHelper.selectBackend(CARBON);
-        await carbonVerified;
-        const siliconVerified = TestHelper.waitForVerification(SIMPLE, SILICON);
-        await TestHelper.selectBackend(SILICON);
-        await siliconVerified;
+        await TestHelper.verify();
+        await TestHelper.waitForVerification(SIMPLE);
+        assert(!TestHelper.hasObservedInternalError(), "internal error detected while rapidly switching files");
     });
+
+    test("6. verify all files in workspace in quick succession", async function() {
+        this.timeout(100000);
+
+        TestHelper.resetErrors();
+
+        const allFiles = await readdir(DATA_ROOT);
+        const viperFiles = allFiles.filter(f => Helper.isViperSourceFile(f));
+        assert(viperFiles.length > 0, "no Viper files found in test data");
+
+        for (const fileName of viperFiles) {
+            await TestHelper.openAndVerify(fileName);
+        }
+        assert(!TestHelper.hasObservedInternalError(), "internal error detected while verifying files in quick succession");
+    });
+
 });

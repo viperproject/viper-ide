@@ -6,23 +6,26 @@
   * Copyright (c) 2011-2020 ETH Zurich.
   */
 
-import * as vscode from "vscode";
+import { createRequire } from 'node:module';
+import type { MessageItem } from 'vscode';
+const require = createRequire(import.meta.url);
+const vscode = require('vscode') as typeof import('vscode');
 import * as path from 'path';
 import * as fs from 'fs';
-import unusedFilename from 'unused-filename';
-import { Progress, LogLevel } from './ViperProtocol';
-import { Helper } from './Helper';
-import { State } from './ExtensionState';
-import { Settings } from "./Settings";
-import { restart } from "./extension";
+import { unusedFilename } from 'unused-filename';
+import { Progress, LogLevel } from './ViperProtocol.js';
+import { Helper } from './Helper.js';
+import { State } from './ExtensionState.js';
+import { Settings } from "./Settings.js";
+import { restart } from "./extension.js";
 
 export class Log {
     static logFilePath: string;
-    static logFile: fs.WriteStream;
+    static logFile: fs.WriteStream | null;
     static outputChannel = vscode.window.createOutputChannel('Viper');
     static serverOutputChannel = vscode.window.createOutputChannel('ViperServer');
-    static logLevel: LogLevel = null;
-    static lastProgress: { msg: string, logLevel: LogLevel };
+    static logLevel: LogLevel | null = null;
+    static lastProgress: { msg: string, logLevel: LogLevel } | null;
     private static START_TIME = new Date().getTime();
 
     static logTiming = true;
@@ -105,9 +108,9 @@ export class Log {
         }
         if (oldLogLevel != Log.logLevel) {
             if (oldLogLevel == null) {
-                Log.log(`The logLevel was set to ${LogLevel[Log.logLevel]}`, LogLevel.LowLevelDebug);
+                Log.log(`The logLevel was set to ${LogLevel[Log.logLevel!]}`, LogLevel.LowLevelDebug);
             } else {
-                Log.log(`The logLevel was changed from ${LogLevel[oldLogLevel]} to ${LogLevel[Log.logLevel]}`, LogLevel.LowLevelDebug);
+                Log.log(`The logLevel was changed from ${LogLevel[oldLogLevel]} to ${LogLevel[Log.logLevel!]}`, LogLevel.LowLevelDebug);
             }
         }
     }
@@ -149,23 +152,20 @@ export class Log {
     public static progress(data: Progress, logLevel: LogLevel): void {
         if (!data) return;
 
-        const progress = (data.progress !== undefined) ? data.progress : 100.0 * data.current / data.total;
+        const progress = (data.progress !== undefined) ? data.progress : 100.0 * data.current! / data.total!;
         const label = data.domain + ": " + Helper.formatProgress(progress) + (data.postfix ? ' ' + data.postfix : '');
         this.lastProgress = { msg: label, logLevel: logLevel };
 
-        State.statusBarProgress.updateProgressBar(progress, null);
+        State.statusBarProgress.updateProgressBar(progress);
         State.statusBarItem.updateProgressLabel(data.domain, progress, data.postfix);
     }
 
     private static prefix(logLevel: LogLevel): string {
-        if (logLevel <= LogLevel.Info)
-            return "";
-        if (logLevel == LogLevel.Debug)
-            return "> ";
-        if (logLevel == LogLevel.Verbose)
-            return "- ";
-        if (logLevel == LogLevel.LowLevelDebug) {
-            return ". ";
+        switch (logLevel) {
+            case LogLevel.Debug: return "> ";
+            case LogLevel.Verbose: return "- ";
+            case LogLevel.LowLevelDebug: return ". ";
+            default: return ""; // Info and below: no prefix
         }
     }
 
@@ -200,32 +200,28 @@ export class Log {
         if (State.unitTest) {
             Log.log("Log: ignoring call to `dispose` because we are running in a unit test environment", LogLevel.Info);
         } else {
-            Log.logFile.close();
+            Log.logFile!.close();
             Log.logFile = null;
         }
     }
 
-    public static hint(message: string, tag: string = "Viper", showSettingsButton = false, showViperToolsUpdateButton = false, showRestartButton = false): void {
+    public static hint(message: string, tag: string = "Viper", showSettingsButton = false, showRestartButton = false): void {
         Log.log("H: " + tag + ": " + message, LogLevel.Debug);
 
-        const settingsButton: vscode.MessageItem = { title: "Open Settings" };
-        const updateButton: vscode.MessageItem = { title: "Update ViperTools" };
-        const restartButton: vscode.MessageItem = { title: "Restart Viper-IDE" };
-        const buttons: vscode.MessageItem[] = [];
+        const settingsButton: MessageItem = { title: "Open Settings" };
+        const restartButton: MessageItem = { title: "Restart Viper-IDE" };
+        const buttons: MessageItem[] = [];
         if (showSettingsButton) buttons.push(settingsButton);
-        if (showViperToolsUpdateButton) buttons.push(updateButton);
         if (showRestartButton) buttons.push(restartButton);
         vscode.window.showInformationMessage(`${tag}: ${message}`, ...buttons).then(async (choice) => {
             try {
                 if (choice && choice.title === settingsButton.title) {
                     await vscode.commands.executeCommand("workbench.action.openGlobalSettings");
-                } else if (choice && choice.title === updateButton.title) {
-                    await vscode.commands.executeCommand("viper.updateViperTools");
                 } else if (choice && choice.title === restartButton.title) {
                     await restart();
                 }
             } catch (e) {
-                Log.error(`Error accessing ${choice.title} settings: ${e}`)
+                Log.error(`Error accessing ${choice!.title} settings: ${e}`)
             }
         }).then(Helper.identity, err => Log.error(`Error showing information message ${err}`));
     }
