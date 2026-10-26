@@ -39,7 +39,7 @@ export class State {
 
     /** The debug adapter (the `StartDebugAdapter` request) only exists from this ViperServer version on. */
     public static get MIN_SERVER_VERSION_FOR_DEBUGGER(): string {
-        return "3.3.0"; // has to be a valid semver
+        return "3.2.0"; // has to be a valid semver
     }
 
     public static client: LanguageClient;
