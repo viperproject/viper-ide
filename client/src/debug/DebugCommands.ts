@@ -109,6 +109,49 @@ export class DebugCommands {
         await this.request<DebugCommandResponse>(session, 'viperRemoveAssumptions', { ids: [Number(match[1])] });
     }
 
+    /** Unfolds the predicate chunk the user right-clicked on in the Heap scope of the Variables view. */
+    public async unfoldChunk(context?: VariableContext): Promise<void> {
+        const predicate = context?.variable?.evaluateName;
+        if (!predicate) {
+            Log.hint('Only predicate instances in the heap can be unfolded.', 'Viper');
+            return;
+        }
+        await this.foldOrUnfold(predicate, true);
+    }
+
+    /** Asks for a predicate instance, e.g. `list(x@1)`, and folds or unfolds it in the current proof obligation. */
+    public async askToFoldOrUnfold(unfold: boolean): Promise<void> {
+        if (!this.session) return this.noSession();
+        const predicate = await vscode.window.showInputBox({
+            prompt: `Predicate instance to ${unfold ? 'unfold' : 'fold'}`,
+            placeHolder: 'e.g. list(x@1) or acc(list(x@1), 1/2), with the variable names of the Store',
+        });
+        if (!predicate) return;
+        await this.foldOrUnfold(predicate, unfold);
+    }
+
+    private async foldOrUnfold(predicate: string, unfold: boolean): Promise<void> {
+        const session = this.session;
+        if (!session) return this.noSession();
+        const response = await this.request<DebugCommandResponse>(session, 'viperFold', { predicate, unfold });
+        if (response && !response.ok) Log.hint(response.message, 'Viper');
+    }
+
+    /** Checks the failed assertion again in the current state, e.g. after an unfold. */
+    public async recheck(): Promise<void> {
+        const session = this.session;
+        if (!session) return this.noSession();
+        const response = await this.request<DebugCommandResponse>(session, 'viperCommand', { command: ':recheck' });
+        if (!response) return;
+        if (!response.ok) {
+            Log.hint(response.message, 'Viper');
+        } else {
+            void vscode.window.showInformationMessage(response.proved
+                ? 'Viper debugger: the failed assertion holds in this state.'
+                : 'Viper debugger: the failed assertion still fails in this state.');
+        }
+    }
+
     public async selectProver(): Promise<void> {
         if (!this.session) return this.noSession();
         const prover = await vscode.window.showQuickPick(['z3', 'cvc5'], { placeHolder: 'SMT solver to use' });

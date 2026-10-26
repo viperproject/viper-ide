@@ -177,6 +177,27 @@
 				"category": "Viper"
 			},
 			{
+				"command": "viper.debugUnfoldChunk",
+				"title": "unfold this predicate",
+				"category": "Viper"
+			},
+			{
+				"command": "viper.debugUnfoldPredicate",
+				"title": "unfold a predicate instance",
+				"category": "Viper"
+			},
+			{
+				"command": "viper.debugFoldPredicate",
+				"title": "fold a predicate instance",
+				"category": "Viper"
+			},
+			{
+				"command": "viper.debugRecheck",
+				"title": "check the failed assertion again",
+				"category": "Viper",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "viper.debugSelectProver",
 				"title": "choose the SMT solver of the debugger",
 				"category": "Viper"
@@ -291,6 +312,26 @@
 					"group": "Viper"
 				},
 				{
+					"command": "viper.debugUnfoldChunk",
+					"when": "false",
+					"group": "Viper"
+				},
+				{
+					"command": "viper.debugUnfoldPredicate",
+					"when": "inDebugMode && debugType == 'viper'",
+					"group": "Viper"
+				},
+				{
+					"command": "viper.debugFoldPredicate",
+					"when": "inDebugMode && debugType == 'viper'",
+					"group": "Viper"
+				},
+				{
+					"command": "viper.debugRecheck",
+					"when": "inDebugMode && debugType == 'viper'",
+					"group": "Viper"
+				},
+				{
 					"command": "viper.debugSelectProver",
 					"when": "inDebugMode && debugType == 'viper'",
 					"group": "Viper"
@@ -344,7 +385,12 @@
 			"debug/variables/context": [
 				{
 					"command": "viper.debugRemoveAssumption",
-					"when": "debugType == 'viper'",
+					"when": "debugType == 'viper' && debugProtocolVariableMenuContext == 'assumption'",
+					"group": "viper@1"
+				},
+				{
+					"command": "viper.debugUnfoldChunk",
+					"when": "debugType == 'viper' && debugProtocolVariableMenuContext == 'predicate'",
 					"group": "viper@1"
 				},
 				{

@@ -6,6 +6,7 @@ const vscode = require('vscode') as typeof import('vscode');
 import TestHelper, { SETUP_TIMEOUT } from './TestHelper.js';
 
 const DEBUG_ERROR = 'debugError.vpr';
+const DEBUG_FOLD = 'debugFold.vpr';
 
 /** The DAP messages the debug adapter has sent, recorded with a debug adapter tracker. */
 const sentMessages: { type: string; event?: string; body?: Record<string, unknown> }[] = [];
@@ -190,6 +191,39 @@ suite('Verification debugger', () => {
         } finally {
             vscode.debug.removeBreakpoints([breakpoint]);
         }
+    });
+
+    test('Unfolds a predicate of the heap and checks the failure again', async function() {
+        this.timeout(120000);
+        const document = await TestHelper.openAndVerify(DEBUG_FOLD);
+        // The error in readCell, on line 15 (0-based: 14): x.f cannot be read, since cell(x) is folded.
+        const diagnostic = await waitFor(() => vscode.languages.getDiagnostics(document.uri)
+            .find(d => d.source === 'viper' && d.range.start.line === 14), 20000, 'the error in readCell');
+        // Verifying only readCell (the default of the quick fix) would leave cell without a body.
+        const started = await vscode.debug.startDebugging(vscode.workspace.getWorkspaceFolder(document.uri), {
+            type: 'viper', request: 'launch', name: 'Debug a verification error', program: document.uri.fsPath,
+            failure: { line: diagnostic.range.start.line, column: diagnostic.range.start.character, message: diagnostic.message },
+            restrictToMember: false,
+        });
+        assert(started, 'the debug session did not start');
+        const stopped = await waitFor(() => sentMessages.find(m => m.event === 'stopped'), 110000, 'the debugger to stop');
+        const session = vscode.debug.activeDebugSession!;
+
+        const { stackFrames } = await session.customRequest('stackTrace', { threadId: stopped.body!.threadId }) as
+            { stackFrames: { id: number }[] };
+        const scopes = await scopesOf(session, stackFrames[0].id);
+        const { variables: heap } = await session.customRequest('variables',
+            { variablesReference: scopes.find(s => s.name === 'Heap')!.variablesReference }) as
+            { variables: { value: string; evaluateName?: string; __vscodeVariableMenuContext?: string }[] };
+        const chunk = heap.find(v => v.evaluateName === 'cell(x@1)');
+        assert(chunk, `expected the chunk of cell(x@1), got: ${heap.map(v => v.value).join(', ')}`);
+        assert.strictEqual(chunk.__vscodeVariableMenuContext, 'predicate', 'the chunk should offer to be unfolded');
+
+        const unfolded = await session.customRequest('viperFold', { predicate: chunk.evaluateName, unfold: true }) as
+            { ok: boolean; message: string };
+        assert(unfolded.ok, `unfolding failed: ${unfolded.message}`);
+        const recheck = await session.customRequest('viperCommand', { command: ':recheck' }) as { proved?: boolean };
+        assert.strictEqual(recheck.proved, true, 'x.f can be read once cell(x) is unfolded');
     });
 
     test('Refuses to verify while a debug session is open', async function() {
