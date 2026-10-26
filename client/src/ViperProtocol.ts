@@ -68,188 +68,22 @@ export class Commands {
     //--------------------------------------------------------------------------
     // The verification debugger (Silicon only).
     //--------------------------------------------------------------------------
-    //Server notifies the client about the progress of starting a debug session
-    static DebugSessionState: NotificationType<DebugSessionStateParams> = new NotificationType("DebugSessionState");
-    //Server notifies the client that the debug session was torn down
-    static DebugSessionClosed: NotificationType<DebugSessionClosedParams> = new NotificationType("DebugSessionClosed");
-    //Client asks the server to debug the verification error at a given position
-    static StartDebugSession: RequestType<DebugStartParams, DebugStartResponse, void> = new RequestType("StartDebugSession");
-    static StopDebugSession: RequestType<DebugSessionRef, DebugStopResponse, void> = new RequestType("StopDebugSession");
-    //Client switches to another verification error of the same session
-    static DebugSelectFailure: RequestType<DebugSelectFailureParams, DebugCommandResponse, void> = new RequestType("DebugSelectFailure");
-    //Client asks for the children of a node it has not received yet
-    static DebugExpandNode: RequestType<DebugExpandParams, DebugExpandResponse, void> = new RequestType("DebugExpandNode");
-    static DebugAddAssumption: RequestType<DebugAddAssumptionParams, DebugCommandResponse, void> = new RequestType("DebugAddAssumption");
-    static DebugRemoveAssumptions: RequestType<DebugRemoveAssumptionsParams, DebugCommandResponse, void> = new RequestType("DebugRemoveAssumptions");
-    static DebugProve: RequestType<DebugSessionRef, DebugCommandResponse, void> = new RequestType("DebugProve");
-    static DebugReset: RequestType<DebugSessionRef, DebugCommandResponse, void> = new RequestType("DebugReset");
-    static DebugSetPrintConfig: RequestType<DebugPrintConfigParams, DebugCommandResponse, void> = new RequestType("DebugSetPrintConfig");
-    static DebugSetProver: RequestType<DebugSetProverParams, DebugCommandResponse, void> = new RequestType("DebugSetProver");
-    static DebugSetTimeout: RequestType<DebugSetTimeoutParams, DebugCommandResponse, void> = new RequestType("DebugSetTimeout");
+    //Client asks the server to open a socket on which the debugger speaks the Debug Adapter Protocol
+    static StartDebugAdapter: RequestType0<StartDebugAdapterResponse, void> = new RequestType0("StartDebugAdapter");
 }
 
 //==============================================================================
-// The verification debugger. These mirror
+// The verification debugger. This mirrors
 // viper/server/frontends/lsp/DebugProtocol.scala.
 //==============================================================================
 
-/** A source range in LSP coordinates, i.e. 0-based lines and characters. */
-export interface DebugPosition {
-    file: string;
-    startLine: number;
-    startCharacter: number;
-    endLine: number;
-    endCharacter: number;
-}
-
-export type DebugNodeKind = "assumption" | "implication" | "quantified" | "store" | "chunk"
-    | "branchCondition" | "axiom" | "term" | "declaration" | "assertion" | "literal"
-    | "value" | "reference" | "field" | "predicate" | "collection" | "domain" | "function" | "functionCase";
-
-/** A node of the proof obligation tree. */
-export interface DebugNode {
-    /** The id of the assumption, which can be used to remove or expand it. Negative for other nodes. */
-    id: number;
-    kind: DebugNodeKind;
-    label: string;
-    description?: string;
-    expString?: string;
-    termString?: string;
-    isInternal: boolean;
-    /** If this exceeds `children.length`, the rest can be fetched with `DebugExpandNode`. */
-    childCount: number;
-    pos?: DebugPosition;
-    children: DebugNode[];
-}
-
-export interface DebugHeap {
-    title: string;
-    key: string;
-    chunks: DebugNode[];
-}
-
-/** A named group of nodes of a counterexample. */
-export interface DebugSection {
-    title: string;
-    key: string;
-    nodes: DebugNode[];
-}
-
 /**
- * A model of the assumptions in which the assertion does not hold: a concrete situation in which the
- * verification fails. Recomputed whenever the obligation is proved, so it follows the assumptions the user
- * has added or removed.
+ * The port on which ViperServer's debug adapter waits for a single connection. The debugger itself is driven
+ * over the Debug Adapter Protocol; see `debug/ViperDebugAdapter.ts`.
  */
-export interface DebugCounterexample {
-    sections: DebugSection[];
-    /** The counterexample as Silicon prints it on the command line. */
-    renderedText: string;
-    /** True if the assumptions changed after this counterexample was computed. */
-    stale: boolean;
-}
-
-export interface DebugPrintConfig {
-    printInternal: boolean;
-    nChildrenToShow: number;
-    hierarchyLevel: number;
-    printAxioms: boolean;
-    printInternalTermRepresentation: boolean;
-    printOldHeaps: boolean;
-}
-
-export interface DebugFailure {
-    index: number;
-    message: string;
-    pos?: DebugPosition;
-    memberName?: string;
-    debuggable: boolean;
-}
-
-export interface DebugObligation {
-    sessionId: string;
-    failureIndex: number;
-    errorMessage: string;
-    errorPos?: DebugPosition;
-    memberName?: string;
-    branchConditions: DebugNode[];
-    store: DebugNode[];
-    heaps: DebugHeap[];
-    axioms: DebugNode[];
-    declarations: DebugNode[];
-    assumptions: DebugNode[];
-    assertion: DebugNode;
-    proverName: string;
-    proverArgs?: string;
-    /** -1 means that no timeout is set. */
-    timeoutMs: number;
-    printConfig: DebugPrintConfig;
-    /** The same obligation as plain text, as printed by Silicon's command line debugger. */
-    renderedText: string;
-    /** Absent if no counterexample has been computed for this obligation. */
-    counterexample?: DebugCounterexample;
-}
-
-export interface DebugMessage {
-    severity: "info" | "warning" | "error";
-    text: string;
-}
-
-export interface DebugStartParams {
-    uri: string;
-    backend: string;
-    customArgs: string;
-    position: Position;
-    message: string;
-    restrictToMember: boolean;
-    /** Also compute counterexamples; needs `--counterexample=mapped` and `--exhaleMode=1`. */
-    withCounterexample: boolean;
-}
-
-export interface DebugStartResponse {
-    sessionId: string;
-    failures: DebugFailure[];
-    selected: number;
-    obligation?: DebugObligation;
-    messages: DebugMessage[];
+export interface StartDebugAdapterResponse {
+    port: number;
     error?: string;
-}
-
-export interface DebugSessionRef {
-    sessionId: string;
-}
-
-export interface DebugStopResponse {
-    success: boolean;
-}
-
-export interface DebugCommandResponse {
-    sessionId: string;
-    ok: boolean;
-    obligation?: DebugObligation;
-    messages: DebugMessage[];
-    proved?: boolean;
-    error?: string;
-}
-
-export interface DebugSelectFailureParams { sessionId: string; index: number; }
-export interface DebugExpandParams { sessionId: string; nodeId: number; }
-export interface DebugExpandResponse { nodes: DebugNode[]; error?: string; }
-export interface DebugRemoveAssumptionsParams { sessionId: string; nodeIds: number[]; }
-export interface DebugAddAssumptionParams { sessionId: string; expression: string; free: boolean; }
-export interface DebugPrintConfigParams { sessionId: string; config: DebugPrintConfig; }
-export interface DebugSetProverParams { sessionId: string; prover: string; args: string; }
-export interface DebugSetTimeoutParams { sessionId: string; timeoutMs: number; }
-
-export interface DebugSessionStateParams {
-    sessionId: string;
-    /** "starting", "running", "ready" or "failed". */
-    state: string;
-    message: string;
-}
-
-export interface DebugSessionClosedParams {
-    sessionId: string;
-    reason: string;
 }
 
 //==============================================================================

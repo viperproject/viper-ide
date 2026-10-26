@@ -39,28 +39,17 @@ export class DebugCodeActionProvider implements CodeActionProvider {
         const errors = context.diagnostics
             .filter(d => d.source === 'viper' && d.severity === vscode.DiagnosticSeverity.Error);
 
-        return errors.flatMap(diagnostic => {
-            const args = [document.uri, diagnostic.range.start, diagnostic.message];
-
+        // The debug session shows the counterexample of the error, too, if the setting
+        // `viper.debugger.counterexample` is enabled.
+        return errors.map(diagnostic => {
             const debugAction = new vscode.CodeAction('Debug this verification error', vscode.CodeActionKind.QuickFix);
             debugAction.diagnostics = [diagnostic];
             debugAction.command = {
                 command: 'viper.debugError',
                 title: 'Debug this verification error',
-                arguments: args,
+                arguments: [document.uri, diagnostic.range.start, diagnostic.message],
             };
-
-            // Both start the same session; this one goes straight to the values the assertion fails for.
-            const counterexampleAction = new vscode.CodeAction(
-                'Show a counterexample for this error', vscode.CodeActionKind.QuickFix);
-            counterexampleAction.diagnostics = [diagnostic];
-            counterexampleAction.command = {
-                command: 'viper.debugErrorWithCounterexample',
-                title: 'Show a counterexample for this error',
-                arguments: args,
-            };
-
-            return [debugAction, counterexampleAction];
+            return debugAction;
         });
     }
 }

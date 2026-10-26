@@ -24,7 +24,6 @@ import { Helper } from './Helper.js';
 import { Color, StatusBar } from './StatusBar.js';
 import { VerificationController, Task, TaskType } from './VerificationController.js';
 import { ViperApi } from './ViperApi.js';
-import { DebugController } from './debug/DebugController.js';
 import { Settings } from './Settings.js';
 import { combineMessages, Either, Messages, newEitherError, newRight, transformRight } from "./Either.js";
 import { ProjectManager, ProjectRoot } from './ProjectManager.js';
@@ -38,9 +37,9 @@ export class State {
     }
     public static serverVersion: string;
 
-    /** The debugger's LSP messages only exist from this ViperServer version on. */
+    /** The debug adapter (the `StartDebugAdapter` request) only exists from this ViperServer version on. */
     public static get MIN_SERVER_VERSION_FOR_DEBUGGER(): string {
-        return "3.2.0"; // has to be a valid semver
+        return "3.3.0"; // has to be a valid semver
     }
 
     public static client: LanguageClient;
@@ -70,9 +69,6 @@ export class State {
     public static abortButton: StatusBar;
 
     public static viperApi: ViperApi;
-
-    /** The verification debugger; only set while the extension is active. */
-    public static debugController: DebugController | null = null;
 
     public static isReady(): boolean {
         if (State.client == null) {
@@ -423,16 +419,8 @@ export class State {
     }
 
     public static async dispose(): Promise<void> {
-        // The debugger keeps a whole verifier alive on the server, so shut its session down first.
-        if (State.debugController != null) {
-            try {
-                await State.debugController.stopSession(false);
-            } catch (e) {
-                Log.error("Error stopping the debug session: " + e);
-            }
-            State.debugController.dispose();
-            State.debugController = null;
-        }
+        // A running debug session needs no special treatment: ViperServer closes it when the client shuts
+        // down, and its debug adapter then ends the session in VS Code.
         if (State.client == null) {
             State.reset();
             return;

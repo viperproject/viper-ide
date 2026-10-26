@@ -11,7 +11,7 @@
 	},
 	"bugs": "https://github.com/viperproject/viper-ide/issues",
 	"author": {
-		"name": "Programming Methodology Group, ETH Z\u00fcrich",
+		"name": "Programming Methodology Group, ETH Zürich",
 		"email": "viper@inf.ethz.ch",
 		"url": "https://viper.ethz.ch"
 	},
@@ -88,7 +88,8 @@
 		"baseImagesUrl": "https://github.com/viperproject/viper-ide/raw/master/client"
 	},
 	"activationEvents": [
-		"onLanguage:viper"
+		"onLanguage:viper",
+		"onDebugResolve:viper"
 	],
 	"contributes": {
 		"commands": [
@@ -149,16 +150,10 @@
 				"icon": "$(debug-alt)"
 			},
 			{
-				"command": "viper.stopDebugSession",
-				"title": "stop the verification debugger",
-				"category": "Viper",
-				"icon": "$(debug-stop)"
-			},
-			{
 				"command": "viper.debugProve",
-				"title": "prove the current obligation",
+				"title": "prove the current proof obligation",
 				"category": "Viper",
-				"icon": "$(play)"
+				"icon": "$(check)"
 			},
 			{
 				"command": "viper.debugReset",
@@ -169,26 +164,17 @@
 			{
 				"command": "viper.debugAddAssumption",
 				"title": "prove and add an assumption",
-				"category": "Viper",
-				"icon": "$(add)"
+				"category": "Viper"
 			},
 			{
 				"command": "viper.debugAddFreeAssumption",
 				"title": "add an assumption without proving it",
-				"category": "Viper",
-				"icon": "$(add)"
+				"category": "Viper"
 			},
 			{
 				"command": "viper.debugRemoveAssumption",
-				"title": "remove an assumption",
-				"category": "Viper",
-				"icon": "$(trash)"
-			},
-			{
-				"command": "viper.debugSelectFailure",
-				"title": "debug another verification error",
-				"category": "Viper",
-				"icon": "$(list-selection)"
+				"title": "remove this assumption",
+				"category": "Viper"
 			},
 			{
 				"command": "viper.debugSelectProver",
@@ -230,23 +216,6 @@
 				"title": "show the proof obligation as text",
 				"category": "Viper",
 				"icon": "$(output)"
-			},
-			{
-				"command": "viper.debugCounterexample",
-				"title": "show a counterexample for the current obligation",
-				"category": "Viper",
-				"icon": "$(symbol-numeric)"
-			},
-			{
-				"command": "viper.debugShowCounterexampleText",
-				"title": "show the counterexample as text",
-				"category": "Viper",
-				"icon": "$(output)"
-			},
-			{
-				"command": "viper.debugErrorWithCounterexample",
-				"title": "show a counterexample for the verification error at the cursor",
-				"category": "Viper"
 			}
 		],
 		"menus": {
@@ -297,188 +266,91 @@
 					"group": "Viper"
 				},
 				{
-					"command": "viper.stopDebugSession",
-					"when": "viper.debugSessionActive",
-					"group": "Viper"
-				},
-				{
 					"command": "viper.debugProve",
-					"when": "viper.debugSessionActive",
+					"when": "inDebugMode && debugType == 'viper'",
 					"group": "Viper"
 				},
 				{
 					"command": "viper.debugReset",
-					"when": "viper.debugSessionActive",
+					"when": "inDebugMode && debugType == 'viper'",
 					"group": "Viper"
 				},
 				{
 					"command": "viper.debugAddAssumption",
-					"when": "viper.debugSessionActive",
+					"when": "inDebugMode && debugType == 'viper'",
 					"group": "Viper"
 				},
 				{
 					"command": "viper.debugAddFreeAssumption",
-					"when": "viper.debugSessionActive",
+					"when": "inDebugMode && debugType == 'viper'",
 					"group": "Viper"
 				},
 				{
 					"command": "viper.debugRemoveAssumption",
-					"when": "viper.debugSessionActive",
-					"group": "Viper"
-				},
-				{
-					"command": "viper.debugSelectFailure",
-					"when": "viper.debugSessionActive",
+					"when": "false",
 					"group": "Viper"
 				},
 				{
 					"command": "viper.debugSelectProver",
-					"when": "viper.debugSessionActive",
+					"when": "inDebugMode && debugType == 'viper'",
 					"group": "Viper"
 				},
 				{
 					"command": "viper.debugSetTimeout",
-					"when": "viper.debugSessionActive",
+					"when": "inDebugMode && debugType == 'viper'",
 					"group": "Viper"
 				},
 				{
 					"command": "viper.debugToggleInternal",
-					"when": "viper.debugSessionActive",
+					"when": "inDebugMode && debugType == 'viper'",
 					"group": "Viper"
 				},
 				{
 					"command": "viper.debugToggleOldHeaps",
-					"when": "viper.debugSessionActive",
+					"when": "inDebugMode && debugType == 'viper'",
 					"group": "Viper"
 				},
 				{
 					"command": "viper.debugToggleAxioms",
-					"when": "viper.debugSessionActive",
+					"when": "inDebugMode && debugType == 'viper'",
 					"group": "Viper"
 				},
 				{
 					"command": "viper.debugToggleTerms",
-					"when": "viper.debugSessionActive",
+					"when": "inDebugMode && debugType == 'viper'",
 					"group": "Viper"
 				},
 				{
 					"command": "viper.debugSetHierarchyLevel",
-					"when": "viper.debugSessionActive",
+					"when": "inDebugMode && debugType == 'viper'",
 					"group": "Viper"
 				},
 				{
 					"command": "viper.debugShowText",
-					"when": "viper.debugSessionActive",
-					"group": "Viper"
-				},
-				{
-					"command": "viper.debugCounterexample",
-					"when": "viper.debugSessionActive",
-					"group": "Viper"
-				},
-				{
-					"command": "viper.debugShowCounterexampleText",
-					"when": "viper.debugHasCounterexample",
-					"group": "Viper"
-				},
-				{
-					"command": "viper.debugErrorWithCounterexample",
-					"when": "resourceLangId == viper",
+					"when": "inDebugMode && debugType == 'viper'",
 					"group": "Viper"
 				}
 			],
-			"view/title": [
+			"debug/toolBar": [
 				{
 					"command": "viper.debugProve",
-					"when": "view == viperProofObligation",
-					"group": "navigation@1"
-				},
-				{
-					"command": "viper.debugAddFreeAssumption",
-					"when": "view == viperProofObligation",
-					"group": "navigation@2"
+					"when": "debugType == 'viper'"
 				},
 				{
 					"command": "viper.debugReset",
-					"when": "view == viperProofObligation",
-					"group": "navigation@3"
+					"when": "debugType == 'viper'"
+				}
+			],
+			"debug/variables/context": [
+				{
+					"command": "viper.debugRemoveAssumption",
+					"when": "debugType == 'viper'",
+					"group": "viper@1"
 				},
 				{
 					"command": "viper.debugShowText",
-					"when": "view == viperProofObligation",
-					"group": "navigation@4"
-				},
-				{
-					"command": "viper.stopDebugSession",
-					"when": "view == viperProofObligation",
-					"group": "navigation@5"
-				},
-				{
-					"command": "viper.debugSelectFailure",
-					"when": "view == viperProofObligation",
-					"group": "1_session"
-				},
-				{
-					"command": "viper.debugAddAssumption",
-					"when": "view == viperProofObligation",
-					"group": "1_session"
-				},
-				{
-					"command": "viper.debugSelectProver",
-					"when": "view == viperProofObligation",
-					"group": "2_config"
-				},
-				{
-					"command": "viper.debugSetTimeout",
-					"when": "view == viperProofObligation",
-					"group": "2_config"
-				},
-				{
-					"command": "viper.debugToggleInternal",
-					"when": "view == viperProofObligation",
-					"group": "3_display"
-				},
-				{
-					"command": "viper.debugToggleOldHeaps",
-					"when": "view == viperProofObligation",
-					"group": "3_display"
-				},
-				{
-					"command": "viper.debugToggleAxioms",
-					"when": "view == viperProofObligation",
-					"group": "3_display"
-				},
-				{
-					"command": "viper.debugToggleTerms",
-					"when": "view == viperProofObligation",
-					"group": "3_display"
-				},
-				{
-					"command": "viper.debugSetHierarchyLevel",
-					"when": "view == viperProofObligation",
-					"group": "3_display"
-				},
-				{
-					"command": "viper.debugCounterexample",
-					"when": "view == viperCounterexample",
-					"group": "navigation@1"
-				},
-				{
-					"command": "viper.debugShowCounterexampleText",
-					"when": "view == viperCounterexample && viper.debugHasCounterexample",
-					"group": "navigation@2"
-				},
-				{
-					"command": "viper.debugCounterexample",
-					"when": "view == viperProofObligation",
-					"group": "1_session"
-				}
-			],
-			"view/item/context": [
-				{
-					"command": "viper.debugRemoveAssumption",
-					"when": "view == viperProofObligation && viewItem =~ /^(assumption|implication|quantified)$/",
-					"group": "inline"
+					"when": "debugType == 'viper'",
+					"group": "viper@2"
 				}
 			]
 		},
@@ -947,37 +819,72 @@
 				}
 			}
 		},
-		"viewsContainers": {
-			"activitybar": [
-				{
-					"id": "viper-debugger",
-					"title": "Viper Debugger",
-					"icon": "images/debug.svg"
-				}
-			]
-		},
-		"views": {
-			"viper-debugger": [
-				{
-					"id": "viperProofObligation",
-					"name": "Proof Obligation (experimental)"
+		"debuggers": [
+			{
+				"type": "viper",
+				"label": "Viper",
+				"languages": [
+					"viper"
+				],
+				"configurationAttributes": {
+					"launch": {
+						"properties": {
+							"program": {
+								"type": "string",
+								"description": "The Viper file to debug.",
+								"default": "${file}"
+							},
+							"failure": {
+								"type": "object",
+								"description": "The verification error to stop at first: its 0-based line and column and its message. Without it, the debugger stops at the first verification error.",
+								"properties": {
+									"line": {
+										"type": "number"
+									},
+									"column": {
+										"type": "number"
+									},
+									"message": {
+										"type": "string"
+									}
+								}
+							},
+							"restrictToMember": {
+								"type": "boolean",
+								"description": "Verify only the member that contains `failure`. Defaults to the setting viper.debugger.restrictToFailingMember."
+							},
+							"counterexample": {
+								"type": "boolean",
+								"description": "Compute counterexamples. Defaults to the setting viper.debugger.counterexample."
+							}
+						}
+					}
 				},
-				{
-					"id": "viperCounterexample",
-					"name": "Counterexample"
-				}
-			]
-		},
-		"viewsWelcome": [
+				"initialConfigurations": [
+					{
+						"type": "viper",
+						"request": "launch",
+						"name": "Debug the current Viper file",
+						"program": "${file}"
+					}
+				],
+				"configurationSnippets": [
+					{
+						"label": "Viper: Debug the current file",
+						"description": "Debug the verification errors of the current Viper file.",
+						"body": {
+							"type": "viper",
+							"request": "launch",
+							"name": "Debug the current Viper file",
+							"program": "^\"\\${file}\""
+						}
+					}
+				]
+			}
+		],
+		"breakpoints": [
 			{
-				"view": "viperProofObligation",
-				"contents": "No debug session is running.\n\nVerify a file, then use the quick fix \"Debug this verification error\" on a verification error to inspect why it fails.\n\nThe verification debugger is experimental and only supports the Silicon backend.",
-				"when": "!viper.debugSessionActive"
-			},
-			{
-				"view": "viperCounterexample",
-				"contents": "No counterexample yet.\n\n[Show a counterexample](command:viper.debugCounterexample)\n\nA counterexample shows concrete values for which the assertion does not hold. It is recomputed from the assumptions currently in the session, so it follows the assumptions you add or remove.",
-				"when": "viper.debugSessionActive"
+				"language": "viper"
 			}
 		]
 	}
