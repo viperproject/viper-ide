@@ -192,12 +192,6 @@
 				"category": "Viper"
 			},
 			{
-				"command": "viper.debugRecheck",
-				"title": "check the failed assertion again",
-				"category": "Viper",
-				"icon": "$(refresh)"
-			},
-			{
 				"command": "viper.debugSelectProver",
 				"title": "choose the SMT solver of the debugger",
 				"category": "Viper"
@@ -323,11 +317,6 @@
 				},
 				{
 					"command": "viper.debugFoldPredicate",
-					"when": "inDebugMode && debugType == 'viper'",
-					"group": "Viper"
-				},
-				{
-					"command": "viper.debugRecheck",
 					"when": "inDebugMode && debugType == 'viper'",
 					"group": "Viper"
 				},

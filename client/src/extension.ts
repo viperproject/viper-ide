@@ -350,7 +350,6 @@ function registerDebuggerHandlers(context: ExtensionContext, location: Location)
             (variable?: Parameters<DebugCommands['unfoldChunk']>[0]) => commands.unfoldChunk(variable)),
         vscode.commands.registerCommand('viper.debugUnfoldPredicate', () => commands.askToFoldOrUnfold(true)),
         vscode.commands.registerCommand('viper.debugFoldPredicate', () => commands.askToFoldOrUnfold(false)),
-        vscode.commands.registerCommand('viper.debugRecheck', () => commands.recheck()),
         vscode.commands.registerCommand('viper.debugSelectProver', () => commands.selectProver()),
         vscode.commands.registerCommand('viper.debugSetTimeout', () => commands.setTimeout()),
         vscode.commands.registerCommand('viper.debugToggleInternal', () => commands.toggle('printInternal')),

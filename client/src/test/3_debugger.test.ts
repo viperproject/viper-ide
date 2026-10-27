@@ -222,8 +222,9 @@ suite('Verification debugger', () => {
         const unfolded = await session.customRequest('viperFold', { predicate: chunk.evaluateName, unfold: true }) as
             { ok: boolean; message: string };
         assert(unfolded.ok, `unfolding failed: ${unfolded.message}`);
-        const recheck = await session.customRequest('viperCommand', { command: ':recheck' }) as { proved?: boolean };
-        assert.strictEqual(recheck.proved, true, 'x.f can be read once cell(x) is unfolded');
+        // :prove checks the failure again in the current state, in which x.f can now be read.
+        const prove = await session.customRequest('viperCommand', { command: ':prove' }) as { proved?: boolean };
+        assert.strictEqual(prove.proved, true, 'x.f can be read once cell(x) is unfolded');
     });
 
     test('Refuses to verify while a debug session is open', async function() {

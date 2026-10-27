@@ -137,21 +137,6 @@ export class DebugCommands {
         if (response && !response.ok) Log.hint(response.message, 'Viper');
     }
 
-    /** Checks the failed assertion again in the current state, e.g. after an unfold. */
-    public async recheck(): Promise<void> {
-        const session = this.session;
-        if (!session) return this.noSession();
-        const response = await this.request<DebugCommandResponse>(session, 'viperCommand', { command: ':recheck' });
-        if (!response) return;
-        if (!response.ok) {
-            Log.hint(response.message, 'Viper');
-        } else {
-            void vscode.window.showInformationMessage(response.proved
-                ? 'Viper debugger: the failed assertion holds in this state.'
-                : 'Viper debugger: the failed assertion still fails in this state.');
-        }
-    }
-
     public async selectProver(): Promise<void> {
         if (!this.session) return this.noSession();
         const prover = await vscode.window.showQuickPick(['z3', 'cvc5'], { placeHolder: 'SMT solver to use' });
