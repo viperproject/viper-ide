@@ -7,6 +7,7 @@ import TestHelper, { SETUP_TIMEOUT } from './TestHelper.js';
 
 const DEBUG_ERROR = 'debugError.vpr';
 const DEBUG_FOLD = 'debugFold.vpr';
+const DEBUG_SPEC = 'debugSpec.vpr';
 
 /** The DAP messages the debug adapter has sent, recorded with a debug adapter tracker. */
 const sentMessages: { type: string; event?: string; body?: Record<string, unknown> }[] = [];
@@ -188,6 +189,33 @@ suite('Verification debugger', () => {
             const afterStep = await lineOfStop(2);
             assert.strictEqual(afterStep.reason, 'step');
             assert.strictEqual(afterStep.line, 12, 'the step should end at the assertion');
+        } finally {
+            vscode.debug.removeBreakpoints([breakpoint]);
+        }
+    });
+
+    test('Stops before a precondition is checked at a call and proves it there', async function() {
+        this.timeout(120000);
+        const document = await TestHelper.openAndVerify(DEBUG_SPEC);
+        // The precondition of inc, on line 4 (0-based: 3), is checked at the call in client.
+        const breakpoint = new vscode.SourceBreakpoint(new vscode.Location(document.uri, new vscode.Position(3, 0)));
+        vscode.debug.addBreakpoints([breakpoint]);
+        try {
+            const started = await vscode.debug.startDebugging(vscode.workspace.getWorkspaceFolder(document.uri), {
+                type: 'viper', request: 'launch', name: 'Debug the current Viper file', program: document.uri.fsPath,
+            });
+            assert(started, 'the debug session did not start');
+            const session = vscode.debug.activeDebugSession!;
+            const stopped = await waitFor(() => sentMessages.find(m => m.event === 'stopped'), 110000, 'the breakpoint');
+            assert.strictEqual(stopped.body!.reason, 'breakpoint');
+            const { stackFrames } = await session.customRequest('stackTrace', { threadId: stopped.body!.threadId }) as
+                { stackFrames: { id: number; line: number; name: string }[] };
+            assert.strictEqual(stackFrames[0].line, 4);
+            assert(stackFrames[0].name.includes('before checking the precondition of `inc`'), stackFrames[0].name);
+            const scopes = await scopesOf(session, stackFrames[0].id);
+            assert(scopes.some(s => s.name === 'Assertion'), 'the precondition should be the assertion to prove');
+            const prove = await session.customRequest('viperCommand', { command: ':prove' }) as { proved?: boolean };
+            assert.strictEqual(prove.proved, true, 'the precondition holds at the call');
         } finally {
             vscode.debug.removeBreakpoints([breakpoint]);
         }
