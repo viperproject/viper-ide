@@ -109,6 +109,22 @@ export class DebugCommands {
         await this.request<DebugCommandResponse>(session, 'viperRemoveAssumptions', { ids: [Number(match[1])] });
     }
 
+    /** Asks for values and instantiates the quantified assumption the user right-clicked on in the Variables view. */
+    public async instantiate(context?: VariableContext): Promise<void> {
+        if (!this.session) return this.noSession();
+        const match = context?.variable?.name.match(/^\[(\d+)\]$/);
+        if (!match) {
+            Log.hint('Only quantified assumptions (shown as [id]) can be instantiated.', 'Viper');
+            return;
+        }
+        const values = await vscode.window.showInputBox({
+            prompt: `Values to instantiate the quantifier [${match[1]}] with, separated by commas`,
+            placeHolder: 'e.g. 3, x@1.next, with the variable names of the Store',
+        });
+        if (!values) return;
+        await this.run(`:instantiate ${match[1]} ${values}`);
+    }
+
     /** Unfolds the predicate chunk the user right-clicked on in the Heap scope of the Variables view. */
     public async unfoldChunk(context?: VariableContext): Promise<void> {
         const predicate = context?.variable?.evaluateName;

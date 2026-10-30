@@ -8,6 +8,7 @@ import TestHelper, { SETUP_TIMEOUT } from './TestHelper.js';
 const DEBUG_ERROR = 'debugError.vpr';
 const DEBUG_FOLD = 'debugFold.vpr';
 const DEBUG_SPEC = 'debugSpec.vpr';
+const DEBUG_FORALL = 'debugForall.vpr';
 
 /** The DAP messages the debug adapter has sent, recorded with a debug adapter tracker. */
 const sentMessages: { type: string; event?: string; body?: Record<string, unknown> }[] = [];
@@ -253,6 +254,34 @@ suite('Verification debugger', () => {
         // :prove checks the failure again in the current state, in which x.f can now be read.
         const prove = await session.customRequest('viperCommand', { command: ':prove' }) as { proved?: boolean };
         assert.strictEqual(prove.proved, true, 'x.f can be read once cell(x) is unfolded');
+    });
+
+    test('Instantiates a quantified assumption that no trigger instantiates', async function() {
+        this.timeout(120000);
+        const document = await TestHelper.openAndVerify(DEBUG_FORALL);
+        // The error in method one, on line 14 (0-based: 13): trig(3) does not occur, so g(3) > 0 is unknown.
+        const diagnostic = await waitFor(() => vscode.languages.getDiagnostics(document.uri)
+            .find(d => d.source === 'viper' && d.range.start.line === 13), 20000, 'the error in method one');
+        const started = await vscode.commands.executeCommand<boolean>(
+            'viper.debugError', document.uri, diagnostic.range.start, diagnostic.message);
+        assert(started, 'the debug session did not start');
+        const stopped = await waitFor(() => sentMessages.find(m => m.event === 'stopped'), 110000, 'the debugger to stop');
+        const session = vscode.debug.activeDebugSession!;
+
+        const assumptions = await assumptionsOf(session, stopped.body!.threadId as number) as
+            { name: string; value: string; __vscodeVariableMenuContext?: string }[];
+        // The obligation names the bound variable by its version, e.g. i@1.
+        const forall = assumptions.find(v => v.value.startsWith('(forall') && v.value.includes('> 0'));
+        assert(forall, `expected the quantified precondition, got: ${assumptions.map(v => v.value).join(', ')}`);
+        assert.strictEqual(forall.__vscodeVariableMenuContext, 'quantifiedAssumption',
+            'the quantifier should offer to be instantiated');
+
+        const id = forall.name.replace(/^\[|\]$/g, '');
+        const instantiated = await session.customRequest('viperCommand', { command: `:instantiate ${id} 3` }) as
+            { ok: boolean; message: string };
+        assert(instantiated.ok, `instantiating failed: ${instantiated.message}`);
+        const prove = await session.customRequest('viperCommand', { command: ':prove' }) as { proved?: boolean };
+        assert.strictEqual(prove.proved, true, 'g(3) > 0 follows from the instance');
     });
 
     test('Refuses to verify while a debug session is open', async function() {
