@@ -85,9 +85,17 @@ suite('Verification debugger', () => {
         assert(response.ok, 'adding the assumption failed');
         assert(sentMessages.some(m => m.event === 'invalidated'), 'the variables should have been invalidated');
 
-        const assumptionsAfter = await assumptionsOf(session, threadId);
+        const assumptionsAfter = await assumptionsOf(session, threadId) as
+            { name: string; value: string; type?: string; variablesReference: number }[];
         assert(assumptionsAfter.length > assumptionsBefore.length,
             `expected more assumptions than ${assumptionsBefore.length}, got ${assumptionsAfter.length}`);
+        // The assumption the user added is shown in an entry for the command that added it, after those of the program.
+        const group = assumptionsAfter[assumptionsAfter.length - 1];
+        assert(group.name === '✎ assume i > 3' && group.type === 'added by: assume i > 3' && group.variablesReference > 0,
+            `expected an entry for the command, got: ${JSON.stringify(group)}`);
+        const added = await variablesOf(session, group.variablesReference);
+        assert(added.length > 0 && added.every(v => /^\[\d+\]$/.test(v.name) && v.value.startsWith('✎ ')),
+            `expected the added assumptions, got: ${JSON.stringify(added)}`);
     });
 
     test('Shows a counterexample that follows added assumptions', async function() {
