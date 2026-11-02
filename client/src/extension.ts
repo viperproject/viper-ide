@@ -348,6 +348,8 @@ function registerDebuggerHandlers(context: ExtensionContext, location: Location)
             (variable?: Parameters<DebugCommands['removeAssumption']>[0]) => commands.removeAssumption(variable)),
         vscode.commands.registerCommand('viper.debugInstantiate',
             (variable?: Parameters<DebugCommands['instantiate']>[0]) => commands.instantiate(variable)),
+        vscode.commands.registerCommand('viper.debugObtainWitness',
+            (variable?: Parameters<DebugCommands['obtainWitness']>[0]) => commands.obtainWitness(variable)),
         vscode.commands.registerCommand('viper.debugUnfoldChunk',
             (variable?: Parameters<DebugCommands['unfoldChunk']>[0]) => commands.unfoldChunk(variable)),
         vscode.commands.registerCommand('viper.debugUnfoldPredicate', () => commands.askToFoldOrUnfold(true)),

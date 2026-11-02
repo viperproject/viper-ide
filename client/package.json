@@ -182,6 +182,11 @@
 				"category": "Viper"
 			},
 			{
+				"command": "viper.debugObtainWitness",
+				"title": "obtain a witness of this quantifier",
+				"category": "Viper"
+			},
+			{
 				"command": "viper.debugUnfoldChunk",
 				"title": "unfold this predicate",
 				"category": "Viper"
@@ -316,6 +321,11 @@
 					"group": "Viper"
 				},
 				{
+					"command": "viper.debugObtainWitness",
+					"when": "false",
+					"group": "Viper"
+				},
+				{
 					"command": "viper.debugUnfoldChunk",
 					"when": "false",
 					"group": "Viper"
@@ -384,12 +394,17 @@
 			"debug/variables/context": [
 				{
 					"command": "viper.debugRemoveAssumption",
-					"when": "debugType == 'viper' && debugProtocolVariableMenuContext =~ /^(assumption|quantifiedAssumption)$/",
+					"when": "debugType == 'viper' && debugProtocolVariableMenuContext =~ /^(assumption|quantifiedAssumption|existentialAssumption)$/",
 					"group": "viper@1"
 				},
 				{
 					"command": "viper.debugInstantiate",
 					"when": "debugType == 'viper' && debugProtocolVariableMenuContext == 'quantifiedAssumption'",
+					"group": "viper@1"
+				},
+				{
+					"command": "viper.debugObtainWitness",
+					"when": "debugType == 'viper' && debugProtocolVariableMenuContext == 'existentialAssumption'",
 					"group": "viper@1"
 				},
 				{

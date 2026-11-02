@@ -9,6 +9,7 @@ const DEBUG_ERROR = 'debugError.vpr';
 const DEBUG_FOLD = 'debugFold.vpr';
 const DEBUG_SPEC = 'debugSpec.vpr';
 const DEBUG_FORALL = 'debugForall.vpr';
+const DEBUG_EXISTS = 'debugExists.vpr';
 
 /** The DAP messages the debug adapter has sent, recorded with a debug adapter tracker. */
 const sentMessages: { type: string; event?: string; body?: Record<string, unknown> }[] = [];
@@ -282,6 +283,35 @@ suite('Verification debugger', () => {
         assert(instantiated.ok, `instantiating failed: ${instantiated.message}`);
         const prove = await session.customRequest('viperCommand', { command: ':prove' }) as { proved?: boolean };
         assert.strictEqual(prove.proved, true, 'g(3) > 0 follows from the instance');
+    });
+
+    test('Obtains a witness of an existential assumption and instantiates a forall with it', async function() {
+        this.timeout(120000);
+        const document = await TestHelper.openAndVerify(DEBUG_EXISTS);
+        // The error in method witness, on line 9 (0-based: 8).
+        const diagnostic = await waitFor(() => vscode.languages.getDiagnostics(document.uri)
+            .find(d => d.source === 'viper' && d.range.start.line === 8), 20000, 'the error in method witness');
+        const started = await vscode.commands.executeCommand<boolean>(
+            'viper.debugError', document.uri, diagnostic.range.start, diagnostic.message);
+        assert(started, 'the debug session did not start');
+        const stopped = await waitFor(() => sentMessages.find(m => m.event === 'stopped'), 110000, 'the debugger to stop');
+        const session = vscode.debug.activeDebugSession!;
+
+        const assumptions = await assumptionsOf(session, stopped.body!.threadId as number) as
+            { name: string; value: string; __vscodeVariableMenuContext?: string }[];
+        const exists = assumptions.find(v => v.value.startsWith('(exists'));
+        const forall = assumptions.find(v => v.value.startsWith('(forall') && v.value.includes('==> p('));
+        assert(exists && forall, `expected both preconditions, got: ${assumptions.map(v => v.value).join(', ')}`);
+        assert.strictEqual(exists.__vscodeVariableMenuContext, 'existentialAssumption',
+            'the exists should offer a witness');
+
+        const id = (v: { name: string }): string => v.name.replace(/^\[|\]$/g, '');
+        const witness = await session.customRequest('viperCommand', { command: `:witness ${id(exists)}` }) as
+            { ok: boolean; message: string };
+        assert(witness.ok, `obtaining a witness failed: ${witness.message}`);
+        await session.customRequest('viperCommand', { command: `:instantiate ${id(forall)} i_witness@1` });
+        const prove = await session.customRequest('viperCommand', { command: ':prove' }) as { proved?: boolean };
+        assert.strictEqual(prove.proved, true, 'p holds for the witness, so the exists can be proved');
     });
 
     test('Refuses to verify while a debug session is open', async function() {

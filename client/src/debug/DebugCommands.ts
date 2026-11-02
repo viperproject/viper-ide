@@ -125,6 +125,16 @@ export class DebugCommands {
         await this.run(`:instantiate ${match[1]} ${values}`);
     }
 
+    /** Obtains a witness of the existentially quantified assumption the user right-clicked on in the Variables view. */
+    public async obtainWitness(context?: VariableContext): Promise<void> {
+        const match = context?.variable?.name.match(/^\[(\d+)\]$/);
+        if (!match) {
+            Log.hint('Only existentially quantified assumptions (shown as [id]) have witnesses.', 'Viper');
+            return;
+        }
+        await this.run(`:witness ${match[1]}`);
+    }
+
     /** Unfolds the predicate chunk the user right-clicked on in the Heap scope of the Variables view. */
     public async unfoldChunk(context?: VariableContext): Promise<void> {
         const predicate = context?.variable?.evaluateName;
