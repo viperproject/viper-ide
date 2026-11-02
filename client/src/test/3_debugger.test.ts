@@ -38,7 +38,13 @@ suite('Verification debugger', () => {
     });
 
     teardown(async function() {
+        this.timeout(15000);
         await vscode.debug.stopDebugging();
+        // VS Code may still show the source of the last stopped frame after stopping, which would change the active
+        // file (and thereby cancel the verification) of the next test.
+        await waitFor(() => vscode.debug.activeDebugSession === undefined ? true : undefined, 10000,
+            'the debug session to terminate');
+        await TestHelper.wait(1000);
         sentMessages.length = 0;
     });
 
@@ -252,6 +258,24 @@ suite('Verification debugger', () => {
         const unfolded = await session.customRequest('viperFold', { predicate: chunk.evaluateName, unfold: true }) as
             { ok: boolean; message: string };
         assert(unfolded.ok, `unfolding failed: ${unfolded.message}`);
+
+        // What the unfold added and removed is marked as such, with the command on hover (the type).
+        type Marked = { value: string; type?: string; __vscodeVariableMenuContext?: string };
+        const scopesAfter = await scopesOf(session, stackFrames[0].id);
+        const variablesOfScope = async (name: string): Promise<Marked[]> => {
+            const s = scopesAfter.find(sc => sc.name === name);
+            assert(s, `expected a scope '${name}', got: ${scopesAfter.map(sc => sc.name).join(', ')}`);
+            return (await session.customRequest('variables', { variablesReference: s.variablesReference }) as
+                { variables: Marked[] }).variables;
+        };
+        const added = (await variablesOfScope('Heap')).find(v => v.value.includes('acc(x@1.f'));
+        assert(added && added.value.startsWith('✎ ') && added.type === 'added by: unfold cell(x@1)',
+            `expected the chunk of x.f to be marked, got: ${JSON.stringify(added)}`);
+        const removed = (await variablesOfScope('Removed in debugger')).find(v => v.value === 'acc(cell(x@1), write)');
+        assert(removed && removed.type === 'removed by: unfold cell(x@1)',
+            `expected the chunk of cell(x@1) to be shown as removed, got: ${JSON.stringify(removed)}`);
+        assert.strictEqual(removed.__vscodeVariableMenuContext, undefined, 'a removed chunk cannot be unfolded');
+
         // :prove checks the failure again in the current state, in which x.f can now be read.
         const prove = await session.customRequest('viperCommand', { command: ':prove' }) as { proved?: boolean };
         assert.strictEqual(prove.proved, true, 'x.f can be read once cell(x) is unfolded');
