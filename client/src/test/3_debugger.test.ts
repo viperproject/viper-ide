@@ -89,12 +89,11 @@ suite('Verification debugger', () => {
             { name: string; value: string; type?: string; variablesReference: number }[];
         assert(assumptionsAfter.length > assumptionsBefore.length,
             `expected more assumptions than ${assumptionsBefore.length}, got ${assumptionsAfter.length}`);
-        // The assumption the user added is shown in an entry for the command that added it, after those of the program.
-        const group = assumptionsAfter[assumptionsAfter.length - 1];
-        assert(group.name === '✎ assume i > 3' && group.type === 'added by: assume i > 3' && group.variablesReference > 0,
-            `expected an entry for the command, got: ${JSON.stringify(group)}`);
-        const added = await variablesOf(session, group.variablesReference);
-        assert(added.length > 0 && added.every(v => /^\[\d+\]$/.test(v.name) && v.value.startsWith('✎ ')),
+        // The assumptions the user added are marked, and their hover names the command that added them.
+        const namesBefore = new Set(assumptionsBefore.map(v => v.name));
+        const added = assumptionsAfter.filter(v => !namesBefore.has(v.name));
+        assert(added.length > 0 && added.every(v =>
+            /^\[\d+\]$/.test(v.name) && v.value.startsWith('✎ ') && v.type === 'added by: assume i > 3'),
             `expected the added assumptions, got: ${JSON.stringify(added)}`);
     });
 
