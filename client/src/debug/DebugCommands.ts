@@ -109,6 +109,18 @@ export class DebugCommands {
         await this.request<DebugCommandResponse>(session, 'viperRemoveAssumptions', { ids: [Number(match[1])] });
     }
 
+    /** Removes the heap chunk the user right-clicked on in the Variables view. */
+    public async removeChunk(context?: VariableContext): Promise<void> {
+        const session = this.session;
+        if (!session) return this.noSession();
+        const match = context?.variable?.name.match(/^\[h(\d+)\]$/);
+        if (!match) {
+            Log.hint('Only chunks of the current heap (shown as [h1], [h2], ...) can be removed.', 'Viper');
+            return;
+        }
+        await this.request<DebugCommandResponse>(session, 'viperRemoveAssumptions', { chunks: [Number(match[1])] });
+    }
+
     /** Asks for values and instantiates the quantified assumption the user right-clicked on in the Variables view. */
     public async instantiate(context?: VariableContext): Promise<void> {
         if (!this.session) return this.noSession();

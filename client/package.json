@@ -177,6 +177,11 @@
 				"category": "Viper"
 			},
 			{
+				"command": "viper.debugRemoveChunk",
+				"title": "remove this chunk from the heap",
+				"category": "Viper"
+			},
+			{
 				"command": "viper.debugInstantiate",
 				"title": "instantiate this quantifier",
 				"category": "Viper"
@@ -316,6 +321,11 @@
 					"group": "Viper"
 				},
 				{
+					"command": "viper.debugRemoveChunk",
+					"when": "false",
+					"group": "Viper"
+				},
+				{
 					"command": "viper.debugInstantiate",
 					"when": "false",
 					"group": "Viper"
@@ -395,6 +405,11 @@
 				{
 					"command": "viper.debugRemoveAssumption",
 					"when": "debugType == 'viper' && debugProtocolVariableMenuContext =~ /^(assumption|quantifiedAssumption|existentialAssumption)$/",
+					"group": "viper@1"
+				},
+				{
+					"command": "viper.debugRemoveChunk",
+					"when": "debugType == 'viper' && debugProtocolVariableMenuContext =~ /^(chunk|predicate)$/",
 					"group": "viper@1"
 				},
 				{

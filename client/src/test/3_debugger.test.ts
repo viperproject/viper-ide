@@ -286,6 +286,24 @@ suite('Verification debugger', () => {
         // :prove checks the failure again in the current state, in which x.f can now be read.
         const prove = await session.customRequest('viperCommand', { command: ':prove' }) as { proved?: boolean };
         assert.strictEqual(prove.proved, true, 'x.f can be read once cell(x) is unfolded');
+
+        // The chunk of x.f can be removed from its context menu again, after which x.f cannot be read.
+        // References are dropped whenever the obligation changes, so the heap is requested afresh each time.
+        const heapNow = async (): Promise<(Marked & { name: string })[]> => {
+            const s = (await scopesOf(session, stackFrames[0].id)).find(sc => sc.name === 'Heap')!;
+            return (await session.customRequest('variables', { variablesReference: s.variablesReference }) as
+                { variables: (Marked & { name: string })[] }).variables;
+        };
+        const heapWithNames = await heapNow();
+        const field = heapWithNames.find(v => v.value.includes('acc(x@1.f'));
+        assert(field && /^\[h\d+\]$/.test(field.name) && field.__vscodeVariableMenuContext === 'chunk',
+            `expected the chunk of x.f to be removable, got: ${JSON.stringify(heapWithNames)}`);
+        await vscode.commands.executeCommand('viper.debugRemoveChunk', { variable: field });
+        const heapAfterRemoval = await heapNow();
+        assert(!heapAfterRemoval.some(v => v.value.includes('acc(x@1.f')),
+            `expected the chunk of x.f to be gone, got: ${heapAfterRemoval.map(v => v.value).join(', ')}`);
+        const proveAgain = await session.customRequest('viperCommand', { command: ':prove' }) as { proved?: boolean };
+        assert.strictEqual(proveAgain.proved, false, 'x.f cannot be read without its chunk');
     });
 
     test('Instantiates a quantified assumption that no trigger instantiates', async function() {

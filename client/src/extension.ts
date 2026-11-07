@@ -346,6 +346,8 @@ function registerDebuggerHandlers(context: ExtensionContext, location: Location)
         vscode.commands.registerCommand('viper.debugAddFreeAssumption', () => commands.addAssumption(true)),
         vscode.commands.registerCommand('viper.debugRemoveAssumption',
             (variable?: Parameters<DebugCommands['removeAssumption']>[0]) => commands.removeAssumption(variable)),
+        vscode.commands.registerCommand('viper.debugRemoveChunk',
+            (variable?: Parameters<DebugCommands['removeChunk']>[0]) => commands.removeChunk(variable)),
         vscode.commands.registerCommand('viper.debugInstantiate',
             (variable?: Parameters<DebugCommands['instantiate']>[0]) => commands.instantiate(variable)),
         vscode.commands.registerCommand('viper.debugObtainWitness',
