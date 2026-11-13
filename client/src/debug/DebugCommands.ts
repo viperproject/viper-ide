@@ -91,7 +91,7 @@ export class DebugCommands {
         if (!this.session) return this.noSession();
         const expression = await vscode.window.showInputBox({
             prompt: free ? 'Assumption to add without proving it' : 'Assumption to prove and add',
-            placeHolder: 'a Viper expression, e.g. x.f > 0',
+            placeHolder: 'a Viper assertion, e.g. x.f > 0 or acc(x.f) && x.f > 0',
         });
         if (!expression) return;
         await this.run(`${free ? ':assume' : ':assert'} ${expression}`, !free);

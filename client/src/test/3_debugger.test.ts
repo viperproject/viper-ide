@@ -304,6 +304,16 @@ suite('Verification debugger', () => {
             `expected the chunk of x.f to be gone, got: ${heapAfterRemoval.map(v => v.value).join(', ')}`);
         const proveAgain = await session.customRequest('viperCommand', { command: ':prove' }) as { proved?: boolean };
         assert.strictEqual(proveAgain.proved, false, 'x.f cannot be read without its chunk');
+
+        // An assumption with permissions adds the chunk back, marked as added by it.
+        const assumed = await session.customRequest('viperCommand', { command: ':assume acc(x@1.f)' }) as { ok: boolean };
+        assert(assumed.ok, 'assuming acc(x@1.f) failed');
+        const heapAfterAssume = await heapNow();
+        const assumedField = heapAfterAssume.find(v => v.value.includes('acc(x@1.f'));
+        assert(assumedField && assumedField.type === 'added by: assume acc(x@1.f, write)',
+            `expected the assumed chunk of x.f, got: ${JSON.stringify(heapAfterAssume)}`);
+        const proveAfterAssume = await session.customRequest('viperCommand', { command: ':prove' }) as { proved?: boolean };
+        assert.strictEqual(proveAfterAssume.proved, true, 'x.f can be read with the assumed permission');
     });
 
     test('Instantiates a quantified assumption that no trigger instantiates', async function() {
